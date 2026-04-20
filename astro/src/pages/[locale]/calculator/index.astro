@@ -1,0 +1,45 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { isLocale, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/calculator", 308);
+const locale = rawLocale as Locale;
+
+const tc = getTranslator(locale, "common");
+const seoTitle = "Treatment cost calculator";
+const seoDescription = "Estimate treatment costs across destinations, hospitals, and travel add-ons.";
+const path = "/calculator";
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Calculator", url: localeUrl(locale, path) },
+]);
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+    <section class="mx-auto max-w-7xl px-6 pt-10 pb-16">
+      <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">Estimate</p>
+      <h1 class="mt-2 font-display text-3xl md:text-5xl leading-[1.05]">Treatment cost calculator</h1>
+      <p class="lede mt-4">Pick a treatment, destination, and accommodation tier to see an all-in estimate.</p>
+      {/* TODO: calculator form */}
+    </section>
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

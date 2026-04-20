@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="MedCasts">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d9488"/>
+      <stop offset="1" stop-color="#059669"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="102" fill="url(#g)"/>
+  <path d="M160 352V160h45l51 106 51-106h45v192h-43V230l-37 77h-32l-37-77v122z" fill="#fff"/>
+  <circle cx="388" cy="388" r="38" fill="#facc15"/>
+  <path d="M388 366v44M366 388h44" stroke="#0d9488" stroke-width="8" stroke-linecap="round"/>
+</svg>

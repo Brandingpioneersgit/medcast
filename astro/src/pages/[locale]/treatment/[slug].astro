@@ -1,0 +1,369 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import Price from "@/components/Price.astro";
+import PriceRange from "@/components/PriceRange.astro";
+import { getTreatmentBySlug } from "@/lib/queries";
+import {
+  getContent,
+  getContentBatch,
+  applyTranslated,
+} from "@/lib/translate";
+import { relatedToTreatment } from "@/lib/related";
+import { getTranslator } from "@/lib/messages";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { treatmentJsonLd, breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { ChevronRight } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const slug = Astro.params.slug;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/treatment/${slug}`, 308);
+if (!slug) return new Response("Not found", { status: 404 });
+
+const locale = rawLocale as Locale;
+const data = await getTreatmentBySlug(slug);
+if (!data) return new Response(`Not found: ${slug}`, { status: 404 });
+
+const tc = getTranslator(locale, "common");
+
+const treatmentMap = await getContent("treatment", data.treatment.id, locale);
+const treatment = applyTranslated(data.treatment, treatmentMap, ["name", "description"]);
+
+const specialty = data.treatment.specialty
+  ? applyTranslated(
+      data.treatment.specialty,
+      await getContent("specialty", data.treatment.specialty.id, locale),
+      ["name"],
+    )
+  : null;
+
+const hospitalIds = data.hospitalPricing.map((hp) => hp.hospitalId);
+const hospitalMap = await getContentBatch("hospital", hospitalIds, locale);
+const hospitalPricing = data.hospitalPricing.map((hp) => ({
+  ...hp,
+  hospitalName: hospitalMap[hp.hospitalId]?.name ?? hp.hospitalName,
+}));
+
+const lowestPrice = hospitalPricing[0]?.costMinUsd
+  ? Number(hospitalPricing[0].costMinUsd)
+  : null;
+const highestPrice = hospitalPricing.reduce((acc, hp) => {
+  const v = hp.costMaxUsd ? Number(hp.costMaxUsd) : 0;
+  return v > acc ? v : acc;
+}, 0);
+
+// Aggregate by country for price sidebar
+type CountryRow = { slug: string; name: string; min: number; count: number };
+const byCountry = new Map<string, CountryRow>();
+for (const hp of hospitalPricing) {
+  const k = hp.countrySlug;
+  const min = Number(hp.costMinUsd ?? 0);
+  if (!byCountry.has(k)) {
+    byCountry.set(k, { slug: k, name: hp.countryName, min, count: 1 });
+  } else {
+    const cur = byCountry.get(k)!;
+    cur.min = cur.min === 0 ? min : Math.min(cur.min, min || cur.min);
+    cur.count += 1;
+  }
+}
+const countryRows = Array.from(byCountry.values()).sort((a, b) => a.min - b.min);
+const maxCountryMin = countryRows.reduce((m, c) => Math.max(m, c.min), 0);
+
+const related = await relatedToTreatment(data.treatment.id, 6).catch(() => []);
+
+const stats = [
+  treatment.averageDurationHours
+    ? { l: "Procedure time", v: `${treatment.averageDurationHours} hr` }
+    : null,
+  treatment.hospitalStayDays
+    ? { l: "Hospital stay", v: `${treatment.hospitalStayDays} days` }
+    : null,
+  treatment.recoveryDays
+    ? { l: "Recovery", v: `${treatment.recoveryDays} wk` }
+    : null,
+  treatment.successRatePercent
+    ? { l: "Success rate", v: `${treatment.successRatePercent}%` }
+    : null,
+].filter(Boolean) as Array<{ l: string; v: string }>;
+
+function firstWord(s: string) {
+  const idx = s.indexOf(" ");
+  return idx === -1 ? s : s.slice(0, idx);
+}
+function restOfName(s: string) {
+  const idx = s.indexOf(" ");
+  return idx === -1 ? "" : s.slice(idx + 1);
+}
+
+const seoTitle = treatment.name;
+const seoDescription =
+  treatment.description?.slice(0, 160) ??
+  `${treatment.name}${specialty ? ` — ${specialty.name}` : ""}${lowestPrice ? `, from $${Math.round(lowestPrice).toLocaleString()}` : ""}. Compare ${hospitalPricing.length} hospitals.`;
+
+const path = `/treatment/${slug}`;
+const url = localeUrl(locale, path);
+
+const jsonLd = treatmentJsonLd({
+  name: treatment.name,
+  description: treatment.description,
+  costMinUsd: lowestPrice ? String(lowestPrice) : undefined,
+  costMaxUsd: highestPrice > 0 ? String(highestPrice) : undefined,
+  url,
+  hospitalStayDays: treatment.hospitalStayDays,
+  successRatePercent: treatment.successRatePercent ? Number(treatment.successRatePercent) : null,
+});
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: tc("treatments"), url: localeUrl(locale, "/treatments") },
+  { name: treatment.name, url },
+]);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=3600, stale-while-revalidate=86400",
+);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    {/* Breadcrumb */}
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <a href={localizedPath(locale, "/treatments")} class="hover:text-ink">{tc("treatments")}</a>
+          {specialty && (
+            <>
+              <span class="mx-1.5">/</span>
+              <a href={localizedPath(locale, `/specialty/${specialty.slug}`)} class="hover:text-ink">{specialty.name}</a>
+            </>
+          )}
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">{treatment.name}</span>
+        </nav>
+      </div>
+    </div>
+
+    {/* Hero — 2 columns: title + stats (left) / price-by-country bars (right) */}
+    <section class="pt-12 md:pt-14">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
+        {specialty && (
+          <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
+            {specialty.name}
+          </p>
+        )}
+        <div class="grid gap-12 lg:grid-cols-[2fr,1fr] lg:gap-16 mt-3">
+          <div>
+            <h1
+              class="display display-tight"
+              style="font-size: clamp(2.25rem, 5vw, 4.25rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em;"
+            >
+              {firstWord(treatment.name)}{" "}
+              <span class="italic-display">{restOfName(treatment.name)}</span>
+            </h1>
+            {treatment.description && (
+              <p class="serif mt-5 max-w-[44rem]" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">
+                {treatment.description}
+              </p>
+            )}
+
+            {stats.length > 0 && (
+              <div
+                class="mt-8 grid grid-cols-2 sm:grid-cols-4"
+                style="border-top: 1px solid var(--color-ink); border-bottom: 1px solid var(--color-border);"
+              >
+                {stats.map((s, i) => (
+                  <div
+                    class="px-4 md:px-5 py-5"
+                    style={i > 0 ? "border-inline-start: 1px solid var(--color-border);" : ""}
+                  >
+                    <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
+                      {s.l}
+                    </div>
+                    <div class="display tnum mt-1.5" style="font-size: 28px;">{s.v}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Right — price-by-country sidebar with bars */}
+          {countryRows.length > 0 && (
+            <aside class="lg:sticky lg:top-32 lg:self-start">
+              <div class="paper" style="padding: 22px;">
+                <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                  Price range worldwide
+                </div>
+                {lowestPrice && (
+                  <div class="mt-2.5 flex items-baseline gap-2">
+                    <span class="display tnum" style="font-size: 38px; line-height: 1;">
+                      ${(lowestPrice / 1000).toFixed(1)}k
+                    </span>
+                    {highestPrice > 0 && (
+                      <span class="tnum text-[14px]" style="color: var(--color-ink-subtle);">
+                        — ${highestPrice.toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                )}
+                <ul class="mt-5">
+                  {countryRows.slice(0, 8).map((c) => {
+                    const visualPct =
+                      maxCountryMin > 0
+                        ? Math.max(12, 100 - (c.min / maxCountryMin) * 100 + 12)
+                        : 50;
+                    const barStyle =
+                      "background: var(--color-accent); opacity: 0.85; width: " + visualPct + "%;";
+                    return (
+                      <li
+                        class="grid items-center py-2"
+                        style="grid-template-columns: 20px 1fr 80px; gap: 10px;"
+                      >
+                        <span class="mono tnum" style="font-size: 10px; color: var(--color-ink-subtle);">
+                          {String(countryRows.indexOf(c) + 1).padStart(2, "0")}
+                        </span>
+                        <div>
+                          <div class="text-[13px] capitalize" style="color: var(--color-ink);">{c.name}</div>
+                          <div class="mt-1 h-1 rounded-full" style={barStyle} />
+                        </div>
+                        <div class="text-end text-[12px] tnum" style="color: var(--color-ink-muted);">
+                          <Price usd={c.min} />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <a
+                  href={localizedPath(locale, `/contact?treatment=${slug}`)}
+                  class="mt-5 block w-full text-center rounded-lg bg-accent text-accent-contrast font-semibold py-3 hover:bg-accent-hover transition"
+                >
+                  Get a free quote
+                </a>
+              </div>
+            </aside>
+          )}
+        </div>
+      </div>
+    </section>
+
+    {/* Ranked hospitals */}
+    {hospitalPricing.length > 0 && (
+      <section style="padding: 72px 0;">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+          <div class="flex items-end justify-between flex-wrap gap-4 mb-7">
+            <h2 class="display" style="font-size: 32px; letter-spacing: -0.02em;">
+              Top hospitals for {firstWord(treatment.name)}, ranked
+            </h2>
+            <div class="flex gap-2">
+              <span
+                class="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-medium"
+                style="background: var(--color-ink); color: var(--color-bg);"
+              >
+                By value
+              </span>
+              <span
+                class="inline-flex items-center px-3 py-1 rounded-full text-[12px]"
+                style="border: 1px solid var(--color-border); color: var(--color-ink-muted);"
+              >
+                By success rate
+              </span>
+              <span
+                class="inline-flex items-center px-3 py-1 rounded-full text-[12px]"
+                style="border: 1px solid var(--color-border); color: var(--color-ink-muted);"
+              >
+                By volume
+              </span>
+            </div>
+          </div>
+
+          <div class="paper overflow-hidden" style="padding: 0;">
+            {hospitalPricing.map((hp, i) => (
+              <div
+                class="grid items-center gap-4 p-5 md:p-6"
+                style={`grid-template-columns: 40px 1.6fr 1fr 1fr auto; ${i > 0 ? "border-top: 1px solid var(--color-border-soft);" : ""}`}
+              >
+                <div class="display tnum" style="font-size: 22px; color: var(--color-ink-subtle);">
+                  {String(i + 1).padStart(2, "0")}
+                </div>
+                <div>
+                  <a href={localizedPath(locale, `/hospital/${hp.hospitalSlug}`)}>
+                    <div
+                      class="serif text-[18px] font-medium hover:text-accent transition-colors"
+                      style="letter-spacing: -0.005em;"
+                    >
+                      {hp.hospitalName}
+                    </div>
+                  </a>
+                  <div class="mt-1 text-[12px]" style="color: var(--color-ink-subtle);">
+                    {hp.cityName}, {hp.countryName}
+                  </div>
+                </div>
+                <div>
+                  <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
+                    Cost
+                  </div>
+                  <div class="display tnum text-[20px] mt-0.5">
+                    <PriceRange min={hp.costMinUsd} max={hp.costMaxUsd} />
+                  </div>
+                </div>
+                <div>
+                  {hp.hospitalRating && Number(hp.hospitalRating) > 0 && (
+                    <div class="inline-flex items-center gap-1.5 text-[13px]">
+                      <span style="color: var(--color-saffron);">★</span>
+                      <span class="tnum">{Number(hp.hospitalRating).toFixed(1)}</span>
+                    </div>
+                  )}
+                </div>
+                <a
+                  href={localizedPath(locale, `/hospital/${hp.hospitalSlug}`)}
+                  class="inline-flex items-center gap-1 rounded-lg bg-accent text-accent-contrast text-sm font-semibold px-4 py-2 hover:bg-accent-hover transition"
+                >
+                  Quote
+                  <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+
+    {/* Related treatments */}
+    {related.length > 0 && (
+      <section class="border-t border-border py-12">
+        <div class="mx-auto max-w-7xl px-5 md:px-8">
+          <h2 class="display mb-6" style="font-size: 24px;">Related treatments</h2>
+          <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {related.map((r) => (
+              <li>
+                <a
+                  href={localizedPath(locale, r.href)}
+                  class="group flex items-center justify-between rounded-lg border border-border bg-surface p-4 transition-colors hover:border-border-strong"
+                >
+                  <span class="font-medium text-ink group-hover:text-accent transition-colors">{r.name}</span>
+                  <ChevronRight className="h-4 w-4 text-ink-subtle mirror-x" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

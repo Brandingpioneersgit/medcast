@@ -1,0 +1,35 @@
+# Cloudflare Pages — config for `npx wrangler pages deploy .vercel/output/static`.
+# We use Vercel's OpenNext adapter to ship a Next.js 15 App Router build to CF Pages/Workers.
+# Ref: https://opennext.js.org/cloudflare
+
+name = "medcasts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Static assets built by next-on-pages / opennext.
+pages_build_output_dir = ".vercel/output/static"
+
+[[kv_namespaces]]
+binding = "MC_CACHE"
+id = "REPLACE_WITH_KV_NAMESPACE_ID_FROM_CLOUDFLARE_DASHBOARD"
+
+# R2 bucket for patient reports + doctor credentials.
+[[r2_buckets]]
+binding = "MC_ASSETS"
+bucket_name = "medcasts-assets"
+
+# Observability
+[observability]
+enabled = true
+
+# Vars (NOT secrets) — set secrets via `wrangler pages secret put ...` instead.
+[vars]
+NEXT_PUBLIC_SITE_URL = "https://medcasts.com"
+OPENROUTER_MODEL = "anthropic/claude-sonnet-4.6"
+
+# Production environment — no preview vars split yet.
+[env.production]
+vars = { NEXT_PUBLIC_SITE_URL = "https://medcasts.com" }
+
+[env.preview]
+vars = { NEXT_PUBLIC_SITE_URL = "https://preview.medcasts.com" }

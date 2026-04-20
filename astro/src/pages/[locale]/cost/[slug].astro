@@ -1,0 +1,288 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import Price from "@/components/Price.astro";
+import PriceRange from "@/components/PriceRange.astro";
+import { getCostOfTreatment } from "@/lib/queries";
+import {
+  getContent,
+  applyTranslated,
+} from "@/lib/translate";
+import { getTranslator } from "@/lib/messages";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, treatmentJsonLd } from "@/lib/seo";
+import { ChevronRight, Clock, Bed } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const slug = Astro.params.slug;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/cost/${slug}`, 308);
+if (!slug) return new Response("Not found", { status: 404 });
+
+const locale = rawLocale as Locale;
+const data = await getCostOfTreatment(slug);
+if (!data) return new Response(`Not found: ${slug}`, { status: 404 });
+
+const tc = getTranslator(locale, "common");
+
+const treatmentMap = await getContent("treatment", data.treatment.id, locale);
+const treatment = applyTranslated(data.treatment, treatmentMap, ["name", "description"]);
+
+const cheapest = data.byCountry[0];
+const mostExpensive = data.byCountry[data.byCountry.length - 1];
+
+const specialty = data.treatment.specialty
+  ? applyTranslated(
+      data.treatment.specialty,
+      await getContent("specialty", data.treatment.specialty.id, locale),
+      ["name"],
+    )
+  : null;
+
+const currentYear = new Date().getFullYear();
+const seoTitle = cheapest
+  ? `${treatment.name} Cost Abroad: $${Math.round(Number(cheapest.lo ?? 0)).toLocaleString()}+ (${currentYear})`
+  : `${treatment.name} Cost`;
+const seoDescription = cheapest
+  ? `${treatment.name} costs from $${Math.round(Number(cheapest.lo ?? 0)).toLocaleString()} in ${cheapest.country_name}. Compare ${data.byCountry.length} destinations, ${data.byCountry.reduce((s, c) => s + c.hospital_count, 0)} hospitals. Updated ${currentYear}.`.slice(0, 160)
+  : `${treatment.name} cost comparison across international medical destinations. Updated ${currentYear}.`;
+
+// Factors that reasonably swing surgical pricing — used for EEAT content depth.
+const COST_FACTORS = [
+  { title: "Surgeon seniority", body: "Senior consultants with 20+ years and high procedure counts command 20-40% above junior attendings for the same operation." },
+  { title: "Hospital tier", body: "Flagship JCI-accredited facilities cost more than local tier-2 hospitals, even for identical procedures. The gap is usually 30-60%." },
+  { title: "Room category", body: "Private-room vs twin-share vs deluxe suite can shift total package cost by 10-25% on longer admissions." },
+  { title: "Implant / device brand", body: "For joint replacement, cardiac valves, or dental implants, the device brand alone can change the bill by $1,500-$4,000." },
+  { title: "Length of stay", body: "Complications or unplanned ICU days are the biggest variance driver. Ask for the per-diem overage rate upfront." },
+  { title: "Pre-op workup", body: "Imaging and labs done overseas aren't always re-done locally. If they are, budget 8-15% extra." },
+];
+
+const FAQS = [
+  { question: `Is ${treatment.name.toLowerCase()} safe in these countries?`, answer: `Yes — at JCI-accredited facilities. The variable isn't country; it's surgeon and hospital. Ask for surgeon-specific procedure volume (aim for 100+ per year for elective work) before booking.` },
+  { question: `How long do I need to stay?`, answer: treatment.hospitalStayDays ? `${treatment.hospitalStayDays} inpatient days is typical${treatment.recoveryDays ? `, plus ~${treatment.recoveryDays} days local recovery before you're cleared to fly.` : "."} Build in a few buffer days in case labs or imaging flag something.` : "Stay length varies by case. Plan around the typical inpatient window plus 3-7 recovery days before your flight home." },
+  { question: `Does my insurance cover treatment abroad?`, answer: `Some international policies (Cigna, Bupa, Allianz, AXA) reimburse at overseas JCI hospitals. Most domestic insurance doesn't. We confirm cashless vs reimbursement before admission — share your policy and we'll verify.` },
+  { question: `What's included in the package price?`, answer: `Typically: surgery fee, anaesthesia, standard room, standard implants, routine post-op imaging. Not typically included: airport transfer, hotel, complications, premium implants, extended ICU days. Quotes always show the split.` },
+  { question: `How do I choose between countries?`, answer: `For routine procedures, go on price + your visa ease. For complex cases, go on surgeon-specific volume and outcome data — which we request from each hospital before presenting quotes.` },
+  { question: `Can I travel home right after?`, answer: `Commercial air travel post-surgery depends on the procedure and the airline's medical-clearance policy. Most cardiac patients fly 10-14 days post-op; orthopedic patients 7-10 days; cosmetic 5-7 days. Your case manager will flag the specifics.` },
+];
+
+const path = `/cost/${slug}`;
+const url = localeUrl(locale, path);
+
+const jsonLd = treatmentJsonLd({
+  name: `${treatment.name} Cost`,
+  description: treatment.description,
+  costMinUsd: cheapest?.lo ?? undefined,
+  costMaxUsd: mostExpensive?.hi ?? undefined,
+  url,
+  hospitalStayDays: treatment.hospitalStayDays,
+  successRatePercent: treatment.successRatePercent ? Number(treatment.successRatePercent) : null,
+});
+
+const faqLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQS.map((f) => ({
+    "@type": "Question",
+    name: f.question,
+    acceptedAnswer: { "@type": "Answer", text: f.answer },
+  })),
+};
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: tc("treatments"), url: localeUrl(locale, "/treatments") },
+  { name: `${treatment.name} Cost`, url },
+]);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=3600, stale-while-revalidate=86400",
+);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+    <script type="application/ld+json" set:html={JSON.stringify(faqLd)} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <div class="border-b border-border bg-bg">
+      <div class="mx-auto max-w-7xl px-6 py-3.5 text-sm text-ink-muted">
+        <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <a href={localizedPath(locale, `/treatment/${slug}`)} class="hover:text-accent">{treatment.name}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <span class="text-ink">Cost</span>
+      </div>
+    </div>
+
+    <section class="mx-auto max-w-7xl px-6 pt-10 md:pt-14 pb-10">
+      {specialty && (
+        <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">
+          {specialty.name}
+        </p>
+      )}
+      <h1 class="mt-3 font-display text-3xl md:text-5xl leading-[1.05]">
+        {cheapest ? <>{treatment.name} cost abroad: <span class="text-accent">from <Price usd={cheapest.lo ?? "0"} /></span></> : `${treatment.name} cost`}
+      </h1>
+      {cheapest ? (
+        <p class="lede mt-5 max-w-3xl">
+          {cheapest.country_name} holds the lowest published price point. {data.byCountry.length} destinations compared, {data.byCountry.reduce((s, c) => s + c.hospital_count, 0).toLocaleString()} hospital packages tracked. The band below reflects what's quoted — final amounts shift on surgeon choice, room, and stay length.
+        </p>
+      ) : (
+        <p class="lede mt-5 max-w-3xl">
+          No hospital pricing is in our system yet for this procedure. Request a quote and we'll source three from our partner network within 48 hours.
+        </p>
+      )}
+      <p class="mt-3 text-xs text-ink-subtle">Updated {currentYear} · Prices sampled from partner hospital quote sheets · USD, excluding flights/hotel</p>
+
+      <div class="mt-8 flex flex-wrap gap-3 text-sm">
+        {treatment.hospitalStayDays && (
+          <div class="inline-flex items-center gap-2 rounded-lg bg-surface-muted border border-border px-4 py-2.5 text-ink-muted">
+            <Bed className="h-4 w-4" />
+            {treatment.hospitalStayDays} days hospital stay
+          </div>
+        )}
+        {treatment.recoveryDays && (
+          <div class="inline-flex items-center gap-2 rounded-lg bg-surface-muted border border-border px-4 py-2.5 text-ink-muted">
+            <Clock className="h-4 w-4" />
+            {treatment.recoveryDays} days recovery
+          </div>
+        )}
+      </div>
+    </section>
+
+    {/* Country pricing table */}
+    {data.byCountry.length > 0 && (
+      <section class="border-t border-border bg-surface-muted py-12">
+        <div class="mx-auto max-w-7xl px-6">
+          <h2 class="font-display text-2xl md:text-3xl mb-2">{treatment.name} cost by country</h2>
+          <p class="text-sm text-ink-muted mb-8">
+            Package prices shown are published ranges. Final quotes depend on case complexity and are negotiated case-by-case.
+          </p>
+          <ul class="divide-y divide-border rounded-xl border border-border bg-surface overflow-hidden">
+            {data.byCountry.map((c, idx) => (
+              <li>
+                <a
+                  href={localizedPath(locale, `/treatment/${slug}/${c.country_slug}`)}
+                  class="group flex items-center justify-between gap-4 p-5 transition hover:bg-surface-muted"
+                >
+                  <div class="flex items-center gap-4 min-w-0">
+                    <span class="font-display text-2xl text-ink-subtle tabular-nums">
+                      {String(idx + 1).padStart(2, "0")}
+                    </span>
+                    <div>
+                      <p class="font-display text-lg text-ink group-hover:text-accent transition-colors">
+                        {c.country_name}
+                      </p>
+                      <p class="text-xs text-ink-subtle mt-0.5">{c.hospital_count} hospitals</p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-5">
+                    <p class="font-display text-lg text-ink">
+                      <PriceRange min={c.lo ?? "0"} max={c.hi} />
+                    </p>
+                    <ChevronRight className="h-4 w-4 text-ink-subtle mirror-x" />
+                  </div>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
+
+    {/* What affects the cost */}
+    <section class="border-t border-border py-12">
+      <div class="mx-auto max-w-6xl px-6">
+        <h2 class="font-display text-2xl md:text-3xl mb-2">What actually moves the price</h2>
+        <p class="text-sm text-ink-muted mb-8 max-w-3xl">Two quotes from the same hospital can differ by 40% once you drill into the details below. Ask your case manager to break out each line.</p>
+        <ul class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {COST_FACTORS.map((f) => (
+            <li class="rounded-xl border border-border bg-surface p-5">
+              <p class="font-medium text-ink">{f.title}</p>
+              <p class="mt-2 text-sm text-ink-muted">{f.body}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+
+    {/* Inclusions / exclusions */}
+    <section class="border-t border-border bg-surface-muted py-12">
+      <div class="mx-auto max-w-6xl px-6">
+        <h2 class="font-display text-2xl md:text-3xl mb-8">What's in a package — and what isn't</h2>
+        <div class="grid md:grid-cols-2 gap-5">
+          <div class="rounded-xl border border-border bg-surface p-6">
+            <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">Usually included</p>
+            <ul class="mt-4 space-y-2 text-sm text-ink-muted">
+              <li>Surgery + anaesthesia fees</li>
+              <li>Standard private or twin-share room</li>
+              <li>Standard implants / consumables</li>
+              <li>Routine post-op imaging and labs</li>
+              <li>Discharge medications for the admission period</li>
+              <li>Case coordinator during admission</li>
+            </ul>
+          </div>
+          <div class="rounded-xl border border-border bg-surface p-6">
+            <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-400">Usually extra</p>
+            <ul class="mt-4 space-y-2 text-sm text-ink-muted">
+              <li>International flights + visa fees</li>
+              <li>Hotel before admission / after discharge</li>
+              <li>Complications or extended ICU days</li>
+              <li>Premium implants (e.g. branded heart valves)</li>
+              <li>Long-term medications</li>
+              <li>Follow-up teleconsults after the first 30 days</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {/* FAQ */}
+    <section class="border-t border-border py-12">
+      <div class="mx-auto max-w-4xl px-6">
+        <h2 class="font-display text-2xl md:text-3xl mb-8">Questions that come up a lot</h2>
+        <div class="space-y-2">
+          {FAQS.map((f) => (
+            <details class="group rounded-lg border border-border bg-surface p-5">
+              <summary class="cursor-pointer font-medium text-ink list-none flex items-center justify-between">
+                {f.question}
+                <ChevronRight className="h-4 w-4 text-ink-subtle transition-transform group-open:rotate-90 mirror-x" />
+              </summary>
+              <p class="mt-3 text-ink-muted text-sm">{f.answer}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    {/* CTA */}
+    <section class="border-t border-border bg-surface-muted py-12">
+      <div class="mx-auto max-w-3xl px-6 text-center">
+        <h2 class="font-display text-2xl md:text-3xl mb-3">Need a quote tied to your specific case?</h2>
+        <p class="text-ink-muted mb-6">
+          Share recent imaging and reports. Within 48 hours we come back with 3 itemised quotes from hospitals that match your budget and timing. No fee, no obligation.
+        </p>
+        <a
+          href={localizedPath(locale, "/contact")}
+          class="inline-flex items-center gap-2 rounded-lg bg-accent text-white font-semibold px-6 py-3 hover:bg-accent-hover transition"
+        >
+          Request quotes
+          <ChevronRight className="h-4 w-4 mirror-x" />
+        </a>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

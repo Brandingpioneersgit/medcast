@@ -1,0 +1,48 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { isLocale, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const specialtySlug = Astro.params.specialtySlug;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/doctors/specialty/${specialtySlug}`, 308);
+if (!specialtySlug) return new Response("Not found", { status: 404 });
+const locale = rawLocale as Locale;
+
+const tc = getTranslator(locale, "common");
+const seoTitle = `Top ${specialtySlug} specialists`;
+const seoDescription = `Leading ${specialtySlug} doctors worldwide — experience, ratings, and consultation fees.`;
+const path = `/doctors/specialty/${specialtySlug}`;
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: tc("doctors"), url: localeUrl(locale, "/doctors") },
+  { name: specialtySlug, url: localeUrl(locale, path) },
+]);
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+    <section class="mx-auto max-w-7xl px-6 pt-10 pb-16">
+      <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">Specialty</p>
+      <h1 class="mt-2 font-display text-3xl md:text-5xl leading-[1.05]">{specialtySlug} specialists</h1>
+      <p class="lede mt-4">Top doctors in this specialty across all destinations.</p>
+      {/* TODO: specialty-filtered doctor grid + city pivot */}
+    </section>
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

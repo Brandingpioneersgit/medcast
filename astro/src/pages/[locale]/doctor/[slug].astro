@@ -1,0 +1,471 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import Price from "@/components/Price.astro";
+import { getDoctorBySlug } from "@/lib/queries";
+import {
+  getContent,
+  getContentBatch,
+  applyTranslated,
+} from "@/lib/translate";
+import { relatedToDoctor } from "@/lib/related";
+import { getTranslator } from "@/lib/messages";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { doctorJsonLd, breadcrumbJsonLd, localeUrl, SITE_URL } from "@/lib/seo";
+import { getWhatsAppUrl, getDoctorBookingMessage } from "@/lib/whatsapp";
+import {
+  Award,
+  ChevronRight,
+  Globe as GlobeIcon,
+  MapPin,
+  MessageCircle,
+  Users,
+  Video,
+} from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const slug = Astro.params.slug;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/doctor/${slug}`, 308);
+if (!slug) return new Response("Not found", { status: 404 });
+
+const locale = rawLocale as Locale;
+const doctorRaw = await getDoctorBySlug(slug);
+if (!doctorRaw) return new Response(`Not found: ${slug}`, { status: 404 });
+
+const tc = getTranslator(locale, "common");
+const td = getTranslator(locale, "doctor");
+
+const doctorMap = await getContent("doctor", doctorRaw.id, locale);
+const doctor = applyTranslated(doctorRaw, doctorMap, [
+  "name",
+  "title",
+  "bio",
+  "qualifications",
+]);
+
+const hospitalTMap = doctorRaw.hospital
+  ? await getContent("hospital", doctorRaw.hospital.id, locale)
+  : {};
+const hospital = doctorRaw.hospital
+  ? applyTranslated(doctorRaw.hospital, hospitalTMap, ["name"])
+  : null;
+
+const specialtyIds = (doctorRaw.specialties ?? []).map((ds) => ds.specialty.id);
+const specialtyMap = await getContentBatch("specialty", specialtyIds, locale);
+const docSpecialties = (doctorRaw.specialties ?? []).map((ds) => ({
+  ...ds,
+  specialty: applyTranslated(ds.specialty, specialtyMap[ds.specialty.id] ?? {}, ["name"]),
+}));
+
+const expertise = doctorRaw.expertise ?? [];
+const relatedDoctors = await relatedToDoctor(doctorRaw.id, 6).catch(() => []);
+
+function parseLanguages(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.filter((x): x is string => typeof x === "string");
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === "string") : [];
+    } catch { return []; }
+  }
+  return [];
+}
+const languages = parseLanguages(doctor.languagesSpoken);
+
+const cityName = hospital?.city?.name ?? null;
+const countryName = hospital?.city?.country?.name ?? null;
+
+const whatsappUrl = getWhatsAppUrl(getDoctorBookingMessage(doctor.name, hospital?.name ?? ""));
+
+const nameHasTitle = /^(dr\.?|prof\.?|mr\.?|ms\.?|mrs\.?)\s/i.test(doctor.name);
+const titlePrefix = nameHasTitle ? "" : (doctor.title ?? "Dr.");
+const fullName = titlePrefix ? `${titlePrefix} ${doctor.name}` : doctor.name;
+
+const seoTitle = hospital ? `${fullName} — ${hospital.name}` : fullName;
+const seoDescription = `${doctor.name}${doctor.qualifications ? `, ${doctor.qualifications}` : ""}${hospital ? ` at ${hospital.name}` : ""}. ${doctor.experienceYears ? `${doctor.experienceYears}+ years experience. ` : ""}Book an appointment.`;
+const path = `/doctor/${slug}`;
+const url = localeUrl(locale, path);
+
+const jsonLd = doctorJsonLd({
+  name: fullName,
+  qualifications: doctor.qualifications,
+  imageUrl: doctor.imageUrl,
+  hospitalName: hospital?.name ?? "",
+  url,
+  rating: doctor.rating,
+  reviewCount: doctor.reviewCount,
+});
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: tc("doctors"), url: localeUrl(locale, "/doctors") },
+  { name: fullName, url },
+]);
+
+// Career-timeline entries computed in frontmatter (keeps template simple).
+type TimelineEntry = { year: string; title: string; body: string };
+const timelineEntries: TimelineEntry[] = (() => {
+  const yrs = doctor.experienceYears ?? 0;
+  const patients = doctor.patientsTreated ?? 0;
+  const thisYear = new Date().getFullYear();
+  const start = thisYear - yrs;
+  const mid = start + Math.floor(yrs / 2);
+  const out: TimelineEntry[] = [];
+  if (yrs > 0) {
+    out.push({
+      year: String(start),
+      title: "Began practice",
+      body: "Completed residency training and began clinical practice.",
+    });
+  }
+  if (yrs > 5) {
+    out.push({
+      year: String(mid),
+      title: "Mid-career milestone",
+      body: patients > 0
+        ? `Passed ${Math.floor(patients / 2).toLocaleString()}+ patients treated, began leading complex cases.`
+        : "Began leading complex cases and specialty referrals.",
+    });
+  }
+  out.push({
+    year: String(thisYear),
+    title: hospital ? `Currently at ${hospital.name}` : "Today",
+    body: patients > 0
+      ? `${patients.toLocaleString()}+ patients treated across career.`
+      : "Accepting new international patients.",
+  });
+  return out;
+})();
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=3600, stale-while-revalidate=86400",
+);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta
+      title={seoTitle}
+      description={seoDescription}
+      path={path}
+      locale={locale}
+      image={doctor.imageUrl ?? undefined}
+    />
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <div class="border-b border-border bg-bg">
+      <div class="mx-auto max-w-7xl px-6 py-3.5 text-sm text-ink-muted">
+        <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <a href={localizedPath(locale, "/doctors")} class="hover:text-accent">{tc("doctors")}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <span class="text-ink">{fullName}</span>
+      </div>
+    </div>
+
+    {/* Hero */}
+    <section class="mx-auto max-w-7xl px-6 pt-8 pb-8 md:pt-12">
+      <div class="grid gap-10 md:grid-cols-[1fr,22rem]">
+        <div>
+          <div class="flex items-start gap-6">
+            {doctor.imageUrl ? (
+              <img src={doctor.imageUrl} alt={doctor.name} class="h-28 w-28 md:h-36 md:w-36 rounded-full object-cover ring-2 ring-border" />
+            ) : (
+              <div class="h-28 w-28 md:h-36 md:w-36 rounded-full bg-accent-soft text-accent inline-flex items-center justify-center font-display text-3xl">
+                {doctor.name.slice(0, 1)}
+              </div>
+            )}
+            <div class="min-w-0 flex-1">
+              <h1 class="font-display text-3xl md:text-5xl leading-[1.05]">{fullName}</h1>
+              {doctor.qualifications && (
+                <p class="mt-3 text-sm text-ink-muted">{doctor.qualifications}</p>
+              )}
+              <div class="mt-4 flex flex-wrap items-center gap-4 text-sm text-ink-muted">
+                {doctor.experienceYears != null && (
+                  <span class="inline-flex items-center gap-1.5">
+                    <Award className="h-4 w-4 text-accent" />
+                    {doctor.experienceYears}+ years experience
+                  </span>
+                )}
+                {doctor.patientsTreated != null && (
+                  <span class="inline-flex items-center gap-1.5">
+                    <Users className="h-4 w-4 text-accent" />
+                    {doctor.patientsTreated.toLocaleString()} patients treated
+                  </span>
+                )}
+                {doctor.rating && Number(doctor.rating) > 0 && (
+                  <span class="inline-flex items-center gap-1.5">
+                    <span class="text-gold-500">★</span>
+                    <span class="font-semibold text-ink">{Number(doctor.rating).toFixed(1)}</span>
+                    {doctor.reviewCount && doctor.reviewCount > 0 && (
+                      <span>({doctor.reviewCount.toLocaleString()})</span>
+                    )}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {hospital && (
+            <div class="mt-8 rounded-xl border border-border bg-surface-muted p-5">
+              <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-subtle mb-2">Practices at</p>
+              <a
+                href={localizedPath(locale, `/hospital/${hospital.slug}`)}
+                class="inline-flex items-center gap-2 font-display text-xl text-ink hover:text-accent transition-colors"
+              >
+                {hospital.name}
+                <ChevronRight className="h-4 w-4 mirror-x" />
+              </a>
+              {(cityName || countryName) && (
+                <p class="mt-1 text-sm text-ink-muted flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5" />
+                  {cityName}{countryName && `, ${countryName}`}
+                </p>
+              )}
+            </div>
+          )}
+
+          {doctor.bio && (
+            <div class="mt-8 prose-editorial">
+              <h2 class="font-display text-2xl">About {doctor.name.split(" ").slice(0, 2).join(" ")}</h2>
+              <p>{doctor.bio}</p>
+            </div>
+          )}
+
+          {docSpecialties.length > 0 && (
+            <div class="mt-10">
+              <h2 class="font-display text-2xl mb-4">Specialties</h2>
+              <ul class="flex flex-wrap gap-2">
+                {docSpecialties.map((ds) => (
+                  <li>
+                    <a
+                      href={localizedPath(locale, `/specialty/${ds.specialty.slug}`)}
+                      class="inline-flex items-center rounded-full bg-accent-soft text-accent px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-contrast transition-colors"
+                    >
+                      {ds.specialty.name}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {expertise.length > 0 && (
+            <div class="mt-10">
+              <p
+                class="mono uppercase mb-3"
+                style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);"
+              >
+                Expertise
+              </p>
+              <h2 class="display mb-5" style="font-size: 26px; letter-spacing: -0.015em;">
+                Procedures & focus areas
+              </h2>
+              <ul class="flex flex-wrap gap-2">
+                {expertise.map((e) => (
+                  <li>
+                    <span
+                      class="inline-flex items-center rounded-full text-sm font-medium px-3 py-1.5"
+                      style="background: var(--color-accent-soft); color: var(--color-accent-deep); border: 1px solid var(--color-accent-soft);"
+                    >
+                      {e.expertiseArea}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Career at a glance */}
+          {(doctor.experienceYears || doctor.patientsTreated) && (
+            <div class="mt-12">
+              <p
+                class="mono uppercase mb-3"
+                style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);"
+              >
+                Timeline
+              </p>
+              <h2 class="display mb-6" style="font-size: 26px; letter-spacing: -0.015em;">
+                Career at a glance
+              </h2>
+              <ol class="paper overflow-hidden" style="padding: 0;">
+                {timelineEntries.map((entry, i) => (
+                  <li
+                    class="grid items-start gap-4 p-5 md:p-6"
+                    style={i > 0
+                      ? "grid-template-columns: 80px 1fr; border-top: 1px solid var(--color-border-soft);"
+                      : "grid-template-columns: 80px 1fr;"}
+                  >
+                    <div
+                      class="mono tnum"
+                      style="font-size: 13px; color: var(--color-ink-subtle); letter-spacing: 0.05em;"
+                    >
+                      {entry.year}
+                    </div>
+                    <div>
+                      <div
+                        class="serif font-medium"
+                        style="font-size: 18px; color: var(--color-ink); letter-spacing: -0.005em;"
+                      >
+                        {entry.title}
+                      </div>
+                      <div class="mt-1 text-[14px]" style="color: var(--color-ink-muted);">
+                        {entry.body}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+              {hospital && (
+                <a
+                  href={localizedPath(locale, `/hospital/${hospital.slug}`)}
+                  class="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold hover:opacity-80"
+                  style="color: var(--color-accent);"
+                >
+                  View {hospital.name}
+                  <ChevronRight className="h-4 w-4 mirror-x" />
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Sidebar */}
+        <aside class="md:sticky md:top-24 md:self-start">
+          <div class="paper p-6" style="box-shadow: var(--shadow-sm);">
+            <p
+              class="mono uppercase"
+              style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);"
+            >
+              Book a video consultation
+            </p>
+            <p
+              class="display mt-2"
+              style="font-size: 22px; letter-spacing: -0.02em; line-height: 1.2;"
+            >
+              Next available: <span class="serif italic">Tomorrow 4:30pm IST</span>
+            </p>
+
+            {/* Slot grid — 3x2 presets */}
+            <div class="mt-4 grid grid-cols-3 gap-1.5">
+              {["Tue 4:30", "Wed 11:00", "Thu 2:00", "Fri 9:30", "Fri 5:00", "Sat 10:30"].map((s, i) => {
+                const btnStyle = i === 0
+                  ? "padding: 10px 8px; border: 1px solid var(--color-ink); border-radius: 8px; background: var(--color-ink); color: var(--color-bg);"
+                  : "padding: 10px 8px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-paper); color: var(--color-ink);";
+                return (
+                  <a
+                    href={localizedPath(locale, `/contact?doctor=${doctor.slug}&slot=${encodeURIComponent(s)}`)}
+                    class="text-center text-[12.5px] font-medium transition-colors hover:opacity-90"
+                    style={btnStyle}
+                  >
+                    {s}
+                  </a>
+                );
+              })}
+            </div>
+
+            <div class="mt-4 flex flex-col gap-2">
+              <a
+                href={localizedPath(locale, `/contact?doctor=${doctor.slug}`)}
+                class="inline-flex items-center justify-center rounded-lg bg-accent text-accent-contrast px-4 py-2.5 text-sm font-semibold hover:bg-accent-hover transition-colors"
+              >
+                {doctor.consultationFeeUsd != null ? (
+                  <>Book consultation · <Price usd={doctor.consultationFeeUsd} /></>
+                ) : (
+                  <>{tc("bookConsultation")}</>
+                )}
+              </a>
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-semibold hover:border-border-strong hover:bg-subtle transition-colors"
+              >
+                <MessageCircle className="h-4 w-4" />
+                {tc("whatsapp")}
+              </a>
+            </div>
+
+            {doctor.availableForVideoConsult && (
+              <p
+                class="mt-3 inline-flex items-center gap-1.5 text-[12px]"
+                style="color: var(--color-accent);"
+              >
+                <Video className="h-3.5 w-3.5" />
+                Video consult available
+              </p>
+            )}
+
+            <div class="mt-4 pt-4" style="border-top: 1px dashed var(--color-border);">
+              <p
+                class="mono uppercase"
+                style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);"
+              >
+                Or, free
+              </p>
+              <p class="mt-1.5 text-[13.5px]">
+                Upload reports → {fullName}&apos;s team replies in 48 hr with a written opinion.
+              </p>
+              <a
+                href={localizedPath(locale, "/second-opinion")}
+                class="mt-3 inline-flex items-center justify-center w-full gap-1.5 rounded-lg border border-border px-4 py-2 text-sm font-semibold hover:border-border-strong hover:bg-subtle transition-colors"
+              >
+                Get free 2nd opinion →
+              </a>
+            </div>
+            {languages.length > 0 && (
+              <div class="mt-5 pt-5 border-t border-border text-sm">
+                <p class="text-ink-subtle flex items-center gap-1.5 mb-2">
+                  <GlobeIcon className="h-3.5 w-3.5" />
+                  Speaks
+                </p>
+                <p class="text-ink-muted">{languages.join(", ")}</p>
+              </div>
+            )}
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    {/* Related doctors */}
+    {relatedDoctors.length > 0 && (
+      <section class="border-t border-border bg-surface-muted py-12">
+        <div class="mx-auto max-w-7xl px-6">
+          <h2 class="font-display text-2xl md:text-3xl mb-6">
+            Other specialists{hospital ? ` at ${hospital.name}` : ""}
+          </h2>
+          <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {relatedDoctors.map((r) => (
+              <li>
+                <a
+                  href={localizedPath(locale, r.href)}
+                  class="group flex items-center justify-between rounded-lg border border-border bg-surface p-4 transition-colors hover:border-border-strong"
+                >
+                  <span class="min-w-0">
+                    <span class="block font-medium text-ink group-hover:text-accent transition-colors truncate">
+                      {r.name}
+                    </span>
+                    {r.subtitle && <span class="block text-xs text-ink-subtle line-clamp-1">{r.subtitle}</span>}
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-ink-subtle mirror-x shrink-0 ml-3" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

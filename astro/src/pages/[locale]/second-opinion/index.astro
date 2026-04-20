@@ -1,0 +1,155 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { getTranslator } from "@/lib/messages";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, faqJsonLd } from "@/lib/seo";
+import { Upload, Clock, Lock, Check, ChevronRight } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/second-opinion`, 308);
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+const faqs = [
+  { question: "Is the second opinion really free?", answer: "Yes. A specialist reviews your case at zero cost. The economics: if you later decide to travel, you pay the hospital directly for treatment — no markup from us. If you don't travel, we've spent an hour on your case. That's the whole deal." },
+  { question: "How fast do I get the opinion?", answer: "48 working hours from upload, usually. Complex cases (rare cancers, combined procedures, pediatric referrals) can stretch to 72-96 hours — we tell you upfront if yours is in that bucket." },
+  { question: "Which reports should I share?", answer: "Most recent imaging (MRI, CT, X-ray — DICOM files preferred over screenshots), all lab results from the last 6 months, biopsy pathology if any, current medications list, and a one-paragraph history. PDFs, JPGs, or WhatsApp all work. If you don't have something, tell us — we'll say whether the opinion can still be useful." },
+  { question: "Who actually writes the opinion?", answer: "A board-certified specialist in the relevant field, currently practising at one of our partner hospitals. Their name, hospital, and credentials are on the report — not a ghost-written template." },
+  { question: "Is my data safe?", answer: "Files are encrypted in transit and at rest. Only the assigned doctor and your case manager can read them. Everything is purged 30 days after we deliver the opinion. GDPR-aligned, and we'll sign an NDA on request." },
+  { question: "Which specialties do you cover?", answer: "Cardiac, oncology, orthopedics, neurology/neurosurgery, organ transplant, fertility, bariatric, paediatric tertiary. If your case doesn't fit our panel — rare dermatology, say — we'll tell you within an hour rather than take up your time." },
+  { question: "What if the second opinion disagrees with my current doctor?", answer: "It happens in about 28% of the cases we see — usually when surgery was recommended and our panel suggests a less-invasive option. We send both views to you in writing so you can take them back to your original doctor. We don't put pressure either way." },
+];
+
+const path = "/second-opinion";
+const url = localeUrl(locale, path);
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Second Opinion", url },
+]);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=86400, stale-while-revalidate=604800",
+);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta
+      title="Free second medical opinion in 48 hours — written, named specialist"
+      description="Upload your reports. A named specialist reviews your case and writes back in 48 hours. Free, confidential, no obligation to travel. 8 languages."
+      path={path}
+      locale={locale}
+    />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" set:html={JSON.stringify(faqJsonLd(faqs))} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <section class="mx-auto max-w-7xl px-6 pt-12 md:pt-20 pb-12">
+      <div class="grid lg:grid-cols-[1.2fr_1fr] gap-12 items-start">
+        <div>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">
+            Free · 48 hours · named specialist · 8 languages
+          </p>
+          <h1 class="mt-4 font-display text-4xl md:text-6xl leading-[1.02]">
+            A second opinion, written and signed.
+          </h1>
+          <p class="lede mt-6 max-w-xl">
+            Upload what you have. A specialist — named, board-certified, actively operating — sends back a written opinion in 48 hours. No travel needed, and no cost. Ever.
+          </p>
+
+          <div class="mt-10 grid grid-cols-3 gap-4 max-w-md">
+            <div>
+              <p class="font-display text-3xl text-accent">28%</p>
+              <p class="text-xs text-ink-subtle mt-1">cases we recommend against surgery</p>
+            </div>
+            <div>
+              <p class="font-display text-3xl text-accent">40+</p>
+              <p class="text-xs text-ink-subtle mt-1">senior specialists on panel</p>
+            </div>
+            <div>
+              <p class="font-display text-3xl text-accent">$0</p>
+              <p class="text-xs text-ink-subtle mt-1">now and always</p>
+            </div>
+          </div>
+
+          <div class="mt-10 flex flex-wrap gap-3">
+            <a
+              href={localizedPath(locale, "/contact?type=second-opinion")}
+              class="inline-flex items-center gap-2 rounded-lg bg-accent text-white font-semibold px-6 py-3 hover:bg-accent-hover transition"
+            >
+              <Upload className="h-4 w-4" />
+              Upload your reports
+            </a>
+            <a
+              href={localizedPath(locale, "/contact?type=second-opinion&channel=whatsapp")}
+              class="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-6 py-3 font-semibold text-ink hover:border-border-strong transition"
+            >
+              Message on WhatsApp
+              <ChevronRight className="h-4 w-4 mirror-x" />
+            </a>
+          </div>
+        </div>
+
+        <aside class="rounded-2xl border border-border bg-surface p-6 md:p-8">
+          <h2 class="font-display text-xl mb-4">How it works</h2>
+          <ol class="space-y-5">
+            <li class="flex gap-4">
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent font-semibold">1</span>
+              <div>
+                <p class="font-medium">Upload reports</p>
+                <p class="text-sm text-ink-muted mt-1">Imaging, lab results, biopsy, current diagnosis.</p>
+              </div>
+            </li>
+            <li class="flex gap-4">
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent font-semibold">2</span>
+              <div>
+                <p class="font-medium">Case manager matched</p>
+                <p class="text-sm text-ink-muted mt-1">We route to the right specialist within 6 hours.</p>
+              </div>
+            </li>
+            <li class="flex gap-4">
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent font-semibold">3</span>
+              <div>
+                <p class="font-medium">Written opinion in 48h</p>
+                <p class="text-sm text-ink-muted mt-1">Second opinion, treatment options, cost ranges.</p>
+              </div>
+            </li>
+          </ol>
+          <div class="mt-6 pt-6 border-t border-border flex items-start gap-3">
+            <Lock className="h-4 w-4 text-ink-subtle shrink-0 mt-0.5" />
+            <p class="text-xs text-ink-subtle">Encrypted end-to-end. Deleted 30 days after opinion delivered. GDPR-compliant.</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="border-t border-border bg-surface-muted py-12">
+      <div class="mx-auto max-w-4xl px-6">
+        <h2 class="font-display text-2xl md:text-3xl mb-8">Frequently asked</h2>
+        <div class="space-y-2">
+          {faqs.map((f) => (
+            <details class="group rounded-lg border border-border bg-surface p-5">
+              <summary class="cursor-pointer font-medium text-ink list-none flex items-center justify-between">
+                {f.question}
+                <ChevronRight className="h-4 w-4 text-ink-subtle transition-transform group-open:rotate-90 mirror-x" />
+              </summary>
+              <p class="mt-3 text-ink-muted text-sm">{f.answer}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

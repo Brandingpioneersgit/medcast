@@ -1,0 +1,354 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import Price from "@/components/Price.astro";
+import PriceRange from "@/components/PriceRange.astro";
+import { getHospitalWithSpecialty } from "@/lib/queries";
+import {
+  getContent,
+  getContentBatch,
+  applyTranslated,
+} from "@/lib/translate";
+import { getTranslator } from "@/lib/messages";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import {
+  hospitalJsonLd,
+  breadcrumbJsonLd,
+  faqJsonLd,
+  localeUrl,
+  SITE_URL,
+} from "@/lib/seo";
+import { getWhatsAppUrl, getHospitalInquiryMessage } from "@/lib/whatsapp";
+import {
+  Award,
+  Bed,
+  CheckCircle,
+  ChevronRight,
+  Clock,
+  MapPin,
+  MessageCircle,
+  Users,
+} from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const { slug, specialtySlug } = Astro.params;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/hospital/${slug}/${specialtySlug}`, 308);
+if (!slug || !specialtySlug) return new Response("Not found", { status: 404 });
+
+const locale = rawLocale as Locale;
+const data = await getHospitalWithSpecialty(slug, specialtySlug);
+if (!data) return new Response(`Not found: ${slug}/${specialtySlug}`, { status: 404 });
+
+const tc = getTranslator(locale, "common");
+const th = getTranslator(locale, "hospital");
+
+const [hMap, sMap] = await Promise.all([
+  getContent("hospital", data.hospital.id, locale),
+  getContent("specialty", data.specialty.id, locale),
+]);
+
+const hospitalBase = applyTranslated(data.hospital, hMap, ["name", "description"]);
+const hospital = { ...hospitalBase, city: data.hospital.city };
+const specialty = applyTranslated(data.specialty, sMap, ["name", "description"]);
+
+const treatmentMap = await getContentBatch(
+  "treatment",
+  data.treatments.map((tr) => tr.id),
+  locale,
+);
+const treatments = data.treatments.map((tr) =>
+  applyTranslated(tr, treatmentMap[tr.id] ?? {}, ["name", "description"]),
+);
+
+const doctorMap = await getContentBatch(
+  "doctor",
+  data.doctors.map((d) => d.id),
+  locale,
+);
+const doctors = data.doctors.map((d) =>
+  applyTranslated(d, doctorMap[d.id] ?? {}, ["name", "qualifications"]),
+);
+
+const testimonials = data.testimonials;
+const faqs = data.faqs;
+
+const cityName = hospital.city?.name ?? null;
+const countryName = hospital.city?.country?.name ?? null;
+const whatsappUrl = getWhatsAppUrl(getHospitalInquiryMessage(hospital.name, specialty.name));
+
+const seoTitle = `${specialty.name} at ${hospital.name}`;
+const seoDescription =
+  `${specialty.name} treatments at ${hospital.name}${cityName ? ` in ${cityName}` : ""}. ${treatments.length} procedures, ${doctors.length} specialists. Transparent pricing, multilingual care.`.slice(0, 160);
+
+const path = `/hospital/${slug}/${specialtySlug}`;
+const url = localeUrl(locale, path);
+
+const jsonLd = hospitalJsonLd({
+  name: hospital.name,
+  description: hospital.description,
+  address: hospital.address,
+  city: cityName,
+  country: countryName,
+  phone: hospital.phone,
+  email: hospital.email,
+  rating: hospital.rating,
+  reviewCount: hospital.reviewCount,
+  imageUrl: hospital.coverImageUrl,
+  url,
+  bedCapacity: hospital.bedCapacity,
+  medicalSpecialties: [specialty.name],
+});
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: tc("hospitals"), url: localeUrl(locale, "/hospitals") },
+  { name: hospital.name, url: localeUrl(locale, `/hospital/${slug}`) },
+  { name: specialty.name, url },
+]);
+
+const faqLd =
+  faqs.length > 0
+    ? faqJsonLd(faqs.map((f) => ({ question: f.question, answer: f.answer })))
+    : null;
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=3600, stale-while-revalidate=86400",
+);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta
+      title={seoTitle}
+      description={seoDescription}
+      path={path}
+      locale={locale}
+      image={hospital.coverImageUrl ?? undefined}
+    />
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    {faqLd && <script type="application/ld+json" set:html={JSON.stringify(faqLd)} />}
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <div class="border-b border-border bg-bg">
+      <div class="mx-auto max-w-7xl px-6 py-3.5 text-sm text-ink-muted overflow-x-auto whitespace-nowrap">
+        <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <a href={localizedPath(locale, "/hospitals")} class="hover:text-accent">{tc("hospitals")}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <a href={localizedPath(locale, `/hospital/${slug}`)} class="hover:text-accent">{hospital.name}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <span class="text-ink">{specialty.name}</span>
+      </div>
+    </div>
+
+    {/* Hero */}
+    <section class="mx-auto max-w-7xl px-6 pt-10 md:pt-14 pb-10">
+      <div class="grid gap-10 md:grid-cols-[1.4fr,1fr]">
+        <div>
+          {data.hospitalSpecialty?.isCenterOfExcellence && (
+            <span class="inline-flex items-center rounded-full bg-accent-soft text-accent px-3 py-1 text-xs font-semibold uppercase tracking-wider">
+              <Award className="h-3.5 w-3.5 me-1" />
+              Center of excellence
+            </span>
+          )}
+          <h1 class="mt-3 font-display text-3xl md:text-5xl leading-[1.05]">
+            {specialty.name} at {hospital.name}
+          </h1>
+          {(cityName || countryName) && (
+            <p class="mt-3 text-sm text-ink-muted flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5" />
+              {cityName}{countryName && `, ${countryName}`}
+            </p>
+          )}
+          {specialty.description && (
+            <p class="lede mt-5">{specialty.description}</p>
+          )}
+
+          <div class="mt-6 flex flex-wrap gap-4 text-sm">
+            <span class="inline-flex items-center gap-1.5 text-ink-muted">
+              <CheckCircle className="h-4 w-4 text-accent" />
+              {treatments.length} treatments
+            </span>
+            <span class="inline-flex items-center gap-1.5 text-ink-muted">
+              <Users className="h-4 w-4 text-accent" />
+              {doctors.length} specialists
+            </span>
+            {hospital.bedCapacity && (
+              <span class="inline-flex items-center gap-1.5 text-ink-muted">
+                <Bed className="h-4 w-4 text-accent" />
+                {hospital.bedCapacity.toLocaleString()} beds
+              </span>
+            )}
+          </div>
+        </div>
+
+        <aside>
+          <div class="rounded-2xl border border-border bg-surface p-6 shadow-sm">
+            <p class="font-display text-lg leading-snug">
+              Get a written {specialty.name.toLowerCase()} plan — in 11 minutes.
+            </p>
+            <div class="mt-5 flex flex-col gap-2">
+              <a
+                href={localizedPath(locale, `/contact?hospital=${hospital.slug}&specialty=${specialty.slug}`)}
+                class="inline-flex items-center justify-center rounded-lg bg-accent text-accent-contrast px-4 py-2.5 text-sm font-semibold hover:bg-accent-hover transition-colors"
+              >
+                {tc("getQuote")}
+              </a>
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-semibold hover:border-border-strong hover:bg-subtle transition-colors"
+              >
+                <MessageCircle className="h-4 w-4" />
+                {tc("whatsapp")}
+              </a>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    {/* Treatments */}
+    {treatments.length > 0 && (
+      <section class="border-t border-border bg-surface-muted py-12">
+        <div class="mx-auto max-w-7xl px-6">
+          <h2 class="font-display text-2xl md:text-3xl mb-6">Treatments in {specialty.name}</h2>
+          <ul class="space-y-3">
+            {treatments.map((tr) => (
+              <li>
+                <a
+                  href={localizedPath(locale, `/treatment/${tr.slug}`)}
+                  class="group flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-xl border border-border bg-surface p-5 transition hover:border-border-strong hover:shadow-sm"
+                >
+                  <div class="min-w-0 flex-1">
+                    <p class="font-display text-lg text-ink group-hover:text-accent transition-colors">
+                      {tr.name}
+                    </p>
+                    {tr.description && (
+                      <p class="mt-1 text-sm text-ink-muted line-clamp-2">{tr.description}</p>
+                    )}
+                    <div class="mt-2 flex flex-wrap gap-3 text-xs text-ink-subtle">
+                      {tr.hospitalStayDays && (
+                        <span class="inline-flex items-center gap-1"><Bed className="h-3 w-3" /> {tr.hospitalStayDays}d stay</span>
+                      )}
+                      {tr.recoveryDays && (
+                        <span class="inline-flex items-center gap-1"><Clock className="h-3 w-3" /> {tr.recoveryDays}d recovery</span>
+                      )}
+                      {tr.successRatePercent && (
+                        <span class="inline-flex items-center gap-1"><CheckCircle className="h-3 w-3 text-accent" /> {tr.successRatePercent}%</span>
+                      )}
+                    </div>
+                  </div>
+                  <div class="md:text-end shrink-0">
+                    <p class="text-[10px] uppercase tracking-wider text-ink-subtle">Package</p>
+                    <p class="mt-0.5 font-display text-xl text-ink">
+                      <PriceRange min={tr.costMinUsd} max={tr.costMaxUsd} />
+                    </p>
+                  </div>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
+
+    {/* Doctors */}
+    {doctors.length > 0 && (
+      <section class="border-t border-border py-12">
+        <div class="mx-auto max-w-7xl px-6">
+          <h2 class="font-display text-2xl md:text-3xl mb-6">
+            {specialty.name} specialists at {hospital.name}
+          </h2>
+          <ul class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {doctors.map((doc) => (
+              <li>
+                <a
+                  href={localizedPath(locale, `/doctor/${doc.slug}`)}
+                  class="group flex items-start gap-4 rounded-lg border border-border bg-surface p-5 transition-colors hover:border-border-strong"
+                >
+                  {doc.imageUrl ? (
+                    <img src={doc.imageUrl} alt={doc.name} class="h-14 w-14 rounded-full object-cover" />
+                  ) : (
+                    <div class="h-14 w-14 rounded-full bg-accent-soft text-accent inline-flex items-center justify-center font-semibold">
+                      {doc.name.slice(0, 1)}
+                    </div>
+                  )}
+                  <div class="min-w-0 flex-1">
+                    <p class="font-display text-base leading-tight text-ink group-hover:text-accent transition-colors">
+                      {doc.title ? `${doc.title} ` : ""}{doc.name}
+                    </p>
+                    {doc.qualifications && (
+                      <p class="mt-1 text-xs text-ink-muted line-clamp-2">{doc.qualifications}</p>
+                    )}
+                    <div class="mt-2 flex flex-wrap gap-2 text-[11px] text-ink-subtle">
+                      {doc.experienceYears && <span>{doc.experienceYears}+ yrs</span>}
+                      {doc.consultationFeeUsd != null && (
+                        <span>Consult <Price usd={doc.consultationFeeUsd} /></span>
+                      )}
+                    </div>
+                  </div>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
+
+    {/* Testimonials */}
+    {testimonials.length > 0 && (
+      <section class="border-t border-border bg-surface-muted py-12">
+        <div class="mx-auto max-w-7xl px-6">
+          <h2 class="font-display text-2xl md:text-3xl mb-6">Patient outcomes</h2>
+          <ul class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {testimonials.map((t) => (
+              <li class="rounded-xl border border-border bg-surface p-6">
+                {t.rating && Number(t.rating) > 0 && (
+                  <p class="text-gold-500 mb-2">{"★".repeat(Math.round(Number(t.rating)))}</p>
+                )}
+                {t.title && <p class="font-display text-lg">{t.title}</p>}
+                <p class="mt-2 text-sm text-ink-muted leading-relaxed">{t.story}</p>
+                <p class="mt-3 text-xs text-ink-subtle">
+                  — {t.patientName}{t.patientCountry && `, ${t.patientCountry}`}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
+
+    {/* FAQ — native details */}
+    {faqs.length > 0 && (
+      <section class="border-t border-border py-12">
+        <div class="mx-auto max-w-3xl px-6">
+          <h2 class="font-display text-2xl md:text-3xl mb-6">Common questions</h2>
+          <div class="space-y-3">
+            {faqs.map((f) => (
+              <details class="group rounded-lg border border-border bg-surface p-5 [&_summary::-webkit-details-marker]:hidden">
+                <summary class="flex cursor-pointer items-center justify-between font-medium text-ink gap-4">
+                  {f.question}
+                  <ChevronRight className="h-4 w-4 text-ink-subtle transition-transform group-open:rotate-90 shrink-0" />
+                </summary>
+                <p class="mt-3 text-sm text-ink-muted leading-relaxed">{f.answer}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

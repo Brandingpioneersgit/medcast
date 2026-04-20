@@ -1,0 +1,112 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import Pagination from "@/components/Pagination.astro";
+import { listDoctors } from "@/lib/queries";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { MapPin } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/doctors", 308);
+const locale = rawLocale as Locale;
+
+const url = new URL(Astro.request.url);
+const pageParam = parseInt(url.searchParams.get("page") ?? "1", 10);
+const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+
+const { rows } = await listDoctors({ page });
+
+const tc = getTranslator(locale, "common");
+const seoTitle = "International specialist doctors";
+const seoDescription = "Browse accredited specialist doctors — cardiologists, oncologists, orthopedic surgeons and more. Book video or in-person consultations.";
+const path = "/doctors";
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: tc("doctors"), url: localeUrl(locale, path) },
+]);
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-revalidate=3600");
+
+const hasNext = rows.length === 24;
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <section class="mx-auto max-w-7xl px-6 pt-10 pb-6">
+      <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">{tc("doctors")}</p>
+      <h1 class="mt-2 font-display text-3xl md:text-5xl leading-[1.05]">Specialists</h1>
+      <p class="lede mt-4">Board-certified physicians across the world's leading accredited hospitals.</p>
+    </section>
+
+    <section class="mx-auto max-w-7xl px-6 pb-12">
+      {rows.length === 0 ? (
+        <p class="text-ink-muted">No doctors found.</p>
+      ) : (
+        <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {rows.map((d) => (
+            <li>
+              <a
+                href={localizedPath(locale, `/doctor/${d.slug}`)}
+                class="group flex items-start gap-4 rounded-xl border border-border bg-surface p-5 transition hover:border-border-strong hover:shadow-sm"
+              >
+                {d.imageUrl ? (
+                  <img src={d.imageUrl} alt={d.name} class="h-16 w-16 shrink-0 rounded-full object-cover" loading="lazy" />
+                ) : (
+                  <div class="h-16 w-16 shrink-0 rounded-full bg-accent-soft text-accent inline-flex items-center justify-center font-display text-lg">
+                    {d.name.slice(0, 1)}
+                  </div>
+                )}
+                <div class="min-w-0 flex-1">
+                  <p class="font-display text-base leading-tight text-ink group-hover:text-accent transition-colors">
+                    {d.title ? `${d.title} ` : ""}{d.name}
+                  </p>
+                  {d.qualifications && (
+                    <p class="mt-1 text-xs text-ink-muted line-clamp-2">{d.qualifications}</p>
+                  )}
+                  {d.hospitalName && (
+                    <p class="mt-2 text-xs text-ink-subtle flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {d.hospitalName}{d.cityName && `, ${d.cityName}`}
+                    </p>
+                  )}
+                  <div class="mt-2 flex gap-3 text-[11px] text-ink-subtle">
+                    {d.experienceYears && <span>{d.experienceYears}+ yrs</span>}
+                    {d.rating && Number(d.rating) > 0 && (
+                      <span><span class="text-gold-500">★</span> {Number(d.rating).toFixed(1)}</span>
+                    )}
+                  </div>
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <nav class="flex items-center justify-center gap-2 py-8">
+        {page > 1 && (
+          <a href={page === 2 ? localizedPath(locale, path) : `${localizedPath(locale, path)}?page=${page - 1}`} class="rounded-lg border border-border bg-surface px-3 py-2 text-sm hover:border-border-strong">← Previous</a>
+        )}
+        <span class="rounded-lg bg-accent text-accent-contrast px-3 py-2 text-sm font-semibold">Page {page}</span>
+        {hasNext && (
+          <a href={`${localizedPath(locale, path)}?page=${page + 1}`} class="rounded-lg border border-border bg-surface px-3 py-2 text-sm hover:border-border-strong">Next →</a>
+        )}
+      </nav>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

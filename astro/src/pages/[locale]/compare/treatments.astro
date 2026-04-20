@@ -1,0 +1,105 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import PriceRange from "@/components/PriceRange.astro";
+import { compareTreatments } from "@/lib/queries";
+import { getTranslator } from "@/lib/messages";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { ChevronRight, Bed, Clock } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/compare/treatments`, 308);
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+const rows = await compareTreatments();
+
+const path = "/compare/treatments";
+const url = localeUrl(locale, path);
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Compare Treatments", url },
+]);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=3600, stale-while-revalidate=86400",
+);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta
+      title="Compare Medical Treatments"
+      description="Side-by-side comparison of surgical treatments: cost ranges, hospital stay, recovery time, success rate, and hospital coverage across 9 countries."
+      path={path}
+      locale={locale}
+    />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <section class="mx-auto max-w-7xl px-6 pt-12 md:pt-16 pb-8">
+      <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">Compare</p>
+      <h1 class="mt-3 font-display text-3xl md:text-5xl leading-[1.05]">
+        Treatment comparison
+      </h1>
+      <p class="lede mt-5 max-w-3xl">
+        Side-by-side cost, stay, recovery, and success-rate data for {rows.length} surgical treatments, aggregated across partner hospitals.
+      </p>
+    </section>
+
+    <section class="mx-auto max-w-7xl px-6 py-10">
+      <div class="rounded-xl border border-border bg-surface overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-surface-muted border-b border-border">
+            <tr>
+              <th class="text-start px-5 py-3 font-medium">Treatment</th>
+              <th class="text-start px-5 py-3 font-medium whitespace-nowrap">Specialty</th>
+              <th class="text-start px-5 py-3 font-medium whitespace-nowrap">Price range</th>
+              <th class="text-start px-5 py-3 font-medium whitespace-nowrap">Stay</th>
+              <th class="text-start px-5 py-3 font-medium whitespace-nowrap">Recovery</th>
+              <th class="text-start px-5 py-3 font-medium whitespace-nowrap">Success</th>
+              <th class="text-start px-5 py-3 font-medium whitespace-nowrap">Hospitals</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border">
+            {rows.map((r) => (
+              <tr class="hover:bg-surface-muted transition-colors">
+                <td class="px-5 py-4">
+                  <a href={localizedPath(locale, `/treatment/${r.slug}`)} class="font-medium text-ink hover:text-accent">
+                    {r.name}
+                  </a>
+                </td>
+                <td class="px-5 py-4 text-ink-muted whitespace-nowrap">{r.specialty ?? ""}</td>
+                <td class="px-5 py-4 whitespace-nowrap">
+                  {r.lo ? <PriceRange min={r.lo} max={r.hi} /> : <span class="text-ink-subtle">—</span>}
+                </td>
+                <td class="px-5 py-4 text-ink-muted whitespace-nowrap">
+                  {r.hospital_stay_days ? `${r.hospital_stay_days}d` : "—"}
+                </td>
+                <td class="px-5 py-4 text-ink-muted whitespace-nowrap">
+                  {r.recovery_days ? `${r.recovery_days}d` : "—"}
+                </td>
+                <td class="px-5 py-4 text-ink-muted whitespace-nowrap">
+                  {r.success_rate_percent ? `${r.success_rate_percent}%` : "—"}
+                </td>
+                <td class="px-5 py-4 text-ink-muted whitespace-nowrap">{r.hospital_count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

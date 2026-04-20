@@ -1,0 +1,13 @@
+---
+import { formatUsd } from "@/lib/currency";
+
+interface Props {
+  usd: number | string | null | undefined;
+  class?: string;
+}
+
+const { usd, class: className } = Astro.props;
+const text = await formatUsd(Astro.cookies, usd);
+---
+
+<span class={className}>{text}</span>

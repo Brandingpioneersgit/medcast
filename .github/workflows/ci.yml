@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  astro-check:
+    name: Astro typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install root deps
+        run: npm ci
+
+      - name: Install astro deps
+        working-directory: astro
+        run: npm ci
+
+      - name: Dedupe drizzle-orm + postgres to parent (avoid cross-project type drift)
+        working-directory: astro
+        run: |
+          rm -rf node_modules/drizzle-orm node_modules/postgres
+          ln -s ../../node_modules/drizzle-orm node_modules/drizzle-orm
+          ln -s ../../node_modules/postgres node_modules/postgres
+
+      - name: astro check
+        working-directory: astro
+        run: npx -y @astrojs/check
+
+  smoke:
+    name: Smoke test
+    needs: astro-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install root deps
+        run: npm ci
+
+      - name: Install astro deps
+        working-directory: astro
+        run: npm ci
+
+      - name: Dedupe drizzle-orm + postgres
+        working-directory: astro
+        run: |
+          rm -rf node_modules/drizzle-orm node_modules/postgres
+          ln -s ../../node_modules/drizzle-orm node_modules/drizzle-orm
+          ln -s ../../node_modules/postgres node_modules/postgres
+
+      - name: Start astro dev server
+        working-directory: astro
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          npm run dev > /tmp/astro.log 2>&1 &
+          echo $! > /tmp/astro.pid
+          # Wait up to 60s for server to accept connections
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null http://localhost:4321/; then
+              echo "server ready in ${i}s × 2"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "server failed to start — log:"
+          cat /tmp/astro.log
+          exit 1
+
+      - name: Run smoke test
+        env:
+          BASE: http://localhost:4321
+        run: node --import tsx scripts/smoke.ts
+
+      - name: Kill astro
+        if: always()
+        run: |
+          if [ -f /tmp/astro.pid ]; then
+            kill "$(cat /tmp/astro.pid)" 2>/dev/null || true
+          fi

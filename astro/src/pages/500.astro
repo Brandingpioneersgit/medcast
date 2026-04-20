@@ -1,0 +1,56 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { type Locale } from "@/lib/i18n";
+
+const match = Astro.url.pathname.match(/^\/([a-z]{2})(\/|$)/);
+const locale = (match && ["en", "ar", "ru", "fr", "pt", "bn", "tr", "hi"].includes(match[1])
+  ? match[1]
+  : "en") as Locale;
+
+Astro.response.status = 500;
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta
+      title="Something broke"
+      description="The page failed to load. Our team was notified."
+      path="/500"
+      locale={locale}
+      noindex={true}
+    />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <section class="mx-auto max-w-3xl px-6 py-24 text-center">
+      <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">500</p>
+      <h1 class="mt-4 font-display text-4xl md:text-6xl leading-[1.05]">
+        Something went sideways.
+      </h1>
+      <p class="lede mt-5">
+        The page failed to load on our end. It's not you. Our team gets pinged automatically — usually fixed within an hour.
+      </p>
+      <div class="mt-10 flex flex-wrap justify-center gap-3">
+        <a
+          href={`/${locale}`}
+          class="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-5 py-3 font-semibold text-ink hover:border-border-strong transition"
+        >
+          Back to home
+        </a>
+        <a
+          href="mailto:care@medcasts.com?subject=500%20error"
+          class="inline-flex items-center gap-2 rounded-lg bg-accent text-white px-5 py-3 font-semibold hover:bg-accent-hover transition"
+        >
+          Email the desk
+        </a>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

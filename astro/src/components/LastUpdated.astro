@@ -1,0 +1,33 @@
+---
+/**
+ * Small footer-strip for directory pages giving a visible "last updated"
+ * / "last reviewed" signal — a small but real EEAT + helpful-content cue.
+ *
+ * Dates are supplied from the page so they reflect the data actually
+ * displayed on that page rather than a static site-wide stamp.
+ */
+interface Props {
+  updated?: Date | string;
+  reviewed?: Date | string;
+  note?: string;
+}
+const { updated, reviewed, note } = Astro.props;
+
+function fmt(d: Date | string | undefined): string | null {
+  if (!d) return null;
+  const date = typeof d === "string" ? new Date(d) : d;
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+}
+
+const updatedStr = fmt(updated);
+const reviewedStr = fmt(reviewed);
+---
+
+{(updatedStr || reviewedStr || note) && (
+  <p class="text-xs text-ink-subtle mt-8 flex flex-wrap gap-x-4 gap-y-1">
+    {updatedStr && <span>Last updated: <strong class="text-ink-muted">{updatedStr}</strong></span>}
+    {reviewedStr && <span>Last medically reviewed: <strong class="text-ink-muted">{reviewedStr}</strong></span>}
+    {note && <span>{note}</span>}
+  </p>
+)}

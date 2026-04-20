@@ -1,0 +1,471 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ==========================================================================
+   MedCasts — Editorial Clinical v2
+   Parchment + deep forest-teal + ink. Editorial typography (Fraunces).
+   Coral signal for urgency, saffron for ratings. Light-first; dark via .dark.
+   ========================================================================== */
+
+@theme {
+  /* Fonts */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: var(--font-fraunces), "New York", ui-serif, Georgia, "Times New Roman", serif;
+  --font-heading: var(--font-fraunces), "New York", ui-serif, Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, monospace;
+  --font-arabic: "Noto Naskh Arabic", "Amiri", serif;
+
+  /* Editorial neutrals — parchment family */
+  --color-bg: #F6F1E6;            /* parchment — page background */
+  --color-bg-soft: #EDE6D3;       /* deeper parchment */
+  --color-paper: #FBF8F1;         /* warmer cream for cards */
+  --color-surface: #FBF8F1;       /* card/panel bg (legacy name) */
+  --color-surface-muted: #EDE6D3;
+  --color-surface-elevated: #FFFFFF;
+  --color-subtle: #EDE6D3;
+  --color-white: #FFFFFF;
+
+  --color-border: #D9D3C3;
+  --color-border-soft: #E7E1D1;
+  --color-border-strong: #C7C0AC;
+
+  /* Inks */
+  --color-ink: #0E1713;           /* primary text — deep forest ink */
+  --color-ink-2: #1C2A25;
+  --color-ink-muted: #3B4A44;     /* graphite */
+  --color-ink-subtle: #6B7570;    /* stone */
+  --color-mist: #A8AEA9;
+
+  /* Signature — deep forest teal */
+  --color-accent: #0A5D54;
+  --color-accent-2: #0D7C70;
+  --color-accent-deep: #073D37;
+  --color-accent-soft: #D9EDE8;
+  --color-accent-mist: #EAF3F0;
+  --color-accent-hover: #073D37;
+  --color-accent-strong: #073D37;
+  --color-accent-contrast: #FFFFFF;
+
+  /* Legacy brand map → new accent */
+  --color-brand-50: #EAF3F0;
+  --color-brand-100: #D9EDE8;
+  --color-brand-200: #B4DCD3;
+  --color-brand-300: #86C6B9;
+  --color-brand-400: #52AB9C;
+  --color-brand-500: #0D7C70;
+  --color-brand-600: #0A5D54;
+  --color-brand-700: #073D37;
+  --color-brand-800: #052A26;
+  --color-brand-900: #031C19;
+
+  /* Signal — used sparingly */
+  --color-coral: #E85A4F;         /* emergency / urgency */
+  --color-coral-soft: #FBE3DF;
+  --color-coral-deep: #9C2F26;
+  --color-saffron: #E2A54B;       /* ratings, highlights */
+  --color-saffron-soft: #F7E9CD;
+  --color-saffron-deep: #8A5E12;
+  --color-ocean: #1E4A7A;          /* info, links */
+  --color-ocean-soft: #E1EAF3;
+
+  /* Semantic status (mapped onto signal palette) */
+  --color-success: #0A5D54;
+  --color-success-soft: #D9EDE8;
+  --color-warning: #B45309;
+  --color-warning-soft: #F7E9CD;
+  --color-danger: #9C2F26;
+  --color-danger-soft: #FBE3DF;
+  --color-info: #1E4A7A;
+  --color-info-soft: #E1EAF3;
+
+  --color-gold-400: #E2A54B;
+  --color-gold-500: #C68A30;
+
+  /* Typography scale */
+  --text-display-2xl: 5.5rem;   /* 88 */
+  --text-display-xl:  4.25rem;  /* 68 */
+  --text-display-lg:  3rem;     /* 48 */
+  --text-display:     2.25rem;  /* 36 */
+  --text-title:       1.5rem;   /* 24 */
+  --text-subtitle:    1.125rem; /* 18 */
+  --text-body:        1rem;     /* 16 */
+  --text-caption:     0.875rem; /* 14 */
+  --text-micro:       0.75rem;  /* 12 */
+
+  /* Section spacing */
+  --space-section:       6rem;     /* 96 */
+  --space-section-sm:    3rem;     /* 48 */
+  --space-section-lg:    8rem;     /* 128 */
+
+  /* Radii */
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1.125rem;
+  --radius-xl: 1.625rem;
+  --radius-2xl: 2rem;
+  --radius-card: 1.125rem;
+  --radius-pill: 9999px;
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px rgb(14 23 19 / 0.04);
+  --shadow-sm: 0 1px 3px rgb(14 23 19 / 0.06), 0 1px 2px -1px rgb(14 23 19 / 0.04);
+  --shadow-md: 0 6px 18px -6px rgb(14 23 19 / 0.10), 0 2px 4px -2px rgb(14 23 19 / 0.06);
+  --shadow-lg: 0 24px 48px -16px rgb(14 23 19 / 0.15), 0 8px 16px -8px rgb(14 23 19 / 0.08);
+  --shadow-xl: 0 32px 64px -20px rgb(14 23 19 / 0.18);
+  --shadow-glass: 0 8px 24px -6px rgb(14 23 19 / 0.12);
+  --shadow-brand: 0 8px 24px -6px rgb(10 93 84 / 0.18);
+
+  /* Animations */
+  --animate-fade-in: fade-in 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-slide-up: slide-up 500ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-glow-pulse: glow-pulse 3s infinite alternate;
+
+  /* z-index */
+  --z-dropdown: 30;
+  --z-sticky: 40;
+  --z-float: 45;
+  --z-header: 50;
+  --z-overlay: 60;
+  --z-modal: 70;
+  --z-toast: 80;
+
+  /* Container widths — editorial wide */
+  --container-sm: 40rem;
+  --container-md: 48rem;
+  --container-lg: 64rem;
+  --container-xl: 80rem;
+  --container-2xl: 90rem;
+}
+
+/* ==========================================================================
+   Dark mode — deep forest with parchment accents
+   ========================================================================== */
+
+.dark {
+  --color-bg: #0E1713;
+  --color-bg-soft: #1C2A25;
+  --color-paper: #1C2A25;
+  --color-surface: #1C2A25;
+  --color-surface-muted: #1A2520;
+  --color-surface-elevated: #243430;
+  --color-subtle: #1A2520;
+
+  --color-border: #2C3A35;
+  --color-border-soft: #233028;
+  --color-border-strong: #3B4A44;
+
+  --color-ink: #F6F1E6;
+  --color-ink-2: #EDE6D3;
+  --color-ink-muted: #C7C0AC;
+  --color-ink-subtle: #A8AEA9;
+
+  --color-accent: #2FAF9F;
+  --color-accent-2: #53C1B2;
+  --color-accent-deep: #7FDDCF;
+  --color-accent-soft: #103B35;
+  --color-accent-mist: #0D2A26;
+  --color-accent-hover: #53C1B2;
+  --color-accent-strong: #7FDDCF;
+  --color-accent-contrast: #0E1713;
+
+  --color-brand-50: #0D2A26;
+  --color-brand-100: #103B35;
+  --color-brand-200: #164F47;
+  --color-brand-300: #2FAF9F;
+  --color-brand-400: #53C1B2;
+  --color-brand-500: #2FAF9F;
+  --color-brand-600: #53C1B2;
+  --color-brand-700: #7FDDCF;
+  --color-brand-800: #A4ECE0;
+  --color-brand-900: #C8F5ED;
+
+  --color-coral-soft: #3E1515;
+  --color-saffron-soft: #44280A;
+  --color-success-soft: #0D2A26;
+  --color-warning-soft: #44280A;
+  --color-danger-soft: #3E1515;
+  --color-info-soft: #14244A;
+
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.30);
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.40), 0 1px 2px -1px rgb(0 0 0 / 0.30);
+  --shadow-md: 0 4px 12px -2px rgb(0 0 0 / 0.50), 0 2px 4px -2px rgb(0 0 0 / 0.30);
+  --shadow-lg: 0 12px 32px -6px rgb(0 0 0 / 0.60), 0 4px 8px -4px rgb(0 0 0 / 0.40);
+  --shadow-xl: 0 24px 48px -12px rgb(0 0 0 / 0.70);
+}
+
+/* ==========================================================================
+   Animations
+   ========================================================================== */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes float {
+  0%   { transform: translateY(0); }
+  50%  { transform: translateY(-8px); }
+  100% { transform: translateY(0); }
+}
+@keyframes glow-pulse {
+  from { box-shadow: 0 0 8px rgb(10 93 84 / 0.10); }
+  to   { box-shadow: 0 0 24px rgb(10 93 84 / 0.28); }
+}
+@keyframes pulse-dot { 0%,100% { opacity: 1 } 50% { opacity: 0.4 } }
+
+/* ==========================================================================
+   Base elements
+   ========================================================================== */
+
+html {
+  background-color: var(--color-bg);
+  color: var(--color-ink);
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+  line-height: 1.55;
+}
+
+/* Display type — Fraunces with editorial soft axis */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--color-ink);
+  font-optical-sizing: auto;
+  font-variation-settings: "SOFT" 30, "WONK" 0;
+}
+
+[lang="ar"], [dir="rtl"] {
+  font-family: var(--font-arabic), var(--font-sans);
+}
+
+/* ==========================================================================
+   Editorial utility classes (used across the redesign)
+   ========================================================================== */
+
+.font-display,
+.display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-variation-settings: "SOFT" 30, "WONK" 0;
+  letter-spacing: -0.01em;
+}
+.display-tight {
+  letter-spacing: -0.025em;
+  font-variation-settings: "SOFT" 20;
+}
+.serif { font-family: var(--font-display); }
+.mono  { font-family: var(--font-mono); }
+.tnum  { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+.italic-display { font-style: italic; font-weight: 300; }
+
+/* Eyebrow — uppercase mono microcopy */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+/* Editorial rules */
+.rule       { height: 1px; background: var(--color-ink); }
+.rule-soft  { height: 1px; background: var(--color-border); }
+.rule-dashed {
+  background-image: linear-gradient(90deg, currentColor 50%, transparent 50%);
+  background-size: 6px 1px;
+  background-repeat: repeat-x;
+  background-position: 0 100%;
+}
+
+/* Map texture — subtle grid + radial wash */
+.map-bg {
+  background-image:
+    radial-gradient(circle at 12% 18%, rgb(10 93 84 / 0.06) 0, transparent 28%),
+    radial-gradient(circle at 82% 72%, rgb(10 93 84 / 0.05) 0, transparent 30%),
+    repeating-linear-gradient(0deg, transparent 0 39px, rgb(14 23 19 / 0.04) 39px 40px),
+    repeating-linear-gradient(90deg, transparent 0 39px, rgb(14 23 19 / 0.04) 39px 40px);
+}
+
+/* Paper card — warm cream with hairline border */
+.paper {
+  background: var(--color-paper);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+.paper-flat {
+  background: var(--color-paper);
+  border: 1px solid var(--color-border);
+}
+
+/* Photo block — editorial gradient placeholder */
+.photo-block {
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 50%, var(--color-ink-2) 100%);
+  position: relative;
+  overflow: hidden;
+}
+.photo-block::after {
+  content: "";
+  position: absolute; inset: 0;
+  background-image:
+    radial-gradient(circle at 30% 20%, rgb(246 241 230 / 0.12) 0, transparent 50%),
+    repeating-linear-gradient(45deg, transparent 0 12px, rgb(246 241 230 / 0.04) 12px 13px);
+}
+
+/* Uniform ink-fade overlay on every image card/hero.
+   Keeps caption/label text readable and makes the whole site feel consistent. */
+.image-veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(14, 23, 19, 0) 35%,
+    rgba(14, 23, 19, 0.18) 65%,
+    rgba(14, 23, 19, 0.62) 100%
+  );
+}
+
+/* Slightly stronger veil for full-card photo tiles that carry text inside (Destinations) */
+.image-veil-strong {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(14, 23, 19, 0.05) 10%,
+    rgba(14, 23, 19, 0.35) 55%,
+    rgba(14, 23, 19, 0.82) 100%
+  );
+}
+
+/* Hero images — left-to-right parchment wash instead of bottom fade */
+.image-veil-hero {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgba(246, 241, 230, 0.97) 0%,
+    rgba(246, 241, 230, 0.88) 45%,
+    rgba(246, 241, 230, 0.55) 100%
+  );
+}
+
+/* Live dot pulse */
+.live-dot {
+  width: 8px; height: 8px; border-radius: 9999px;
+  background: #10B981;
+  box-shadow: 0 0 10px #10B981;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Lead text */
+.lede {
+  font-family: var(--font-display);
+  font-size: 1.3125rem;
+  line-height: 1.45;
+  color: var(--color-ink-muted);
+  max-width: 62ch;
+  font-weight: 400;
+}
+
+/* Selection */
+::selection {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (pointer: fine) {
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border-strong);
+    border-radius: 9999px;
+    border: 2px solid var(--color-bg);
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-ink-muted); }
+}
+
+[dir="rtl"] .mirror-x { transform: scaleX(-1); }
+[dir="rtl"] .flip-rtl { transform: scaleX(-1); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ==========================================================================
+   Editorial prose
+   ========================================================================== */
+
+.prose-editorial {
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  color: var(--color-ink);
+  max-width: 68ch;
+}
+.prose-editorial > * + * { margin-top: 1.25em; }
+.prose-editorial h2 { font-size: 1.875rem; margin-top: 2em; letter-spacing: -0.02em; }
+.prose-editorial h3 { font-size: 1.5rem; margin-top: 1.75em; letter-spacing: -0.015em; }
+.prose-editorial p  { color: var(--color-ink); }
+.prose-editorial a  {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+.prose-editorial a:hover { color: var(--color-accent-hover); }
+.prose-editorial strong { color: var(--color-ink); font-weight: 600; }
+.prose-editorial blockquote {
+  border-inline-start: 3px solid var(--color-accent);
+  padding-inline-start: 1.25rem;
+  font-family: var(--font-display);
+  font-size: 1.375rem;
+  font-style: italic;
+  color: var(--color-ink-muted);
+}
+.prose-editorial ul, .prose-editorial ol { padding-inline-start: 1.5rem; }
+.prose-editorial li { margin-top: 0.5em; }
+.prose-editorial hr { border: 0; border-top: 1px solid var(--color-border); margin: 2.5em 0; }
+.prose-editorial img { border-radius: var(--radius-lg); }
+
+/* ==========================================================================
+   Stat ribbon — first-in-row cells drop the leading border
+   ========================================================================== */
+.stat-cell + .stat-cell { border-inline-start: 1px solid var(--color-border); }
+@media (min-width: 640px) {
+  .stat-cell:nth-child(3n+1) { border-inline-start: none; }
+  .stat-cell:nth-child(3n+2) { border-inline-start: 1px solid var(--color-border); }
+  .stat-cell:nth-child(3n+3) { border-inline-start: 1px solid var(--color-border); }
+}
+@media (min-width: 1024px) {
+  .stat-cell:nth-child(n) { border-inline-start: 1px solid var(--color-border); }
+  .stat-cell:nth-child(5n+1) { border-inline-start: none; }
+}

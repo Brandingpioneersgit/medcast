@@ -1,0 +1,140 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { getConditionBySlug } from "@/lib/queries";
+import {
+  getContent,
+  getContentBatch,
+  applyTranslated,
+} from "@/lib/translate";
+import { getTranslator } from "@/lib/messages";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, SITE_URL } from "@/lib/seo";
+import { ChevronRight } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const slug = Astro.params.slug;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/condition/${slug}`, 308);
+if (!slug) return new Response("Not found", { status: 404 });
+
+const locale = rawLocale as Locale;
+const conditionRaw = await getConditionBySlug(slug);
+if (!conditionRaw) return new Response(`Not found: ${slug}`, { status: 404 });
+
+const tc = getTranslator(locale, "common");
+
+const conditionMap = await getContent("condition", conditionRaw.id, locale);
+const condition = applyTranslated(conditionRaw, conditionMap, [
+  "name",
+  "description",
+]);
+
+const specialtyIds = (conditionRaw.specialties ?? []).map((cs) => cs.specialty.id);
+const specialtyMap = await getContentBatch("specialty", specialtyIds, locale);
+const conditionSpecialties = (conditionRaw.specialties ?? []).map((cs) => ({
+  ...cs,
+  specialty: applyTranslated(cs.specialty, specialtyMap[cs.specialty.id] ?? {}, ["name"]),
+}));
+
+const treatmentIds = (conditionRaw.treatments ?? []).map((ct) => ct.treatment.id);
+const treatmentMap = await getContentBatch("treatment", treatmentIds, locale);
+const conditionTreatments = (conditionRaw.treatments ?? []).map((ct) => ({
+  ...ct,
+  treatment: applyTranslated(ct.treatment, treatmentMap[ct.treatment.id] ?? {}, ["name"]),
+}));
+
+const seoTitle = condition.name;
+const seoDescription =
+  condition.description?.slice(0, 160) ??
+  `${condition.name} — symptoms, causes, and ${conditionTreatments.length} treatment options with transparent pricing.`;
+
+const path = `/condition/${slug}`;
+const url = localeUrl(locale, path);
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Conditions", url: localeUrl(locale, "/conditions") },
+  { name: condition.name, url },
+]);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=3600, stale-while-revalidate=86400",
+);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <section class="mx-auto max-w-7xl px-6 pt-10 md:pt-14 pb-10">
+      <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-subtle">Condition</p>
+      <h1 class="mt-2 font-display text-3xl md:text-5xl leading-[1.05]">{condition.name}</h1>
+      {condition.description && <p class="lede mt-5 max-w-3xl">{condition.description}</p>}
+    </section>
+
+    {condition.severityLevel && (
+      <section class="border-t border-border bg-surface-muted py-8">
+        <div class="mx-auto max-w-7xl px-6">
+          <p class="text-sm text-ink-muted">
+            <strong class="text-ink">Severity:</strong> {condition.severityLevel}
+          </p>
+        </div>
+      </section>
+    )}
+
+    {conditionSpecialties.length > 0 && (
+      <section class="border-t border-border py-12">
+        <div class="mx-auto max-w-7xl px-6">
+          <h2 class="font-display text-2xl mb-6">Specialties that treat {condition.name}</h2>
+          <ul class="flex flex-wrap gap-2">
+            {conditionSpecialties.map((cs) => (
+              <li>
+                <a
+                  href={localizedPath(locale, `/specialty/${cs.specialty.slug}`)}
+                  class="inline-flex items-center rounded-full bg-accent-soft text-accent px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-contrast transition-colors"
+                >
+                  {cs.specialty.name}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
+
+    {conditionTreatments.length > 0 && (
+      <section class="border-t border-border bg-surface-muted py-12">
+        <div class="mx-auto max-w-7xl px-6">
+          <h2 class="font-display text-2xl mb-6">Treatment options</h2>
+          <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {conditionTreatments.map((ct) => (
+              <li>
+                <a
+                  href={localizedPath(locale, `/treatment/${ct.treatment.slug}`)}
+                  class="group flex items-center justify-between rounded-lg border border-border bg-surface p-4 transition-colors hover:border-border-strong"
+                >
+                  <span class="min-w-0">
+                    <span class="block font-medium text-ink group-hover:text-accent transition-colors">{ct.treatment.name}</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-ink-subtle mirror-x shrink-0 ml-3" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

@@ -1,117 +1,75 @@
-import * as React from "react"
-import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react"
+import * as React from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils/cn";
 
-import { cn } from "@/lib/utils"
-import { ButtonProps, buttonVariants } from "@/components/ui/button"
+function pageItems(current: number, total: number): (number | "...")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const items: (number | "...")[] = [1];
+  if (current > 4) items.push("...");
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let i = start; i <= end; i++) items.push(i);
+  if (current < total - 3) items.push("...");
+  items.push(total);
+  return items;
+}
 
-const Pagination = ({ className, ...props }: React.ComponentProps<"nav">) => (
-  <nav
-    role="navigation"
-    aria-label="pagination"
-    className={cn("mx-auto flex w-full justify-center", className)}
-    {...props}
-  />
-)
-Pagination.displayName = "Pagination"
-
-const PaginationContent = React.forwardRef<
-  HTMLUListElement,
-  React.ComponentProps<"ul">
->(({ className, ...props }, ref) => (
-  <ul
-    ref={ref}
-    className={cn("flex flex-row items-center gap-1", className)}
-    {...props}
-  />
-))
-PaginationContent.displayName = "PaginationContent"
-
-const PaginationItem = React.forwardRef<
-  HTMLLIElement,
-  React.ComponentProps<"li">
->(({ className, ...props }, ref) => (
-  <li ref={ref} className={cn("", className)} {...props} />
-))
-PaginationItem.displayName = "PaginationItem"
-
-type PaginationLinkProps = {
-  isActive?: boolean
-} & Pick<ButtonProps, "size"> &
-  React.ComponentProps<"a">
-
-const PaginationLink = ({
+export function Pagination({
+  page,
+  totalPages,
+  buildHref,
+  LinkComponent,
   className,
-  isActive,
-  size = "icon",
-  ...props
-}: PaginationLinkProps) => (
-  <a
-    aria-current={isActive ? "page" : undefined}
-    className={cn(
-      buttonVariants({
-        variant: isActive ? "outline" : "ghost",
-        size,
-      }),
-      className
-    )}
-    {...props}
-  />
-)
-PaginationLink.displayName = "PaginationLink"
+}: {
+  page: number;
+  totalPages: number;
+  buildHref: (page: number) => string;
+  LinkComponent?: React.ComponentType<{ href: string; className?: string; children?: React.ReactNode; "aria-label"?: string; "aria-current"?: React.AriaAttributes["aria-current"] }>;
+  className?: string;
+}) {
+  if (totalPages <= 1) return null;
+  const Link = LinkComponent ?? ((props) => <a {...props} />);
+  const items = pageItems(page, totalPages);
 
-const PaginationPrevious = ({
-  className,
-  ...props
-}: React.ComponentProps<typeof PaginationLink>) => (
-  <PaginationLink
-    aria-label="Go to previous page"
-    size="default"
-    className={cn("gap-1 pl-2.5", className)}
-    {...props}
-  >
-    <ChevronLeft className="h-4 w-4" />
-    <span>Previous</span>
-  </PaginationLink>
-)
-PaginationPrevious.displayName = "PaginationPrevious"
+  const linkBase =
+    "inline-flex h-9 min-w-9 items-center justify-center rounded-full px-3 text-sm font-medium transition-colors";
 
-const PaginationNext = ({
-  className,
-  ...props
-}: React.ComponentProps<typeof PaginationLink>) => (
-  <PaginationLink
-    aria-label="Go to next page"
-    size="default"
-    className={cn("gap-1 pr-2.5", className)}
-    {...props}
-  >
-    <span>Next</span>
-    <ChevronRight className="h-4 w-4" />
-  </PaginationLink>
-)
-PaginationNext.displayName = "PaginationNext"
-
-const PaginationEllipsis = ({
-  className,
-  ...props
-}: React.ComponentProps<"span">) => (
-  <span
-    aria-hidden
-    className={cn("flex h-9 w-9 items-center justify-center", className)}
-    {...props}
-  >
-    <MoreHorizontal className="h-4 w-4" />
-    <span className="sr-only">More pages</span>
-  </span>
-)
-PaginationEllipsis.displayName = "PaginationEllipsis"
-
-export {
-  Pagination,
-  PaginationContent,
-  PaginationLink,
-  PaginationItem,
-  PaginationPrevious,
-  PaginationNext,
-  PaginationEllipsis,
+  return (
+    <nav aria-label="Pagination" className={cn("flex items-center gap-1", className)}>
+      <Link
+        href={buildHref(Math.max(1, page - 1))}
+        aria-label="Previous page"
+        className={cn(linkBase, "text-ink-muted hover:bg-subtle hover:text-ink", page === 1 && "pointer-events-none opacity-40")}
+      >
+        <ChevronLeft className="h-4 w-4 mirror-x" />
+      </Link>
+      {items.map((it, i) =>
+        it === "..." ? (
+          <span key={`e-${i}`} className="px-1 text-ink-subtle" aria-hidden>
+            …
+          </span>
+        ) : (
+          <Link
+            key={it}
+            href={buildHref(it)}
+            aria-current={it === page ? "page" : undefined}
+            aria-label={`Page ${it}`}
+            className={cn(
+              linkBase,
+              it === page ? "bg-ink text-bg" : "text-ink-muted hover:bg-subtle hover:text-ink"
+            )}
+          >
+            {it}
+          </Link>
+        )
+      )}
+      <Link
+        href={buildHref(Math.min(totalPages, page + 1))}
+        aria-label="Next page"
+        className={cn(linkBase, "text-ink-muted hover:bg-subtle hover:text-ink", page === totalPages && "pointer-events-none opacity-40")}
+      >
+        <ChevronRight className="h-4 w-4 mirror-x" />
+      </Link>
+    </nav>
+  );
 }

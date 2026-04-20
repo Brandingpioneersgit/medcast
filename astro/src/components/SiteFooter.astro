@@ -1,0 +1,168 @@
+---
+import { db } from "@/lib/db";
+import {
+  specialties as specialtiesTbl,
+  treatments as treatmentsTbl,
+  countries as countriesTbl,
+  conditions as conditionsTbl,
+} from "../../../src/lib/db/schema";
+import { asc, eq, sql } from "drizzle-orm";
+import { localizedPath, type Locale } from "@/lib/i18n";
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+
+type FooterData = {
+  specialties: Array<{ slug: string; name: string; n: number }>;
+  treatments: Array<{ slug: string; name: string }>;
+  countries: Array<{ slug: string; name: string }>;
+  cities: Array<{ slug: string; name: string }>;
+  conditions: Array<{ slug: string; name: string }>;
+};
+
+const EMPTY: FooterData = {
+  specialties: [],
+  treatments: [],
+  countries: [],
+  cities: [],
+  conditions: [],
+};
+
+let data: FooterData = EMPTY;
+try {
+  const [specRows, treatRows, countryRows, cityRows, condRows] = await Promise.all([
+    db.execute<{ slug: string; name: string; n: number }>(sql`
+      SELECT sp.slug, sp.name, COUNT(DISTINCT hs.hospital_id)::int AS n
+      FROM specialties sp
+      LEFT JOIN hospital_specialties hs ON hs.specialty_id = sp.id
+      LEFT JOIN hospitals h ON h.id = hs.hospital_id AND h.is_active = true
+      WHERE sp.is_active = true
+      GROUP BY sp.slug, sp.name, sp.sort_order
+      ORDER BY sp.sort_order ASC, sp.name ASC
+      LIMIT 14
+    `),
+    db
+      .select({ slug: treatmentsTbl.slug, name: treatmentsTbl.name })
+      .from(treatmentsTbl)
+      .where(eq(treatmentsTbl.isActive, true))
+      .orderBy(asc(treatmentsTbl.name))
+      .limit(14),
+    db
+      .select({ slug: countriesTbl.slug, name: countriesTbl.name })
+      .from(countriesTbl)
+      .where(eq(countriesTbl.isDestination, true))
+      .orderBy(asc(countriesTbl.name)),
+    db.execute<{ slug: string; name: string }>(sql`
+      SELECT ci.slug, ci.name
+      FROM cities ci
+      JOIN countries c ON c.id = ci.country_id
+      WHERE c.is_destination = true
+        AND EXISTS (SELECT 1 FROM hospitals h WHERE h.city_id = ci.id AND h.is_active = true)
+      ORDER BY ci.name ASC
+      LIMIT 16
+    `),
+    db
+      .select({ slug: conditionsTbl.slug, name: conditionsTbl.name })
+      .from(conditionsTbl)
+      .orderBy(asc(conditionsTbl.name))
+      .limit(14),
+  ]);
+  data = {
+    specialties: Array.from(specRows),
+    treatments: treatRows,
+    countries: Array.from(countryRows),
+    cities: Array.from(cityRows),
+    conditions: condRows,
+  };
+} catch {
+  data = EMPTY;
+}
+
+const year = new Date().getFullYear();
+---
+
+<footer class="mt-auto border-t border-border bg-surface-muted text-ink">
+  <div class="mx-auto w-full max-w-7xl px-6">
+    {/* SEO link index */}
+    <div class="grid gap-10 py-12 md:grid-cols-2 lg:grid-cols-5 border-b border-border">
+      <div>
+        <p class="mb-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">Specialties</p>
+        <ul class="space-y-2 text-sm">
+          {data.specialties.map((sp) => (
+            <li>
+              <a href={localizedPath(locale, `/specialty/${sp.slug}`)} class="text-ink-muted hover:text-accent">
+                {sp.name}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div>
+        <p class="mb-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">Treatments</p>
+        <ul class="space-y-2 text-sm">
+          {data.treatments.map((t) => (
+            <li>
+              <a href={localizedPath(locale, `/treatment/${t.slug}`)} class="text-ink-muted hover:text-accent line-clamp-1">
+                {t.name}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div>
+        <p class="mb-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">Destinations</p>
+        <ul class="space-y-2 text-sm">
+          {data.countries.map((c) => (
+            <li>
+              <a href={localizedPath(locale, `/country/${c.slug}`)} class="text-ink-muted hover:text-accent">
+                {c.name}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div>
+        <p class="mb-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">Cities</p>
+        <ul class="space-y-2 text-sm">
+          {data.cities.map((ci) => (
+            <li>
+              <a href={localizedPath(locale, `/city/${ci.slug}`)} class="text-ink-muted hover:text-accent">
+                {ci.name}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div>
+        <p class="mb-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">Conditions</p>
+        <ul class="space-y-2 text-sm">
+          {data.conditions.map((c) => (
+            <li>
+              <a href={localizedPath(locale, `/condition/${c.slug}`)} class="text-ink-muted hover:text-accent line-clamp-1">
+                {c.name}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+
+    {/* Utility row */}
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 py-8 text-sm">
+      <div class="flex flex-wrap gap-5 text-ink-muted">
+        <a href={localizedPath(locale, "/about")} class="hover:text-accent">About</a>
+        <a href={localizedPath(locale, "/editorial-policy")} class="hover:text-accent">Editorial policy</a>
+        <a href={localizedPath(locale, "/contact")} class="hover:text-accent">Contact</a>
+        <a href={localizedPath(locale, "/for-hospitals")} class="hover:text-accent">For hospitals</a>
+        <a href={localizedPath(locale, "/second-opinion")} class="hover:text-accent">Second opinion</a>
+        <a href={localizedPath(locale, "/emergency")} class="hover:text-accent">Emergency</a>
+        <a href={localizedPath(locale, "/insurance")} class="hover:text-accent">Insurance</a>
+        <a href={localizedPath(locale, "/blog")} class="hover:text-accent">Blog</a>
+        <a href={localizedPath(locale, "/compare/treatments")} class="hover:text-accent">Compare</a>
+      </div>
+      <p class="text-ink-subtle">© {year} MedCasts — medical care, borderless.</p>
+    </div>
+  </div>
+</footer>

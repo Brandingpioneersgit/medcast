@@ -1,0 +1,17 @@
+---
+import { formatUsd } from "@/lib/currency";
+
+interface Props {
+  min: number | string | null | undefined;
+  max?: number | string | null | undefined;
+  class?: string;
+}
+
+const { min, max, class: className } = Astro.props;
+const lo = await formatUsd(Astro.cookies, min);
+const hi = max != null && max !== min ? await formatUsd(Astro.cookies, max) : null;
+---
+
+<span class={className}>
+  {hi ? `${lo} – ${hi}` : lo}
+</span>

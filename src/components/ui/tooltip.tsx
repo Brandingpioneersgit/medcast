@@ -1,32 +1,28 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import * as TooltipPrimitive from "@radix-ui/react-tooltip"
+import * as React from "react";
+import * as RTooltip from "@radix-ui/react-tooltip";
+import { cn } from "@/lib/utils/cn";
 
-import { cn } from "@/lib/utils"
+export const TooltipProvider = RTooltip.Provider;
+export const Tooltip = RTooltip.Root;
+export const TooltipTrigger = RTooltip.Trigger;
 
-const TooltipProvider = TooltipPrimitive.Provider
-
-const Tooltip = TooltipPrimitive.Root
-
-const TooltipTrigger = TooltipPrimitive.Trigger
-
-const TooltipContent = React.forwardRef<
-  React.ElementRef<typeof TooltipPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
->(({ className, sideOffset = 4, ...props }, ref) => (
-  <TooltipPrimitive.Portal>
-    <TooltipPrimitive.Content
+export const TooltipContent = React.forwardRef<
+  React.ElementRef<typeof RTooltip.Content>,
+  React.ComponentPropsWithoutRef<typeof RTooltip.Content>
+>(({ className, sideOffset = 6, ...props }, ref) => (
+  <RTooltip.Portal>
+    <RTooltip.Content
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 overflow-hidden rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-tooltip-content-transform-origin]",
+        "z-[var(--z-toast)] overflow-hidden rounded-[var(--radius-sm)] bg-ink px-2.5 py-1.5 text-xs text-bg shadow-md",
+        "data-[state=delayed-open]:animate-[fade-in_150ms_ease-out]",
         className
       )}
       {...props}
     />
-  </TooltipPrimitive.Portal>
-))
-TooltipContent.displayName = TooltipPrimitive.Content.displayName
-
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
+  </RTooltip.Portal>
+));
+TooltipContent.displayName = RTooltip.Content.displayName;

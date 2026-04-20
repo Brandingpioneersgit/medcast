@@ -1,0 +1,53 @@
+---
+interface Props {
+  page: number;
+  totalPages: number;
+  basePath: string;
+}
+const { page, totalPages, basePath } = Astro.props;
+
+function hrefFor(p: number): string {
+  const sep = basePath.includes("?") ? "&" : "?";
+  return p === 1 ? basePath : `${basePath}${sep}page=${p}`;
+}
+
+const prev = page > 1 ? hrefFor(page - 1) : null;
+const next = page < totalPages ? hrefFor(page + 1) : null;
+
+const window = new Set<number>();
+window.add(1);
+window.add(totalPages);
+for (let i = page - 1; i <= page + 1; i++) if (i >= 1 && i <= totalPages) window.add(i);
+const pages = [...window].sort((a, b) => a - b);
+---
+
+{totalPages > 1 && (
+  <nav class="flex items-center justify-center gap-2 py-8" aria-label="Pagination">
+    {prev ? (
+      <a href={prev} class="rounded-lg border border-border bg-surface px-3 py-2 text-sm hover:border-border-strong">
+        ← Previous
+      </a>
+    ) : (
+      <span class="rounded-lg border border-border bg-subtle px-3 py-2 text-sm text-ink-subtle">← Previous</span>
+    )}
+    {pages.map((p, i) => (
+      <>
+        {i > 0 && pages[i - 1] !== p - 1 && <span class="px-1 text-ink-subtle">…</span>}
+        {p === page ? (
+          <span class="rounded-lg bg-accent text-accent-contrast px-3 py-2 text-sm font-semibold min-w-10 text-center">{p}</span>
+        ) : (
+          <a href={hrefFor(p)} class="rounded-lg border border-border bg-surface px-3 py-2 text-sm hover:border-border-strong min-w-10 text-center">
+            {p}
+          </a>
+        )}
+      </>
+    ))}
+    {next ? (
+      <a href={next} class="rounded-lg border border-border bg-surface px-3 py-2 text-sm hover:border-border-strong">
+        Next →
+      </a>
+    ) : (
+      <span class="rounded-lg border border-border bg-subtle px-3 py-2 text-sm text-ink-subtle">Next →</span>
+    )}
+  </nav>
+)}

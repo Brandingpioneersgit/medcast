@@ -1,48 +1,54 @@
-import * as React from "react"
-import * as AvatarPrimitive from "@radix-ui/react-avatar"
+import * as React from "react";
+import { cn } from "@/lib/utils/cn";
 
-import { cn } from "@/lib/utils"
+type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl";
 
-const Avatar = React.forwardRef<
-  React.ElementRef<typeof AvatarPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root>
->(({ className, ...props }, ref) => (
-  <AvatarPrimitive.Root
-    ref={ref}
-    className={cn(
-      "relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full",
-      className
-    )}
-    {...props}
-  />
-))
-Avatar.displayName = AvatarPrimitive.Root.displayName
+const sizeMap: Record<AvatarSize, string> = {
+  xs: "h-6 w-6 text-[10px]",
+  sm: "h-8 w-8 text-xs",
+  md: "h-10 w-10 text-sm",
+  lg: "h-14 w-14 text-base",
+  xl: "h-20 w-20 text-xl",
+};
 
-const AvatarImage = React.forwardRef<
-  React.ElementRef<typeof AvatarPrimitive.Image>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
->(({ className, ...props }, ref) => (
-  <AvatarPrimitive.Image
-    ref={ref}
-    className={cn("aspect-square h-full w-full", className)}
-    {...props}
-  />
-))
-AvatarImage.displayName = AvatarPrimitive.Image.displayName
+export function Avatar({
+  src,
+  alt,
+  name,
+  size = "md",
+  className,
+  rounded = "full",
+}: {
+  src?: string | null;
+  alt?: string;
+  name?: string;
+  size?: AvatarSize;
+  className?: string;
+  rounded?: "full" | "lg";
+}) {
+  const initials = React.useMemo(() => {
+    if (!name) return "";
+    const parts = name.trim().split(/\s+/).slice(0, 2);
+    return parts.map((p) => p[0]).join("").toUpperCase();
+  }, [name]);
 
-const AvatarFallback = React.forwardRef<
-  React.ElementRef<typeof AvatarPrimitive.Fallback>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Fallback>
->(({ className, ...props }, ref) => (
-  <AvatarPrimitive.Fallback
-    ref={ref}
-    className={cn(
-      "flex h-full w-full items-center justify-center rounded-full bg-muted",
-      className
-    )}
-    {...props}
-  />
-))
-AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName
+  const roundedCls = rounded === "full" ? "rounded-full" : "rounded-[var(--radius-lg)]";
 
-export { Avatar, AvatarImage, AvatarFallback }
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center justify-center overflow-hidden bg-subtle text-ink-muted font-semibold ring-1 ring-border",
+        sizeMap[size],
+        roundedCls,
+        className
+      )}
+      aria-label={alt ?? name ?? "avatar"}
+    >
+      {src ? (
+        <img src={src} alt={alt ?? name ?? ""} className="h-full w-full object-cover" loading="lazy" />
+      ) : (
+        <span>{initials || "—"}</span>
+      )}
+    </span>
+  );
+}

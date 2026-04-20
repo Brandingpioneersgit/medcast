@@ -1,0 +1,50 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { isLocale, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const specialtySlug = Astro.params.specialtySlug;
+const citySlug = Astro.params.citySlug;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/doctors/specialty/${specialtySlug}/${citySlug}`, 308);
+if (!specialtySlug || !citySlug) return new Response("Not found", { status: 404 });
+const locale = rawLocale as Locale;
+
+const tc = getTranslator(locale, "common");
+const seoTitle = `${specialtySlug} specialists in ${citySlug}`;
+const seoDescription = `Top ${specialtySlug} doctors practicing in ${citySlug} — experience, ratings, and consultation fees.`;
+const path = `/doctors/specialty/${specialtySlug}/${citySlug}`;
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: tc("doctors"), url: localeUrl(locale, "/doctors") },
+  { name: specialtySlug, url: localeUrl(locale, `/doctors/specialty/${specialtySlug}`) },
+  { name: citySlug, url: localeUrl(locale, path) },
+]);
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+    <section class="mx-auto max-w-7xl px-6 pt-10 pb-16">
+      <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">Specialty × City</p>
+      <h1 class="mt-2 font-display text-3xl md:text-5xl leading-[1.05]">{specialtySlug} specialists in {citySlug}</h1>
+      <p class="lede mt-4">Top {specialtySlug} doctors in this city.</p>
+      {/* TODO: specialty × city doctor grid */}
+    </section>
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

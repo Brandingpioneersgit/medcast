@@ -1,0 +1,75 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { listSpecialties } from "@/lib/queries";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { ChevronRight } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/specialties", 308);
+const locale = rawLocale as Locale;
+
+const rowsRaw = await listSpecialties();
+const rows = Array.from(rowsRaw);
+
+const tc = getTranslator(locale, "common");
+const seoTitle = "Medical specialties";
+const seoDescription = "Explore specialty care — cardiology, oncology, orthopedics, neurology and more. Find the right hospital and specialist for your condition.";
+const path = "/specialties";
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: tc("specialties"), url: localeUrl(locale, path) },
+]);
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-revalidate=3600");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <section class="mx-auto max-w-7xl px-6 pt-10 pb-6">
+      <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">{tc("specialties")}</p>
+      <h1 class="mt-2 font-display text-3xl md:text-5xl leading-[1.05]">Specialty care</h1>
+      <p class="lede mt-4">{rows.length} specialties · accredited hospitals in 9 destinations.</p>
+    </section>
+
+    <section class="mx-auto max-w-7xl px-6 pb-12">
+      <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {rows.map((sp) => (
+          <li>
+            <a
+              href={localizedPath(locale, `/specialty/${sp.slug}`)}
+              class="group flex h-full flex-col rounded-xl border border-border bg-surface p-6 transition hover:-translate-y-0.5 hover:border-border-strong hover:shadow-sm"
+            >
+              <h3 class="font-display text-xl text-ink group-hover:text-accent transition-colors">{sp.name}</h3>
+              {sp.description && (
+                <p class="mt-2 text-sm text-ink-muted line-clamp-3">{sp.description}</p>
+              )}
+              <div class="mt-auto pt-4 flex items-center justify-between text-xs text-ink-subtle">
+                <span>
+                  {sp.hospitals.toLocaleString()} hospitals · {sp.treatments} treatments
+                </span>
+                <ChevronRight className="h-4 w-4 mirror-x" />
+              </div>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

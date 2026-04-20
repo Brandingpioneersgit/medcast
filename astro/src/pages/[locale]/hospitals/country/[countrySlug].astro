@@ -1,0 +1,48 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { isLocale, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const countrySlug = Astro.params.countrySlug;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/hospitals/country/${countrySlug}`, 308);
+if (!countrySlug) return new Response("Not found", { status: 404 });
+const locale = rawLocale as Locale;
+
+const tc = getTranslator(locale, "common");
+const seoTitle = `Top hospitals in ${countrySlug}`;
+const seoDescription = `Browse JCI-accredited and leading private hospitals in ${countrySlug}.`;
+const path = `/hospitals/country/${countrySlug}`;
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: tc("hospitals"), url: localeUrl(locale, "/hospitals") },
+  { name: countrySlug, url: localeUrl(locale, path) },
+]);
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+    <section class="mx-auto max-w-7xl px-6 pt-10 pb-16">
+      <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">Destination</p>
+      <h1 class="mt-2 font-display text-3xl md:text-5xl leading-[1.05]">Hospitals in {countrySlug}</h1>
+      <p class="lede mt-4">Ratings, specialties, accreditations, and beds for every hospital in this destination.</p>
+      {/* TODO: country-filtered hospital grid */}
+    </section>
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

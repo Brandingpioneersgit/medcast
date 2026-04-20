@@ -1,0 +1,168 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { getCityBySlug } from "@/lib/queries";
+import {
+  getContent,
+  getContentBatch,
+  applyTranslated,
+} from "@/lib/translate";
+import { getTranslator } from "@/lib/messages";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { ChevronRight, MapPin, Bed } from "lucide-react";
+import { hospitalCover } from "@/lib/images";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const slug = Astro.params.slug;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/city/${slug}`, 308);
+if (!slug) return new Response("Not found", { status: 404 });
+
+const locale = rawLocale as Locale;
+const data = await getCityBySlug(slug);
+if (!data) return new Response(`Not found: ${slug}`, { status: 404 });
+
+const tc = getTranslator(locale, "common");
+
+const { city, hospitals, specialtyCounts } = data;
+const country = city.country;
+
+const hospitalIds = hospitals.map((h) => h.id);
+const hospitalMap = await getContentBatch("hospital", hospitalIds, locale);
+const hospitalsXl = hospitals.map((h) => applyTranslated(h, hospitalMap[h.id] ?? {}, ["name", "description"]));
+
+const seoTitle = `Hospitals in ${city.name}, ${country?.name ?? ""}`.replace(/,\s*$/, "");
+const seoDescription = `Compare ${hospitals.length} accredited hospitals in ${city.name}${country ? `, ${country.name}` : ""}. Specialist care across ${specialtyCounts.length} medical specialties. Free second opinion and treatment quotes.`.slice(0, 160);
+
+const path = `/city/${slug}`;
+const url = localeUrl(locale, path);
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  ...(country
+    ? [{ name: country.name, url: localeUrl(locale, `/country/${country.slug}`) }]
+    : []),
+  { name: city.name, url },
+]);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=3600, stale-while-revalidate=86400",
+);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <div class="border-b border-border bg-bg">
+      <div class="mx-auto max-w-7xl px-6 py-3.5 text-sm text-ink-muted">
+        <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        {country && (
+          <>
+            <a href={localizedPath(locale, `/country/${country.slug}`)} class="hover:text-accent">
+              {country.name}
+            </a>
+            <span class="mx-2 text-ink-subtle">/</span>
+          </>
+        )}
+        <span class="text-ink">{city.name}</span>
+      </div>
+    </div>
+
+    <section class="mx-auto max-w-7xl px-6 pt-10 md:pt-14 pb-10">
+      <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">
+        {country?.name ?? ""}
+      </p>
+      <h1 class="mt-3 font-display text-3xl md:text-5xl leading-[1.05]">
+        Hospitals in {city.name}
+      </h1>
+      <p class="lede mt-5 max-w-3xl">
+        {hospitals.length} accredited hospitals in {city.name}{country ? `, ${country.name}` : ""} serving international patients across
+        {specialtyCounts.length} specialties. Compare facilities, pricing, and physician profiles.
+      </p>
+    </section>
+
+    {specialtyCounts.length > 0 && (
+      <section class="border-t border-border bg-surface-muted py-10">
+        <div class="mx-auto max-w-7xl px-6">
+          <h2 class="font-display text-xl md:text-2xl mb-6">Specialties offered</h2>
+          <ul class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+            {specialtyCounts.map((s) => (
+              <li>
+                <a
+                  href={localizedPath(locale, `/specialty/${s.slug}`)}
+                  class="group flex items-center justify-between rounded-lg border border-border bg-surface p-3 transition hover:border-border-strong"
+                >
+                  <div>
+                    <p class="font-medium text-sm text-ink group-hover:text-accent transition-colors">
+                      {s.name}
+                    </p>
+                    <p class="text-xs text-ink-subtle mt-0.5">{s.hospital_count} hospitals</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-ink-subtle mirror-x" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
+
+    {hospitalsXl.length > 0 && (
+      <section class="border-t border-border py-12">
+        <div class="mx-auto max-w-7xl px-6">
+          <h2 class="font-display text-2xl md:text-3xl mb-8">All hospitals in {city.name}</h2>
+          <ul class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {hospitalsXl.map((h) => (
+              <li>
+                <a
+                  href={localizedPath(locale, `/hospital/${h.slug}`)}
+                  class="group flex flex-col h-full rounded-xl border border-border bg-surface overflow-hidden transition hover:border-border-strong hover:shadow-sm"
+                >
+                  <img
+                    src={hospitalCover({ coverImageUrl: h.coverImageUrl, countrySlug: country?.slug })}
+                    alt={h.name}
+                    class="h-40 w-full object-cover"
+                    loading="lazy"
+                  />
+                  <div class="p-5 flex-1">
+                    <p class="font-display text-lg text-ink group-hover:text-accent transition-colors">
+                      {h.name}
+                    </p>
+                    {h.description && (
+                      <p class="mt-2 text-sm text-ink-muted line-clamp-3">{h.description}</p>
+                    )}
+                    <div class="mt-4 flex flex-wrap gap-3 text-xs text-ink-muted">
+                      {h.rating && Number(h.rating) > 0 && (
+                        <span><span class="text-gold-500">★</span> {Number(h.rating).toFixed(1)}</span>
+                      )}
+                      {h.bedCapacity && (
+                        <span class="inline-flex items-center gap-1">
+                          <Bed className="h-3 w-3" />
+                          {h.bedCapacity} beds
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

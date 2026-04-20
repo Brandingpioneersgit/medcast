@@ -1,0 +1,36 @@
+---
+import { getTranslator } from "@/lib/messages";
+import { localizedPath, type Locale } from "@/lib/i18n";
+
+interface Props {
+  locale: Locale;
+  sticky?: boolean;
+}
+
+const { locale, sticky = true } = Astro.props;
+const tc = getTranslator(locale, "common");
+---
+
+<header class:list={[
+  "border-b border-border bg-bg/80 backdrop-blur z-40",
+  sticky && "sticky top-0",
+]}>
+  <div class="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between gap-6">
+    <a href={localizedPath(locale, "/")} class="font-display text-xl tracking-tight">
+      MedCasts
+    </a>
+    <nav class="text-sm text-ink-muted hidden md:flex gap-6">
+      <a href={localizedPath(locale, "/hospitals")} class="hover:text-accent">{tc("hospitals")}</a>
+      <a href={localizedPath(locale, "/doctors")} class="hover:text-accent">{tc("doctors")}</a>
+      <a href={localizedPath(locale, "/treatments")} class="hover:text-accent">{tc("treatments")}</a>
+      <a href={localizedPath(locale, "/specialties")} class="hover:text-accent">{tc("specialties")}</a>
+      <a href={localizedPath(locale, "/contact")} class="hover:text-accent">{tc("contactUs")}</a>
+    </nav>
+    <a
+      href={localizedPath(locale, "/contact")}
+      class="inline-flex items-center rounded-lg bg-accent text-accent-contrast px-3.5 py-2 text-sm font-semibold hover:bg-accent-hover transition-colors"
+    >
+      {tc("getQuote")}
+    </a>
+  </div>
+</header>

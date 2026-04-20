@@ -1,0 +1,143 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { getTranslator } from "@/lib/messages";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/editorial-policy`, 308);
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+const path = "/editorial-policy";
+const url = localeUrl(locale, path);
+const currentYear = new Date().getFullYear();
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Editorial Policy", url },
+]);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=86400, stale-while-revalidate=604800",
+);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta
+      title="Editorial Policy — How we research, review, and update medical content"
+      description="How MedCasts researches, reviews, cites, and updates the medical information on this site. Written for patients who need to know whether to trust what they read."
+      path={path}
+      locale={locale}
+    />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <section class="mx-auto max-w-3xl px-6 pt-12 md:pt-20 pb-8">
+      <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">Editorial Policy · Last updated April {currentYear}</p>
+      <h1 class="mt-4 font-display text-4xl md:text-5xl leading-[1.05]">
+        How we decide what goes on this site.
+      </h1>
+      <p class="lede mt-5">
+        Medical-tourism websites have a bad reputation, earned mostly. Lots of AI-generated content, stale prices, unnamed "specialists", fake reviews. This page documents how we try not to be that — and where we still fall short so you know what to double-check.
+      </p>
+    </section>
+
+    <section class="mx-auto max-w-3xl px-6 pb-12 prose prose-editorial">
+      <h2>Who writes and who reviews</h2>
+      <p>
+        Content falls into two categories.
+      </p>
+      <ul>
+        <li>
+          <strong>Directory pages</strong> (hospital profiles, doctor profiles, treatment summaries, cost pages) are generated from structured data — hospital websites, public registries (Wikipedia, Wikidata, OpenStreetMap, government portals), and hospital-supplied quote sheets. The copy is templated, not hand-written. We state this openly on each page by noting when prices were sampled and from how many hospitals.
+        </li>
+        <li>
+          <strong>Editorial pages</strong> (blog posts, visa guides, destination overviews, condition and treatment explainers) are drafted by our in-house editorial team, then reviewed by a practising physician in the relevant specialty before publication. Reviewer name and specialty appear in the byline.
+        </li>
+      </ul>
+
+      <h2>What we cite</h2>
+      <p>
+        For medical claims (procedure risks, success rates, recovery timelines), we cite at least one primary source. Acceptable primary sources are:
+      </p>
+      <ul>
+        <li>Peer-reviewed journals indexed on PubMed, published in the last 5 years where available</li>
+        <li>National medical society guidelines (ACC, ESC, AUA, ACOG, equivalents)</li>
+        <li>WHO, CDC, NICE, or equivalent public-health authority publications</li>
+        <li>Hospital-supplied outcome data where the hospital publicly reports it (some partner hospitals publish annual outcome reports — we link to those)</li>
+      </ul>
+      <p>
+        We don't cite other medical-tourism websites. Circular sourcing is how bad numbers spread.
+      </p>
+
+      <h2>How we handle pricing</h2>
+      <p>
+        Prices on hospital and treatment pages reflect quote ranges sampled from partner-hospital quote sheets across a rolling six-month window. Individual quotes are case-specific and are not the published ranges — a patient with comorbidities or a complex anatomy will receive a different number. We flag the methodology on every cost page and request hospitals confirm published ranges before listing.
+      </p>
+      <p>
+        We don't inflate prices to create a comparison arbitrage with our own service. Hospitals pay our coordination fee; patients see the same package price they'd see by contacting the hospital directly.
+      </p>
+
+      <h2>When we update, and how you'll know</h2>
+      <p>
+        Editorial pages carry a <em>Last updated</em> date and, separately, a <em>Last reviewed</em> date. "Updated" means a factual element changed (a visa rule, a regulation, a price band). "Reviewed" means a physician re-read the page and confirmed nothing is outdated, even if nothing was edited.
+      </p>
+      <p>
+        Baseline cadence:
+      </p>
+      <ul>
+        <li>Visa guides: re-reviewed quarterly, or whenever an embassy announces a rule change</li>
+        <li>Cost pages: re-priced every six months minimum</li>
+        <li>Hospital profiles: re-checked annually against the accrediting body registry</li>
+        <li>Condition / treatment explainers: reviewed annually unless flagged by a physician reviewer</li>
+      </ul>
+
+      <h2>Corrections</h2>
+      <p>
+        If you find an error — a stale price, an out-of-date visa rule, a doctor profile that misrepresents credentials — email <a href="mailto:corrections@medcasts.com">corrections@medcasts.com</a>. Corrections acknowledge within 2 working days, with a dated correction note at the bottom of the page if the change is material. We don't silently edit live pages to erase prior errors.
+      </p>
+
+      <h2>Advertising, affiliates, and conflicts</h2>
+      <p>
+        We don't run ads. We don't accept affiliate fees from hospitals for placement or sort order on listing pages. Listing sort order on <em>/hospitals</em> is by rating and review count, filterable by country and specialty — not by ad spend. Hospitals that pay our partnership fee are disclosed on hospital profile pages.
+      </p>
+      <p>
+        When a hospital is partnered with us, that does not elevate them on listing or comparison pages. It only means we can coordinate quotes, travel, and post-op support for them. Non-partner hospitals remain listed and visible.
+      </p>
+
+      <h2>AI and automation, honestly</h2>
+      <p>
+        We use automation. Directory pages — 9,000+ hospital profiles, 800+ doctor profiles, 80+ treatment pages — are generated by combining structured data with templated copy. This is how we cover the long tail. Editorial content is not AI-generated; it's drafted by humans and reviewed by physicians.
+      </p>
+      <p>
+        Where directory copy is automated, you'll notice: short, structural, factual. Where copy is written by our editorial team, it reads differently. We don't try to pass one off as the other.
+      </p>
+
+      <h2>What we'll never do</h2>
+      <ul>
+        <li>Publish outcome statistics without citing the source</li>
+        <li>Write in the name of a physician who hasn't reviewed the content</li>
+        <li>Manufacture patient testimonials (real testimonials cite the patient's country, treatment, and year)</li>
+        <li>Recommend a specific surgeon outside of a written second-opinion or quote workflow with your records on file</li>
+      </ul>
+
+      <h2>Editorial leadership</h2>
+      <p>
+        Medical review is led by rotating specialists from our partner hospitals. Each editorial piece carries a <em>Reviewed by Dr. [Name], [Credential], [Hospital]</em> byline. If you see one without a byline, that's a mistake — email us and we'll fix it.
+      </p>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

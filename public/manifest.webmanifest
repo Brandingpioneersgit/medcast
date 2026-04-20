@@ -1,0 +1,24 @@
+{
+  "name": "MedCasts — Medical Assistance",
+  "short_name": "MedCasts",
+  "description": "Global medical assistance: find hospitals, doctors, and transparent treatment pricing across 8 languages.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#0d9488",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["health", "medical", "travel"],
+  "icons": [
+    { "src": "/icons/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/icon-maskable.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Get a quote", "short_name": "Quote", "url": "/contact", "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }] },
+    { "name": "Hospitals", "short_name": "Hospitals", "url": "/hospitals", "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }] }
+  ]
+}

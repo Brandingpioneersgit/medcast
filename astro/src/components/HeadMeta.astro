@@ -1,0 +1,57 @@
+---
+import { hreflangMap, localeUrl, toOgLocale, SITE_NAME, SITE_URL } from "@/lib/seo";
+import { locales, type Locale } from "@/lib/i18n";
+
+interface Props {
+  title: string;
+  description: string;
+  path: string;
+  locale: Locale;
+  image?: string;
+  type?: "website" | "article";
+  noindex?: boolean;
+}
+
+const {
+  title,
+  description,
+  path,
+  locale,
+  image,
+  type = "website",
+  noindex = false,
+} = Astro.props;
+
+const fullTitle = `${title} | ${SITE_NAME}`;
+const canonical = localeUrl(locale, path);
+const langs = hreflangMap(path);
+const ogImage =
+  image ?? `${SITE_URL}/api/og?title=${encodeURIComponent(title)}&locale=${locale}`;
+---
+
+<title>{fullTitle}</title>
+<meta name="description" content={description} />
+<link rel="canonical" href={canonical} />
+{noindex && <meta name="robots" content="noindex, nofollow" />}
+
+{Object.entries(langs).map(([code, href]) => (
+  <link rel="alternate" hreflang={code} href={href} />
+))}
+
+<meta property="og:site_name" content={SITE_NAME} />
+<meta property="og:title" content={fullTitle} />
+<meta property="og:description" content={description} />
+<meta property="og:url" content={canonical} />
+<meta property="og:type" content={type} />
+<meta property="og:locale" content={toOgLocale(locale)} />
+{locales.filter((l) => l !== locale).map((l) => (
+  <meta property="og:locale:alternate" content={toOgLocale(l)} />
+))}
+<meta property="og:image" content={ogImage} />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={fullTitle} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={ogImage} />

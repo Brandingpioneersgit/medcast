@@ -1,0 +1,48 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { isLocale, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const citySlug = Astro.params.citySlug;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/doctors/city/${citySlug}`, 308);
+if (!citySlug) return new Response("Not found", { status: 404 });
+const locale = rawLocale as Locale;
+
+const tc = getTranslator(locale, "common");
+const seoTitle = `Top doctors in ${citySlug}`;
+const seoDescription = `Browse leading specialists in ${citySlug} — experience, ratings, and consultation fees.`;
+const path = `/doctors/city/${citySlug}`;
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: tc("doctors"), url: localeUrl(locale, "/doctors") },
+  { name: citySlug, url: localeUrl(locale, path) },
+]);
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+    <section class="mx-auto max-w-7xl px-6 pt-10 pb-16">
+      <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">City</p>
+      <h1 class="mt-2 font-display text-3xl md:text-5xl leading-[1.05]">Doctors in {citySlug}</h1>
+      <p class="lede mt-4">All specialists in this city, across hospitals.</p>
+      {/* TODO: city-filtered doctor grid */}
+    </section>
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

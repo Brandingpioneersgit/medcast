@@ -1,0 +1,164 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { getTranslator } from "@/lib/messages";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { Plane, Phone, Clock, MapPin, ChevronRight, Heart, Stethoscope } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/emergency`, 308);
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+const path = "/emergency";
+const url = localeUrl(locale, path);
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Emergency / Air Ambulance", url },
+]);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=3600, stale-while-revalidate=86400",
+);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta
+      title="24/7 Air Ambulance & Emergency Desk — Medical Evacuation"
+      description="One call moves a patient: air ambulance, ground transfer, bedside-to-bedside handover, receiving specialist standing by. Tier-1 hospital tie-ups across 9 destinations."
+      path={path}
+      locale={locale}
+    />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <section class="bg-red-50/40 dark:bg-red-950/10 border-b border-red-200/40 dark:border-red-900/30">
+      <div class="mx-auto max-w-7xl px-6 py-10">
+        <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-red-600 dark:text-red-400">
+          24 / 7 emergency desk
+        </p>
+        <h1 class="mt-3 font-display text-3xl md:text-5xl leading-[1.05]">
+          When minutes matter, one call moves a patient.
+        </h1>
+        <p class="lede mt-5 max-w-3xl">
+          Air ambulance dispatch, ground transfer, ICU admission, specialist on standby at destination — coordinated from a single desk, any hour. No hold music, no transfers between operators.
+        </p>
+        <div class="mt-8 flex flex-wrap gap-3">
+          <a
+            href="tel:+918000000000"
+            class="inline-flex items-center gap-2 rounded-lg bg-red-600 text-white font-semibold px-6 py-3.5 hover:bg-red-700 transition"
+          >
+            <Phone className="h-4 w-4" />
+            Call emergency desk
+          </a>
+          <a
+            href="https://wa.me/"
+            class="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-6 py-3.5 font-semibold text-ink hover:border-border-strong transition"
+          >
+            WhatsApp (fastest)
+            <ChevronRight className="h-4 w-4 mirror-x" />
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="border-t border-border py-12">
+      <div class="mx-auto max-w-7xl px-6">
+        <h2 class="font-display text-2xl md:text-3xl mb-8">What we coordinate</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div class="rounded-xl border border-border bg-surface p-6">
+            <Plane className="h-6 w-6 text-accent" />
+            <h3 class="mt-4 font-display text-lg">Air ambulance</h3>
+            <p class="mt-2 text-sm text-ink-muted">
+              Fixed-wing medical evacuation with ICU-grade equipment, flight doctor, and critical-care nurse.
+              Wheels up typically within 4-8 hours of clearance.
+            </p>
+          </div>
+          <div class="rounded-xl border border-border bg-surface p-6">
+            <Heart className="h-6 w-6 text-accent" />
+            <h3 class="mt-4 font-display text-lg">Bedside-to-bedside transfer</h3>
+            <p class="mt-2 text-sm text-ink-muted">
+              Ground ambulance + airport transfer + hospital admission — handled end-to-end so the family never has to coordinate multiple vendors.
+            </p>
+          </div>
+          <div class="rounded-xl border border-border bg-surface p-6">
+            <Stethoscope className="h-6 w-6 text-accent" />
+            <h3 class="mt-4 font-display text-lg">Receiving specialist</h3>
+            <p class="mt-2 text-sm text-ink-muted">
+              Specialist on standby at destination, pre-briefed on the case with imaging and reports, ready to assume care on arrival.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="border-t border-border bg-surface-muted py-12">
+      <div class="mx-auto max-w-7xl px-6">
+        <h2 class="font-display text-2xl md:text-3xl mb-2">Operating across 9 destinations</h2>
+        <p class="text-sm text-ink-muted mb-8">Tier-1 hospital tie-ups for emergency admission.</p>
+        <ul class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+          {["india", "thailand", "turkey", "germany", "south-korea", "malaysia", "singapore", "united-arab-emirates", "saudi-arabia"].map((c) => (
+            <li>
+              <a
+                href={localizedPath(locale, `/country/${c}`)}
+                class="group flex items-center justify-between rounded-lg border border-border bg-surface p-3 transition hover:border-border-strong"
+              >
+                <span class="font-medium text-sm capitalize">{c.replace(/-/g, " ")}</span>
+                <ChevronRight className="h-4 w-4 text-ink-subtle mirror-x" />
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+
+    <section class="border-t border-border py-12">
+      <div class="mx-auto max-w-4xl px-6">
+        <h2 class="font-display text-2xl md:text-3xl mb-8">How the desk works</h2>
+        <ol class="space-y-6">
+          <li class="flex gap-5">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-600 text-white font-semibold">1</span>
+            <div>
+              <p class="font-medium text-lg">First contact ≤ 3 minutes</p>
+              <p class="mt-1 text-sm text-ink-muted">You reach a case manager — not an answering service. We collect patient condition, current location, and preferred destination.</p>
+            </div>
+          </li>
+          <li class="flex gap-5">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-600 text-white font-semibold">2</span>
+            <div>
+              <p class="font-medium text-lg">Destination hospital confirmed ≤ 30 minutes</p>
+              <p class="mt-1 text-sm text-ink-muted">Tier-1 hospital admission + receiving specialist confirmed. Estimated cost window shared upfront.</p>
+            </div>
+          </li>
+          <li class="flex gap-5">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-600 text-white font-semibold">3</span>
+            <div>
+              <p class="font-medium text-lg">Air ambulance wheels up ≤ 4 hours</p>
+              <p class="mt-1 text-sm text-ink-muted">Fixed-wing medical flight dispatched. Family receives live coordinates and ETA updates throughout.</p>
+            </div>
+          </li>
+          <li class="flex gap-5">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-600 text-white font-semibold">4</span>
+            <div>
+              <p class="font-medium text-lg">Bedside-to-bedside transition</p>
+              <p class="mt-1 text-sm text-ink-muted">Patient moved from home ICU → flight → destination ICU without ever being off monitoring.</p>
+            </div>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

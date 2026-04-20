@@ -1,0 +1,301 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import Price from "@/components/Price.astro";
+import PriceRange from "@/components/PriceRange.astro";
+import { getCountryBySlug } from "@/lib/queries";
+import {
+  getContent,
+  getContentBatch,
+  applyTranslated,
+} from "@/lib/translate";
+import { getTranslator } from "@/lib/messages";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { hospitalCover } from "@/lib/images";
+import LastUpdated from "@/components/LastUpdated.astro";
+import { ChevronRight, MapPin, Building2, Users, Globe } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const slug = Astro.params.slug;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/country/${slug}`, 308);
+if (!slug) return new Response("Not found", { status: 404 });
+
+const locale = rawLocale as Locale;
+const data = await getCountryBySlug(slug);
+if (!data) return new Response(`Not found: ${slug}`, { status: 404 });
+
+const tc = getTranslator(locale, "common");
+
+const { country, hospitalCount, doctorCount, cityCount, topHospitals, topTreatments, cityList } = data;
+
+const hospitalIds = topHospitals.map((h) => h.id);
+const hospitalMap = await getContentBatch("hospital", hospitalIds, locale);
+const hospitalsXl = topHospitals.map((h) => applyTranslated(h, hospitalMap[h.id] ?? {}, ["name", "description"]));
+
+const treatmentIds = topTreatments.map((t) => t.id);
+const treatmentMap = await getContentBatch("treatment", treatmentIds, locale);
+const treatmentsXl = topTreatments.map((t) => applyTranslated(t, treatmentMap[t.id] ?? {}, ["name"]));
+
+const seoTitle = `Medical Travel to ${country.name}: Hospitals, Costs, Visa`;
+const lowPrice = topTreatments[0]?.lo ? `from $${Math.round(Number(topTreatments[0].lo)).toLocaleString()}` : "";
+const seoDescription = `${country.name} has ${hospitalCount.toLocaleString()} hospitals listed on MedCasts, ${doctorCount.toLocaleString()} specialists, treatment packages ${lowPrice}. Compare and get a free quote.`.slice(0, 160);
+
+// Country-specific copy — concrete local detail beats AI-generated blandness.
+const COUNTRY_INTRO: Record<string, { intro: string; strength: string; watchOut: string }> = {
+  india: {
+    intro: `India handles high volumes of overseas cardiac, orthopedic, and oncology cases, with a heavy concentration around Delhi-NCR, Chennai, Mumbai and Bangalore. Prices are among the lowest for tertiary-care work worldwide.`,
+    strength: `Strong in: CABG, joint replacement, liver transplants, bone-marrow work, IVF, hair restoration.`,
+    watchOut: `Plan around monsoon (Jun-Sep in most cities) if mobility is a factor post-op, and confirm FRRO registration before any stay beyond 180 days.`,
+  },
+  thailand: {
+    intro: `Thailand has been absorbing medical tourists for three decades — the market is mature, English-speaking at the major private hospitals, and the JCI network is dense.`,
+    strength: `Strong in: cosmetic surgery, gender-affirming care, IVF with donor options, dental, orthopedics.`,
+    watchOut: `Monsoon season (May-Oct) + heat make long recovery windows uncomfortable. Cosmetic-only visas max out at 30 days; longer surgical programmes need the Non-Immigrant MT visa.`,
+  },
+  turkey: {
+    intro: `Turkey's grown fast as a destination for European and Gulf patients — mostly via Istanbul and Antalya. Private hospital pricing sits between Thailand and Germany.`,
+    strength: `Strong in: hair transplants, bariatric surgery, dental implants, eye surgery, oncology.`,
+    watchOut: `Aesthetic clinics vary wildly in quality. Only book facilities licensed by the Ministry of Health (USHAŞ-affiliated) and verify the physician's board certification, not just the "clinic" name.`,
+  },
+  germany: {
+    intro: `Germany is where complex oncology and neurosurgery cases tend to go when budget isn't the constraint. University hospitals lead; private clinics are comparatively rare.`,
+    strength: `Strong in: oncology, neurosurgery, transplants, paediatric tertiary care, rare-disease workups.`,
+    watchOut: `German hospitals typically require upfront payment (Vorkasse) before visa issuance. Document turnaround from the embassy is 10-15 business days and can stretch around holiday windows.`,
+  },
+  "south-korea": {
+    intro: `South Korea is a premium-tier Asian option, concentrated in Seoul. Strongest reputation for cosmetic and dermatological work, though oncology centres at Asan and Samsung also draw international referrals.`,
+    strength: `Strong in: cosmetic/plastic surgery, dental, cancer surgery, stem-cell therapy research.`,
+    watchOut: `Cosmetic clinics in Gangnam operate at scale — many outsource anaesthesia and post-op. Ask specifically who's holding the scalpel and where recovery nursing happens.`,
+  },
+  malaysia: {
+    intro: `Malaysia is a cost-competitive Asian destination coordinated through the Malaysia Healthcare Travel Council. Kuala Lumpur and Penang take most international arrivals.`,
+    strength: `Strong in: cardiology, fertility, oncology, health screening.`,
+    watchOut: `The MHTC-approved hospital list is narrower than the total hospital count — stick to it for predictable pricing and paperwork.`,
+  },
+  singapore: {
+    intro: `Singapore handles the most complex referrals out of South-East Asia, at a corresponding price point. Best fit for second opinions, rare-disease diagnostics, and transplants.`,
+    strength: `Strong in: oncology, transplants, paediatric tertiary care, clinical genetics.`,
+    watchOut: `Pricing runs 2-3x regional peers. If you're budget-sensitive, use Singapore for the diagnostic workup and travel elsewhere for the procedure itself.`,
+  },
+  "united-arab-emirates": {
+    intro: `The UAE — mostly Dubai and Abu Dhabi — has invested hard in tertiary healthcare over the last decade. Cleveland Clinic Abu Dhabi and Mediclinic are the usual referral points for regional patients.`,
+    strength: `Strong in: cardiac surgery, fertility (with donor programmes), cosmetic, oncology.`,
+    watchOut: `Medical-licensing frameworks differ between emirates (DHA, MOHAP, DOH) — confirm the physician is licensed in the specific emirate where your procedure takes place.`,
+  },
+  "saudi-arabia": {
+    intro: `Saudi Arabia is the newest entrant in Gulf medical travel. Major volume concentrates in Riyadh and Jeddah; Vision 2030 has accelerated hospital investment.`,
+    strength: `Strong in: cardiac surgery, urology, gynaecology, transplants within the GCC network.`,
+    watchOut: `English-language paperwork isn't always standard — assume you'll need an Arabic translator for non-clinical admin.`,
+  },
+};
+
+const ctx = COUNTRY_INTRO[country.slug];
+
+const path = `/country/${slug}`;
+const url = localeUrl(locale, path);
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Destinations", url: localeUrl(locale, "/countries") },
+  { name: country.name, url },
+]);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=3600, stale-while-revalidate=86400",
+);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <div class="border-b border-border bg-bg">
+      <div class="mx-auto max-w-7xl px-6 py-3.5 text-sm text-ink-muted">
+        <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <a href={localizedPath(locale, "/countries")} class="hover:text-accent">Destinations</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <span class="text-ink">{country.name}</span>
+      </div>
+    </div>
+
+    {/* Hero */}
+    <section class="mx-auto max-w-7xl px-6 pt-10 md:pt-14 pb-10">
+      <h1 class="font-display text-3xl md:text-5xl leading-[1.05]">
+        Medical travel to {country.name}
+      </h1>
+      <p class="lede mt-5 max-w-3xl">
+        {ctx?.intro ??
+          `${country.name} is a destination for international medical care. ${hospitalCount.toLocaleString()} hospitals across ${cityCount} cities handle overseas patients.`}
+      </p>
+      {ctx && (
+        <div class="mt-8 grid md:grid-cols-2 gap-4 max-w-4xl">
+          <div class="rounded-xl border border-border bg-surface p-5">
+            <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">What it's known for</p>
+            <p class="mt-2 text-sm text-ink-muted">{ctx.strength}</p>
+          </div>
+          <div class="rounded-xl border border-amber-300/60 bg-amber-50/60 dark:border-amber-700/40 dark:bg-amber-950/20 p-5">
+            <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-400">Before you book</p>
+            <p class="mt-2 text-sm text-ink-muted">{ctx.watchOut}</p>
+          </div>
+        </div>
+      )}
+      <LastUpdated
+        updated={new Date()}
+        note={`Data sampled from ${hospitalCount.toLocaleString()} active hospital records.`}
+      />
+
+      <div class="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="rounded-xl border border-border bg-surface p-5">
+          <Building2 className="h-5 w-5 text-accent" />
+          <p class="mt-3 font-display text-2xl">{hospitalCount.toLocaleString()}</p>
+          <p class="text-xs text-ink-subtle uppercase tracking-wider">Hospitals</p>
+        </div>
+        <div class="rounded-xl border border-border bg-surface p-5">
+          <Users className="h-5 w-5 text-accent" />
+          <p class="mt-3 font-display text-2xl">{doctorCount.toLocaleString()}</p>
+          <p class="text-xs text-ink-subtle uppercase tracking-wider">Specialists</p>
+        </div>
+        <div class="rounded-xl border border-border bg-surface p-5">
+          <MapPin className="h-5 w-5 text-accent" />
+          <p class="mt-3 font-display text-2xl">{cityCount.toLocaleString()}</p>
+          <p class="text-xs text-ink-subtle uppercase tracking-wider">Cities</p>
+        </div>
+        <div class="rounded-xl border border-border bg-surface p-5">
+          <Globe className="h-5 w-5 text-accent" />
+          <p class="mt-3 font-display text-2xl">{topTreatments.length}+</p>
+          <p class="text-xs text-ink-subtle uppercase tracking-wider">Treatments</p>
+        </div>
+      </div>
+    </section>
+
+    {/* Top hospitals */}
+    {hospitalsXl.length > 0 && (
+      <section class="border-t border-border bg-surface-muted py-12">
+        <div class="mx-auto max-w-7xl px-6">
+          <h2 class="font-display text-2xl md:text-3xl mb-2">Top hospitals in {country.name}</h2>
+          <p class="text-sm text-ink-muted mb-8">Curated by patient rating and review volume.</p>
+          <ul class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {hospitalsXl.map((h) => (
+              <li>
+                <a
+                  href={localizedPath(locale, `/hospital/${h.slug}`)}
+                  class="group flex flex-col h-full rounded-xl border border-border bg-surface overflow-hidden transition hover:border-border-strong hover:shadow-sm"
+                >
+                  <img
+                    src={hospitalCover({ coverImageUrl: h.coverImageUrl, countrySlug: country.slug })}
+                    alt={h.name}
+                    class="h-40 w-full object-cover"
+                    loading="lazy"
+                  />
+                  <div class="p-5 flex-1">
+                    <p class="font-display text-lg text-ink group-hover:text-accent transition-colors">
+                      {h.name}
+                    </p>
+                    <p class="mt-1 text-xs text-ink-subtle flex items-center gap-1.5">
+                      <MapPin className="h-3 w-3" />
+                      {h.cityName}
+                    </p>
+                    {h.description && (
+                      <p class="mt-3 text-sm text-ink-muted line-clamp-3">{h.description}</p>
+                    )}
+                    {h.rating && Number(h.rating) > 0 && (
+                      <p class="mt-3 text-xs text-ink-muted">
+                        <span class="text-gold-500">★</span> {Number(h.rating).toFixed(1)}
+                        {h.reviewCount ? ` · ${h.reviewCount} reviews` : ""}
+                      </p>
+                    )}
+                  </div>
+                </a>
+              </li>
+            ))}
+          </ul>
+          <div class="mt-8">
+            <a
+              href={localizedPath(locale, `/hospitals?country=${country.slug}`)}
+              class="inline-flex items-center gap-2 text-sm font-semibold text-accent hover:text-accent-hover"
+            >
+              See all {hospitalCount.toLocaleString()} hospitals in {country.name}
+              <ChevronRight className="h-4 w-4 mirror-x" />
+            </a>
+          </div>
+        </div>
+      </section>
+    )}
+
+    {/* Popular treatments with pricing */}
+    {treatmentsXl.length > 0 && (
+      <section class="border-t border-border py-12">
+        <div class="mx-auto max-w-7xl px-6">
+          <h2 class="font-display text-2xl md:text-3xl mb-2">Popular treatments in {country.name}</h2>
+          <p class="text-sm text-ink-muted mb-8">Price ranges across active hospital partners.</p>
+          <ul class="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {treatmentsXl.map((t) => (
+              <li>
+                <a
+                  href={localizedPath(locale, `/treatment/${t.slug}/${country.slug}`)}
+                  class="group flex items-center justify-between gap-4 rounded-lg border border-border bg-surface p-4 transition hover:border-border-strong"
+                >
+                  <div class="min-w-0">
+                    <p class="font-medium text-ink group-hover:text-accent transition-colors truncate">
+                      {t.name}
+                    </p>
+                    {t.specialty && (
+                      <p class="text-xs text-ink-subtle mt-0.5">{t.specialty}</p>
+                    )}
+                    <p class="text-xs text-ink-subtle mt-0.5">{t.hospital_count} hospitals</p>
+                  </div>
+                  {t.lo && (
+                    <p class="font-display text-base text-ink shrink-0">
+                      <PriceRange min={t.lo} max={t.hi} />
+                    </p>
+                  )}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
+
+    {/* Cities */}
+    {cityList.length > 0 && (
+      <section class="border-t border-border bg-surface-muted py-12">
+        <div class="mx-auto max-w-7xl px-6">
+          <h2 class="font-display text-2xl md:text-3xl mb-8">Cities in {country.name}</h2>
+          <ul class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+            {cityList.map((c) => (
+              <li>
+                <a
+                  href={localizedPath(locale, `/city/${c.slug}`)}
+                  class="group flex items-center justify-between rounded-lg border border-border bg-surface p-3 transition hover:border-border-strong"
+                >
+                  <div class="min-w-0">
+                    <p class="font-medium text-ink group-hover:text-accent transition-colors truncate">
+                      {c.name}
+                    </p>
+                    <p class="text-xs text-ink-subtle mt-0.5">{c.hospital_count} hospitals</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-ink-subtle shrink-0 mirror-x" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

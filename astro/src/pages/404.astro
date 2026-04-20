@@ -1,0 +1,72 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { type Locale } from "@/lib/i18n";
+
+// Try to extract locale from path; default to en.
+const match = Astro.url.pathname.match(/^\/([a-z]{2})(\/|$)/);
+const locale = (match && ["en", "ar", "ru", "fr", "pt", "bn", "tr", "hi"].includes(match[1])
+  ? match[1]
+  : "en") as Locale;
+
+Astro.response.status = 404;
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta
+      title="Page not found"
+      description="That page doesn't exist. Find what you're looking for via hospitals, treatments, or the search below."
+      path="/404"
+      locale={locale}
+      noindex={true}
+    />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <section class="mx-auto max-w-3xl px-6 py-24 text-center">
+      <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">404</p>
+      <h1 class="mt-4 font-display text-4xl md:text-6xl leading-[1.05]">
+        This page took a wrong turn.
+      </h1>
+      <p class="lede mt-5">
+        The URL you tried doesn't match anything we publish. A few places that usually have what people are looking for:
+      </p>
+      <ul class="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg mx-auto">
+        <li>
+          <a href={`/${locale}/hospitals`} class="block rounded-lg border border-border bg-surface p-4 hover:border-border-strong transition">
+            <p class="font-medium">Browse hospitals</p>
+            <p class="text-xs text-ink-subtle mt-1">9,000+ accredited facilities</p>
+          </a>
+        </li>
+        <li>
+          <a href={`/${locale}/treatments`} class="block rounded-lg border border-border bg-surface p-4 hover:border-border-strong transition">
+            <p class="font-medium">Treatments + pricing</p>
+            <p class="text-xs text-ink-subtle mt-1">80+ procedures, country-ranked</p>
+          </a>
+        </li>
+        <li>
+          <a href={`/${locale}/second-opinion`} class="block rounded-lg border border-border bg-surface p-4 hover:border-border-strong transition">
+            <p class="font-medium">Free second opinion</p>
+            <p class="text-xs text-ink-subtle mt-1">48 hours, written, signed</p>
+          </a>
+        </li>
+        <li>
+          <a href={`/${locale}/contact`} class="block rounded-lg border border-border bg-surface p-4 hover:border-border-strong transition">
+            <p class="font-medium">Talk to a case manager</p>
+            <p class="text-xs text-ink-subtle mt-1">WhatsApp, email, phone</p>
+          </a>
+        </li>
+      </ul>
+      <p class="mt-12 text-sm text-ink-subtle">
+        Looking for a specific hospital URL that used to work? Email <a href="mailto:corrections@medcasts.com" class="text-accent hover:underline">corrections@medcasts.com</a> — we track broken links and restore redirects weekly.
+      </p>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

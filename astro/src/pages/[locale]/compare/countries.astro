@@ -1,0 +1,99 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { compareCountries } from "@/lib/queries";
+import { getTranslator } from "@/lib/messages";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { ChevronRight } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/compare/countries`, 308);
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+const rows = await compareCountries();
+
+const path = "/compare/countries";
+const url = localeUrl(locale, path);
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Compare Countries", url },
+]);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=3600, stale-while-revalidate=86400",
+);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta
+      title="Compare Medical Travel Destinations"
+      description="Compare medical travel destinations: hospital count, specialist volume, treatment variety, and city coverage across 9 international destinations."
+      path={path}
+      locale={locale}
+    />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <section class="mx-auto max-w-7xl px-6 pt-12 md:pt-16 pb-8">
+      <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">Compare</p>
+      <h1 class="mt-3 font-display text-3xl md:text-5xl leading-[1.05]">
+        Destination comparison
+      </h1>
+      <p class="lede mt-5 max-w-3xl">
+        Compare {rows.length} medical travel destinations — hospital count, specialist volume, treatment variety, and city coverage.
+      </p>
+    </section>
+
+    <section class="mx-auto max-w-7xl px-6 py-10">
+      <ul class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {rows.map((r) => (
+          <li>
+            <a
+              href={localizedPath(locale, `/country/${r.slug}`)}
+              class="group flex flex-col h-full rounded-xl border border-border bg-surface p-6 transition hover:border-border-strong hover:shadow-sm"
+            >
+              <div class="flex items-start justify-between">
+                <h2 class="font-display text-2xl text-ink group-hover:text-accent transition-colors">
+                  {r.name}
+                </h2>
+                <ChevronRight className="h-5 w-5 text-ink-subtle shrink-0 mt-1 mirror-x" />
+              </div>
+              <dl class="mt-6 grid grid-cols-2 gap-4">
+                <div>
+                  <dt class="text-xs text-ink-subtle uppercase tracking-wider">Hospitals</dt>
+                  <dd class="mt-1 font-display text-xl">{r.hospital_count.toLocaleString()}</dd>
+                </div>
+                <div>
+                  <dt class="text-xs text-ink-subtle uppercase tracking-wider">Specialists</dt>
+                  <dd class="mt-1 font-display text-xl">{r.doctor_count.toLocaleString()}</dd>
+                </div>
+                <div>
+                  <dt class="text-xs text-ink-subtle uppercase tracking-wider">Treatments</dt>
+                  <dd class="mt-1 font-display text-xl">{r.treatment_count.toLocaleString()}</dd>
+                </div>
+                <div>
+                  <dt class="text-xs text-ink-subtle uppercase tracking-wider">Cities</dt>
+                  <dd class="mt-1 font-display text-xl">{r.city_count.toLocaleString()}</dd>
+                </div>
+              </dl>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

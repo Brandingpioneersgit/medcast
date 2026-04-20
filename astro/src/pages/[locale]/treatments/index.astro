@@ -1,0 +1,113 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { listTreatments } from "@/lib/queries";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { Bed, CheckCircle, ChevronRight, Clock } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/treatments", 308);
+const locale = rawLocale as Locale;
+
+const url = new URL(Astro.request.url);
+const pageParam = parseInt(url.searchParams.get("page") ?? "1", 10);
+const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+
+const { rows } = await listTreatments({ page });
+
+const tc = getTranslator(locale, "common");
+const seoTitle = "Medical treatments & procedures";
+const seoDescription = "Transparent pricing for planned treatment — from cardiac bypass to IVF, spinal fusion to knee replacement. Compare packages across accredited hospitals.";
+const path = "/treatments";
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: tc("treatments"), url: localeUrl(locale, path) },
+]);
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-revalidate=3600");
+
+const hasNext = rows.length === 24;
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <section class="mx-auto max-w-7xl px-6 pt-10 pb-6">
+      <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">{tc("treatments")}</p>
+      <h1 class="mt-2 font-display text-3xl md:text-5xl leading-[1.05]">Medical treatments</h1>
+      <p class="lede mt-4">Packages include surgeon fee, anesthesia, implants, pre-op tests, hospital stay and post-op follow-up.</p>
+    </section>
+
+    <section class="mx-auto max-w-7xl px-6 pb-12">
+      <ul class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {rows.map((t) => (
+          <li>
+            <a
+              href={localizedPath(locale, `/treatment/${t.slug}`)}
+              class="group flex h-full flex-col rounded-xl border border-border bg-surface p-5 transition hover:-translate-y-0.5 hover:border-border-strong hover:shadow-sm"
+            >
+              {t.specialtyName && (
+                <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-subtle">{t.specialtyName}</p>
+              )}
+              <h3 class="mt-1 font-display text-lg leading-snug text-ink group-hover:text-accent transition-colors">
+                {t.name}
+              </h3>
+              {t.description && (
+                <p class="mt-2 text-sm text-ink-muted line-clamp-2">{t.description}</p>
+              )}
+              <div class="mt-4 flex flex-wrap gap-2 text-xs text-ink-muted">
+                {t.hospitalStayDays && (
+                  <span class="inline-flex items-center gap-1 rounded-full bg-subtle px-2 py-1">
+                    <Bed className="h-3 w-3" />
+                    {t.hospitalStayDays}d stay
+                  </span>
+                )}
+                {t.recoveryDays && (
+                  <span class="inline-flex items-center gap-1 rounded-full bg-subtle px-2 py-1">
+                    <Clock className="h-3 w-3" />
+                    {t.recoveryDays}d recovery
+                  </span>
+                )}
+                {t.successRatePercent && (
+                  <span class="inline-flex items-center gap-1 rounded-full bg-accent-soft text-accent px-2 py-1">
+                    <CheckCircle className="h-3 w-3" />
+                    {t.successRatePercent}%
+                  </span>
+                )}
+              </div>
+              <span class="mt-4 inline-flex items-center text-sm text-accent group-hover:text-accent-hover">
+                Compare hospitals
+                <ChevronRight className="h-4 w-4 ml-1 mirror-x" />
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+
+      <nav class="flex items-center justify-center gap-2 py-8">
+        {page > 1 && (
+          <a href={page === 2 ? localizedPath(locale, path) : `${localizedPath(locale, path)}?page=${page - 1}`} class="rounded-lg border border-border bg-surface px-3 py-2 text-sm hover:border-border-strong">← Previous</a>
+        )}
+        <span class="rounded-lg bg-accent text-accent-contrast px-3 py-2 text-sm font-semibold">Page {page}</span>
+        {hasNext && (
+          <a href={`${localizedPath(locale, path)}?page=${page + 1}`} class="rounded-lg border border-border bg-surface px-3 py-2 text-sm hover:border-border-strong">Next →</a>
+        )}
+      </nav>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>
