@@ -1,0 +1,468 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import McLogo from "@/components/McLogo.astro";
+import { getTreatmentBySlug, getHospitalsForCompare } from "@/lib/queries";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { localeUrl, SITE_URL } from "@/lib/seo";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/quote-plan", 308);
+const locale = rawLocale as Locale;
+
+const url = new URL(Astro.request.url);
+const treatmentSlug = url.searchParams.get("t") ?? "";
+const countrySlug = url.searchParams.get("c") ?? "";
+const hospitalSlugs = (url.searchParams.get("h") ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean)
+  .slice(0, 5);
+const patientName = (url.searchParams.get("name") ?? "").slice(0, 80);
+const fromCountry = (url.searchParams.get("from") ?? "").slice(0, 60);
+const estMin = Number(url.searchParams.get("min") ?? "") || null;
+const estMax = Number(url.searchParams.get("max") ?? "") || null;
+const timeline = (url.searchParams.get("timeline") ?? "").slice(0, 40);
+const autoPrint = url.searchParams.get("print") === "1";
+
+// Treatment + hospitals in parallel.
+const [treatmentData, hospitalsRaw] = await Promise.all([
+  treatmentSlug
+    ? getTreatmentBySlug(treatmentSlug).catch(() => null)
+    : Promise.resolve(null),
+  hospitalSlugs.length > 0
+    ? getHospitalsForCompare(hospitalSlugs).catch(() => [])
+    : Promise.resolve([]),
+]);
+
+const treatment = treatmentData?.treatment ?? null;
+// Hospitals ordered as user shortlisted them.
+const hospitals = hospitalsRaw;
+
+// Country name — prefer the treatment pricing join, fall back to slug titlecase.
+const countryName = (() => {
+  if (hospitals[0]?.countryName) return hospitals[0].countryName;
+  if (treatmentData?.hospitalPricing) {
+    const row = treatmentData.hospitalPricing.find((hp) => hp.countrySlug === countrySlug);
+    if (row) return row.countryName;
+  }
+  if (!countrySlug) return null;
+  return countrySlug
+    .split("-")
+    .map((s) => s[0]?.toUpperCase() + s.slice(1))
+    .join(" ");
+})();
+
+// Estimate range — prefer explicit query params, else derive from treatment pricing in this country.
+const priceBand = (() => {
+  if (estMin && estMax) return { lo: estMin, hi: estMax };
+  if (!treatmentData || !countrySlug) return null;
+  const rows = treatmentData.hospitalPricing.filter((hp) => hp.countrySlug === countrySlug);
+  if (rows.length === 0) return null;
+  const lo = Math.min(...rows.map((r) => Number(r.costMinUsd ?? 0)).filter(Boolean));
+  const hi = Math.max(...rows.map((r) => Number(r.costMaxUsd ?? r.costMinUsd ?? 0)).filter(Boolean));
+  return lo > 0 && hi > 0 ? { lo, hi } : null;
+})();
+
+function money(v: number): string { return `$${Math.round(v).toLocaleString()}`; }
+function fmtDate(d: Date): string {
+  return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+}
+const now = new Date();
+
+// Specialty-keyed "questions to ask your surgeon" checklist.
+const SPECIALTY_QUESTIONS: Record<string, string[]> = {
+  "cardiac-surgery": [
+    "How many of this procedure have you personally performed in the last 12 months?",
+    "What is your hospital's 30-day mortality rate for this procedure?",
+    "Will I be on cardiopulmonary bypass, and for roughly how long?",
+    "Who runs the ICU post-op, and what is the nurse-to-patient ratio overnight?",
+    "What anti-coagulation regimen will I be on, and for how long?",
+    "What is the re-intervention rate and how is it tracked?",
+  ],
+  oncology: [
+    "Was my case discussed at a multidisciplinary tumor board?",
+    "What is the evidence grade for the specific protocol you're proposing?",
+    "Will I be treated with curative or palliative intent — and what does that mean here?",
+    "Are there clinical trials I qualify for at this centre or nearby?",
+    "How will response be measured, and at what intervals?",
+    "What are the expected short-term and long-term side effects?",
+  ],
+  orthopedics: [
+    "How many of this specific implant / approach have you done personally?",
+    "What implant manufacturer and model will be used, and why?",
+    "What is the expected recovery timeline — bear weight, drive, return to work?",
+    "What's your centre's infection rate and revision rate at 1 year?",
+    "What physical therapy protocol will I follow post-discharge?",
+    "What would trigger a revision surgery down the line?",
+  ],
+  "organ-transplant": [
+    "What is my MELD/status score, and how does that affect timing?",
+    "Do you accept my preferred donor type (living / cadaveric / related)?",
+    "What is the 1-year and 5-year graft survival rate at this centre?",
+    "What immunosuppression protocol will I follow, and for how long?",
+    "What is the expected total stay — pre-op workup, op, acute, rehab?",
+    "What happens if I have a rejection episode after I fly home?",
+  ],
+  "neurology-neurosurgery": [
+    "How many of this procedure have you personally done, and with what outcome profile?",
+    "What imaging will you use intraoperatively?",
+    "What are the specific risks for my lesion location / pathology?",
+    "What is the expected cognitive recovery timeline?",
+    "Will I need post-op radiation, chemo, or AED therapy — for how long?",
+    "What is the follow-up imaging protocol after I fly home?",
+  ],
+};
+const DEFAULT_QUESTIONS = [
+  "How many of this specific procedure have you personally performed in the last year?",
+  "What is the success rate at your centre, and how is it measured?",
+  "What exactly is included in the quoted price, and what isn't?",
+  "Who manages my care overnight and on weekends?",
+  "What does the worst-case complication pathway look like?",
+  "What follow-up do I need once I fly home — and for how long?",
+];
+const questions = (() => {
+  if (!treatment?.specialty) return DEFAULT_QUESTIONS;
+  const specialtySlug = treatment.specialty.slug;
+  return SPECIALTY_QUESTIONS[specialtySlug] ?? DEFAULT_QUESTIONS;
+})();
+
+const LOGISTICS = [
+  "Check medical visa requirements with the country embassy 3–4 weeks before travel.",
+  "Plan for 1–2 attendants and request visa-attendant endorsements at the same time.",
+  "Ask the hospital to itemise any exclusions (imaging, blood bank, implants, extended ICU).",
+  "Confirm post-op medication will be available in your home country (brand names differ).",
+  "Arrange a written discharge summary + medication list + follow-up imaging plan in English.",
+  "Keep 10–15% of the quote as buffer for small overages — most cases settle within range.",
+];
+
+const seoTitle = treatment
+  ? `Your ${treatment.name} treatment plan${countryName ? ` in ${countryName}` : ""}`
+  : "Your treatment plan";
+const seoDescription =
+  "Personalised treatment plan — procedure, destination, hospital shortlist, and questions to ask your surgeon. Print or save as PDF.";
+const path = "/quote-plan";
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    {/* On-screen action bar — hidden in print */}
+    <div class="no-print border-b border-border bg-surface">
+      <div class="mx-auto max-w-4xl px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+        <a href={localizedPath(locale, "/")} class="inline-flex items-center gap-2">
+          <McLogo size={24} color="var(--color-ink)" />
+          <span class="font-display text-lg">medcasts</span>
+          <span class="text-coral">.</span>
+        </a>
+        <div class="flex items-center gap-3">
+          <a
+            href={localizedPath(locale, "/contact")}
+            class="inline-flex items-center rounded-lg border border-border px-3 py-2 text-[12.5px] font-semibold hover:border-border-strong"
+          >
+            ← Back to case
+          </a>
+          <button
+            type="button"
+            id="print-plan"
+            class="inline-flex items-center rounded-lg bg-accent px-4 py-2 text-[12.5px] font-semibold text-accent-contrast hover:bg-accent-hover"
+          >
+            Print / Save as PDF
+          </button>
+        </div>
+      </div>
+      <p class="mx-auto max-w-4xl px-6 pb-3 text-[11.5px] text-ink-subtle">
+        Tip: Press <kbd class="rounded border border-border bg-bg px-1">Ctrl/⌘</kbd> + <kbd class="rounded border border-border bg-bg px-1">P</kbd>, then "Save as PDF" in the destination dropdown.
+      </p>
+    </div>
+
+    <article class="print-sheet mx-auto max-w-4xl px-8 py-10">
+      {/* Header */}
+      <header class="flex items-start justify-between gap-6 border-b-2 border-ink pb-6">
+        <div>
+          <div class="flex items-center gap-2">
+            <McLogo size={26} color="var(--color-ink)" />
+            <span class="font-display text-xl">medcasts<span class="text-coral">.</span></span>
+          </div>
+          <p class="mt-2 mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+            Medical travel plan · prepared {fmtDate(now)}
+          </p>
+        </div>
+        <div class="text-end">
+          <p class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+            Desk
+          </p>
+          <p class="mt-1 text-[13px] text-ink">care@medcasts.com</p>
+          <p class="text-[13px] text-ink">+91 800 621 000 (24/7)</p>
+        </div>
+      </header>
+
+      {/* Patient / case */}
+      {(patientName || fromCountry || timeline) && (
+        <section class="mt-8 grid grid-cols-3 gap-6">
+          {patientName && (
+            <div>
+              <p class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Prepared for</p>
+              <p class="mt-1 font-display text-lg">{patientName}</p>
+            </div>
+          )}
+          {fromCountry && (
+            <div>
+              <p class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Travelling from</p>
+              <p class="mt-1 font-display text-lg">{fromCountry}</p>
+            </div>
+          )}
+          {timeline && (
+            <div>
+              <p class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Timeline</p>
+              <p class="mt-1 font-display text-lg">{timeline}</p>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Procedure + destination stat ribbon */}
+      <section class="mt-10">
+        <h1 class="display display-tight" style="font-size: clamp(1.75rem, 3vw, 2.75rem); letter-spacing: -0.02em; line-height: 1.05;">
+          {treatment ? (
+            <>
+              Your plan for <span class="italic-display">{treatment.name}</span>
+              {countryName ? <> in {countryName}</> : null}
+            </>
+          ) : (
+            "Your treatment plan"
+          )}
+        </h1>
+        {treatment?.description && (
+          <p class="serif mt-4 max-w-[44rem]" style="font-size: 16px; line-height: 1.55; color: var(--color-ink-muted);">
+            {treatment.description.split(/\n\s*\n/)[0]}
+          </p>
+        )}
+
+        <div class="mt-8 grid grid-cols-2 md:grid-cols-4 border-t border-b border-ink">
+          {priceBand && (
+            <div class="p-4 md:p-5 border-inline-end border-ink">
+              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                Estimate
+              </div>
+              <div class="display tnum mt-1.5" style="font-size: 22px;">
+                {money(priceBand.lo)}–{money(priceBand.hi)}
+              </div>
+            </div>
+          )}
+          {treatment?.hospitalStayDays && (
+            <div class="p-4 md:p-5 border-inline-end border-ink">
+              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                Hospital stay
+              </div>
+              <div class="display tnum mt-1.5" style="font-size: 22px;">{treatment.hospitalStayDays}d</div>
+            </div>
+          )}
+          {treatment?.recoveryDays && (
+            <div class="p-4 md:p-5 border-inline-end border-ink">
+              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                Recovery
+              </div>
+              <div class="display tnum mt-1.5" style="font-size: 22px;">{treatment.recoveryDays}d</div>
+            </div>
+          )}
+          {treatment?.successRatePercent && (
+            <div class="p-4 md:p-5">
+              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                Success rate
+              </div>
+              <div class="display tnum mt-1.5" style="font-size: 22px;">{treatment.successRatePercent}%</div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Hospital shortlist */}
+      {hospitals.length > 0 && (
+        <section class="mt-10">
+          <p class="mono uppercase" style="font-size: 10.5px; letter-spacing: 0.14em; color: var(--color-accent);">
+            Your shortlist
+          </p>
+          <h2 class="display mt-1" style="font-size: 24px; letter-spacing: -0.02em;">
+            {hospitals.length} hospital{hospitals.length === 1 ? "" : "s"} we'd start with
+          </h2>
+
+          <ol class="mt-5 space-y-4">
+            {hospitals.map((h, i) => {
+              const lo = h.pricing?.lo ?? null;
+              const hi = h.pricing?.hi ?? null;
+              return (
+                <li class="rounded-xl border border-border p-4 md:p-5 avoid-break">
+                  <div class="flex items-baseline justify-between gap-3">
+                    <div class="min-w-0">
+                      <span class="mono tnum text-[11px] text-ink-subtle">{String(i + 1).padStart(2, "0")}</span>
+                      <span class="ms-2 font-display text-lg">{h.name}</span>
+                      <p class="mt-0.5 text-[12.5px] text-ink-subtle">
+                        {h.cityName}, {h.countryName}
+                        {h.bedCapacity ? ` · ${h.bedCapacity.toLocaleString()} beds` : ""}
+                        {h.establishedYear ? ` · est. ${h.establishedYear}` : ""}
+                      </p>
+                    </div>
+                    {lo && (
+                      <div class="shrink-0 text-end">
+                        <div class="mono uppercase" style="font-size: 9px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Range</div>
+                        <div class="tnum mt-0.5 text-[13.5px] text-ink">
+                          {money(lo)}{hi && hi !== lo ? `–${money(hi)}` : ""}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div class="mt-3 grid grid-cols-2 gap-3 text-[12.5px]">
+                    {h.accreditations.length > 0 && (
+                      <div>
+                        <div class="mono uppercase" style="font-size: 9px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Accreditations</div>
+                        <div class="mt-0.5">{h.accreditations.slice(0, 5).join(", ")}</div>
+                      </div>
+                    )}
+                    {h.specialties.length > 0 && (
+                      <div>
+                        <div class="mono uppercase" style="font-size: 9px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Specialties</div>
+                        <div class="mt-0.5">{h.specialties.slice(0, 6).map((s) => s.name).join(", ")}</div>
+                      </div>
+                    )}
+                  </div>
+                  <p class="mt-3 text-[11.5px] text-ink-subtle">
+                    {SITE_URL}{localizedPath(locale, `/hospital/${h.slug}`)}
+                  </p>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      )}
+
+      {/* Questions to ask — page break before for long plans */}
+      <section class="mt-10 page-break-before">
+        <p class="mono uppercase" style="font-size: 10.5px; letter-spacing: 0.14em; color: var(--color-accent);">
+          Bring these to your consultation
+        </p>
+        <h2 class="display mt-1" style="font-size: 24px; letter-spacing: -0.02em;">
+          Questions to ask the surgeon
+        </h2>
+        <p class="mt-2 text-sm text-ink-muted max-w-[42rem]">
+          Print this page and hand it to the treating physician — or email ahead. Better answers correlate with surgeons who welcome detailed questions.
+        </p>
+        <ol class="mt-5 space-y-2.5">
+          {questions.map((q, i) => (
+            <li class="flex items-start gap-3 avoid-break">
+              <span class="tnum text-[13px] text-ink-subtle shrink-0">{String(i + 1).padStart(2, "0")}.</span>
+              <span class="text-[14px] text-ink">{q}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      {/* Travel logistics */}
+      <section class="mt-10">
+        <p class="mono uppercase" style="font-size: 10.5px; letter-spacing: 0.14em; color: var(--color-accent);">
+          Don't forget
+        </p>
+        <h2 class="display mt-1" style="font-size: 24px; letter-spacing: -0.02em;">
+          Travel + logistics checklist
+        </h2>
+        <ul class="mt-5 space-y-2.5">
+          {LOGISTICS.map((l) => (
+            <li class="flex items-start gap-3 avoid-break">
+              <span class="h-[14px] w-[14px] shrink-0 rounded-sm border-2 border-ink mt-0.5" aria-hidden="true" />
+              <span class="text-[14px] text-ink">{l}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* Case manager contact */}
+      <section class="mt-10 rounded-xl border-2 border-ink p-5 avoid-break">
+        <p class="mono uppercase" style="font-size: 10.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+          Next step — talk to your case manager
+        </p>
+        <p class="mt-2 font-display text-lg leading-snug">
+          Reply to this plan on WhatsApp and we'll confirm surgeon availability, finalise the quote, and walk you through the visa + travel stack.
+        </p>
+        <div class="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4 text-[13px]">
+          <div>
+            <div class="mono uppercase" style="font-size: 9px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">WhatsApp</div>
+            <div class="mt-0.5 tnum">+91 9643 452 714</div>
+          </div>
+          <div>
+            <div class="mono uppercase" style="font-size: 9px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Email</div>
+            <div class="mt-0.5">care@medcasts.com</div>
+          </div>
+          <div>
+            <div class="mono uppercase" style="font-size: 9px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Emergency 24/7</div>
+            <div class="mt-0.5 tnum">+91 800 621 000</div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer class="mt-10 border-t border-border pt-5 text-[11px] text-ink-subtle leading-relaxed">
+        <p>
+          This plan is a starting point prepared on {fmtDate(now)} from {SITE_URL} — it is not medical advice. The
+          treating physician is the source of truth for surgery risk, prognosis, and medication. Price ranges are
+          hospital-reported and case-specific; final quotes depend on your reports, comorbidities, implant brand,
+          room tier, and length of stay. See {SITE_URL}/editorial-policy for sourcing and review details.
+        </p>
+      </footer>
+    </article>
+
+    <style is:global>
+      .avoid-break { break-inside: avoid; }
+      .page-break-before { break-before: page; }
+      @media print {
+        @page {
+          size: A4;
+          margin: 18mm;
+        }
+        html, body {
+          background: #ffffff !important;
+          color: #000000 !important;
+        }
+        .no-print {
+          display: none !important;
+        }
+        .print-sheet {
+          max-width: none !important;
+          padding: 0 !important;
+          margin: 0 !important;
+        }
+        /* Flatten backgrounds so nothing eats toner */
+        [class*="bg-surface"], [class*="bg-bg"], [class*="bg-accent-soft"] {
+          background: #ffffff !important;
+        }
+        a { color: #000 !important; text-decoration: none !important; }
+        .border-ink, .border-border, .border-border-strong {
+          border-color: #000 !important;
+        }
+      }
+    </style>
+
+    {autoPrint && (
+      <script is:inline>
+        window.addEventListener("load", function () {
+          setTimeout(function () {
+            try { window.print(); } catch (e) {}
+          }, 400);
+        });
+      </script>
+    )}
+
+    <script is:inline>
+      (function () {
+        var btn = document.getElementById("print-plan");
+        if (btn) btn.addEventListener("click", function () { window.print(); });
+      })();
+    </script>
+  </main>
+</BaseLayout>

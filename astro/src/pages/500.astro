@@ -4,6 +4,7 @@ import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import { type Locale } from "@/lib/i18n";
+import { ChevronRight } from "lucide-react";
 
 const match = Astro.url.pathname.match(/^\/([a-z]{2})(\/|$)/);
 const locale = (match && ["en", "ar", "ru", "fr", "pt", "bn", "tr", "hi"].includes(match[1])
@@ -27,27 +28,41 @@ Astro.response.status = 500;
   <main class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
-    <section class="mx-auto max-w-3xl px-6 py-24 text-center">
-      <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">500</p>
-      <h1 class="mt-4 font-display text-4xl md:text-6xl leading-[1.05]">
-        Something went sideways.
-      </h1>
-      <p class="lede mt-5">
-        The page failed to load on our end. It's not you. Our team gets pinged automatically — usually fixed within an hour.
-      </p>
-      <div class="mt-10 flex flex-wrap justify-center gap-3">
-        <a
-          href={`/${locale}`}
-          class="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-5 py-3 font-semibold text-ink hover:border-border-strong transition"
+    <section style="padding: 96px 0 72px;">
+      <div class="mx-auto w-full max-w-[60rem] px-5 md:px-8 text-center">
+        <div class="display tnum mx-auto" style="font-size: clamp(6rem, 14vw, 10rem); line-height: 0.9; font-weight: 300; color: var(--color-coral); letter-spacing: -0.04em;">
+          500
+        </div>
+        <p class="mono uppercase mt-4" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+          Server error · Desk notified
+        </p>
+        <h1
+          class="display display-tight mt-3"
+          style="font-size: clamp(2rem, 4.5vw, 3.5rem); line-height: 1.02; letter-spacing: -0.03em; font-weight: 400;"
         >
-          Back to home
-        </a>
-        <a
-          href="mailto:care@medcasts.com?subject=500%20error"
-          class="inline-flex items-center gap-2 rounded-lg bg-accent text-white px-5 py-3 font-semibold hover:bg-accent-hover transition"
-        >
-          Email the desk
-        </a>
+          Something went <span class="italic-display">sideways.</span>
+        </h1>
+        <p class="serif mt-5 max-w-[36rem] mx-auto" style="font-size: 17px; line-height: 1.5; color: var(--color-ink-muted);">
+          The page failed to load on our end. It's not you. Our team gets pinged automatically — usually fixed within an hour.
+        </p>
+
+        <div class="mt-10 flex flex-wrap justify-center gap-3">
+          <a
+            href={`/${locale}`}
+            class="inline-flex items-center gap-2 font-semibold"
+            style="background: var(--color-ink); color: var(--color-bg); padding: 13px 22px; border-radius: 9999px;"
+          >
+            Back to home
+            <ChevronRight className="h-4 w-4 mirror-x" />
+          </a>
+          <a
+            href="mailto:care@medcasts.com?subject=500%20error"
+            class="inline-flex items-center gap-2 font-semibold"
+            style="border: 1px solid var(--color-border); color: var(--color-ink); padding: 12px 22px; border-radius: 9999px;"
+          >
+            Email the desk
+          </a>
+        </div>
       </div>
     </section>
 

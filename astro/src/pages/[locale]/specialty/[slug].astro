@@ -3,15 +3,21 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
-import { getSpecialtyBySlug } from "@/lib/queries";
+import LastUpdated from "@/components/LastUpdated.astro";
+import PhotoBlock from "@/components/PhotoBlock.astro";
+import Price from "@/components/Price.astro";
+import { getSpecialtyPageData, listFaqsFor, getReviewerFor } from "@/lib/queries";
+import ReviewedBy from "@/components/ReviewedBy.astro";
+import { hospitalCover, specialtyBanner } from "@/lib/images";
 import {
   getContent,
   getContentBatch,
   applyTranslated,
+  isUntranslated,
 } from "@/lib/translate";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
-import { breadcrumbJsonLd, localeUrl, SITE_URL } from "@/lib/seo";
+import { breadcrumbJsonLd, localeUrl, faqJsonLd, withProvenance, reviewerFromDbRow } from "@/lib/seo";
 import { ChevronRight } from "lucide-react";
 
 export const prerender = false;
@@ -22,8 +28,10 @@ if (!isLocale(rawLocale)) return Astro.redirect(`/en/specialty/${slug}`, 308);
 if (!slug) return new Response("Not found", { status: 404 });
 
 const locale = rawLocale as Locale;
-const specialtyRaw = await getSpecialtyBySlug(slug);
-if (!specialtyRaw) return new Response(`Not found: ${slug}`, { status: 404 });
+const data = await getSpecialtyPageData(slug);
+if (!data) return new Response(`Not found: ${slug}`, { status: 404 });
+
+const { specialty: specialtyRaw, agg, topHospitals, countryBreakdown, topDoctors } = data;
 
 const tc = getTranslator(locale, "common");
 
@@ -36,10 +44,43 @@ const specialtyTreatments = (specialtyRaw.treatments ?? []).map((t) =>
   applyTranslated(t, treatmentMap[t.id] ?? {}, ["name"]),
 );
 
+const faqRows = await listFaqsFor("specialty", specialtyRaw.id);
+const faqSchema = faqRows.length > 0 ? faqJsonLd(faqRows) : null;
+const reviewer = await getReviewerFor("specialty", specialtyRaw.id);
+
+const descriptionParas = (specialty.description ?? "")
+  .split(/\n\s*\n/)
+  .map((p) => p.trim())
+  .filter(Boolean);
+const descriptionLede = descriptionParas[0] ?? null;
+const descriptionRest = descriptionParas.slice(1);
+
+const FLAG_MAP: Record<string, string> = {
+  india: "🇮🇳", turkey: "🇹🇷", thailand: "🇹🇭", uae: "🇦🇪",
+  germany: "🇩🇪", singapore: "🇸🇬", "south-korea": "🇰🇷",
+  malaysia: "🇲🇾", "saudi-arabia": "🇸🇦",
+};
+function countryFlag(s: string): string { return FLAG_MAP[s] ?? "🌐"; }
+
+function firstWord(s: string) { const i = s.indexOf(" "); return i === -1 ? s : s.slice(0, i); }
+function restOfName(s: string) { const i = s.indexOf(" "); return i === -1 ? "" : s.slice(i + 1); }
+function monogram(name: string) {
+  return name.replace(/^Dr\.?\s*/i, "").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? "").join("");
+}
+
+const stats = [
+  { l: "Hospitals", v: agg.hospitals.toLocaleString() },
+  { l: "Treatments", v: specialtyTreatments.length.toString() },
+  { l: "Destinations", v: agg.countries.toString() },
+  agg.from_usd
+    ? { l: "From", v: `$${(agg.from_usd / 1000).toFixed(1)}k` }
+    : null,
+].filter(Boolean) as Array<{ l: string; v: string }>;
+
 const seoTitle = specialty.name;
 const seoDescription =
-  specialty.description?.slice(0, 160) ??
-  `${specialty.name} specialty care — ${specialtyTreatments.length} treatments across accredited hospitals worldwide.`;
+  descriptionLede?.slice(0, 160) ??
+  `${specialty.name} — ${agg.hospitals.toLocaleString()} accredited hospitals across ${agg.countries} destinations. Compare ${specialtyTreatments.length} treatments.`;
 
 const path = `/specialty/${slug}`;
 const url = localeUrl(locale, path);
@@ -50,6 +91,23 @@ const crumbs = breadcrumbJsonLd([
   { name: specialty.name, url },
 ]);
 
+const collectionLd = withProvenance(
+  {
+    "@context": "https://schema.org",
+    "@type": "MedicalSpecialty",
+    name: specialty.name,
+    description: descriptionLede ?? seoDescription,
+    url,
+  },
+  {
+    dateModified: reviewer?.reviewedAt ?? specialtyRaw.updatedAt,
+    dateCreated: specialtyRaw.createdAt,
+    reviewer: reviewerFromDbRow(reviewer),
+  },
+);
+
+const untranslated = isUntranslated(locale, specialtyMap);
+
 Astro.response.headers.set(
   "Cache-Control",
   "public, s-maxage=3600, stale-while-revalidate=86400",
@@ -58,49 +116,174 @@ Astro.response.headers.set(
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
+    <script type="application/ld+json" set:html={JSON.stringify(collectionLd)} />
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    {faqSchema && (
+      <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+    )}
   </Fragment>
 
   <main class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
-    <div class="border-b border-border bg-bg">
-      <div class="mx-auto max-w-7xl px-6 py-3.5 text-sm text-ink-muted">
-        <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
-        <span class="mx-2 text-ink-subtle">/</span>
-        <a href={localizedPath(locale, "/specialties")} class="hover:text-accent">{tc("specialties")}</a>
-        <span class="mx-2 text-ink-subtle">/</span>
-        <span class="text-ink">{specialty.name}</span>
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <a href={localizedPath(locale, "/specialties")} class="hover:text-ink">{tc("specialties")}</a>
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">{specialty.name}</span>
+        </nav>
       </div>
     </div>
 
-    <section class="mx-auto max-w-7xl px-6 pt-10 md:pt-14 pb-10">
-      <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-subtle">
-        {tc("specialties")}
-      </p>
-      <h1 class="mt-2 font-display text-3xl md:text-5xl leading-[1.05]">{specialty.name}</h1>
-      {specialty.description && <p class="lede mt-5 max-w-3xl">{specialty.description}</p>}
+    <section class="pt-12 md:pt-16">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
+        <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
+          Specialty · {agg.hospitals.toLocaleString()} accredited hospitals
+        </p>
+        <div class="grid gap-10 lg:grid-cols-[1.5fr,1fr] lg:gap-14 mt-3">
+          <div>
+            <h1
+              class="display display-tight"
+              style="font-size: clamp(2.25rem, 5vw, 4.5rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em;"
+            >
+              {firstWord(specialty.name)}{" "}
+              <span class="italic-display">{restOfName(specialty.name) || " "}</span>
+            </h1>
+            {descriptionLede && (
+              <p class="serif mt-5 max-w-[44rem]" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">
+                {descriptionLede}
+              </p>
+            )}
+            <div class="mt-6 max-w-[44rem]">
+              <ReviewedBy reviewer={reviewer} locale={locale} />
+            </div>
+            <LastUpdated updated={specialtyRaw.updatedAt} locale={locale} class="mt-5" />
+
+            {stats.length > 0 && (
+              <div
+                class="mt-8 grid grid-cols-2 sm:grid-cols-4"
+                style="border-top: 1px solid var(--color-ink); border-bottom: 1px solid var(--color-border);"
+              >
+                {stats.map((s, i) => (
+                  <div
+                    class="px-4 md:px-5 py-5"
+                    style={i > 0 ? "border-inline-start: 1px solid var(--color-border);" : ""}
+                  >
+                    <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
+                      {s.l}
+                    </div>
+                    <div class="display tnum mt-1.5" style="font-size: 28px;">{s.v}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div class="lg:sticky lg:top-32 lg:self-start">
+            <PhotoBlock
+              aspect="4/3"
+              label={`${specialty.name} · accredited care`}
+              imgUrl={specialtyBanner(specialty.slug, 900, 675)}
+              priority
+            />
+            <div
+              class="paper mt-4 flex items-center justify-between"
+              style="padding: 14px 16px;"
+            >
+              <div>
+                <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                  Free quote
+                </div>
+                <div class="serif" style="font-size: 15px;">Typical reply in ~9 min</div>
+              </div>
+              <a
+                href={localizedPath(locale, `/contact?specialty=${slug}`)}
+                class="inline-flex items-center gap-1 text-sm font-semibold"
+                style="background: var(--color-ink); color: var(--color-bg); padding: 9px 16px; border-radius: 9999px;"
+              >
+                Get quote
+                <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
+    {descriptionRest.length > 0 && (
+      <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft); margin-top: 56px;">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+          <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+            <div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                About this specialty
+              </div>
+              <h2
+                class="display mt-3"
+                style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;"
+              >
+                What to expect
+              </h2>
+            </div>
+            <div class="prose-editorial">
+              {descriptionRest.map((p) => (<p>{p}</p>))}
+            </div>
+          </div>
+        </div>
+      </section>
+    )}
+
     {specialtyTreatments.length > 0 && (
-      <section class="border-t border-border py-12">
-        <div class="mx-auto max-w-7xl px-6">
-          <h2 class="font-display text-2xl md:text-3xl mb-6">Treatments in {specialty.name}</h2>
-          <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <section style="padding: 72px 0;" class:list={[descriptionRest.length === 0 && "border-t border-border-soft mt-14"]}>
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+          <div class="flex items-end justify-between flex-wrap gap-4 mb-8">
+            <div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                01 · Procedures
+              </div>
+              <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
+                Treatments in <span class="italic-display">{firstWord(specialty.name)}</span>
+              </h2>
+            </div>
+            <a
+              href={localizedPath(locale, "/treatments")}
+              class="mono text-[11px] uppercase tracking-wider hover:text-accent"
+              style="color: var(--color-ink-subtle);"
+            >
+              All treatments →
+            </a>
+          </div>
+          <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {specialtyTreatments.map((t) => (
               <li>
                 <a
                   href={localizedPath(locale, `/treatment/${t.slug}`)}
-                  class="group flex items-center justify-between rounded-lg border border-border bg-surface p-4 transition-colors hover:border-border-strong"
+                  class="paper group flex h-full flex-col transition hover:-translate-y-0.5"
+                  style="padding: 20px 22px;"
                 >
-                  <span class="min-w-0">
-                    <span class="block font-medium text-ink group-hover:text-accent transition-colors">{t.name}</span>
-                    {t.hospitalStayDays && (
-                      <span class="block text-xs text-ink-subtle">{t.hospitalStayDays}d stay · {t.recoveryDays ?? "—"}d recovery</span>
-                    )}
-                  </span>
-                  <ChevronRight className="h-4 w-4 text-ink-subtle mirror-x shrink-0 ml-3" />
+                  <div class="serif" style="font-size: 19px; line-height: 1.25; letter-spacing: -0.005em; color: var(--color-ink);">
+                    {t.name}
+                  </div>
+                  {(t.hospitalStayDays || t.recoveryDays || t.successRatePercent) && (
+                    <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[12px]" style="color: var(--color-ink-subtle);">
+                      {t.hospitalStayDays && <span class="tnum">{t.hospitalStayDays}d stay</span>}
+                      {t.recoveryDays && <span class="tnum">{t.recoveryDays}wk recovery</span>}
+                      {t.successRatePercent && <span class="tnum">{Number(t.successRatePercent).toFixed(0)}% success</span>}
+                    </div>
+                  )}
+                  <div
+                    class="mt-auto flex items-center justify-between"
+                    style="border-top: 1px dashed var(--color-border); margin-top: 16px; padding-top: 12px;"
+                  >
+                    <span class="mono text-[10px] uppercase tracking-wider" style="color: var(--color-ink-subtle);">
+                      Compare pricing
+                    </span>
+                    <ChevronRight className="h-3.5 w-3.5 mirror-x text-[var(--color-ink-subtle)] group-hover:text-[var(--color-accent)] transition-colors" />
+                  </div>
                 </a>
               </li>
             ))}
@@ -108,6 +291,254 @@ Astro.response.headers.set(
         </div>
       </section>
     )}
+
+    {topHospitals.length > 0 && (
+      <section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft);">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+          <div class="flex items-end justify-between flex-wrap gap-4 mb-8">
+            <div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                02 · Featured hospitals
+              </div>
+              <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
+                Centres of excellence for {firstWord(specialty.name)}
+              </h2>
+            </div>
+          </div>
+          <ul class="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {topHospitals.map((h) => (
+              <li>
+                <a
+                  href={localizedPath(locale, `/hospital/${h.slug}`)}
+                  class="paper group flex h-full flex-col overflow-hidden transition hover:-translate-y-0.5"
+                  style="padding: 0;"
+                >
+                  <PhotoBlock
+                    aspect="16/10"
+                    rounded={false}
+                    imgUrl={hospitalCover({ coverImageUrl: h.cover_image_url, countrySlug: h.country_slug })}
+                    alt={h.name}
+                  />
+                  <div class="p-5 flex flex-col flex-1">
+                    {h.accreditation_codes && h.accreditation_codes.length > 0 && (
+                      <div class="flex flex-wrap gap-1.5 mb-3">
+                        {h.accreditation_codes.slice(0, 3).map((code) => (
+                          <span
+                            class="mono text-[9.5px] uppercase tracking-wider"
+                            style="border: 1px solid var(--color-accent); color: var(--color-accent); padding: 2px 7px; border-radius: 9999px;"
+                          >
+                            {code}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div class="serif" style="font-size: 19px; line-height: 1.25; letter-spacing: -0.005em; color: var(--color-ink);">
+                      {h.name}
+                    </div>
+                    <div class="mt-1 flex items-center gap-1.5 text-[12.5px]" style="color: var(--color-ink-subtle);">
+                      <span aria-hidden="true">{countryFlag(h.country_slug)}</span>
+                      {h.city}, {h.country}
+                    </div>
+                    {h.rating && Number(h.rating) > 0 && (
+                      <div class="mt-2 flex items-center gap-1.5 text-[13px]">
+                        <span style="color: var(--color-saffron);">★</span>
+                        <span class="tnum">{Number(h.rating).toFixed(1)}</span>
+                        {h.review_count && h.review_count > 0 && (
+                          <span class="text-[12px]" style="color: var(--color-ink-subtle);">· {h.review_count.toLocaleString()} reviews</span>
+                        )}
+                      </div>
+                    )}
+                    <div
+                      class="mt-auto flex items-center justify-between"
+                      style="border-top: 1px dashed var(--color-border); margin-top: 14px; padding-top: 12px;"
+                    >
+                      {h.from_usd ? (
+                        <span class="text-[12.5px]" style="color: var(--color-ink-muted);">
+                          Quotes from <span class="display tnum text-ink text-[15px]"><Price usd={h.from_usd} /></span>
+                        </span>
+                      ) : (
+                        <span class="mono text-[10px] uppercase tracking-wider" style="color: var(--color-ink-subtle);">View hospital</span>
+                      )}
+                      <span
+                        class="inline-flex items-center gap-1 text-[12px] font-semibold"
+                        style="background: var(--color-ink); color: var(--color-bg); padding: 6px 12px; border-radius: 9999px;"
+                      >
+                        View
+                        <ChevronRight className="h-3 w-3 mirror-x" />
+                      </span>
+                    </div>
+                  </div>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
+
+    {topDoctors.length > 0 && (
+      <section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft);">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+          <div class="flex items-end justify-between flex-wrap gap-4 mb-8">
+            <div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                03 · Surgeons
+              </div>
+              <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
+                Surgeons working in <span class="italic-display">{firstWord(specialty.name)}</span>
+              </h2>
+            </div>
+            <a
+              href={localizedPath(locale, `/surgeons/${slug}`)}
+              class="mono text-[11px] uppercase tracking-wider hover:text-accent"
+              style="color: var(--color-ink-subtle);"
+            >
+              All surgeons →
+            </a>
+          </div>
+          <ul class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+            {topDoctors.map((d) => (
+              <li>
+                <a
+                  href={localizedPath(locale, `/doctor/${d.slug}`)}
+                  class="group flex flex-col items-start"
+                >
+                  <div class="w-full overflow-hidden rounded-[var(--radius-lg)]" style="aspect-ratio: 4/5; background: linear-gradient(135deg, #0A5D54 0%, #0D7C70 60%, #1C2A25 100%);">
+                    {d.image_url ? (
+                      <img src={d.image_url} alt={d.name} class="h-full w-full object-cover" loading="lazy" />
+                    ) : (
+                      <div class="flex h-full w-full items-center justify-center">
+                        <span class="display" style="color: rgba(246,241,230,.8); font-size: 42px; letter-spacing: -0.02em;">{monogram(d.name)}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div class="mt-3 serif" style="font-size: 15px; line-height: 1.3; color: var(--color-ink);">
+                    {d.name}
+                  </div>
+                  {d.title && (
+                    <div class="mono text-[10px] uppercase tracking-wider mt-0.5" style="color: var(--color-ink-subtle);">
+                      {d.title}
+                    </div>
+                  )}
+                  <div class="mt-1 text-[12px]" style="color: var(--color-ink-muted);">
+                    {d.hospital_name}
+                  </div>
+                  {d.experience_years && (
+                    <div class="mt-1 tnum text-[11.5px]" style="color: var(--color-ink-subtle);">
+                      {d.experience_years}yr · <span style="color: var(--color-saffron);">★</span>{d.rating ? Number(d.rating).toFixed(1) : "—"}
+                    </div>
+                  )}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
+
+    {countryBreakdown.length > 0 && (
+      <section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft);">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+          <div class="mb-8">
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+              04 · Where to go
+            </div>
+            <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
+              Destinations for {firstWord(specialty.name)}
+            </h2>
+          </div>
+          <ul>
+            {countryBreakdown.map((c, i) => (
+              <li
+                class="grid items-center gap-4 py-4"
+                style={`grid-template-columns: 28px 1fr auto auto; ${i > 0 ? "border-top: 1px dashed var(--color-border);" : ""}`}
+              >
+                <span aria-hidden="true" style="font-size: 18px;">{countryFlag(c.slug)}</span>
+                <div>
+                  <a
+                    href={localizedPath(locale, `/surgeons/${slug}/${c.slug}`)}
+                    class="serif hover:text-accent transition-colors"
+                    style="font-size: 17px; color: var(--color-ink); text-transform: capitalize;"
+                  >
+                    {c.name}
+                  </a>
+                </div>
+                <div class="tnum text-[13px] text-end" style="color: var(--color-ink-muted);">
+                  {c.n.toLocaleString()} hospitals
+                </div>
+                <a
+                  href={localizedPath(locale, `/country/${c.slug}`)}
+                  class="mono text-[10.5px] uppercase tracking-wider hover:text-accent"
+                  style="color: var(--color-ink-subtle);"
+                >
+                  Country guide →
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
+
+    {faqRows.length > 0 && (
+      <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft);">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+          <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+            <div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                05 · FAQ
+              </div>
+              <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
+                Common questions about {specialty.name} abroad
+              </h2>
+            </div>
+            <div class="divide-y divide-[var(--color-border-soft)]">
+              {faqRows.map((f) => (
+                <details class="group py-5">
+                  <summary class="flex cursor-pointer items-start justify-between gap-6 list-none" style="color: var(--color-ink);">
+                    <span class="serif" style="font-size: 18px; line-height: 1.4; font-weight: 500;">{f.question}</span>
+                    <span class="mt-1 shrink-0 transition-transform group-open:rotate-45" style="color: var(--color-ink-subtle); font-size: 20px; line-height: 1;" aria-hidden="true">+</span>
+                  </summary>
+                  <p class="mt-3 serif" style="color: var(--color-ink-muted); font-size: 16px; line-height: 1.6;">{f.answer}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    )}
+
+    <section style="background: var(--color-ink); color: var(--color-bg); padding: 72px 0;">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="grid gap-8 lg:grid-cols-[1.5fr,1fr] items-end">
+          <div>
+            <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
+              Ready to start
+            </div>
+            <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.02; letter-spacing: -0.02em; color: var(--color-bg);">
+              Share your case. Get a <span class="italic-display">{firstWord(specialty.name)}</span> shortlist in 48 hours.
+            </h2>
+          </div>
+          <div class="flex flex-wrap gap-3 lg:justify-end">
+            <a
+              href={localizedPath(locale, `/contact?specialty=${slug}`)}
+              class="inline-flex items-center gap-2 font-semibold"
+              style="background: var(--color-bg); color: var(--color-ink); padding: 14px 22px; border-radius: 9999px;"
+            >
+              Request quotes
+              <ChevronRight className="h-4 w-4 mirror-x" />
+            </a>
+            <a
+              href={localizedPath(locale, "/second-opinion")}
+              class="inline-flex items-center gap-2 font-semibold"
+              style="border: 1px solid rgba(246,241,230,0.35); color: var(--color-bg); padding: 13px 22px; border-radius: 9999px;"
+            >
+              Free second opinion
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <SiteFooter locale={locale} />
   </main>

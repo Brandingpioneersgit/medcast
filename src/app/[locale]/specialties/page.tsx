@@ -107,13 +107,7 @@ export default async function SpecialtiesPage({ params }: Props) {
                         className="absolute inset-0 h-full w-full object-cover"
                         loading="lazy"
                       />
-                      <div
-                        className="absolute inset-0"
-                        style={{
-                          background:
-                            "linear-gradient(180deg, rgba(14,23,19,0) 40%, rgba(14,23,19,0.55) 100%)",
-                        }}
-                      />
+                      <div className="image-veil" />
                       <span
                         className="mono absolute"
                         style={{

@@ -9,6 +9,8 @@ export type TranslatableType =
   | "treatment"
   | "specialty"
   | "condition"
+  | "country"
+  | "city"
   | "blog_post";
 
 export async function getContent(
@@ -71,4 +73,12 @@ export function applyTranslated<T extends Record<string, unknown>>(
     if (map[k]) (out as Record<string, unknown>)[k] = map[k];
   }
   return out;
+}
+
+export function isUntranslated(
+  locale: string,
+  ...maps: Record<string, string>[]
+): boolean {
+  if (locale === defaultLocale) return false;
+  return maps.every((m) => !m || Object.keys(m).length === 0);
 }

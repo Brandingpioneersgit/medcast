@@ -3,18 +3,21 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import LastUpdated from "@/components/LastUpdated.astro";
 import Price from "@/components/Price.astro";
 import PriceRange from "@/components/PriceRange.astro";
-import { getTreatmentBySlug } from "@/lib/queries";
+import { getTreatmentBySlug, listFaqsFor, getReviewerFor } from "@/lib/queries";
+import ReviewedBy from "@/components/ReviewedBy.astro";
 import {
   getContent,
   getContentBatch,
   applyTranslated,
+  isUntranslated,
 } from "@/lib/translate";
 import { relatedToTreatment } from "@/lib/related";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
-import { treatmentJsonLd, breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { treatmentJsonLd, breadcrumbJsonLd, localeUrl, faqJsonLd, withProvenance, reviewerFromDbRow } from "@/lib/seo";
 import { ChevronRight } from "lucide-react";
 
 export const prerender = false;
@@ -32,6 +35,18 @@ const tc = getTranslator(locale, "common");
 
 const treatmentMap = await getContent("treatment", data.treatment.id, locale);
 const treatment = applyTranslated(data.treatment, treatmentMap, ["name", "description"]);
+
+// Multi-paragraph descriptions (separated by blank lines) render first
+// paragraph as the hero lede and remaining paragraphs as an "About" section.
+const descriptionParas = (treatment.description ?? "")
+  .split(/\n\s*\n/)
+  .map((p) => p.trim())
+  .filter(Boolean);
+const descriptionLede = descriptionParas[0] ?? null;
+const descriptionRest = descriptionParas.slice(1);
+
+const faqRows = await listFaqsFor("treatment", data.treatment.id);
+const reviewer = await getReviewerFor("treatment", data.treatment.id);
 
 const specialty = data.treatment.specialty
   ? applyTranslated(
@@ -73,7 +88,18 @@ for (const hp of hospitalPricing) {
 const countryRows = Array.from(byCountry.values()).sort((a, b) => a.min - b.min);
 const maxCountryMin = countryRows.reduce((m, c) => Math.max(m, c.min), 0);
 
-const related = await relatedToTreatment(data.treatment.id, 6).catch(() => []);
+const FLAG_MAP: Record<string, string> = {
+  india: "🇮🇳", turkey: "🇹🇷", thailand: "🇹🇭", uae: "🇦🇪",
+  germany: "🇩🇪", singapore: "🇸🇬", "south-korea": "🇰🇷",
+  malaysia: "🇲🇾", "saudi-arabia": "🇸🇦",
+};
+function countryFlag(slug: string): string { return FLAG_MAP[slug] ?? "🌐"; }
+
+// Procedure-wide success rate is the only hospital-specific-ish number we
+// currently have. Volume and hospital-specific success need separate data.
+const procedureSuccess = data.treatment.successRatePercent ? Number(data.treatment.successRatePercent) : null;
+
+const related = await relatedToTreatment(data.treatment.id, 6, locale).catch(() => []);
 
 const stats = [
   treatment.averageDurationHours
@@ -107,21 +133,32 @@ const seoDescription =
 const path = `/treatment/${slug}`;
 const url = localeUrl(locale, path);
 
-const jsonLd = treatmentJsonLd({
-  name: treatment.name,
-  description: treatment.description,
-  costMinUsd: lowestPrice ? String(lowestPrice) : undefined,
-  costMaxUsd: highestPrice > 0 ? String(highestPrice) : undefined,
-  url,
-  hospitalStayDays: treatment.hospitalStayDays,
-  successRatePercent: treatment.successRatePercent ? Number(treatment.successRatePercent) : null,
-});
+const jsonLd = withProvenance(
+  treatmentJsonLd({
+    name: treatment.name,
+    description: treatment.description,
+    costMinUsd: lowestPrice ? String(lowestPrice) : undefined,
+    costMaxUsd: highestPrice > 0 ? String(highestPrice) : undefined,
+    url,
+    hospitalStayDays: treatment.hospitalStayDays,
+    successRatePercent: treatment.successRatePercent ? Number(treatment.successRatePercent) : null,
+  }),
+  {
+    dateModified: reviewer?.reviewedAt ?? data.treatment.updatedAt,
+    dateCreated: data.treatment.createdAt,
+    reviewer: reviewerFromDbRow(reviewer),
+  },
+);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
   { name: tc("treatments"), url: localeUrl(locale, "/treatments") },
   { name: treatment.name, url },
 ]);
+
+const faqSchema = faqRows.length > 0 ? faqJsonLd(faqRows) : null;
+
+const untranslated = isUntranslated(locale, treatmentMap);
 
 Astro.response.headers.set(
   "Cache-Control",
@@ -131,9 +168,12 @@ Astro.response.headers.set(
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    {faqSchema && (
+      <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+    )}
   </Fragment>
 
   <main class="min-h-dvh bg-bg text-ink">
@@ -175,11 +215,12 @@ Astro.response.headers.set(
               {firstWord(treatment.name)}{" "}
               <span class="italic-display">{restOfName(treatment.name)}</span>
             </h1>
-            {treatment.description && (
+            {descriptionLede && (
               <p class="serif mt-5 max-w-[44rem]" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">
-                {treatment.description}
+                {descriptionLede}
               </p>
             )}
+            <LastUpdated updated={data.treatment.updatedAt} locale={locale} class="mt-5" />
 
             {stats.length > 0 && (
               <div
@@ -233,9 +274,7 @@ Astro.response.headers.set(
                         class="grid items-center py-2"
                         style="grid-template-columns: 20px 1fr 80px; gap: 10px;"
                       >
-                        <span class="mono tnum" style="font-size: 10px; color: var(--color-ink-subtle);">
-                          {String(countryRows.indexOf(c) + 1).padStart(2, "0")}
-                        </span>
+                        <span aria-hidden="true" style="font-size: 14px;">{countryFlag(c.slug)}</span>
                         <div>
                           <div class="text-[13px] capitalize" style="color: var(--color-ink);">{c.name}</div>
                           <div class="mt-1 h-1 rounded-full" style={barStyle} />
@@ -259,6 +298,33 @@ Astro.response.headers.set(
         </div>
       </div>
     </section>
+
+    {/* About this procedure — long-form editorial */}
+    {descriptionRest.length > 0 && (
+      <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft);">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+          <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+            <div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                About the procedure
+              </div>
+              <h2
+                class="display mt-3"
+                style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;"
+              >
+                What to know before you book
+              </h2>
+            </div>
+            <div class="prose-editorial">
+              <ReviewedBy reviewer={reviewer} locale={locale} />
+              {descriptionRest.map((para) => (
+                <p>{para}</p>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    )}
 
     {/* Ranked hospitals */}
     {hospitalPricing.length > 0 && (
@@ -294,43 +360,55 @@ Astro.response.headers.set(
             {hospitalPricing.map((hp, i) => (
               <div
                 class="grid items-center gap-4 p-5 md:p-6"
-                style={`grid-template-columns: 40px 1.6fr 1fr 1fr auto; ${i > 0 ? "border-top: 1px solid var(--color-border-soft);" : ""}`}
+                style={`grid-template-columns: 36px 1.4fr 1fr 0.8fr 0.6fr auto; ${i > 0 ? "border-top: 1px solid var(--color-border-soft);" : ""}`}
               >
                 <div class="display tnum" style="font-size: 22px; color: var(--color-ink-subtle);">
                   {String(i + 1).padStart(2, "0")}
                 </div>
-                <div>
+                <div class="min-w-0">
                   <a href={localizedPath(locale, `/hospital/${hp.hospitalSlug}`)}>
                     <div
-                      class="serif text-[18px] font-medium hover:text-accent transition-colors"
+                      class="serif text-[17px] font-medium hover:text-accent transition-colors truncate"
                       style="letter-spacing: -0.005em;"
                     >
                       {hp.hospitalName}
                     </div>
                   </a>
-                  <div class="mt-1 text-[12px]" style="color: var(--color-ink-subtle);">
+                  <div class="mt-1 text-[12px] flex items-center gap-1.5" style="color: var(--color-ink-subtle);">
+                    <span aria-hidden="true">{countryFlag(hp.countrySlug)}</span>
                     {hp.cityName}, {hp.countryName}
                   </div>
                 </div>
                 <div>
                   <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
-                    Cost
+                    From
                   </div>
-                  <div class="display tnum text-[20px] mt-0.5">
+                  <div class="display tnum text-[19px] mt-0.5">
                     <PriceRange min={hp.costMinUsd} max={hp.costMaxUsd} />
                   </div>
                 </div>
                 <div>
-                  {hp.hospitalRating && Number(hp.hospitalRating) > 0 && (
+                  <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
+                    Success
+                  </div>
+                  <div class="tnum text-[14px] mt-1">
+                    {procedureSuccess ? `${procedureSuccess.toFixed(1)}%` : "—"}
+                  </div>
+                </div>
+                <div>
+                  {hp.hospitalRating && Number(hp.hospitalRating) > 0 ? (
                     <div class="inline-flex items-center gap-1.5 text-[13px]">
                       <span style="color: var(--color-saffron);">★</span>
                       <span class="tnum">{Number(hp.hospitalRating).toFixed(1)}</span>
                     </div>
+                  ) : (
+                    <span class="text-[13px]" style="color: var(--color-ink-subtle);">—</span>
                   )}
                 </div>
                 <a
                   href={localizedPath(locale, `/hospital/${hp.hospitalSlug}`)}
-                  class="inline-flex items-center gap-1 rounded-lg bg-accent text-accent-contrast text-sm font-semibold px-4 py-2 hover:bg-accent-hover transition"
+                  class="inline-flex items-center gap-1 text-sm font-semibold transition"
+                  style="background: var(--color-ink); color: var(--color-bg); padding: 8px 14px; border-radius: 9999px;"
                 >
                   Quote
                   <ChevronRight className="h-3.5 w-3.5 mirror-x" />
@@ -338,6 +416,101 @@ Astro.response.headers.set(
               </div>
             ))}
           </div>
+        </div>
+      </section>
+    )}
+
+    {/* FAQs */}
+    {faqRows.length > 0 && (
+      <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft);">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+          <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+            <div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                FAQ
+              </div>
+              <h2
+                class="display mt-3"
+                style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;"
+              >
+                Common questions
+              </h2>
+            </div>
+            <div class="divide-y divide-[var(--color-border-soft)]">
+              {faqRows.map((f) => (
+                <details class="group py-5">
+                  <summary
+                    class="flex cursor-pointer items-start justify-between gap-6 list-none"
+                    style="color: var(--color-ink);"
+                  >
+                    <span class="serif" style="font-size: 18px; line-height: 1.4; font-weight: 500;">
+                      {f.question}
+                    </span>
+                    <span
+                      class="mt-1 shrink-0 transition-transform group-open:rotate-45"
+                      style="color: var(--color-ink-subtle); font-size: 20px; line-height: 1;"
+                      aria-hidden="true"
+                    >+</span>
+                  </summary>
+                  <p class="mt-3 serif" style="color: var(--color-ink-muted); font-size: 16px; line-height: 1.6;">
+                    {f.answer}
+                  </p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    )}
+
+    {/* Explore next — cross-mesh links */}
+    {specialty && (
+      <section class="border-t border-border py-12">
+        <div class="mx-auto max-w-7xl px-5 md:px-8">
+          <h2 class="display mb-6" style="font-size: 24px;">Explore next</h2>
+          <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <li>
+              <a
+                href={localizedPath(locale, `/surgeons/${specialty.slug}`)}
+                class="group flex h-full items-start justify-between gap-3 rounded-lg border border-border bg-surface p-4 transition-colors hover:border-border-strong"
+              >
+                <span class="min-w-0">
+                  <span class="mono uppercase block" style="font-size: 10.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Surgeons</span>
+                  <span class="mt-1 block font-medium text-ink group-hover:text-accent">{specialty.name} surgeons</span>
+                  <span class="mt-1 block text-[12.5px] text-ink-subtle">Ranked by volume &amp; experience</span>
+                </span>
+                <ChevronRight className="h-4 w-4 text-ink-subtle mirror-x shrink-0" />
+              </a>
+            </li>
+            <li>
+              <a
+                href={localizedPath(locale, `/specialty/${specialty.slug}`)}
+                class="group flex h-full items-start justify-between gap-3 rounded-lg border border-border bg-surface p-4 transition-colors hover:border-border-strong"
+              >
+                <span class="min-w-0">
+                  <span class="mono uppercase block" style="font-size: 10.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Specialty hub</span>
+                  <span class="mt-1 block font-medium text-ink group-hover:text-accent">{specialty.name}</span>
+                  <span class="mt-1 block text-[12.5px] text-ink-subtle">Treatments, FAQs, and destinations</span>
+                </span>
+                <ChevronRight className="h-4 w-4 text-ink-subtle mirror-x shrink-0" />
+              </a>
+            </li>
+            {countryRows.slice(0, 1).map((c) => (
+              <li>
+                <a
+                  href={localizedPath(locale, `/treatment/${slug}/${c.slug}`)}
+                  class="group flex h-full items-start justify-between gap-3 rounded-lg border border-border bg-surface p-4 transition-colors hover:border-border-strong"
+                >
+                  <span class="min-w-0">
+                    <span class="mono uppercase block" style="font-size: 10.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Cost in {c.name}</span>
+                    <span class="mt-1 block font-medium text-ink group-hover:text-accent">{treatment.name} in {c.name}</span>
+                    <span class="mt-1 block text-[12.5px] text-ink-subtle tnum">From <Price usd={c.min} /> · {c.count} hospitals</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-ink-subtle mirror-x shrink-0" />
+                </a>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
     )}
@@ -363,6 +536,13 @@ Astro.response.headers.set(
         </div>
       </section>
     )}
+
+    <div class="mx-auto max-w-7xl px-6 pb-10">
+      <LastUpdated
+        updated={treatment.updatedAt}
+        note="Pricing aggregated from partner hospitals. Final quote depends on case specifics."
+      />
+    </div>
 
     <SiteFooter locale={locale} />
   </main>

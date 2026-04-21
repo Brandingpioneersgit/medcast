@@ -3,9 +3,12 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
-import { isLocale, type Locale } from "@/lib/i18n";
+import QuoteCalculator from "@/components/QuoteCalculator.tsx";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
+import { getCalculatorMatrix } from "@/lib/queries";
+import { ChevronRight } from "lucide-react";
 
 export const prerender = false;
 
@@ -14,8 +17,26 @@ if (!isLocale(rawLocale)) return Astro.redirect("/en/calculator", 308);
 const locale = rawLocale as Locale;
 
 const tc = getTranslator(locale, "common");
-const seoTitle = "Treatment cost calculator";
-const seoDescription = "Estimate treatment costs across destinations, hospitals, and travel add-ons.";
+const { treatments, countries, matrix } = await getCalculatorMatrix();
+
+const pairs = Object.keys(matrix).length;
+
+const stats = [
+  { l: "Procedures", v: treatments.length.toLocaleString() },
+  { l: "Destinations", v: countries.length.toString() },
+  { l: "Price pairs", v: pairs.toLocaleString() },
+  { l: "Median reply", v: "9 min" },
+];
+
+const TRUST_POINTS = [
+  { eyebrow: "01", title: "Hospital-reported", body: "Ranges come from quote sheets our partner hospitals issue to real patients, not ad-driven averages." },
+  { eyebrow: "02", title: "Itemised quotes", body: "Submit the shortlist and 3 itemised quotes arrive within 48 hours. No fee, no obligation." },
+  { eyebrow: "03", title: "Surgeon-specific", body: "Final number accounts for BMI, comorbidities, implant brand, room tier, and stay length." },
+];
+
+const seoTitle = "Treatment cost calculator — pricing across 9 destinations";
+const seoDescription =
+  "Pick a procedure and destination, see real hospital-reported price bands, shortlist surgeons, and get a human quote in 11 minutes.";
 const path = "/calculator";
 
 const crumbs = breadcrumbJsonLd([
@@ -23,7 +44,10 @@ const crumbs = breadcrumbJsonLd([
   { name: "Calculator", url: localeUrl(locale, path) },
 ]);
 
-Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=300, stale-while-revalidate=3600",
+);
 ---
 
 <BaseLayout locale={locale}>
@@ -34,12 +58,143 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
 
   <main class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
-    <section class="mx-auto max-w-7xl px-6 pt-10 pb-16">
-      <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">Estimate</p>
-      <h1 class="mt-2 font-display text-3xl md:text-5xl leading-[1.05]">Treatment cost calculator</h1>
-      <p class="lede mt-4">Pick a treatment, destination, and accommodation tier to see an all-in estimate.</p>
-      {/* TODO: calculator form */}
+
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">Calculator</span>
+        </nav>
+      </div>
+    </div>
+
+    <section class="pt-12 md:pt-16 pb-10">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
+        <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
+          Cost estimate · Transparent pricing
+        </p>
+        <h1 class="mt-3 display display-tight" style="font-size: clamp(2.25rem, 5vw, 4.5rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em;">
+          Treatment <span class="italic-display">cost calculator</span>
+        </h1>
+        <p class="serif mt-5 max-w-[48rem]" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">
+          Price bands below come from real hospital quote sheets on our books — not ad-driven averages. Pick a procedure, pick a destination, and see the shortlist before you share your details.
+        </p>
+
+        <div
+          class="mt-8 grid grid-cols-2 sm:grid-cols-4 max-w-[64rem]"
+          style="border-top: 1px solid var(--color-ink); border-bottom: 1px solid var(--color-border);"
+        >
+          {stats.map((s, i) => (
+            <div
+              class="px-4 md:px-5 py-5"
+              style={i > 0 ? "border-inline-start: 1px solid var(--color-border);" : ""}
+            >
+              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
+                {s.l}
+              </div>
+              <div class="display tnum mt-1.5" style="font-size: 28px;">{s.v}</div>
+            </div>
+          ))}
+        </div>
+      </div>
     </section>
+
+    <section style="padding-bottom: 72px;">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
+        <div class="paper" style="padding: 28px 28px 32px;">
+          <div class="flex items-center justify-between flex-wrap gap-3 mb-6">
+            <div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Three steps
+              </div>
+              <h2 class="display mt-2" style="font-size: 26px; line-height: 1.1; letter-spacing: -0.015em;">
+                Search · pick destination · review <span class="italic-display">shortlist</span>
+              </h2>
+            </div>
+            <a
+              href={localizedPath(locale, "/editorial-policy")}
+              class="mono text-[11px] uppercase tracking-wider hover:text-accent"
+              style="color: var(--color-ink-subtle);"
+            >
+              Pricing methodology →
+            </a>
+          </div>
+          <QuoteCalculator
+            client:load
+            treatments={treatments}
+            countries={countries}
+            matrix={matrix}
+            locale={locale}
+            localeHref={(p: string) => localizedPath(locale, p)}
+          />
+        </div>
+      </div>
+    </section>
+
+    <section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="mb-8">
+          <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+            How the numbers work
+          </div>
+          <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
+            Honest bands, <span class="italic-display">case-specific</span> quotes
+          </h2>
+        </div>
+        <ul class="grid grid-cols-1 gap-5 md:grid-cols-3">
+          {TRUST_POINTS.map((t) => (
+            <li class="paper" style="padding: 26px 28px;">
+              <div class="display tnum" style="font-size: 32px; line-height: 1; color: var(--color-accent); letter-spacing: -0.02em;">
+                {t.eyebrow}
+              </div>
+              <div class="serif mt-3" style="font-size: 19px; line-height: 1.25; letter-spacing: -0.005em; color: var(--color-ink);">
+                {t.title}
+              </div>
+              <p class="mt-2 serif" style="font-size: 14.5px; line-height: 1.55; color: var(--color-ink-muted);">
+                {t.body}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+
+    <section style="background: var(--color-ink); color: var(--color-bg); padding: 72px 0;">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="grid gap-8 lg:grid-cols-[1.5fr,1fr] items-end">
+          <div>
+            <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
+              Want a number tied to your case
+            </div>
+            <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.02; letter-spacing: -0.02em; color: var(--color-bg);">
+              Three <span class="italic-display">itemised quotes</span> in 48 hours.
+            </h2>
+            <p class="serif mt-4 max-w-[42rem]" style="font-size: 17px; line-height: 1.5; color: rgba(246,241,230,0.75);">
+              Submit your shortlist and imaging. Coordinators route the case to matched surgeons and return three itemised quotes — inclusions, exclusions, timelines, all on one page.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-3 lg:justify-end">
+            <a
+              href={localizedPath(locale, "/contact")}
+              class="inline-flex items-center gap-2 font-semibold"
+              style="background: var(--color-bg); color: var(--color-ink); padding: 14px 22px; border-radius: 9999px;"
+            >
+              Request quotes
+              <ChevronRight className="h-4 w-4 mirror-x" />
+            </a>
+            <a
+              href={localizedPath(locale, "/second-opinion")}
+              class="inline-flex items-center gap-2 font-semibold"
+              style="border: 1px solid rgba(246,241,230,0.35); color: var(--color-bg); padding: 13px 22px; border-radius: 9999px;"
+            >
+              Free second opinion
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

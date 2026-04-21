@@ -4,165 +4,223 @@ import {
   specialties as specialtiesTbl,
   treatments as treatmentsTbl,
   countries as countriesTbl,
-  conditions as conditionsTbl,
 } from "../../../src/lib/db/schema";
 import { asc, eq, sql } from "drizzle-orm";
 import { localizedPath, type Locale } from "@/lib/i18n";
+import McLogo from "@/components/McLogo.astro";
+import CompareDock from "@/components/CompareDock.astro";
 
 interface Props {
   locale: Locale;
 }
 const { locale } = Astro.props;
+const isRTL = locale === "ar";
 
 type FooterData = {
-  specialties: Array<{ slug: string; name: string; n: number }>;
+  specialties: Array<{ slug: string; name: string }>;
   treatments: Array<{ slug: string; name: string }>;
   countries: Array<{ slug: string; name: string }>;
-  cities: Array<{ slug: string; name: string }>;
-  conditions: Array<{ slug: string; name: string }>;
 };
 
-const EMPTY: FooterData = {
-  specialties: [],
-  treatments: [],
-  countries: [],
-  cities: [],
-  conditions: [],
-};
-
+const EMPTY: FooterData = { specialties: [], treatments: [], countries: [] };
 let data: FooterData = EMPTY;
+
 try {
-  const [specRows, treatRows, countryRows, cityRows, condRows] = await Promise.all([
-    db.execute<{ slug: string; name: string; n: number }>(sql`
-      SELECT sp.slug, sp.name, COUNT(DISTINCT hs.hospital_id)::int AS n
+  const [specRows, treatRows, countryRows] = await Promise.all([
+    db.execute<{ slug: string; name: string }>(sql`
+      SELECT sp.slug, sp.name
       FROM specialties sp
-      LEFT JOIN hospital_specialties hs ON hs.specialty_id = sp.id
-      LEFT JOIN hospitals h ON h.id = hs.hospital_id AND h.is_active = true
       WHERE sp.is_active = true
-      GROUP BY sp.slug, sp.name, sp.sort_order
-      ORDER BY sp.sort_order ASC, sp.name ASC
-      LIMIT 14
+      ORDER BY sp.sort_order ASC NULLS LAST, sp.name ASC
+      LIMIT 6
     `),
     db
       .select({ slug: treatmentsTbl.slug, name: treatmentsTbl.name })
       .from(treatmentsTbl)
       .where(eq(treatmentsTbl.isActive, true))
       .orderBy(asc(treatmentsTbl.name))
-      .limit(14),
+      .limit(6),
     db
       .select({ slug: countriesTbl.slug, name: countriesTbl.name })
       .from(countriesTbl)
       .where(eq(countriesTbl.isDestination, true))
-      .orderBy(asc(countriesTbl.name)),
-    db.execute<{ slug: string; name: string }>(sql`
-      SELECT ci.slug, ci.name
-      FROM cities ci
-      JOIN countries c ON c.id = ci.country_id
-      WHERE c.is_destination = true
-        AND EXISTS (SELECT 1 FROM hospitals h WHERE h.city_id = ci.id AND h.is_active = true)
-      ORDER BY ci.name ASC
-      LIMIT 16
-    `),
-    db
-      .select({ slug: conditionsTbl.slug, name: conditionsTbl.name })
-      .from(conditionsTbl)
-      .orderBy(asc(conditionsTbl.name))
-      .limit(14),
+      .orderBy(asc(countriesTbl.name))
+      .limit(6),
   ]);
   data = {
     specialties: Array.from(specRows),
     treatments: treatRows,
     countries: Array.from(countryRows),
-    cities: Array.from(cityRows),
-    conditions: condRows,
   };
 } catch {
   data = EMPTY;
 }
 
+const companyLinks: Array<{ href: string; label: string }> = [
+  { href: "/about", label: "About" },
+  { href: "/for-hospitals", label: "For Hospitals" },
+  { href: "/medical-board", label: "Medical Review Panel" },
+  { href: "/pricing-index", label: "Price Index (data)" },
+  { href: "/blog", label: "Editorial" },
+  { href: "/accreditation", label: "Accreditations" },
+  { href: "/glossary", label: "Glossary" },
+  { href: "/contact", label: "Contact" },
+  { href: "/emergency", label: "Emergency" },
+];
+
+const trustBadges = ["JCI Partner", "ISO 27001", "GDPR", "HIPAA"];
 const year = new Date().getFullYear();
 ---
 
-<footer class="mt-auto border-t border-border bg-surface-muted text-ink">
-  <div class="mx-auto w-full max-w-7xl px-6">
-    {/* SEO link index */}
-    <div class="grid gap-10 py-12 md:grid-cols-2 lg:grid-cols-5 border-b border-border">
+<footer
+  class="mt-auto"
+  style="background: var(--color-ink); color: var(--color-bg);"
+>
+  <div class="mx-auto max-w-[1440px] px-7" style="padding-top: 64px; padding-bottom: 32px;">
+    <nav aria-label="Footer links" class="footer-grid grid gap-10 md:gap-16">
+      {/* Brand column */}
+      <div class="col-span-2 md:col-span-1">
+        <McLogo size={34} color="var(--color-bg)" />
+        <p
+          class="serif"
+          style="font-size: 17px; line-height: 1.4; margin-top: 20px; opacity: 0.75; max-width: 280px;"
+        >
+          {isRTL ? "بوصلتك في العلاج الطبي العالمي." : "Your compass for global medical care."}
+        </p>
+        <div class="mt-5 flex flex-wrap gap-2">
+          {trustBadges.map((b) => (
+            <span
+              class="inline-flex items-center"
+              style="font-size: 11px; padding: 4px 10px; border: 1px solid rgba(246,241,230,.25); border-radius: 9999px; opacity: 0.85;"
+            >
+              {b}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Specialties */}
       <div>
-        <p class="mb-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">Specialties</p>
-        <ul class="space-y-2 text-sm">
-          {data.specialties.map((sp) => (
+        <div
+          class="mono"
+          style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.5; margin-bottom: 16px;"
+        >
+          {isRTL ? "التخصصات" : "Specialties"}
+        </div>
+        <ul class="flex flex-col gap-2.5">
+          {data.specialties.map((s) => (
             <li>
-              <a href={localizedPath(locale, `/specialty/${sp.slug}`)} class="text-ink-muted hover:text-accent">
-                {sp.name}
+              <a
+                href={localizedPath(locale, `/specialty/${s.slug}`)}
+                style="font-size: 13.5px; opacity: 0.85; transition: opacity 120ms;"
+                class="hover:opacity-100"
+              >
+                {s.name}
               </a>
             </li>
           ))}
         </ul>
       </div>
+
+      {/* Treatments */}
       <div>
-        <p class="mb-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">Treatments</p>
-        <ul class="space-y-2 text-sm">
+        <div
+          class="mono"
+          style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.5; margin-bottom: 16px;"
+        >
+          {isRTL ? "العلاجات" : "Treatments"}
+        </div>
+        <ul class="flex flex-col gap-2.5">
           {data.treatments.map((t) => (
             <li>
-              <a href={localizedPath(locale, `/treatment/${t.slug}`)} class="text-ink-muted hover:text-accent line-clamp-1">
+              <a
+                href={localizedPath(locale, `/treatment/${t.slug}`)}
+                style="font-size: 13.5px; opacity: 0.85;"
+                class="hover:opacity-100 line-clamp-1"
+              >
                 {t.name}
               </a>
             </li>
           ))}
         </ul>
       </div>
+
+      {/* Destinations */}
       <div>
-        <p class="mb-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">Destinations</p>
-        <ul class="space-y-2 text-sm">
+        <div
+          class="mono"
+          style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.5; margin-bottom: 16px;"
+        >
+          {isRTL ? "الوجهات" : "Destinations"}
+        </div>
+        <ul class="flex flex-col gap-2.5">
           {data.countries.map((c) => (
             <li>
-              <a href={localizedPath(locale, `/country/${c.slug}`)} class="text-ink-muted hover:text-accent">
+              <a
+                href={localizedPath(locale, `/country/${c.slug}`)}
+                style="font-size: 13.5px; opacity: 0.85;"
+                class="hover:opacity-100"
+              >
                 {c.name}
               </a>
             </li>
           ))}
         </ul>
       </div>
-      <div>
-        <p class="mb-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">Cities</p>
-        <ul class="space-y-2 text-sm">
-          {data.cities.map((ci) => (
-            <li>
-              <a href={localizedPath(locale, `/city/${ci.slug}`)} class="text-ink-muted hover:text-accent">
-                {ci.name}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div>
-        <p class="mb-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">Conditions</p>
-        <ul class="space-y-2 text-sm">
-          {data.conditions.map((c) => (
-            <li>
-              <a href={localizedPath(locale, `/condition/${c.slug}`)} class="text-ink-muted hover:text-accent line-clamp-1">
-                {c.name}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
 
-    {/* Utility row */}
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 py-8 text-sm">
-      <div class="flex flex-wrap gap-5 text-ink-muted">
-        <a href={localizedPath(locale, "/about")} class="hover:text-accent">About</a>
-        <a href={localizedPath(locale, "/editorial-policy")} class="hover:text-accent">Editorial policy</a>
-        <a href={localizedPath(locale, "/contact")} class="hover:text-accent">Contact</a>
-        <a href={localizedPath(locale, "/for-hospitals")} class="hover:text-accent">For hospitals</a>
-        <a href={localizedPath(locale, "/second-opinion")} class="hover:text-accent">Second opinion</a>
-        <a href={localizedPath(locale, "/emergency")} class="hover:text-accent">Emergency</a>
-        <a href={localizedPath(locale, "/insurance")} class="hover:text-accent">Insurance</a>
-        <a href={localizedPath(locale, "/blog")} class="hover:text-accent">Blog</a>
-        <a href={localizedPath(locale, "/compare/treatments")} class="hover:text-accent">Compare</a>
+      {/* Company */}
+      <div>
+        <div
+          class="mono"
+          style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.5; margin-bottom: 16px;"
+        >
+          {isRTL ? "الشركة" : "Company"}
+        </div>
+        <ul class="flex flex-col gap-2.5">
+          {companyLinks.map((l) => (
+            <li>
+              <a
+                href={localizedPath(locale, l.href)}
+                style="font-size: 13.5px; opacity: 0.85;"
+                class="hover:opacity-100"
+              >
+                {l.label}
+              </a>
+            </li>
+          ))}
+        </ul>
       </div>
-      <p class="text-ink-subtle">© {year} MedCasts — medical care, borderless.</p>
+    </nav>
+
+    <div style="margin-top: 56px; margin-bottom: 20px; height: 1px; background: rgba(246,241,230,0.12);" />
+    <div
+      class="flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+      style="font-size: 12px; opacity: 0.6;"
+    >
+      <div>© {year} MedCasts · Patient-first medical travel · Not a substitute for medical advice.</div>
+      <div class="flex flex-wrap gap-5">
+        <a href={localizedPath(locale, "/privacy-policy")}>Privacy</a>
+        <a href={localizedPath(locale, "/terms")}>Terms</a>
+        <a href={localizedPath(locale, "/editorial-policy")}>Medical Board</a>
+        <a href={localizedPath(locale, "/sitemap.xml")}>Sitemap</a>
+      </div>
     </div>
   </div>
+  <CompareDock compareHref={localizedPath(locale, "/compare/hospitals")} />
 </footer>
+
+<style>
+  .footer-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (min-width: 640px) {
+    .footer-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  @media (min-width: 960px) {
+    .footer-grid {
+      grid-template-columns: 1.2fr 1fr 1fr 1fr 1fr;
+    }
+  }
+</style>

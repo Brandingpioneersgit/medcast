@@ -1,0 +1,131 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import EntityListingHero from "@/components/EntityListingHero.astro";
+import MatchMe from "@/components/MatchMe.tsx";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { listConditionsForMatching, getCalculatorMatrix } from "@/lib/queries";
+import { ChevronRight } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/match-me", 308);
+const locale = rawLocale as Locale;
+
+const tc = getTranslator(locale, "common");
+
+const [conditions, matrixData] = await Promise.all([
+  listConditionsForMatching(),
+  getCalculatorMatrix(),
+]);
+
+const seoTitle = "Match me to a treatment plan — 3-question triage";
+const seoDescription =
+  "Pick a condition, tell us urgency + budget, get a specific specialty + destination + 3-hospital shortlist in 30 seconds. Human case manager follows up.";
+const path = "/match-me";
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Match me", url: localeUrl(locale, path) },
+]);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=600, stale-while-revalidate=3600",
+);
+
+const stats = [
+  { l: "Questions", v: "3" },
+  { l: "Conditions mapped", v: conditions.length.toLocaleString() },
+  { l: "Destinations", v: matrixData.countries.length.toString() },
+  { l: "Human follow-up", v: "9 min" },
+];
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">Match me</span>
+        </nav>
+      </div>
+    </div>
+
+    <EntityListingHero
+      eyebrow="Triage · 30 seconds"
+      h1First="Match me to a"
+      h1Italic="treatment plan"
+      lede="Three honest questions — concern, timing, budget. We route you to the right specialty, surface the first-line procedure, recommend the best-fit destination for your budget, and shortlist 3 hospitals. Then a human takes it from there."
+      stats={stats}
+    />
+
+    <section style="padding: 24px 0 56px;">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="paper" style="padding: 28px 28px 32px;">
+          <div class="mb-6">
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+              Three honest questions
+            </div>
+            <h2 class="display mt-2" style="font-size: 26px; line-height: 1.1; letter-spacing: -0.015em;">
+              Concern · timing · <span class="italic-display">budget</span>
+            </h2>
+          </div>
+          <MatchMe
+            client:load
+            conditions={conditions}
+            countries={matrixData.countries}
+            matrix={matrixData.matrix}
+            locale={locale}
+            localeHref={(p: string) => localizedPath(locale, p)}
+          />
+        </div>
+        <p class="mt-5 mono uppercase" style="font-size: 10.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+          Starting point, not a prescription · Final decisions come from the treating physician on review of your reports ·
+          <a href={localizedPath(locale, "/editorial-policy")} class="hover:text-accent" style="color: var(--color-ink-muted);">editorial policy →</a>
+        </p>
+      </div>
+    </section>
+
+    <section style="background: var(--color-ink); color: var(--color-bg); padding: 56px 0;">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="grid gap-6 lg:grid-cols-[1.5fr,1fr] items-end">
+          <div>
+            <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
+              Skip the triage
+            </div>
+            <h2 class="display mt-2" style="font-size: clamp(1.75rem, 3.5vw, 2.5rem); line-height: 1.1; letter-spacing: -0.02em; color: var(--color-bg);">
+              Send reports directly, <span class="italic-display">human replies.</span>
+            </h2>
+          </div>
+          <div class="flex flex-wrap gap-3 lg:justify-end">
+            <a
+              href={localizedPath(locale, "/contact")}
+              class="inline-flex items-center gap-2 font-semibold"
+              style="background: var(--color-bg); color: var(--color-ink); padding: 14px 22px; border-radius: 9999px;"
+            >
+              Contact case manager
+              <ChevronRight className="h-4 w-4 mirror-x" />
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

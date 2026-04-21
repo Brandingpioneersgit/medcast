@@ -3,11 +3,13 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
-import { listTreatments } from "@/lib/queries";
+import EntityListingHero from "@/components/EntityListingHero.astro";
+import Price from "@/components/Price.astro";
+import { listTreatmentsGrouped } from "@/lib/queries";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
-import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { breadcrumbJsonLd, localeUrl, itemListJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
-import { Bed, CheckCircle, ChevronRight, Clock } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 export const prerender = false;
 
@@ -15,15 +17,25 @@ const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect("/en/treatments", 308);
 const locale = rawLocale as Locale;
 
-const url = new URL(Astro.request.url);
-const pageParam = parseInt(url.searchParams.get("page") ?? "1", 10);
-const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+type Row = Awaited<ReturnType<typeof listTreatmentsGrouped>>[number];
+const rowsRaw = await listTreatmentsGrouped();
 
-const { rows } = await listTreatments({ page });
+// Group by specialty
+type GroupedSpecialty = { slug: string | null; name: string; items: Row[] };
+const groupedMap = new Map<string, GroupedSpecialty>();
+for (const row of rowsRaw) {
+  const key = row.specialty_slug ?? "__none__";
+  const name = row.specialty_name ?? "Other procedures";
+  if (!groupedMap.has(key)) {
+    groupedMap.set(key, { slug: row.specialty_slug, name, items: [] });
+  }
+  groupedMap.get(key)!.items.push(row);
+}
+const grouped = Array.from(groupedMap.values());
 
 const tc = getTranslator(locale, "common");
 const seoTitle = "Medical treatments & procedures";
-const seoDescription = "Transparent pricing for planned treatment — from cardiac bypass to IVF, spinal fusion to knee replacement. Compare packages across accredited hospitals.";
+const seoDescription = `Transparent pricing for ${rowsRaw.length} planned procedures — cardiac bypass to IVF, spinal fusion to knee replacement. Compare packages across accredited hospitals.`;
 const path = "/treatments";
 
 const crumbs = breadcrumbJsonLd([
@@ -31,81 +43,181 @@ const crumbs = breadcrumbJsonLd([
   { name: tc("treatments"), url: localeUrl(locale, path) },
 ]);
 
-Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-revalidate=3600");
+const itemLd = rowsRaw.length > 0
+  ? itemListJsonLd(
+      rowsRaw.map((t) => ({ name: t.name, url: localeUrl(locale, `/treatment/${t.slug}`) })),
+    )
+  : null;
 
-const hasNext = rows.length === 24;
+const lowestFrom = rowsRaw.reduce((m, r) => (r.from_usd && (!m || r.from_usd < m) ? r.from_usd : m), null as number | null);
+const withSuccess = rowsRaw.filter((r) => r.success_rate_percent);
+const avgSuccess = withSuccess.length > 0
+  ? withSuccess.reduce((s, r) => s + Number(r.success_rate_percent), 0) / withSuccess.length
+  : null;
+
+const stats = [
+  { l: "Procedures", v: rowsRaw.length.toString() },
+  { l: "Specialties", v: grouped.length.toString() },
+  lowestFrom ? { l: "From", v: `$${(lowestFrom / 1000).toFixed(1)}k` } : null,
+  avgSuccess ? { l: "Avg success", v: `${avgSuccess.toFixed(0)}%` } : null,
+].filter(Boolean) as Array<{ l: string; v: string }>;
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-revalidate=3600");
 ---
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    {itemLd && <script type="application/ld+json" set:html={JSON.stringify(itemLd)} />}
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
   <main class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
-    <section class="mx-auto max-w-7xl px-6 pt-10 pb-6">
-      <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">{tc("treatments")}</p>
-      <h1 class="mt-2 font-display text-3xl md:text-5xl leading-[1.05]">Medical treatments</h1>
-      <p class="lede mt-4">Packages include surgeon fee, anesthesia, implants, pre-op tests, hospital stay and post-op follow-up.</p>
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">Treatments</span>
+        </nav>
+      </div>
+    </div>
+
+    <EntityListingHero
+      eyebrow={`Treatments · ${rowsRaw.length} procedures`}
+      h1First="Treatments"
+      h1Italic="& procedures"
+      lede={`Transparent package pricing across ${rowsRaw.length} planned procedures — surgeon fee, anaesthesia, standard implants, hospital stay, routine post-op. Watch-outs are called out inside each page.`}
+      stats={stats}
+    />
+
+    <section style="padding: 32px 0 64px;">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
+        <ul class="flex flex-wrap gap-2">
+          {grouped.map((g) => (
+            g.slug && (
+              <li>
+                <a
+                  href={`#specialty-${g.slug}`}
+                  class="inline-flex items-center mono uppercase transition"
+                  style="font-size: 10px; letter-spacing: 0.12em; border: 1px solid var(--color-border); background: var(--color-paper); color: var(--color-ink); padding: 7px 14px; border-radius: 9999px;"
+                >
+                  {g.name} · {g.items.length}
+                </a>
+              </li>
+            )
+          ))}
+        </ul>
+      </div>
     </section>
 
-    <section class="mx-auto max-w-7xl px-6 pb-12">
-      <ul class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {rows.map((t) => (
-          <li>
-            <a
-              href={localizedPath(locale, `/treatment/${t.slug}`)}
-              class="group flex h-full flex-col rounded-xl border border-border bg-surface p-5 transition hover:-translate-y-0.5 hover:border-border-strong hover:shadow-sm"
-            >
-              {t.specialtyName && (
-                <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-subtle">{t.specialtyName}</p>
-              )}
-              <h3 class="mt-1 font-display text-lg leading-snug text-ink group-hover:text-accent transition-colors">
-                {t.name}
-              </h3>
-              {t.description && (
-                <p class="mt-2 text-sm text-ink-muted line-clamp-2">{t.description}</p>
-              )}
-              <div class="mt-4 flex flex-wrap gap-2 text-xs text-ink-muted">
-                {t.hospitalStayDays && (
-                  <span class="inline-flex items-center gap-1 rounded-full bg-subtle px-2 py-1">
-                    <Bed className="h-3 w-3" />
-                    {t.hospitalStayDays}d stay
-                  </span>
-                )}
-                {t.recoveryDays && (
-                  <span class="inline-flex items-center gap-1 rounded-full bg-subtle px-2 py-1">
-                    <Clock className="h-3 w-3" />
-                    {t.recoveryDays}d recovery
-                  </span>
-                )}
-                {t.successRatePercent && (
-                  <span class="inline-flex items-center gap-1 rounded-full bg-accent-soft text-accent px-2 py-1">
-                    <CheckCircle className="h-3 w-3" />
-                    {t.successRatePercent}%
-                  </span>
-                )}
+    {grouped.map((g, gi) => (
+      <section
+        id={g.slug ? `specialty-${g.slug}` : undefined}
+        style={`padding: 56px 0; ${gi > 0 ? "border-top: 1px solid var(--color-border-soft);" : "border-top: 1px solid var(--color-border-soft);"} scroll-margin-top: 120px;`}
+      >
+        <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
+          <div class="flex items-end justify-between flex-wrap gap-4 mb-6">
+            <div>
+              <div class="mono uppercase tnum" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                {String(gi + 1).padStart(2, "0")} · Specialty
               </div>
-              <span class="mt-4 inline-flex items-center text-sm text-accent group-hover:text-accent-hover">
-                Compare hospitals
-                <ChevronRight className="h-4 w-4 ml-1 mirror-x" />
-              </span>
-            </a>
-          </li>
-        ))}
-      </ul>
+              <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
+                {g.name}
+              </h2>
+            </div>
+            {g.slug && (
+              <a
+                href={localizedPath(locale, `/specialty/${g.slug}`)}
+                class="mono text-[11px] uppercase tracking-wider hover:text-accent"
+                style="color: var(--color-ink-subtle);"
+              >
+                View specialty hub →
+              </a>
+            )}
+          </div>
+          <div class="paper overflow-hidden" style="padding: 0;">
+            {g.items.map((t, i) => (
+              <a
+                href={localizedPath(locale, `/treatment/${t.slug}`)}
+                class="grid items-center gap-4 p-5 md:p-6 hover:bg-[var(--color-paper)] transition-colors"
+                style={`grid-template-columns: 36px 1.6fr 0.9fr 0.7fr 0.8fr auto; ${i > 0 ? "border-top: 1px solid var(--color-border-soft);" : ""}`}
+              >
+                <div class="display tnum" style="font-size: 18px; color: var(--color-ink-subtle);">
+                  {String(i + 1).padStart(2, "0")}
+                </div>
+                <div class="min-w-0">
+                  <div class="serif" style="font-size: 17px; letter-spacing: -0.005em; color: var(--color-ink);">
+                    {t.name}
+                  </div>
+                  {t.hospital_count > 0 && (
+                    <div class="mt-0.5 mono text-[10.5px] uppercase tracking-wider" style="color: var(--color-ink-subtle);">
+                      {t.hospital_count.toLocaleString()} hospitals priced
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
+                    From
+                  </div>
+                  <div class="display tnum mt-0.5" style="font-size: 17px;">
+                    {t.from_usd ? <Price usd={t.from_usd} /> : <span style="color: var(--color-ink-subtle);">—</span>}
+                  </div>
+                </div>
+                <div>
+                  <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
+                    Success
+                  </div>
+                  <div class="tnum mt-0.5" style="font-size: 14px;">
+                    {t.success_rate_percent ? `${Number(t.success_rate_percent).toFixed(0)}%` : <span style="color: var(--color-ink-subtle);">—</span>}
+                  </div>
+                </div>
+                <div class="text-[12px]" style="color: var(--color-ink-muted);">
+                  {[
+                    t.hospital_stay_days ? `${t.hospital_stay_days}d stay` : null,
+                    t.recovery_days ? `${t.recovery_days}d recovery` : null,
+                  ].filter(Boolean).join(" · ") || "—"}
+                </div>
+                <ChevronRight className="h-4 w-4 mirror-x text-[var(--color-ink-subtle)]" />
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+    ))}
 
-      <nav class="flex items-center justify-center gap-2 py-8">
-        {page > 1 && (
-          <a href={page === 2 ? localizedPath(locale, path) : `${localizedPath(locale, path)}?page=${page - 1}`} class="rounded-lg border border-border bg-surface px-3 py-2 text-sm hover:border-border-strong">← Previous</a>
-        )}
-        <span class="rounded-lg bg-accent text-accent-contrast px-3 py-2 text-sm font-semibold">Page {page}</span>
-        {hasNext && (
-          <a href={`${localizedPath(locale, path)}?page=${page + 1}`} class="rounded-lg border border-border bg-surface px-3 py-2 text-sm hover:border-border-strong">Next →</a>
-        )}
-      </nav>
+    <section style="background: var(--color-ink); color: var(--color-bg); padding: 72px 0;">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="grid gap-8 lg:grid-cols-[1.5fr,1fr] items-end">
+          <div>
+            <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
+              Need a specific quote
+            </div>
+            <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.02; letter-spacing: -0.02em; color: var(--color-bg);">
+              Three itemised <span class="italic-display">quotes</span> in 48 hours.
+            </h2>
+          </div>
+          <div class="flex flex-wrap gap-3 lg:justify-end">
+            <a
+              href={localizedPath(locale, "/calculator")}
+              class="inline-flex items-center gap-2 font-semibold"
+              style="background: var(--color-bg); color: var(--color-ink); padding: 14px 22px; border-radius: 9999px;"
+            >
+              Open calculator
+              <ChevronRight className="h-4 w-4 mirror-x" />
+            </a>
+            <a
+              href={localizedPath(locale, "/contact")}
+              class="inline-flex items-center gap-2 font-semibold"
+              style="border: 1px solid rgba(246,241,230,0.35); color: var(--color-bg); padding: 13px 22px; border-radius: 9999px;"
+            >
+              Request quotes
+            </a>
+          </div>
+        </div>
+      </div>
     </section>
 
     <SiteFooter locale={locale} />

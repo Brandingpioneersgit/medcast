@@ -3,11 +3,13 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import EntityListingHero from "@/components/EntityListingHero.astro";
+import PhotoBlock from "@/components/PhotoBlock.astro";
 import Pagination from "@/components/Pagination.astro";
 import { listBlogPosts } from "@/lib/queries";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
-import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { breadcrumbJsonLd, localeUrl, collectionPageJsonLd } from "@/lib/seo";
 import { ChevronRight, Calendar } from "lucide-react";
 
 export const prerender = false;
@@ -22,6 +24,11 @@ const page = Number(url.searchParams.get("page") ?? 1);
 
 const { rows, total, totalPages } = await listBlogPosts({ page });
 
+const featured = page === 1 ? rows[0] : null;
+const rest = page === 1 ? rows.slice(1) : rows;
+
+const categories = Array.from(new Set(rows.map((p) => p.category).filter(Boolean))) as string[];
+
 const path = "/blog";
 const canonicalUrl = localeUrl(locale, path);
 
@@ -30,10 +37,16 @@ const crumbs = breadcrumbJsonLd([
   { name: "Blog", url: canonicalUrl },
 ]);
 
-Astro.response.headers.set(
-  "Cache-Control",
-  "public, s-maxage=600, stale-while-revalidate=3600",
-);
+const collectionLd = page === 1 && rows.length > 0
+  ? collectionPageJsonLd({
+      name: "MedCasts editorial blog",
+      description: "Patient stories, treatment guides, and destination research.",
+      url: canonicalUrl,
+      items: rows.map((p) => ({ name: p.title, url: localeUrl(locale, `/blog/${p.slug}`) })),
+    })
+  : null;
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-revalidate=3600");
 
 function fmtDate(d: Date | null): string {
   if (!d) return "";
@@ -43,6 +56,22 @@ function fmtDate(d: Date | null): string {
     return new Date(d).toISOString().slice(0, 10);
   }
 }
+function firstWord(s: string) { const i = s.indexOf(" "); return i === -1 ? s : s.slice(0, i); }
+function lastWord(s: string) {
+  const parts = s.trim().split(/\s+/);
+  return parts.length > 1 ? parts[parts.length - 1] : "";
+}
+function withoutLastWord(s: string) {
+  const parts = s.trim().split(/\s+/);
+  return parts.length > 1 ? parts.slice(0, -1).join(" ") : s;
+}
+
+const stats = page === 1 ? [
+  { l: "Total posts", v: total.toString() },
+  { l: "Categories", v: categories.length.toString() },
+  { l: "Reply time", v: "9 min" },
+  { l: "Reviewer desk", v: "Editorial" },
+] : [];
 ---
 
 <BaseLayout locale={locale}>
@@ -52,69 +81,195 @@ function fmtDate(d: Date | null): string {
       description="Patient stories, treatment guides, and destination research for international medical travel. Written by our case-management and clinical teams."
       path={path}
       locale={locale}
+      translatedLocales={["en"]}
+      noindex={page > 1 || locale !== "en"}
     />
+    {collectionLd && <script type="application/ld+json" set:html={JSON.stringify(collectionLd)} />}
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
   <main class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
-    <section class="mx-auto max-w-7xl px-6 pt-12 md:pt-16 pb-6">
-      <h1 class="font-display text-3xl md:text-5xl leading-[1.05]">Medical travel blog</h1>
-      <p class="lede mt-4 max-w-3xl">
-        Patient stories, treatment guides, and destination research — written by our case-management and clinical teams.
-      </p>
-    </section>
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">Blog</span>
+        </nav>
+      </div>
+    </div>
+
+    <EntityListingHero
+      eyebrow={`Medical travel · Editorial`}
+      h1First="Medical travel"
+      h1Italic="blog"
+      lede="Patient stories, treatment guides, and destination research — written by our case-management and clinical teams. Every post is reviewed by a named physician before publish."
+      stats={stats}
+    />
 
     {rows.length === 0 ? (
-      <section class="mx-auto max-w-7xl px-6 py-20 text-center">
-        <p class="text-ink-muted">New posts coming soon. Check back next week.</p>
+      <section style="padding: 80px 0;">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8 text-center">
+          <p class="serif" style="font-size: 18px; color: var(--color-ink-muted);">New posts coming soon. Check back next week.</p>
+        </div>
       </section>
     ) : (
-      <section class="mx-auto max-w-7xl px-6 py-10">
-        <ul class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {rows.map((p) => (
-            <li>
-              <a
-                href={localizedPath(locale, `/blog/${p.slug}`)}
-                class="group flex flex-col h-full rounded-xl border border-border bg-surface overflow-hidden transition hover:border-border-strong hover:shadow-sm"
-              >
-                {p.coverImageUrl ? (
-                  <img src={p.coverImageUrl} alt={p.title} class="h-48 w-full object-cover" loading="lazy" />
-                ) : (
-                  <div class="h-48 w-full bg-accent-soft" />
-                )}
-                <div class="p-5 flex-1 flex flex-col">
-                  {p.category && (
-                    <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">
-                      {p.category}
-                    </p>
-                  )}
-                  <h2 class="mt-2 font-display text-lg text-ink group-hover:text-accent transition-colors">
-                    {p.title}
-                  </h2>
-                  {p.excerpt && (
-                    <p class="mt-3 text-sm text-ink-muted line-clamp-3 flex-1">{p.excerpt}</p>
-                  )}
-                  <div class="mt-4 flex items-center justify-between text-xs text-ink-subtle">
-                    <span class="inline-flex items-center gap-1.5">
-                      <Calendar className="h-3 w-3" />
-                      {fmtDate(p.publishedAt)}
+      <>
+        {categories.length > 1 && (
+          <section style="padding: 24px 0 0;">
+            <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
+              <ul class="flex flex-wrap gap-2">
+                <li>
+                  <span
+                    class="mono uppercase inline-flex items-center"
+                    style="font-size: 10px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 7px 14px; border-radius: 9999px;"
+                  >
+                    All · {rows.length}
+                  </span>
+                </li>
+                {categories.map((cat) => (
+                  <li>
+                    <span
+                      class="mono uppercase inline-flex items-center"
+                      style="font-size: 10px; letter-spacing: 0.12em; border: 1px solid var(--color-border); background: var(--color-paper); color: var(--color-ink); padding: 7px 14px; border-radius: 9999px;"
+                    >
+                      {cat}
                     </span>
-                    {p.authorName && <span>{p.authorName}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
+
+        {featured && (
+          <section style="padding: 48px 0;">
+            <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
+              <a
+                href={localizedPath(locale, `/blog/${featured.slug}`)}
+                class="paper group block overflow-hidden transition hover:-translate-y-0.5"
+                style="padding: 0;"
+              >
+                <div class="grid gap-0 lg:grid-cols-[1.4fr,1fr]">
+                  <PhotoBlock
+                    aspect="16/10"
+                    rounded={false}
+                    imgUrl={featured.coverImageUrl}
+                    label={featured.category ?? undefined}
+                    alt={featured.title}
+                    priority
+                  />
+                  <div class="p-8 md:p-10 flex flex-col justify-center">
+                    {featured.category && (
+                      <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
+                        Featured · {featured.category}
+                      </div>
+                    )}
+                    <h2
+                      class="display mt-3 group-hover:text-accent transition-colors"
+                      style="font-size: clamp(1.75rem, 2.8vw, 2.5rem); line-height: 1.05; letter-spacing: -0.02em; color: var(--color-ink);"
+                    >
+                      {withoutLastWord(featured.title)}{" "}<span class="italic-display">{lastWord(featured.title)}</span>
+                    </h2>
+                    {featured.excerpt && (
+                      <p class="mt-4 serif" style="font-size: 17px; line-height: 1.55; color: var(--color-ink-muted);">
+                        {featured.excerpt}
+                      </p>
+                    )}
+                    <div class="mt-6 flex items-center gap-4 text-[13px]" style="color: var(--color-ink-subtle);">
+                      <span class="inline-flex items-center gap-1.5">
+                        <Calendar className="h-3.5 w-3.5" />
+                        {fmtDate(featured.publishedAt)}
+                      </span>
+                      {featured.authorName && (
+                        <span class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em;">
+                          {featured.authorName}
+                        </span>
+                      )}
+                    </div>
+                    <span
+                      class="mt-6 inline-flex items-center gap-1.5 self-start text-[13px] font-semibold"
+                      style="background: var(--color-ink); color: var(--color-bg); padding: 9px 18px; border-radius: 9999px;"
+                    >
+                      Read the piece
+                      <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+                    </span>
                   </div>
                 </div>
               </a>
-            </li>
-          ))}
-        </ul>
-
-        {totalPages > 1 && (
-          <div class="mt-10">
-            <Pagination page={page} totalPages={totalPages} basePath={localizedPath(locale, "/blog")} />
-          </div>
+            </div>
+          </section>
         )}
-      </section>
+
+        <section style="padding: 32px 0 88px; border-top: 1px solid var(--color-border-soft);">
+          <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
+            <div class="mb-6 flex items-end justify-between">
+              <h3 class="display" style="font-size: 24px; letter-spacing: -0.015em;">
+                {page === 1 ? "More dispatches" : `Page ${page}`}
+              </h3>
+              <span class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                {rest.length} piece{rest.length === 1 ? "" : "s"}
+              </span>
+            </div>
+            <ul class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {rest.map((p) => (
+                <li>
+                  <a
+                    href={localizedPath(locale, `/blog/${p.slug}`)}
+                    class="paper group flex flex-col h-full overflow-hidden transition hover:-translate-y-0.5"
+                    style="padding: 0;"
+                  >
+                    <PhotoBlock
+                      aspect="16/10"
+                      rounded={false}
+                      imgUrl={p.coverImageUrl}
+                      label={p.category ?? undefined}
+                      alt={p.title}
+                    />
+                    <div class="p-6 flex-1 flex flex-col">
+                      {p.category && (
+                        <p class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
+                          {p.category}
+                        </p>
+                      )}
+                      <h4 class="mt-2 serif group-hover:text-accent transition-colors" style="font-size: 19px; line-height: 1.25; letter-spacing: -0.005em; color: var(--color-ink);">
+                        {p.title}
+                      </h4>
+                      {p.excerpt && (
+                        <p class="mt-3 serif line-clamp-3 flex-1" style="font-size: 14.5px; line-height: 1.55; color: var(--color-ink-muted);">
+                          {p.excerpt}
+                        </p>
+                      )}
+                      <div
+                        class="mt-auto flex items-center justify-between"
+                        style="border-top: 1px dashed var(--color-border); margin-top: 16px; padding-top: 12px;"
+                      >
+                        <span class="inline-flex items-center gap-1.5 text-[12px]" style="color: var(--color-ink-subtle);">
+                          <Calendar className="h-3 w-3" />
+                          {fmtDate(p.publishedAt)}
+                        </span>
+                        {p.authorName && (
+                          <span class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                            {p.authorName}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </a>
+                </li>
+              ))}
+            </ul>
+
+            {totalPages > 1 && (
+              <div class="mt-10">
+                <Pagination page={page} totalPages={totalPages} basePath={localizedPath(locale, "/blog")} />
+              </div>
+            )}
+          </div>
+        </section>
+      </>
     )}
 
     <SiteFooter locale={locale} />

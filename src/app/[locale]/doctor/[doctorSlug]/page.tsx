@@ -139,30 +139,22 @@ export default async function DoctorPage({ params }: Props) {
                 alt={doctor.name}
                 className="absolute inset-0 h-full w-full object-cover"
               />
+              <div className="image-veil" />
               {!doctor.imageUrl && (
-                <>
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      background:
-                        "linear-gradient(180deg, rgba(14,23,19,0) 55%, rgba(14,23,19,0.6) 100%)",
-                    }}
-                  />
-                  <span
-                    className="mono absolute"
-                    style={{
-                      bottom: 14,
-                      insetInlineStart: 16,
-                      fontSize: 10,
-                      letterSpacing: "0.14em",
-                      textTransform: "uppercase",
-                      color: "rgb(246 241 230 / 0.9)",
-                      zIndex: 1,
-                    }}
-                  >
-                    {formatDoctorName(doctor.name, doctor.title)}
-                  </span>
-                </>
+                <span
+                  className="mono absolute"
+                  style={{
+                    bottom: 14,
+                    insetInlineStart: 16,
+                    fontSize: 10,
+                    letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                    color: "rgb(246 241 230 / 0.9)",
+                    zIndex: 1,
+                  }}
+                >
+                  {formatDoctorName(doctor.name, doctor.title)}
+                </span>
               )}
             </div>
 

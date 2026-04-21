@@ -19,6 +19,8 @@ const STATIC_PATHS = [
   "/compare/countries",
   "/about",
   "/editorial-policy",
+  "/medical-board",
+  "/pricing-index",
 ];
 
 export const GET: APIRoute = () =>

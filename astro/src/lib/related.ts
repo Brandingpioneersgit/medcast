@@ -1,10 +1,15 @@
 import { db } from "./db";
 import { hospitals, doctors, treatments, cities } from "../../../src/lib/db/schema";
 import { and, eq, ne } from "drizzle-orm";
+import { localizedPath, defaultLocale, type Locale } from "./i18n";
 
 export type RelatedLink = { name: string; href: string; subtitle?: string };
 
-export async function relatedToHospital(hospitalId: number, limit = 6): Promise<RelatedLink[]> {
+export async function relatedToHospital(
+  hospitalId: number,
+  limit = 6,
+  locale: Locale = defaultLocale,
+): Promise<RelatedLink[]> {
   const current = await db.query.hospitals.findFirst({
     where: eq(hospitals.id, hospitalId),
     columns: { cityId: true },
@@ -26,12 +31,16 @@ export async function relatedToHospital(hospitalId: number, limit = 6): Promise<
 
   return siblings.map((s) => ({
     name: s.name,
-    href: `/hospital/${s.slug}`,
+    href: localizedPath(locale, `/hospital/${s.slug}`),
     subtitle: s.cityName,
   }));
 }
 
-export async function relatedToTreatment(treatmentId: number, limit = 6): Promise<RelatedLink[]> {
+export async function relatedToTreatment(
+  treatmentId: number,
+  limit = 6,
+  locale: Locale = defaultLocale,
+): Promise<RelatedLink[]> {
   const current = await db.query.treatments.findFirst({
     where: eq(treatments.id, treatmentId),
     columns: { specialtyId: true },
@@ -50,10 +59,17 @@ export async function relatedToTreatment(treatmentId: number, limit = 6): Promis
     )
     .limit(limit);
 
-  return siblings.map((s) => ({ name: s.name, href: `/treatment/${s.slug}` }));
+  return siblings.map((s) => ({
+    name: s.name,
+    href: localizedPath(locale, `/treatment/${s.slug}`),
+  }));
 }
 
-export async function relatedToDoctor(doctorId: number, limit = 6): Promise<RelatedLink[]> {
+export async function relatedToDoctor(
+  doctorId: number,
+  limit = 6,
+  locale: Locale = defaultLocale,
+): Promise<RelatedLink[]> {
   const current = await db.query.doctors.findFirst({
     where: eq(doctors.id, doctorId),
     columns: { hospitalId: true },
@@ -79,7 +95,7 @@ export async function relatedToDoctor(doctorId: number, limit = 6): Promise<Rela
 
   return siblings.map((s) => ({
     name: `${s.title ?? "Dr."} ${s.name}`,
-    href: `/doctor/${s.slug}`,
+    href: localizedPath(locale, `/doctor/${s.slug}`),
     subtitle: s.quals ?? undefined,
   }));
 }

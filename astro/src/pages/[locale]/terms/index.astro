@@ -1,0 +1,143 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/terms", 308);
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+const seoTitle = "Terms of Service";
+const seoDescription =
+  "MedCasts terms: who we are, what we do and don't do, how we're paid, and the honest boundaries of a medical-travel coordinator.";
+const path = "/terms";
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Terms of service", url: localeUrl(locale, path) },
+]);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=86400, stale-while-revalidate=604800",
+);
+
+const LAST_UPDATED = "April 2026";
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+    <SiteHeader locale={locale} />
+
+    <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
+      <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+        <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+        <span class="mx-1.5">/</span>
+        <span style="color: var(--color-ink);">Terms of service</span>
+      </nav>
+    </div>
+
+    <section style="padding: 56px 28px;">
+      <div class="mx-auto" style="max-width: 780px;">
+        <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
+          Legal
+        </div>
+        <h1
+          class="display display-tight mt-3"
+          style="font-size: clamp(2.25rem, 5vw, 3.5rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;"
+        >
+          Terms of <span class="italic-display">service</span>
+        </h1>
+        <p class="serif mt-5" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">
+          The honest boundaries of what a medical-travel coordinator can and cannot do for you. Read before you engage our case managers.
+        </p>
+        <div class="mono mt-4" style="font-size: 12px; color: var(--color-ink-subtle);">
+          Last updated: {LAST_UPDATED}
+        </div>
+
+        <div class="prose-editorial mt-10" style="max-width: none;">
+          <h2>1. Who we are</h2>
+          <p>MedCasts ("we", "us", "our") operates a medical-travel coordination platform connecting international patients with accredited hospitals. We are coordinators, not clinicians. We don't practice medicine, diagnose conditions, or prescribe treatment.</p>
+
+          <h2>2. What we do</h2>
+          <ul>
+            <li>Match you to 1–3 hospitals appropriate for your clinical situation and budget.</li>
+            <li>Coordinate itemized quotes, treatment plans, and surgeon communications.</li>
+            <li>Handle visa invitation letters, travel logistics, accommodation, and interpreter support.</li>
+            <li>Provide a named case manager from first contact through 90-day post-op follow-up.</li>
+            <li>Coordinate free second opinions from our medical panel of senior specialists.</li>
+          </ul>
+
+          <h2>3. What we don't do</h2>
+          <ul>
+            <li><strong>We don't practice medicine.</strong> Our case managers, researchers, and the information on this site are not a substitute for a doctor-patient relationship.</li>
+            <li><strong>We don't prescribe.</strong> No medication recommendations, dosages, or clinical judgments.</li>
+            <li><strong>We don't guarantee outcomes.</strong> Every surgery has risk. We surface hospitals with strong track records; we can't promise results.</li>
+            <li><strong>We don't replace your local doctor.</strong> You should keep your local physician informed throughout.</li>
+          </ul>
+
+          <h2>4. How we're paid</h2>
+          <p>Hospitals pay us a coordination fee after you choose to proceed — typically 5–15% of the hospital's gross invoice. This is disclosed on every quote we send. You don't pay us anything directly. Second opinions, quote preparation, and pre-travel coordination are free to you whether or not you book.</p>
+          <p>This means: our incentive to send you to a hospital increases with the hospital's invoice. We counter this structurally by (a) running an independent medical panel whose second-opinion compensation is flat per case, and (b) publishing our <a href={localizedPath(locale, "/editorial-policy")}>editorial policy</a> including the 28% of oncology cases where we recommend against surgery.</p>
+
+          <h2>5. Your responsibilities</h2>
+          <ul>
+            <li>Give us accurate clinical information. Omissions (prior surgery, current medications, allergies) can directly affect your safety.</li>
+            <li>Verify your visa eligibility, passport validity, and any travel restrictions before booking flights.</li>
+            <li>Maintain appropriate medical insurance. Most plans don't cover elective international care — see our <a href={localizedPath(locale, "/insurance")}>insurance guide</a>.</li>
+            <li>Pay hospitals directly. We never handle clinical payments ourselves.</li>
+          </ul>
+
+          <h2>6. Quote validity</h2>
+          <p>Quotes are indicative until the destination hospital has reviewed your medical records in full. Final prices may adjust based on findings during pre-operative workup (imaging in-country, blood work, cardiac clearance, etc.). Any material change of ≥5% to the quote must be disclosed in writing before you commit.</p>
+
+          <h2>7. Hospital independence</h2>
+          <p>We're a coordinator; we are not the operating entity. Your clinical contract is between you and the destination hospital. Their malpractice coverage, complication indemnity, and dispute-resolution processes apply. We disclose these terms on every hospital we match you to.</p>
+
+          <h2>8. Second opinions</h2>
+          <p>Second opinions are reviews of submitted records by senior specialists on our panel. They are for your consideration and do not constitute treatment or a substitute for an in-person consultation. Decisions to proceed, modify, or decline treatment remain yours in consultation with your treating doctor.</p>
+
+          <h2>9. Cancellation and refunds</h2>
+          <p>We don't charge you deposits. Any deposits paid to hospitals follow that hospital's refund policy, which we require in writing before you pay. Typical terms: full refund if cancelled &gt;14 days before surgery (less processing fee), 50–70% refund 3–14 days before, case-by-case within 72 hours. Medical-reason cancellations (fever, abnormal labs) are typically handled without penalty — get this specific language in writing.</p>
+
+          <h2>10. Limitation of liability</h2>
+          <p>We provide coordination services on an "as is" basis. Our maximum aggregate liability to you is limited to the coordination fee we received from the hospital for your case, or US$1,000, whichever is greater. This does not limit our liability for gross negligence, wilful misconduct, or death and personal injury under applicable law.</p>
+
+          <h2>11. Indemnification</h2>
+          <p>You agree to indemnify us against third-party claims arising from inaccurate information you provided or activities clearly outside the scope of our coordination services.</p>
+
+          <h2>12. Governing law and disputes</h2>
+          <p>These terms are governed by the laws of Delaware, USA, where MedCasts is incorporated. Disputes go first to good-faith negotiation, then mediation, then binding arbitration under AAA rules. You retain the right to bring claims before your local consumer-protection body where applicable law permits.</p>
+
+          <h2>13. Content and intellectual property</h2>
+          <p>Content on this site (editorial articles, hospital descriptions, medical panel reviews, data compilations) is our intellectual property. You may share individual articles for non-commercial personal use. Republishing at scale, scraping, or retraining AI models on this content requires written permission.</p>
+
+          <h2>14. Medical information disclaimer</h2>
+          <p>Information here — hospital descriptions, treatment guides, cost ranges, blog posts — is educational, not medical advice. It doesn't establish a doctor-patient relationship. Before acting on anything: consult your doctor.</p>
+
+          <h2>15. Changes to these terms</h2>
+          <p>We update terms when materially necessary. Active case clients are notified by email. Continued use after notification constitutes acceptance.</p>
+
+          <h2>16. Contact</h2>
+          <p>For legal: <a href="mailto:legal@medcasts.com">legal@medcasts.com</a></p>
+          <p>For editorial or clinical concerns: <a href="mailto:corrections@medcasts.com">corrections@medcasts.com</a></p>
+          <p>For everything else: your case manager.</p>
+        </div>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

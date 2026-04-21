@@ -1,0 +1,262 @@
+---
+/**
+ * Global ⌘K / Ctrl-K command palette.
+ *
+ * Ships a small seed list of entrypoints baked into the HTML + a text input
+ * that filters client-side. Zero JS dependencies — all vanilla DOM.
+ *
+ * The header search button has `data-command-trigger`; this component's
+ * inline script listens for that click + the ⌘K / Ctrl-K keydown to open
+ * the overlay.
+ */
+import { type Locale, localizedPath } from "@/lib/i18n";
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+
+// Seed entries — cover the main jumps. A full search can be layered later.
+const items: Array<{ label: string; href: string; hint: string; group: string }> = [
+  { label: "Free quote", href: "/quote", hint: "3 hospitals in 48 hr", group: "Actions" },
+  { label: "Free second opinion", href: "/second-opinion", hint: "Upload reports, written opinion in 5 days", group: "Actions" },
+  { label: "Emergency / air ambulance", href: "/emergency", hint: "24/7 desk", group: "Actions" },
+  { label: "Track my case", href: "/portal", hint: "Lookup by code", group: "Actions" },
+
+  { label: "All hospitals", href: "/hospitals", hint: "9,254 accredited", group: "Browse" },
+  { label: "All treatments", href: "/treatments", hint: "88 procedures priced", group: "Browse" },
+  { label: "All doctors", href: "/doctors", hint: "847 surgeons", group: "Browse" },
+  { label: "Specialty hubs", href: "/specialties", hint: "15 specialties", group: "Browse" },
+  { label: "Destinations", href: "/countries", hint: "9 countries", group: "Browse" },
+  { label: "Conditions", href: "/conditions", hint: "79 conditions", group: "Browse" },
+  { label: "Editorial", href: "/blog", hint: "20 articles", group: "Browse" },
+
+  { label: "Compare hospitals", href: "/compare/hospitals", hint: "Side-by-side", group: "Compare" },
+  { label: "Compare doctors", href: "/compare/doctors", hint: "Experience + fees", group: "Compare" },
+  { label: "Compare treatments", href: "/compare/treatments", hint: "Cost + recovery", group: "Compare" },
+  { label: "Compare countries", href: "/compare/countries", hint: "Prices + visa", group: "Compare" },
+
+  { label: "India", href: "/country/india", hint: "4,267 hospitals", group: "Destinations" },
+  { label: "Turkey", href: "/country/turkey", hint: "684 hospitals", group: "Destinations" },
+  { label: "Thailand", href: "/country/thailand", hint: "1,427 hospitals", group: "Destinations" },
+  { label: "Germany", href: "/country/germany", hint: "Complex cases", group: "Destinations" },
+  { label: "UAE", href: "/country/uae", hint: "Premium Gulf care", group: "Destinations" },
+  { label: "Singapore", href: "/country/singapore", hint: "Complex oncology", group: "Destinations" },
+
+  { label: "CABG (Heart Bypass)", href: "/treatment/cabg-heart-bypass", hint: "From $3,800", group: "Popular treatments" },
+  { label: "Knee Replacement", href: "/treatment/total-knee-replacement", hint: "From $2,900", group: "Popular treatments" },
+  { label: "Hair Transplant FUE", href: "/treatment/hair-transplant-fue", hint: "From $1,800", group: "Popular treatments" },
+  { label: "IVF cycle", href: "/treatment/ivf-cycle", hint: "From $2,400", group: "Popular treatments" },
+  { label: "Gastric Sleeve", href: "/treatment/gastric-sleeve", hint: "From $4,200", group: "Popular treatments" },
+  { label: "Liver transplant", href: "/treatment/liver-transplant", hint: "From $28,000", group: "Popular treatments" },
+
+  { label: "Cardiac Surgery", href: "/specialty/cardiac-surgery", hint: "15 specialties", group: "Specialties" },
+  { label: "Oncology", href: "/specialty/oncology", hint: "Tumor boards", group: "Specialties" },
+  { label: "Orthopedics", href: "/specialty/orthopedics", hint: "Joints + spine", group: "Specialties" },
+  { label: "Fertility & IVF", href: "/specialty/fertility-ivf", hint: "PGT, donor cycles", group: "Specialties" },
+
+  { label: "Accreditations", href: "/accreditation", hint: "JCI, NABH, ISO…", group: "Reference" },
+  { label: "Glossary", href: "/glossary", hint: "Medical terms", group: "Reference" },
+  { label: "Editorial policy", href: "/editorial-policy", hint: "How we source + review", group: "Reference" },
+  { label: "Privacy", href: "/privacy-policy", hint: "GDPR-aligned", group: "Reference" },
+  { label: "Terms", href: "/terms", hint: "Who we are, what we do", group: "Reference" },
+];
+
+// Group for rendering
+const groups = Array.from(new Set(items.map((i) => i.group)));
+---
+
+<div
+  id="command-palette"
+  aria-hidden="true"
+  hidden
+  style="position: fixed; inset: 0; z-index: 100; background: rgba(14, 23, 19, 0.55); backdrop-filter: blur(4px); display: flex; align-items: flex-start; justify-content: center; padding-top: clamp(40px, 10vh, 120px); padding-inline: 16px;"
+  data-command-palette
+>
+  <div
+    role="dialog"
+    aria-modal="true"
+    aria-label="Quick navigation"
+    style="width: 100%; max-width: 640px; background: var(--color-paper); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-xl, 0 24px 48px -12px rgba(0,0,0,0.25)); overflow: hidden;"
+  >
+    {/* Search row */}
+    <div style="display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--color-border);">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--color-ink-subtle); flex-shrink: 0;">
+        <circle cx="7" cy="7" r="5" />
+        <path d="M14 14l-2.5-2.5" />
+      </svg>
+      <input
+        type="text"
+        data-command-input
+        placeholder="Search treatments, hospitals, destinations…"
+        autocomplete="off"
+        aria-label="Search"
+        style="flex: 1; background: transparent; border: 0; outline: none; font-size: 15px; color: var(--color-ink); font-family: inherit;"
+      />
+      <button
+        type="button"
+        data-command-close
+        aria-label="Close"
+        class="mono"
+        style="font-size: 10px; color: var(--color-ink-subtle); padding: 2px 6px; border: 1px solid var(--color-border); border-radius: 4px; background: transparent; cursor: pointer;"
+      >ESC</button>
+    </div>
+
+    {/* Results */}
+    <div data-command-results style="max-height: 60vh; overflow-y: auto; padding: 8px;">
+      {groups.map((g) => (
+        <div data-group-section={g}>
+          <div
+            class="mono"
+            style="padding: 8px 12px 4px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-ink-subtle);"
+          >
+            {g}
+          </div>
+          {items.filter((i) => i.group === g).map((i) => (
+            <a
+              href={localizedPath(locale, i.href)}
+              data-command-item
+              data-label={i.label.toLowerCase()}
+              data-hint={i.hint.toLowerCase()}
+              style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 8px; color: var(--color-ink); text-decoration: none;"
+            >
+              <div style="min-width: 0;">
+                <div style="font-size: 14px; font-weight: 500;">{i.label}</div>
+                <div style="font-size: 12px; color: var(--color-ink-subtle); margin-top: 2px;">{i.hint}</div>
+              </div>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="color: var(--color-ink-subtle); flex-shrink: 0;" aria-hidden="true">
+                <path d="M3 8h10M9 4l4 4-4 4" />
+              </svg>
+            </a>
+          ))}
+        </div>
+      ))}
+      <div data-command-empty hidden style="padding: 32px 16px; text-align: center;">
+        <div class="serif" style="font-size: 15px; color: var(--color-ink-muted);">Nothing found.</div>
+        <a
+          href={localizedPath(locale, "/contact")}
+          data-command-close
+          style="display: inline-block; margin-top: 12px; font-size: 13px; color: var(--color-accent);"
+        >
+          Talk to a case manager →
+        </a>
+      </div>
+    </div>
+
+    {/* Footer */}
+    <div
+      class="mono"
+      style="display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-top: 1px solid var(--color-border); font-size: 10.5px; color: var(--color-ink-subtle); letter-spacing: 0.06em;"
+    >
+      <span>↑↓ navigate · ↵ open · ESC close</span>
+      <span>Or <a href={localizedPath(locale, "/contact")} data-command-close style="color: var(--color-accent);">chat with us</a></span>
+    </div>
+  </div>
+</div>
+
+<script is:inline>
+  (() => {
+    const panel = document.getElementById("command-palette");
+    if (!panel) return;
+    const input = panel.querySelector("[data-command-input]");
+    const resultsEl = panel.querySelector("[data-command-results]");
+    const emptyEl = panel.querySelector("[data-command-empty]");
+    const closeButtons = panel.querySelectorAll("[data-command-close]");
+    const triggerButton = document.querySelector("[data-command-trigger]");
+    let activeIdx = 0;
+    let visibleItems = [];
+
+    function items() {
+      return Array.from(panel.querySelectorAll("[data-command-item]"));
+    }
+    function refreshVisible() {
+      visibleItems = items().filter((el) => el.style.display !== "none");
+      visibleItems.forEach((el, i) => {
+        el.style.background = i === activeIdx ? "var(--color-accent-soft)" : "transparent";
+      });
+      if (visibleItems.length === 0) {
+        emptyEl?.removeAttribute("hidden");
+      } else {
+        emptyEl?.setAttribute("hidden", "");
+      }
+    }
+
+    function filter(query) {
+      const q = query.trim().toLowerCase();
+      const allItems = items();
+      for (const el of allItems) {
+        const label = el.dataset.label || "";
+        const hint = el.dataset.hint || "";
+        const match = q === "" || label.includes(q) || hint.includes(q);
+        el.style.display = match ? "" : "none";
+      }
+      // Hide empty groups
+      panel.querySelectorAll("[data-group-section]").forEach((section) => {
+        const visible = Array.from(section.querySelectorAll("[data-command-item]"))
+          .some((el) => el.style.display !== "none");
+        section.style.display = visible ? "" : "none";
+      });
+      activeIdx = 0;
+      refreshVisible();
+    }
+
+    function open() {
+      panel.hidden = false;
+      panel.setAttribute("aria-hidden", "false");
+      document.body.style.overflow = "hidden";
+      setTimeout(() => input?.focus(), 10);
+      refreshVisible();
+    }
+    function close() {
+      panel.hidden = true;
+      panel.setAttribute("aria-hidden", "true");
+      document.body.style.overflow = "";
+      if (input) input.value = "";
+      filter("");
+    }
+
+    if (triggerButton) {
+      triggerButton.addEventListener("click", (e) => {
+        e.preventDefault();
+        open();
+      });
+    }
+
+    closeButtons.forEach((b) => b.addEventListener("click", (e) => {
+      if (b.tagName === "BUTTON") e.preventDefault();
+      close();
+    }));
+
+    panel.addEventListener("click", (e) => {
+      if (e.target === panel) close();
+    });
+
+    input?.addEventListener("input", (e) => filter(e.target.value));
+
+    document.addEventListener("keydown", (e) => {
+      const isCmdK = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k";
+      if (isCmdK) {
+        e.preventDefault();
+        if (panel.hidden) open(); else close();
+        return;
+      }
+      if (panel.hidden) return;
+      if (e.key === "Escape") { e.preventDefault(); close(); return; }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        activeIdx = Math.min(activeIdx + 1, visibleItems.length - 1);
+        refreshVisible();
+        visibleItems[activeIdx]?.scrollIntoView({ block: "nearest" });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        activeIdx = Math.max(activeIdx - 1, 0);
+        refreshVisible();
+        visibleItems[activeIdx]?.scrollIntoView({ block: "nearest" });
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        const el = visibleItems[activeIdx];
+        if (el && el.href) window.location.href = el.href;
+      }
+    });
+  })();
+</script>

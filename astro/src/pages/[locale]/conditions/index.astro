@@ -3,9 +3,13 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
-import { isLocale, type Locale } from "@/lib/i18n";
-import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import EntityListingHero from "@/components/EntityListingHero.astro";
+import { db } from "@/lib/db";
+import { sql } from "drizzle-orm";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, collectionPageJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
+import { ChevronRight } from "lucide-react";
 
 export const prerender = false;
 
@@ -13,9 +17,50 @@ const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect("/en/conditions", 308);
 const locale = rawLocale as Locale;
 
+type ConditionRow = {
+  slug: string;
+  name: string;
+  severityLevel: string | null;
+  specialtyNames: string[] | null;
+  treatmentCount: number;
+};
+
+let rows: ConditionRow[] = [];
+try {
+  rows = Array.from(
+    await db.execute<ConditionRow>(sql`
+      SELECT c.slug, c.name, c.severity_level as "severityLevel",
+        ARRAY(SELECT s.name FROM condition_specialties cs JOIN specialties s ON s.id = cs.specialty_id WHERE cs.condition_id = c.id LIMIT 2) AS "specialtyNames",
+        (SELECT COUNT(*)::int FROM condition_treatments ct WHERE ct.condition_id = c.id) AS "treatmentCount"
+      FROM conditions c
+      ORDER BY c.name ASC
+    `),
+  );
+} catch {
+  rows = [];
+}
+
+type Group = { letter: string; items: ConditionRow[] };
+const groupedMap = new Map<string, Group>();
+for (const r of rows) {
+  const L = (r.name[0] ?? "#").toUpperCase();
+  const key = /[A-Z]/.test(L) ? L : "#";
+  if (!groupedMap.has(key)) groupedMap.set(key, { letter: key, items: [] });
+  groupedMap.get(key)!.items.push(r);
+}
+const groups = Array.from(groupedMap.values()).sort((a, b) => a.letter.localeCompare(b.letter));
+const allLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const activeLetters = new Set(groups.map((g) => g.letter));
+
+const specialtyCount = new Set(
+  rows.flatMap((r) => r.specialtyNames ?? []).filter(Boolean),
+).size;
+const totalTreatments = rows.reduce((s, r) => s + r.treatmentCount, 0);
+const severe = rows.filter((r) => r.severityLevel?.toLowerCase() === "severe").length;
+
 const tc = getTranslator(locale, "common");
-const seoTitle = "Medical conditions";
-const seoDescription = "Browse conditions linked to matching treatments, specialties, and hospitals worldwide.";
+const seoTitle = "Medical conditions index";
+const seoDescription = `Browse ${rows.length} conditions mapped to treatments, specialties, and accredited hospitals. Start from a diagnosis, land on an option list you can act on.`;
 const path = "/conditions";
 
 const crumbs = breadcrumbJsonLd([
@@ -23,23 +68,139 @@ const crumbs = breadcrumbJsonLd([
   { name: "Conditions", url: localeUrl(locale, path) },
 ]);
 
-Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-revalidate=3600");
+const collectionLd = collectionPageJsonLd({
+  name: "Medical conditions",
+  description: seoDescription,
+  url: localeUrl(locale, path),
+  items: rows.map((r) => ({ name: r.name, url: localeUrl(locale, `/condition/${r.slug}`) })),
+});
+
+const stats = [
+  { l: "Conditions", v: rows.length.toString() },
+  { l: "Specialties", v: specialtyCount.toString() },
+  { l: "Treatment paths", v: totalTreatments.toString() },
+  severe > 0 ? { l: "Severe flagged", v: severe.toString() } : null,
+].filter(Boolean) as Array<{ l: string; v: string }>;
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
 ---
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(collectionLd)} />
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
   <main class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
-    <section class="mx-auto max-w-7xl px-6 pt-10 pb-16">
-      <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">Browse</p>
-      <h1 class="mt-2 font-display text-3xl md:text-5xl leading-[1.05]">Conditions</h1>
-      <p class="lede mt-4">Find the treatments, specialists, and hospitals that match your condition.</p>
-      {/* TODO: grouped conditions grid */}
+
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">Conditions</span>
+        </nav>
+      </div>
+    </div>
+
+    <EntityListingHero
+      eyebrow={`Condition index · ${rows.length} entries`}
+      h1First="Start from a"
+      h1Italic="diagnosis"
+      lede={`${rows.length} conditions mapped to treatments, specialties, and accredited hospitals. Not medical advice — a pathfinder so you land on an option list you can act on.`}
+      stats={stats}
+    />
+
+    <section style="padding: 32px 0 48px; position: sticky; top: 96px; z-index: 30; background: color-mix(in srgb, var(--color-bg) 85%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
+        <div class="flex flex-wrap gap-1.5">
+          {allLetters.map((L) => {
+            const isActive = activeLetters.has(L);
+            return (
+              <a
+                href={isActive ? `#letter-${L}` : undefined}
+                class="mono tnum inline-flex items-center justify-center transition"
+                style={`
+                  width: 32px; height: 32px;
+                  font-size: 12px; letter-spacing: 0.05em;
+                  border-radius: 9999px;
+                  border: 1px solid ${isActive ? "var(--color-ink)" : "var(--color-border)"};
+                  color: ${isActive ? "var(--color-ink)" : "var(--color-ink-subtle)"};
+                  ${isActive ? "" : "pointer-events: none; opacity: 0.4;"}
+                `}
+              >
+                {L}
+              </a>
+            );
+          })}
+        </div>
+      </div>
     </section>
+
+    <section style="padding-bottom: 88px;">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
+        {groups.map((g) => (
+          <div id={`letter-${g.letter}`} style="scroll-margin-top: 160px; padding: 48px 0; border-top: 1px solid var(--color-border-soft);">
+            <div class="grid gap-10 lg:grid-cols-[0.22fr,1fr]">
+              <div class="lg:sticky lg:top-40 lg:self-start">
+                <div
+                  class="display tnum"
+                  style="font-size: 96px; line-height: 0.9; letter-spacing: -0.04em; color: var(--color-ink);"
+                >
+                  {g.letter}
+                </div>
+                <div class="mono uppercase mt-1" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                  {g.items.length} entries
+                </div>
+              </div>
+              <ul>
+                {g.items.map((c, i) => {
+                  const sev = c.severityLevel?.toLowerCase();
+                  const sevColor = sev === "severe" ? "var(--color-coral)" : sev === "moderate" ? "var(--color-saffron)" : null;
+                  return (
+                    <li
+                      style={`border-top: 1px dashed var(--color-border); ${i === g.items.length - 1 ? "border-bottom: 1px dashed var(--color-border);" : ""}`}
+                    >
+                      <a
+                        href={localizedPath(locale, `/condition/${c.slug}`)}
+                        class="grid items-center gap-4 py-5 group"
+                        style="grid-template-columns: 1fr auto auto auto;"
+                      >
+                        <div class="min-w-0">
+                          <div class="serif group-hover:text-accent transition-colors" style="font-size: 20px; letter-spacing: -0.005em; color: var(--color-ink);">
+                            {c.name}
+                          </div>
+                          {c.specialtyNames && c.specialtyNames.length > 0 && (
+                            <div class="mt-1 mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                              {c.specialtyNames.join(" · ")}
+                            </div>
+                          )}
+                        </div>
+                        {sevColor && (
+                          <span
+                            class="mono uppercase"
+                            style={`font-size: 9.5px; letter-spacing: 0.12em; border: 1px solid color-mix(in srgb, ${sevColor} 50%, transparent); color: ${sevColor}; background: color-mix(in srgb, ${sevColor} 12%, transparent); padding: 3px 9px; border-radius: 9999px;`}
+                          >
+                            {sev}
+                          </span>
+                        )}
+                        <span class="mono tnum text-[11px]" style="color: var(--color-ink-subtle);">
+                          {c.treatmentCount} path{c.treatmentCount === 1 ? "" : "s"}
+                        </span>
+                        <ChevronRight className="h-4 w-4 mirror-x text-[var(--color-ink-subtle)] group-hover:text-[var(--color-accent)] transition-colors" />
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

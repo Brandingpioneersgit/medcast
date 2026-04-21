@@ -1,0 +1,121 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import EntityListingHero from "@/components/EntityListingHero.astro";
+import { listSurgeonSpecialties } from "@/lib/queries";
+import { getTranslator } from "@/lib/messages";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, itemListJsonLd } from "@/lib/seo";
+import { ChevronRight } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/surgeons", 308);
+const locale = rawLocale as Locale;
+
+const specialties = await listSurgeonSpecialties();
+const totalDoctors = specialties.reduce((acc, s) => acc + s.docs, 0);
+
+const tc = getTranslator(locale, "common");
+
+const seoTitle = "Browse surgeons by specialty";
+const seoDescription =
+  `${totalDoctors.toLocaleString()} surgeons across ${specialties.length} specialties. Shortlist cardiac, orthopedic, oncology, neurosurgery and more by patient volume and experience.`;
+const path = "/surgeons";
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Surgeons", url: localeUrl(locale, path) },
+]);
+
+const itemLd = specialties.length > 0
+  ? itemListJsonLd(
+      specialties.map((s) => ({
+        name: `${s.name} surgeons`,
+        url: localeUrl(locale, `/surgeons/${s.slug}`),
+      })),
+    )
+  : null;
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=3600, stale-while-revalidate=86400",
+);
+
+const stats = [
+  { l: "Surgeons", v: totalDoctors.toLocaleString() },
+  { l: "Specialties", v: specialties.length.toString() },
+  { l: "Verified", v: "All" },
+  { l: "Contact desk", v: "9 min" },
+];
+
+function firstWord(s: string) { const i = s.indexOf(" "); return i === -1 ? s : s.slice(0, i); }
+function restOfName(s: string) { const i = s.indexOf(" "); return i === -1 ? "" : s.slice(i + 1); }
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    {itemLd && <script type="application/ld+json" set:html={JSON.stringify(itemLd)} />}
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">Surgeons</span>
+        </nav>
+      </div>
+    </div>
+
+    <EntityListingHero
+      eyebrow={`Surgeons · ${totalDoctors.toLocaleString()} specialists`}
+      h1First="Surgeons"
+      h1Italic="by specialty"
+      lede={`${totalDoctors.toLocaleString()} specialists at hospitals credentialed across ${specialties.length} specialties. Directory rankings, not personal endorsements — a starting point. Our case manager refines the list to your specific condition.`}
+      stats={stats}
+    />
+
+    <section style="padding: 32px 0 88px;">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
+        <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {specialties.map((s) => (
+            <li>
+              <a
+                href={localizedPath(locale, `/surgeons/${s.slug}`)}
+                class="paper group flex h-full flex-col transition hover:-translate-y-0.5"
+                style="padding: 22px 24px;"
+              >
+                <div class="serif" style="font-size: 20px; line-height: 1.2; letter-spacing: -0.01em; color: var(--color-ink);">
+                  {firstWord(s.name)}{restOfName(s.name) && <> <span class="italic-display">{restOfName(s.name)}</span></>}
+                </div>
+                <div class="mt-2 mono uppercase tnum" style="font-size: 10.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                  {s.docs.toLocaleString()} surgeons
+                </div>
+                <div
+                  class="mt-auto flex items-center justify-between"
+                  style="border-top: 1px dashed var(--color-border); margin-top: 14px; padding-top: 12px;"
+                >
+                  <span class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
+                    View roster
+                  </span>
+                  <ChevronRight className="h-3.5 w-3.5 mirror-x text-[var(--color-ink-subtle)] group-hover:text-[var(--color-accent)] transition-colors" />
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

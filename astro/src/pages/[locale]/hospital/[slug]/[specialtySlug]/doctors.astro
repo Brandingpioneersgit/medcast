@@ -1,0 +1,188 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import LastUpdated from "@/components/LastUpdated.astro";
+import { listHospitalSpecialtyDoctors } from "@/lib/queries";
+import { getContent, getContentBatch, applyTranslated, isUntranslated } from "@/lib/translate";
+import { getTranslator } from "@/lib/messages";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, itemListJsonLd, withProvenance } from "@/lib/seo";
+import { Award, MapPin, Users } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const { slug, specialtySlug } = Astro.params;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/hospital/${slug}/${specialtySlug}/doctors`, 308);
+if (!slug || !specialtySlug) return new Response("Not found", { status: 404 });
+const locale = rawLocale as Locale;
+
+const data = await listHospitalSpecialtyDoctors(slug, specialtySlug);
+if (!data) return new Response(`Not found: ${slug}/${specialtySlug}/doctors`, { status: 404 });
+if (data.doctors.length === 0) return new Response(`No doctors listed`, { status: 404 });
+
+const tc = getTranslator(locale, "common");
+
+const [hMap, sMap] = await Promise.all([
+  getContent("hospital", data.hospital.id, locale),
+  getContent("specialty", data.specialty.id, locale),
+]);
+const hospitalBase = applyTranslated(data.hospital, hMap, ["name"]);
+const hospital = { ...hospitalBase, city: data.hospital.city };
+const specialty = applyTranslated(data.specialty, sMap, ["name"]);
+
+const doctorMap = await getContentBatch("doctor", data.doctors.map((d) => d.id), locale);
+const doctors = data.doctors.map((d) => ({
+  ...d,
+  ...applyTranslated({ name: d.name, qualifications: d.qualifications }, doctorMap[d.id] ?? {}, ["name", "qualifications"]),
+}));
+
+const cityName = hospital.city?.name ?? null;
+const countryName = hospital.city?.country?.name ?? null;
+
+const seoTitle = `${specialty.name} doctors at ${hospital.name}`;
+const seoDescription =
+  `${doctors.length} ${specialty.name.toLowerCase()} specialists practising at ${hospital.name}${cityName ? ` in ${cityName}` : ""}. Experience, patient volume, and video-consult availability.`.slice(0, 160);
+
+const path = `/hospital/${slug}/${specialtySlug}/doctors`;
+const url = localeUrl(locale, path);
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: tc("hospitals"), url: localeUrl(locale, "/hospitals") },
+  { name: hospital.name, url: localeUrl(locale, `/hospital/${slug}`) },
+  { name: specialty.name, url: localeUrl(locale, `/hospital/${slug}/${specialtySlug}`) },
+  { name: "Doctors", url },
+]);
+
+const itemLd = withProvenance(
+  itemListJsonLd(
+    doctors.slice(0, 15).map((d) => ({
+      name: d.title ? `${d.title} ${d.name}`.replace(/^Dr\. Dr\./i, "Dr.") : d.name,
+      url: localeUrl(locale, `/doctor/${d.slug}`),
+    })),
+  ),
+  { dateModified: data.hospital.updatedAt },
+);
+
+const untranslated = isUntranslated(locale, hMap, sMap);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=3600, stale-while-revalidate=86400",
+);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" set:html={JSON.stringify(itemLd)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <nav aria-label="Breadcrumb" class="border-b border-border bg-bg">
+      <div class="mx-auto max-w-7xl px-6 py-3.5 text-sm text-ink-muted overflow-x-auto whitespace-nowrap">
+        <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <a href={localizedPath(locale, "/hospitals")} class="hover:text-accent">{tc("hospitals")}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <a href={localizedPath(locale, `/hospital/${slug}`)} class="hover:text-accent">{hospital.name}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <a href={localizedPath(locale, `/hospital/${slug}/${specialtySlug}`)} class="hover:text-accent">{specialty.name}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <span class="text-ink" aria-current="page">Doctors</span>
+      </div>
+    </nav>
+
+    <section class="mx-auto max-w-7xl px-6 pt-10 md:pt-14 pb-8">
+      <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.18em; color: var(--color-accent);">
+        {specialty.name} · {hospital.name}
+      </p>
+      <h1 class="mt-2 display display-tight" style="font-size: clamp(2rem, 4.5vw, 3.5rem); letter-spacing: -0.025em; line-height: 1.02;">
+        {specialty.name} doctors at {hospital.name}
+      </h1>
+      <p class="lede mt-5 max-w-[44rem]">
+        {doctors.length} specialist{doctors.length === 1 ? "" : "s"} listed on the {hospital.name}{cityName ? `, ${cityName}` : ""} roster for {specialty.name.toLowerCase()}. Not every doctor practices this specialty exclusively — our case manager narrows to the right surgeon for your condition.
+      </p>
+      <div class="mt-5 flex flex-wrap items-center gap-3">
+        <LastUpdated updated={data.hospital.updatedAt} locale={locale} />
+      </div>
+    </section>
+
+    <section class="mx-auto max-w-7xl px-6 pb-10 border-t border-border-soft pt-8">
+      <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {doctors.map((d) => {
+          const nameHasTitle = /^(dr\.?|prof\.?|mr\.?|ms\.?|mrs\.?)\s/i.test(d.name);
+          const titlePrefix = nameHasTitle ? "" : (d.title ?? "Dr.");
+          const fullName = titlePrefix ? `${titlePrefix} ${d.name}` : d.name;
+          return (
+            <li>
+              <a
+                href={localizedPath(locale, `/doctor/${d.slug}`)}
+                class="group flex h-full gap-4 rounded-xl border border-border bg-surface p-4 transition-colors hover:border-border-strong"
+              >
+                {d.image_url ? (
+                  <img src={d.image_url} alt={d.name} width="64" height="64" loading="lazy" decoding="async" class="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-border" />
+                ) : (
+                  <div class="h-16 w-16 shrink-0 rounded-full bg-accent-soft text-accent inline-flex items-center justify-center font-display text-lg">
+                    {d.name.slice(0, 1)}
+                  </div>
+                )}
+                <div class="min-w-0 flex-1">
+                  <span class="block font-display text-[17px] leading-tight text-ink group-hover:text-accent line-clamp-1">{fullName}</span>
+                  {d.qualifications && <span class="mt-1 block text-[12.5px] text-ink-muted line-clamp-2">{d.qualifications}</span>}
+                  <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-subtle">
+                    {d.experience_years != null && (
+                      <span class="inline-flex items-center gap-1"><Award className="h-3 w-3 text-accent" />{d.experience_years} yrs</span>
+                    )}
+                    {d.patients_treated != null && d.patients_treated > 0 && (
+                      <span class="inline-flex items-center gap-1"><Users className="h-3 w-3 text-accent" />{d.patients_treated.toLocaleString()}</span>
+                    )}
+                    {d.rating && Number(d.rating) > 0 && (
+                      <span class="inline-flex items-center gap-1"><span class="text-gold-500">★</span><span class="tnum">{Number(d.rating).toFixed(1)}</span></span>
+                    )}
+                  </div>
+                </div>
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+
+    <section class="mx-auto max-w-7xl px-6 pb-20">
+      <div class="paper p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+        <div class="max-w-[36rem]">
+          <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">Match me to a doctor</p>
+          <h3 class="mt-2 font-display text-2xl md:text-3xl">
+            Want one surgeon shortlisted for your case?
+          </h3>
+          <p class="mt-2 text-sm text-ink-muted">
+            Send your reports; we'll come back with who at {hospital.name} we'd pick, their next availability, and a quote.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-3 shrink-0">
+          <a
+            href={localizedPath(locale, `/contact?hospital=${hospital.slug}&specialty=${specialtySlug}`)}
+            class="inline-flex items-center rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover"
+          >
+            Request a match
+          </a>
+          <a
+            href={localizedPath(locale, `/hospital/${slug}/${specialtySlug}`)}
+            class="inline-flex items-center rounded-lg border border-border px-5 py-2.5 text-sm font-semibold hover:border-border-strong"
+          >
+            Back to department
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

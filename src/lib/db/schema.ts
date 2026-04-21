@@ -748,6 +748,59 @@ export const patientReviews = pgTable(
 );
 
 // ============================================================
+// MEDICAL REVIEWER PANEL  — YMYL trust signal
+// Real, credentialed physicians who review directory + editorial
+// content. Surfaced as "Medically reviewed by Dr. X" byline + Person-shaped
+// `reviewedBy` in JSON-LD. Never fabricate entries — only populate with real
+// physicians who have given written consent + provided verifiable license info.
+// ============================================================
+
+export const medicalReviewers = pgTable(
+  "medical_reviewers",
+  {
+    id: serial("id").primaryKey(),
+    slug: varchar("slug", { length: 160 }).notNull().unique(),
+    fullName: varchar("full_name", { length: 200 }).notNull(),
+    credentials: varchar("credentials", { length: 200 }),
+    jobTitle: varchar("job_title", { length: 200 }),
+    bio: text("bio"),
+    imageUrl: varchar("image_url", { length: 500 }),
+    licenseNumber: varchar("license_number", { length: 100 }),
+    licenseCountry: varchar("license_country", { length: 80 }),
+    specialties: text("specialties").array(),
+    linkedinUrl: varchar("linkedin_url", { length: 500 }),
+    profileUrl: varchar("profile_url", { length: 500 }),
+    verifiedAt: timestamp("verified_at"),
+    isActive: boolean("is_active").default(true).notNull(),
+    sortOrder: integer("sort_order").default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [index("idx_medical_reviewer_active").on(t.isActive, t.sortOrder)],
+);
+
+export const contentReviews = pgTable(
+  "content_reviews",
+  {
+    id: serial("id").primaryKey(),
+    entityType: varchar("entity_type", { length: 50 }).notNull(),
+    entityId: integer("entity_id").notNull(),
+    reviewerId: integer("reviewer_id")
+      .notNull()
+      .references(() => medicalReviewers.id, { onDelete: "cascade" }),
+    reviewedAt: timestamp("reviewed_at").defaultNow().notNull(),
+    nextReviewDue: timestamp("next_review_due"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("idx_content_review_unique").on(t.entityType, t.entityId, t.reviewerId),
+    index("idx_content_review_entity").on(t.entityType, t.entityId),
+    index("idx_content_review_reviewer").on(t.reviewerId),
+  ],
+);
+
+// ============================================================
 // ADMIN USERS
 // ============================================================
 
@@ -1255,3 +1308,17 @@ export const patientReviewsRelations = relations(patientReviews, ({ one }) => ({
   hospital: one(hospitals, { fields: [patientReviews.hospitalId], references: [hospitals.id] }),
   treatment: one(treatments, { fields: [patientReviews.treatmentId], references: [treatments.id] }),
 }));
+
+// Redirects — routed by the Astro middleware before page rendering.
+// Used for hospital merges, slug renames, deprecated URLs.
+export const redirects = pgTable("redirects", {
+  id: serial("id").primaryKey(),
+  fromPath: varchar("from_path", { length: 500 }).notNull().unique(),
+  toPath: varchar("to_path", { length: 500 }).notNull(),
+  statusCode: integer("status_code").default(301).notNull(),
+  note: varchar("note", { length: 255 }),
+  hitCount: integer("hit_count").default(0).notNull(),
+  lastHitAt: timestamp("last_hit_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

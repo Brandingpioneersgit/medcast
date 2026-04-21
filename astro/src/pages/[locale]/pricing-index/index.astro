@@ -1,0 +1,343 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { getPriceIndex } from "@/lib/queries";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, SITE_URL, SITE_NAME, withProvenance } from "@/lib/seo";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/pricing-index", 308);
+const locale = rawLocale as Locale;
+
+const rows = await getPriceIndex();
+const year = new Date().getUTCFullYear();
+const edition = `${year} edition`;
+
+// Group by treatment for scannable per-procedure tables
+type Group = {
+  treatmentSlug: string;
+  treatmentName: string;
+  specialtySlug: string | null;
+  specialtyName: string | null;
+  rows: typeof rows;
+};
+const groups: Group[] = [];
+const groupIndex = new Map<string, Group>();
+for (const r of rows) {
+  let g = groupIndex.get(r.treatmentSlug);
+  if (!g) {
+    g = {
+      treatmentSlug: r.treatmentSlug,
+      treatmentName: r.treatmentName,
+      specialtySlug: r.specialtySlug,
+      specialtyName: r.specialtyName,
+      rows: [],
+    };
+    groupIndex.set(r.treatmentSlug, g);
+    groups.push(g);
+  }
+  g.rows.push(r);
+}
+
+// Headline numbers
+const totalPairs = rows.length;
+const totalHospitals = new Set(rows.map((r) => `${r.countrySlug}-${r.treatmentSlug}`)).size;
+const countriesCovered = new Set(rows.map((r) => r.countrySlug)).size;
+const treatmentsCovered = new Set(rows.map((r) => r.treatmentSlug)).size;
+const lowestMedian = rows.length > 0 ? Math.min(...rows.map((r) => r.medianUsd)) : 0;
+const highestMedian = rows.length > 0 ? Math.max(...rows.map((r) => r.medianUsd)) : 0;
+
+const path = "/pricing-index";
+const url = localeUrl(locale, path);
+const title = `MedCasts Global Hospital Price Index — ${edition}`;
+const description = `Median package pricing for ${treatmentsCovered} treatments across ${countriesCovered} destination countries. Open data methodology, ${rows.length} country × treatment pairs. Free to cite.`;
+
+const crumbs = breadcrumbJsonLd([
+  { name: "Home", url: localeUrl(locale, "/") },
+  { name: "Pricing Index", url },
+]);
+
+// Schema.org Dataset — tells Google/AEO engines this is citable open data
+const datasetLd = withProvenance(
+  {
+    "@context": "https://schema.org",
+    "@type": "Dataset",
+    name: title,
+    alternateName: "MedCasts Price Index",
+    description,
+    url,
+    keywords: [
+      "medical tourism pricing",
+      "hospital package pricing",
+      "treatment cost comparison",
+      "medical travel cost index",
+      `${year} medical cost data`,
+    ],
+    creator: {
+      "@type": "Organization",
+      name: SITE_NAME,
+      url: SITE_URL,
+    },
+    publisher: {
+      "@type": "Organization",
+      name: SITE_NAME,
+      url: SITE_URL,
+    },
+    license: "https://creativecommons.org/licenses/by/4.0/",
+    isAccessibleForFree: true,
+    distribution: [
+      {
+        "@type": "DataDownload",
+        encodingFormat: "text/csv",
+        contentUrl: `${SITE_URL}/pricing-index.csv`,
+      },
+      {
+        "@type": "DataDownload",
+        encodingFormat: "application/json",
+        contentUrl: `${SITE_URL}/pricing-index.json`,
+      },
+    ],
+    variableMeasured: [
+      "hospital_count",
+      "min_usd",
+      "median_usd",
+      "max_usd",
+      "country",
+      "treatment",
+    ],
+    temporalCoverage: `${year}`,
+    spatialCoverage: {
+      "@type": "Place",
+      name: "9 destination countries: India, Turkey, Thailand, UAE, Germany, Singapore, South Korea, Malaysia, Saudi Arabia",
+    },
+  },
+  { dateModified: new Date(), dateCreated: new Date() },
+);
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+
+function fmt(n: number) {
+  return `$${Math.round(n).toLocaleString()}`;
+}
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={title} description={description} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" set:html={JSON.stringify(datasetLd)} />
+  </Fragment>
+
+  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+    <SiteHeader locale={locale} />
+
+    <section style="border-bottom: 1px solid var(--color-border); padding: 64px 28px;">
+      <div class="mx-auto max-w-[80rem]">
+        <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
+          Open data · {edition} · CC BY 4.0
+        </p>
+        <h1
+          class="display display-tight mt-3"
+          style="font-size: clamp(2.25rem, 6vw, 4.5rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em;"
+        >
+          The MedCasts <span class="italic-display">Global Hospital</span><br /> Price Index.
+        </h1>
+        <p class="lede mt-6 max-w-[50rem]">
+          Real package pricing for {treatmentsCovered} planned procedures across {countriesCovered} destination countries, aggregated from {rows.reduce((a, r) => a + r.hospitalCount, 0).toLocaleString()} hospital offerings. Free to cite, CSV and JSON downloads below, methodology disclosed.
+        </p>
+
+        <div class="grid gap-3 md:gap-4 mt-8" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+          <div class="paper" style="padding: 18px 20px;">
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Treatments</div>
+            <div class="display tnum mt-1" style="font-size: 28px; line-height: 1;">{treatmentsCovered}</div>
+          </div>
+          <div class="paper" style="padding: 18px 20px;">
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Countries</div>
+            <div class="display tnum mt-1" style="font-size: 28px; line-height: 1;">{countriesCovered}</div>
+          </div>
+          <div class="paper" style="padding: 18px 20px;">
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Country × treatment pairs</div>
+            <div class="display tnum mt-1" style="font-size: 28px; line-height: 1;">{totalPairs.toLocaleString()}</div>
+          </div>
+          <div class="paper" style="padding: 18px 20px;">
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Lowest median</div>
+            <div class="display tnum mt-1" style="font-size: 28px; line-height: 1;">{fmt(lowestMedian)}</div>
+          </div>
+          <div class="paper" style="padding: 18px 20px;">
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Highest median</div>
+            <div class="display tnum mt-1" style="font-size: 28px; line-height: 1;">{fmt(highestMedian)}</div>
+          </div>
+        </div>
+
+        <div class="mt-8 flex flex-wrap gap-3">
+          <a
+            href="/pricing-index.csv"
+            download
+            class="inline-flex items-center gap-2 font-medium"
+            style="background: var(--color-ink); color: var(--color-bg); padding: 10px 18px; border-radius: 9999px; font-size: 14px;"
+          >
+            Download CSV ↓
+          </a>
+          <a
+            href="/pricing-index.json"
+            class="inline-flex items-center gap-2 font-medium"
+            style="background: transparent; color: var(--color-ink); border: 1px solid var(--color-ink); padding: 10px 18px; border-radius: 9999px; font-size: 14px;"
+          >
+            Download JSON ↓
+          </a>
+          <a
+            href="#methodology"
+            class="inline-flex items-center gap-2 font-medium"
+            style="background: transparent; color: var(--color-ink); border: 1px solid var(--color-border); padding: 10px 18px; border-radius: 9999px; font-size: 14px;"
+          >
+            Methodology
+          </a>
+        </div>
+      </div>
+    </section>
+
+    {/* Per-treatment tables */}
+    <section style="padding: 56px 28px;">
+      <div class="mx-auto max-w-[80rem]">
+        {groups.length === 0 ? (
+          <div class="paper" style="padding: 32px;">
+            <p style="color: var(--color-ink-muted);">
+              Price data is currently being aggregated. Check back soon, or download the
+              <a href="/pricing-index.csv" style="color: var(--color-accent);"> raw CSV</a>.
+            </p>
+          </div>
+        ) : (
+          groups.map((g) => (
+            <article style="margin-bottom: 40px;">
+              <div class="flex items-end justify-between gap-4 flex-wrap" style="margin-bottom: 12px;">
+                <div>
+                  {g.specialtyName && (
+                    <div
+                      class="mono uppercase"
+                      style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);"
+                    >
+                      {g.specialtyName}
+                    </div>
+                  )}
+                  <h2 class="display mt-1" style="font-size: 24px; letter-spacing: -0.015em;">
+                    {g.treatmentName}
+                  </h2>
+                </div>
+                <a
+                  href={localizedPath(locale, `/treatment/${g.treatmentSlug}`)}
+                  style="font-size: 13px; color: var(--color-accent);"
+                >
+                  Full treatment page →
+                </a>
+              </div>
+              <div class="paper" style="overflow: hidden;">
+                <table class="w-full" style="border-collapse: collapse; font-size: 14px;">
+                  <thead>
+                    <tr style="background: var(--color-paper);">
+                      <th style="text-align: left; padding: 10px 14px; font-weight: 500; color: var(--color-ink-muted); font-size: 12px; letter-spacing: 0.04em; border-bottom: 1px solid var(--color-border);">
+                        Destination
+                      </th>
+                      <th style="text-align: right; padding: 10px 14px; font-weight: 500; color: var(--color-ink-muted); font-size: 12px; letter-spacing: 0.04em; border-bottom: 1px solid var(--color-border);">
+                        Min
+                      </th>
+                      <th style="text-align: right; padding: 10px 14px; font-weight: 500; color: var(--color-ink-muted); font-size: 12px; letter-spacing: 0.04em; border-bottom: 1px solid var(--color-border);">
+                        Median
+                      </th>
+                      <th style="text-align: right; padding: 10px 14px; font-weight: 500; color: var(--color-ink-muted); font-size: 12px; letter-spacing: 0.04em; border-bottom: 1px solid var(--color-border);">
+                        Max
+                      </th>
+                      <th style="text-align: right; padding: 10px 14px; font-weight: 500; color: var(--color-ink-muted); font-size: 12px; letter-spacing: 0.04em; border-bottom: 1px solid var(--color-border);">
+                        Hospitals
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {g.rows.map((r) => (
+                      <tr style="border-bottom: 1px solid var(--color-border-soft);">
+                        <td style="padding: 10px 14px;">
+                          <a
+                            href={localizedPath(locale, `/country/${r.countrySlug}`)}
+                            style="color: var(--color-ink); font-weight: 500;"
+                          >
+                            {r.countryName}
+                          </a>
+                        </td>
+                        <td class="tnum mono" style="padding: 10px 14px; text-align: right; color: var(--color-ink-muted);">{fmt(r.minUsd)}</td>
+                        <td class="tnum mono" style="padding: 10px 14px; text-align: right; color: var(--color-ink); font-weight: 600;">{fmt(r.medianUsd)}</td>
+                        <td class="tnum mono" style="padding: 10px 14px; text-align: right; color: var(--color-ink-muted);">{fmt(r.maxUsd)}</td>
+                        <td class="tnum mono" style="padding: 10px 14px; text-align: right; color: var(--color-ink-subtle);">{r.hospitalCount}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          ))
+        )}
+      </div>
+    </section>
+
+    {/* Methodology + how to cite */}
+    <section id="methodology" style="padding: 64px 28px; border-top: 1px solid var(--color-border);">
+      <div class="mx-auto max-w-[80rem] grid gap-10 md:grid-cols-[1fr,1.4fr]">
+        <div>
+          <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+            Methodology
+          </div>
+          <h2 class="display mt-2" style="font-size: 28px; letter-spacing: -0.015em;">
+            How these numbers were built
+          </h2>
+        </div>
+        <div class="prose-editorial">
+          <p>
+            All figures are <strong>USD package prices</strong> — the all-inclusive quote a hospital provides
+            for an international patient covering surgeon + OR + hospital stay + standard pre/post-op imaging
+            and meds, before international travel and visa costs.
+          </p>
+          <p>
+            For each <em>(country × treatment)</em> pair we require at least <strong>three</strong> active
+            hospital offerings. The <em>median</em> is computed as the 50th percentile of each hospital's
+            midpoint (min + max / 2). This suppresses anecdotal outliers. Pairs with fewer than three
+            offerings are excluded rather than shown with low confidence.
+          </p>
+          <p>
+            <strong>Excluded:</strong> robotic-assisted variants when standard surgery is the comparison
+            baseline, re-do / revision cases (different clinical complexity), paediatric variants, research
+            protocols with trial sponsorship. All currency conversions at the ECB daily reference rate
+            captured on the first of each quarter.
+          </p>
+          <p>
+            <strong>What we don't claim:</strong> these are not personalised quotes. Real quotes depend on
+            the individual case workup, travel dates, room class, and whether the hospital offers a fixed
+            package or itemised billing. Use the index to size the ballpark; request a real quote through
+            a coordinator before booking.
+          </p>
+          <p>
+            Raw data, including per-hospital rows, is available as <a href="/pricing-index.csv">CSV</a> and <a href="/pricing-index.json">JSON</a>.
+            We refresh this dataset quarterly; the download reflects the last refresh date stamped in the file.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding: 48px 28px 96px; background: var(--color-paper);">
+      <div class="mx-auto max-w-[80rem]">
+        <h2 class="display" style="font-size: 24px; letter-spacing: -0.015em;">Cite this dataset</h2>
+        <p class="mt-2" style="color: var(--color-ink-muted);">Licensed under CC BY 4.0 — free to redistribute and adapt with attribution.</p>
+        <div class="paper mt-4" style="padding: 20px 24px; font-family: var(--font-mono); font-size: 13px; line-height: 1.55; white-space: pre-wrap;">
+MedCasts editorial desk ({year}). The MedCasts Global Hospital Price Index, {edition}. medcasts.com/pricing-index. CC BY 4.0.
+        </div>
+        <p class="mt-4" style="font-size: 13px; color: var(--color-ink-muted);">
+          Press and research enquiries: <a href="mailto:partnerships@medcasts.com" style="color: var(--color-ink); font-weight: 500;">partnerships@medcasts.com</a>.
+          Found an error? <a href="mailto:corrections@medcasts.com" style="color: var(--color-ink); font-weight: 500;">corrections@medcasts.com</a>.
+        </p>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

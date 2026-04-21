@@ -9,12 +9,15 @@ import {
   getContent,
   getContentBatch,
   applyTranslated,
+  isUntranslated,
 } from "@/lib/translate";
 import { relatedToDoctor } from "@/lib/related";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
-import { doctorJsonLd, breadcrumbJsonLd, localeUrl, SITE_URL } from "@/lib/seo";
-import { getWhatsAppUrl, getDoctorBookingMessage } from "@/lib/whatsapp";
+import { doctorJsonLd, breadcrumbJsonLd, localeUrl, SITE_URL, withProvenance } from "@/lib/seo";
+import LastUpdated from "@/components/LastUpdated.astro";
+import ContactDoctor from "@/components/ContactDoctor.tsx";
+import { whatsappFor } from "@/lib/whatsapp";
 import {
   Award,
   ChevronRight,
@@ -62,7 +65,7 @@ const docSpecialties = (doctorRaw.specialties ?? []).map((ds) => ({
 }));
 
 const expertise = doctorRaw.expertise ?? [];
-const relatedDoctors = await relatedToDoctor(doctorRaw.id, 6).catch(() => []);
+const relatedDoctors = await relatedToDoctor(doctorRaw.id, 6, locale).catch(() => []);
 
 function parseLanguages(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw.filter((x): x is string => typeof x === "string");
@@ -79,7 +82,15 @@ const languages = parseLanguages(doctor.languagesSpoken);
 const cityName = hospital?.city?.name ?? null;
 const countryName = hospital?.city?.country?.name ?? null;
 
-const whatsappUrl = getWhatsAppUrl(getDoctorBookingMessage(doctor.name, hospital?.name ?? ""));
+const whatsappUrl = whatsappFor({
+  page: "doctor",
+  slug,
+  doctorName: doctor.name,
+  hospitalName: hospital?.name ?? undefined,
+  specialtyName: docSpecialties[0]?.specialty.name,
+  cityName: cityName ?? undefined,
+  countryName: countryName ?? undefined,
+});
 
 const nameHasTitle = /^(dr\.?|prof\.?|mr\.?|ms\.?|mrs\.?)\s/i.test(doctor.name);
 const titlePrefix = nameHasTitle ? "" : (doctor.title ?? "Dr.");
@@ -90,15 +101,29 @@ const seoDescription = `${doctor.name}${doctor.qualifications ? `, ${doctor.qual
 const path = `/doctor/${slug}`;
 const url = localeUrl(locale, path);
 
-const jsonLd = doctorJsonLd({
+const physicianLd = doctorJsonLd({
   name: fullName,
   qualifications: doctor.qualifications,
   imageUrl: doctor.imageUrl,
   hospitalName: hospital?.name ?? "",
+  hospitalUrl: hospital ? localeUrl(locale, `/hospital/${hospital.slug}`) : undefined,
+  hospitalWebsite: doctorRaw.hospital?.website ?? null,
   url,
   rating: doctor.rating,
   reviewCount: doctor.reviewCount,
+  specialties: docSpecialties.map((ds) => ds.specialty.name),
+  expertise: expertise.map((e: { expertiseArea: string }) => e.expertiseArea),
 });
+
+const jsonLd = withProvenance(
+  {
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    url,
+    mainEntity: physicianLd,
+  },
+  { dateModified: doctorRaw.updatedAt, dateCreated: doctorRaw.createdAt },
+);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
@@ -141,6 +166,8 @@ const timelineEntries: TimelineEntry[] = (() => {
   return out;
 })();
 
+const untranslated = isUntranslated(locale, doctorMap);
+
 Astro.response.headers.set(
   "Cache-Control",
   "public, s-maxage=3600, stale-while-revalidate=86400",
@@ -155,6 +182,7 @@ Astro.response.headers.set(
       path={path}
       locale={locale}
       image={doctor.imageUrl ?? undefined}
+      noindex={untranslated}
     />
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
@@ -163,62 +191,213 @@ Astro.response.headers.set(
   <main class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
-    <div class="border-b border-border bg-bg">
+    <nav aria-label="Breadcrumb" class="border-b border-border bg-bg">
       <div class="mx-auto max-w-7xl px-6 py-3.5 text-sm text-ink-muted">
         <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
         <span class="mx-2 text-ink-subtle">/</span>
         <a href={localizedPath(locale, "/doctors")} class="hover:text-accent">{tc("doctors")}</a>
         <span class="mx-2 text-ink-subtle">/</span>
-        <span class="text-ink">{fullName}</span>
+        <span class="text-ink" aria-current="page">{fullName}</span>
       </div>
-    </div>
+    </nav>
 
-    {/* Hero */}
-    <section class="mx-auto max-w-7xl px-6 pt-8 pb-8 md:pt-12">
-      <div class="grid gap-10 md:grid-cols-[1fr,22rem]">
-        <div>
-          <div class="flex items-start gap-6">
+    {/* Hero — 3-col editorial: portrait | info | booking panel */}
+    <section style="padding: 48px 28px; background: var(--color-paper); border-bottom: 1px solid var(--color-border);">
+      <div class="mx-auto max-w-[1440px]">
+        <div class="grid gap-10 lg:grid-cols-[0.8fr,1.5fr,1fr] lg:gap-[40px] items-start">
+          {/* Portrait */}
+          <div class="paper-flat relative overflow-hidden" style="aspect-ratio: 4/5; border-radius: var(--radius-lg);">
             {doctor.imageUrl ? (
-              <img src={doctor.imageUrl} alt={doctor.name} class="h-28 w-28 md:h-36 md:w-36 rounded-full object-cover ring-2 ring-border" />
+              <img src={doctor.imageUrl} alt={fullName} width="480" height="600" loading="eager" fetchpriority="high" decoding="async" class="absolute inset-0 h-full w-full object-cover" />
             ) : (
-              <div class="h-28 w-28 md:h-36 md:w-36 rounded-full bg-accent-soft text-accent inline-flex items-center justify-center font-display text-3xl">
-                {doctor.name.slice(0, 1)}
+              <div
+                class="absolute inset-0 flex items-center justify-center"
+                style="background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 50%, var(--color-ink-2) 100%);"
+              >
+                <div
+                  class="display"
+                  style="font-size: 84px; line-height: 1; color: var(--color-bg); font-weight: 500; letter-spacing: -0.03em; font-style: italic;"
+                >
+                  {(doctor.name ?? "").replace(/^Dr\.?\s*/, "").split(/\s+/).map((w: string) => w[0]).slice(0, 2).join("")}
+                </div>
               </div>
             )}
-            <div class="min-w-0 flex-1">
-              <h1 class="font-display text-3xl md:text-5xl leading-[1.05]">{fullName}</h1>
-              {doctor.qualifications && (
-                <p class="mt-3 text-sm text-ink-muted">{doctor.qualifications}</p>
-              )}
-              <div class="mt-4 flex flex-wrap items-center gap-4 text-sm text-ink-muted">
-                {doctor.experienceYears != null && (
-                  <span class="inline-flex items-center gap-1.5">
-                    <Award className="h-4 w-4 text-accent" />
-                    {doctor.experienceYears}+ years experience
-                  </span>
-                )}
-                {doctor.patientsTreated != null && (
-                  <span class="inline-flex items-center gap-1.5">
-                    <Users className="h-4 w-4 text-accent" />
-                    {doctor.patientsTreated.toLocaleString()} patients treated
-                  </span>
-                )}
-                {doctor.rating && Number(doctor.rating) > 0 && (
-                  <span class="inline-flex items-center gap-1.5">
-                    <span class="text-gold-500">★</span>
-                    <span class="font-semibold text-ink">{Number(doctor.rating).toFixed(1)}</span>
-                    {doctor.reviewCount && doctor.reviewCount > 0 && (
-                      <span>({doctor.reviewCount.toLocaleString()})</span>
-                    )}
-                  </span>
-                )}
-              </div>
-            </div>
           </div>
 
+          {/* Info */}
+          <div>
+            {doctor.qualifications && (
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
+                {doctor.qualifications.split(",").slice(0, 2).join(" · ")}
+              </div>
+            )}
+            <h1
+              class="display display-tight mt-3"
+              style="font-size: clamp(2.5rem, 5.5vw, 3.75rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;"
+            >
+              {(() => {
+                const parts = fullName.split(/\s+/);
+                const last = parts[parts.length - 1];
+                const rest = parts.slice(0, -1).join(" ");
+                return (
+                  <>{rest} <span style="font-style: italic;">{last}</span></>
+                );
+              })()}
+            </h1>
+            {doctor.title && (
+              <div style="font-size: 17px; color: var(--color-ink-muted); margin-top: 10px;">
+                {doctor.qualifications ? `${doctor.qualifications} · ` : ""}{doctor.title}
+              </div>
+            )}
+
+            {doctor.rating && Number(doctor.rating) > 0 && (
+              <div class="flex items-center gap-3 mt-3.5">
+                <span class="inline-flex items-center gap-0.5" aria-label={`${doctor.rating} of 5`}>
+                  {[0,1,2,3,4].map((i) => (
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill={i < Math.round(Number(doctor.rating)) ? "var(--color-saffron)" : "none"} stroke="var(--color-saffron)" stroke-width="1.2">
+                      <path d="M8 1.5l2.12 4.3 4.74.69-3.43 3.35.81 4.72L8 12.31l-4.24 2.23.81-4.72L1.14 6.47l4.74-.69L8 1.5z" />
+                    </svg>
+                  ))}
+                </span>
+                <span class="tnum" style="font-size: 14px;">
+                  {Number(doctor.rating).toFixed(1)}
+                  {doctor.reviewCount && doctor.reviewCount > 0 && (
+                    <span style="color: var(--color-ink-subtle);"> · {doctor.reviewCount.toLocaleString()} reviews</span>
+                  )}
+                </span>
+              </div>
+            )}
+
+            {/* Stat ribbon — 4-up */}
+            <div
+              class="grid mt-7 py-5"
+              style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); border-top: 1px solid var(--color-ink); border-bottom: 1px solid var(--color-border);"
+            >
+              {[
+                doctor.experienceYears != null && { l: "Years practising", v: `${doctor.experienceYears}` },
+                doctor.patientsTreated != null && { l: "Patients treated", v: doctor.patientsTreated > 1000 ? `${Math.floor(doctor.patientsTreated / 1000)}k+` : doctor.patientsTreated.toLocaleString() },
+                doctor.rating && Number(doctor.rating) > 0 && { l: "Rating", v: `${Number(doctor.rating).toFixed(1)}/5` },
+                doctor.consultationFeeUsd != null && { l: "Consultation", v: `$${doctor.consultationFeeUsd}` },
+              ].filter(Boolean).map((s: any, i: number) => (
+                <div style={`padding-inline: 18px; ${i > 0 ? "border-inline-start: 1px solid var(--color-border);" : ""}`}>
+                  <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">{s.l}</div>
+                  <div class="display tnum" style="font-size: 26px; margin-top: 4px;">{s.v}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Expertise pills */}
+            {(expertise.length > 0 || docSpecialties.length > 0) && (
+              <div class="mt-6">
+                <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">
+                  {expertise.length > 0 ? "Expertise" : "Specialties"}
+                </div>
+                <div class="flex flex-wrap gap-1.5 mt-2.5">
+                  {(expertise.length > 0 ? expertise.slice(0, 8) : docSpecialties.slice(0, 8)).map((item: any) => (
+                    <span
+                      class="inline-flex items-center"
+                      style="padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 500; background: var(--color-accent-soft); color: var(--color-accent-strong); line-height: 1.4;"
+                    >
+                      {item.expertiseArea ?? item.specialty?.name ?? ""}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div class="mt-4"><LastUpdated updated={doctorRaw.updatedAt} locale={locale} /></div>
+          </div>
+
+          {/* Booking panel — kept from prior impl but reformatted */}
+          <aside>
+            <div class="paper" style="padding: 22px;">
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">
+                Book a video consultation
+              </div>
+              <div class="display mt-2" style="font-size: 22px; letter-spacing: -0.02em; line-height: 1.2;">
+                Next available: <span class="serif" style="font-style: italic;">Tomorrow 4:30pm</span>
+              </div>
+
+              <div class="mt-4 grid grid-cols-3 gap-1.5">
+                {["Tue 4:30", "Wed 11:00", "Thu 2:00", "Fri 9:30", "Fri 5:00", "Sat 10:30"].map((s, i) => {
+                  const btnStyle = i === 0
+                    ? "padding: 10px 8px; border: 1px solid var(--color-ink); border-radius: 8px; background: var(--color-ink); color: var(--color-bg);"
+                    : "padding: 10px 8px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface-elevated); color: var(--color-ink);";
+                  return (
+                    <a
+                      href={localizedPath(locale, `/contact?doctor=${doctor.slug}&slot=${encodeURIComponent(s)}`)}
+                      class="text-center text-[12.5px] font-medium"
+                      style={btnStyle}
+                    >{s}</a>
+                  );
+                })}
+              </div>
+
+              <a
+                href={localizedPath(locale, `/contact?doctor=${doctor.slug}`)}
+                class="inline-flex items-center justify-center gap-2 w-full mt-3.5 font-semibold"
+                style="background: var(--color-accent); color: #FFF; padding: 14px 22px; font-size: 15px; border-radius: 9999px;"
+              >
+                {doctor.consultationFeeUsd != null ? (
+                  <>Book consultation · ${doctor.consultationFeeUsd}</>
+                ) : (
+                  <>{tc("bookConsultation")}</>
+                )}
+              </a>
+
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center justify-center gap-2 w-full mt-2 font-medium"
+                style="background: transparent; color: var(--color-ink); border: 1px solid var(--color-border); padding: 10px 18px; font-size: 14px; border-radius: 9999px;"
+              >
+                <MessageCircle className="h-3.5 w-3.5" />
+                {tc("whatsapp")}
+              </a>
+
+              {doctor.availableForVideoConsult && (
+                <p class="mt-3 flex items-center gap-1.5" style="font-size: 12px; color: var(--color-accent);">
+                  <Video className="h-3.5 w-3.5" />
+                  Video consult available
+                </p>
+              )}
+
+              <div class="mt-4 pt-4" style="border-top: 1px dashed var(--color-border);">
+                <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">Or, free</div>
+                <div class="mt-1.5" style="font-size: 13.5px;">
+                  Upload reports — {fullName.split(/\s+/).slice(0, 2).join(" ")}'s team replies in 48 hr with a written opinion.
+                </div>
+                <a
+                  href={localizedPath(locale, "/second-opinion")}
+                  class="inline-flex items-center justify-center gap-1.5 w-full mt-3 font-medium"
+                  style="background: var(--color-surface-elevated); color: var(--color-ink); border: 1px solid var(--color-border); padding: 9px 14px; font-size: 13px; border-radius: 9999px;"
+                >
+                  Get free 2nd opinion →
+                </a>
+              </div>
+
+              {languages.length > 0 && (
+                <div class="mt-4 pt-4" style="border-top: 1px solid var(--color-border);">
+                  <p class="mono flex items-center gap-1.5 mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">
+                    <GlobeIcon className="h-3.5 w-3.5" />
+                    Speaks
+                  </p>
+                  <p style="color: var(--color-ink-muted); font-size: 13.5px;">{languages.join(", ")}</p>
+                </div>
+              )}
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    {/* Below-hero: bio + hospital + expertise content */}
+    <section class="mx-auto max-w-7xl px-6 pt-12 md:pt-14 pb-8">
+      <div class="grid gap-10 md:grid-cols-[1fr,22rem]">
+        <div>
           {hospital && (
-            <div class="mt-8 rounded-xl border border-border bg-surface-muted p-5">
-              <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-subtle mb-2">Practices at</p>
+            <div class="rounded-xl border p-5" style="border-color: var(--color-border); background: var(--color-surface-muted);">
+              <p class="mono mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Practices at</p>
               <a
                 href={localizedPath(locale, `/hospital/${hospital.slug}`)}
                 class="inline-flex items-center gap-2 font-display text-xl text-ink hover:text-accent transition-colors"
@@ -242,9 +421,10 @@ Astro.response.headers.set(
             </div>
           )}
 
-          {docSpecialties.length > 0 && (
+          {/* Linked specialty-hub tags (if >8, expose more here) */}
+          {docSpecialties.length > 8 && (
             <div class="mt-10">
-              <h2 class="font-display text-2xl mb-4">Specialties</h2>
+              <h2 class="font-display text-2xl mb-4">Specialty hubs</h2>
               <ul class="flex flex-wrap gap-2">
                 {docSpecialties.map((ds) => (
                   <li>
@@ -254,32 +434,6 @@ Astro.response.headers.set(
                     >
                       {ds.specialty.name}
                     </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {expertise.length > 0 && (
-            <div class="mt-10">
-              <p
-                class="mono uppercase mb-3"
-                style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);"
-              >
-                Expertise
-              </p>
-              <h2 class="display mb-5" style="font-size: 26px; letter-spacing: -0.015em;">
-                Procedures & focus areas
-              </h2>
-              <ul class="flex flex-wrap gap-2">
-                {expertise.map((e) => (
-                  <li>
-                    <span
-                      class="inline-flex items-center rounded-full text-sm font-medium px-3 py-1.5"
-                      style="background: var(--color-accent-soft); color: var(--color-accent-deep); border: 1px solid var(--color-accent-soft);"
-                    >
-                      {e.expertiseArea}
-                    </span>
                   </li>
                 ))}
               </ul>
@@ -338,101 +492,38 @@ Astro.response.headers.set(
               )}
             </div>
           )}
+
+          {/* Contact doctor — inline lead form with doctor context */}
+          <div class="mt-12">
+            <ContactDoctor
+              client:visible
+              doctorSlug={doctor.slug}
+              doctorName={fullName}
+              hospitalName={hospital?.name ?? null}
+              specialtyName={docSpecialties[0]?.specialty.name ?? null}
+              locale={locale}
+            />
+          </div>
         </div>
 
-        {/* Sidebar */}
+        {/* Secondary side column — currently at / share */}
         <aside class="md:sticky md:top-24 md:self-start">
-          <div class="paper p-6" style="box-shadow: var(--shadow-sm);">
-            <p
-              class="mono uppercase"
-              style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);"
-            >
-              Book a video consultation
-            </p>
-            <p
-              class="display mt-2"
-              style="font-size: 22px; letter-spacing: -0.02em; line-height: 1.2;"
-            >
-              Next available: <span class="serif italic">Tomorrow 4:30pm IST</span>
-            </p>
-
-            {/* Slot grid — 3x2 presets */}
-            <div class="mt-4 grid grid-cols-3 gap-1.5">
-              {["Tue 4:30", "Wed 11:00", "Thu 2:00", "Fri 9:30", "Fri 5:00", "Sat 10:30"].map((s, i) => {
-                const btnStyle = i === 0
-                  ? "padding: 10px 8px; border: 1px solid var(--color-ink); border-radius: 8px; background: var(--color-ink); color: var(--color-bg);"
-                  : "padding: 10px 8px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-paper); color: var(--color-ink);";
-                return (
-                  <a
-                    href={localizedPath(locale, `/contact?doctor=${doctor.slug}&slot=${encodeURIComponent(s)}`)}
-                    class="text-center text-[12.5px] font-medium transition-colors hover:opacity-90"
-                    style={btnStyle}
-                  >
-                    {s}
-                  </a>
-                );
-              })}
-            </div>
-
-            <div class="mt-4 flex flex-col gap-2">
-              <a
-                href={localizedPath(locale, `/contact?doctor=${doctor.slug}`)}
-                class="inline-flex items-center justify-center rounded-lg bg-accent text-accent-contrast px-4 py-2.5 text-sm font-semibold hover:bg-accent-hover transition-colors"
-              >
-                {doctor.consultationFeeUsd != null ? (
-                  <>Book consultation · <Price usd={doctor.consultationFeeUsd} /></>
-                ) : (
-                  <>{tc("bookConsultation")}</>
-                )}
-              </a>
-              <a
-                href={whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-semibold hover:border-border-strong hover:bg-subtle transition-colors"
-              >
-                <MessageCircle className="h-4 w-4" />
-                {tc("whatsapp")}
-              </a>
-            </div>
-
-            {doctor.availableForVideoConsult && (
-              <p
-                class="mt-3 inline-flex items-center gap-1.5 text-[12px]"
-                style="color: var(--color-accent);"
-              >
-                <Video className="h-3.5 w-3.5" />
-                Video consult available
-              </p>
-            )}
-
-            <div class="mt-4 pt-4" style="border-top: 1px dashed var(--color-border);">
-              <p
-                class="mono uppercase"
-                style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);"
-              >
-                Or, free
-              </p>
-              <p class="mt-1.5 text-[13.5px]">
-                Upload reports → {fullName}&apos;s team replies in 48 hr with a written opinion.
-              </p>
-              <a
-                href={localizedPath(locale, "/second-opinion")}
-                class="mt-3 inline-flex items-center justify-center w-full gap-1.5 rounded-lg border border-border px-4 py-2 text-sm font-semibold hover:border-border-strong hover:bg-subtle transition-colors"
-              >
-                Get free 2nd opinion →
-              </a>
-            </div>
-            {languages.length > 0 && (
-              <div class="mt-5 pt-5 border-t border-border text-sm">
-                <p class="text-ink-subtle flex items-center gap-1.5 mb-2">
-                  <GlobeIcon className="h-3.5 w-3.5" />
-                  Speaks
-                </p>
-                <p class="text-ink-muted">{languages.join(", ")}</p>
+          {hospital && (
+            <div class="paper" style="padding: 22px;">
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Currently at</div>
+              <div class="serif mt-2" style="font-size: 22px; font-weight: 500;">{hospital.name}</div>
+              <div style="font-size: 13px; color: var(--color-ink-subtle); margin-top: 4px;">
+                {cityName}{countryName && `, ${countryName}`}
               </div>
-            )}
-          </div>
+              <a
+                href={localizedPath(locale, `/hospital/${hospital.slug}`)}
+                class="inline-flex items-center justify-center gap-1.5 w-full mt-4 font-medium"
+                style="background: transparent; color: var(--color-ink); border: 1px solid var(--color-ink); padding: 9px 14px; font-size: 13px; border-radius: 9999px;"
+              >
+                View hospital →
+              </a>
+            </div>
+          )}
         </aside>
       </div>
     </section>
@@ -457,7 +548,7 @@ Astro.response.headers.set(
                     </span>
                     {r.subtitle && <span class="block text-xs text-ink-subtle line-clamp-1">{r.subtitle}</span>}
                   </span>
-                  <ChevronRight className="h-4 w-4 text-ink-subtle mirror-x shrink-0 ml-3" />
+                  <ChevronRight className="h-4 w-4 text-ink-subtle mirror-x shrink-0 ms-3" />
                 </a>
               </li>
             ))}

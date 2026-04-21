@@ -3,12 +3,12 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
-import Pagination from "@/components/Pagination.astro";
+import EntityListingHero from "@/components/EntityListingHero.astro";
 import { listDoctors } from "@/lib/queries";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
-import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { breadcrumbJsonLd, localeUrl, itemListJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
-import { MapPin } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 export const prerender = false;
 
@@ -32,6 +32,31 @@ const crumbs = breadcrumbJsonLd([
   { name: tc("doctors"), url: localeUrl(locale, path) },
 ]);
 
+const itemLd = page === 1 && rows.length > 0
+  ? itemListJsonLd(
+      rows.map((d) => ({
+        name: `${d.title ?? "Dr."} ${d.name}`,
+        url: localeUrl(locale, `/doctor/${d.slug}`),
+      })),
+    )
+  : null;
+
+function monogram(name: string) {
+  return name.replace(/^Dr\.?\s*/i, "").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? "").join("");
+}
+function cleanName(name: string) {
+  return name.replace(/^Dr\.?\s*/i, "");
+}
+function firstWord(s: string) { const i = s.indexOf(" "); return i === -1 ? s : s.slice(0, i); }
+function restOfName(s: string) { const i = s.indexOf(" "); return i === -1 ? "" : s.slice(i + 1); }
+
+const stats = page === 1 ? [
+  { l: "Specialists", v: rows.length >= 24 ? "800+" : rows.length.toString() },
+  { l: "Hospitals", v: new Set(rows.map((d) => d.hospitalSlug).filter(Boolean)).size.toString() },
+  { l: "Reply time", v: "9 min" },
+  { l: "Reviewed by", v: "Editorial desk" },
+] : [];
+
 Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-revalidate=3600");
 
 const hasNext = rows.length === 24;
@@ -39,72 +64,133 @@ const hasNext = rows.length === 24;
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={page > 1} />
+    {itemLd && <script type="application/ld+json" set:html={JSON.stringify(itemLd)} />}
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
   <main class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
-    <section class="mx-auto max-w-7xl px-6 pt-10 pb-6">
-      <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">{tc("doctors")}</p>
-      <h1 class="mt-2 font-display text-3xl md:text-5xl leading-[1.05]">Specialists</h1>
-      <p class="lede mt-4">Board-certified physicians across the world's leading accredited hospitals.</p>
-    </section>
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">Specialists</span>
+        </nav>
+      </div>
+    </div>
 
-    <section class="mx-auto max-w-7xl px-6 pb-12">
-      {rows.length === 0 ? (
-        <p class="text-ink-muted">No doctors found.</p>
-      ) : (
-        <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {rows.map((d) => (
-            <li>
-              <a
-                href={localizedPath(locale, `/doctor/${d.slug}`)}
-                class="group flex items-start gap-4 rounded-xl border border-border bg-surface p-5 transition hover:border-border-strong hover:shadow-sm"
-              >
-                {d.imageUrl ? (
-                  <img src={d.imageUrl} alt={d.name} class="h-16 w-16 shrink-0 rounded-full object-cover" loading="lazy" />
-                ) : (
-                  <div class="h-16 w-16 shrink-0 rounded-full bg-accent-soft text-accent inline-flex items-center justify-center font-display text-lg">
-                    {d.name.slice(0, 1)}
-                  </div>
-                )}
-                <div class="min-w-0 flex-1">
-                  <p class="font-display text-base leading-tight text-ink group-hover:text-accent transition-colors">
-                    {d.title ? `${d.title} ` : ""}{d.name}
-                  </p>
-                  {d.qualifications && (
-                    <p class="mt-1 text-xs text-ink-muted line-clamp-2">{d.qualifications}</p>
-                  )}
-                  {d.hospitalName && (
-                    <p class="mt-2 text-xs text-ink-subtle flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      {d.hospitalName}{d.cityName && `, ${d.cityName}`}
-                    </p>
-                  )}
-                  <div class="mt-2 flex gap-3 text-[11px] text-ink-subtle">
-                    {d.experienceYears && <span>{d.experienceYears}+ yrs</span>}
-                    {d.rating && Number(d.rating) > 0 && (
-                      <span><span class="text-gold-500">★</span> {Number(d.rating).toFixed(1)}</span>
-                    )}
-                  </div>
-                </div>
-              </a>
-            </li>
-          ))}
-        </ul>
-      )}
+    <EntityListingHero
+      eyebrow={`Specialists · Board-certified physicians`}
+      h1First="Surgeons"
+      h1Italic="& specialists"
+      lede="Board-certified physicians across the world's leading accredited hospitals. Each profile carries real training, volume, and hospital credentials — verified and kept up to date by our editorial desk."
+      stats={stats}
+    />
 
-      <nav class="flex items-center justify-center gap-2 py-8">
-        {page > 1 && (
-          <a href={page === 2 ? localizedPath(locale, path) : `${localizedPath(locale, path)}?page=${page - 1}`} class="rounded-lg border border-border bg-surface px-3 py-2 text-sm hover:border-border-strong">← Previous</a>
+    <section style="padding: 32px 0 88px;">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
+        {rows.length === 0 ? (
+          <p class="serif" style="color: var(--color-ink-muted);">No doctors found.</p>
+        ) : (
+          <ul class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {rows.map((d) => {
+              const clean = cleanName(d.name);
+              return (
+                <li>
+                  <a
+                    href={localizedPath(locale, `/doctor/${d.slug}`)}
+                    class="paper group flex h-full flex-col overflow-hidden transition hover:-translate-y-0.5"
+                    style="padding: 0;"
+                  >
+                    <div class="w-full overflow-hidden" style="aspect-ratio: 4/5; background: linear-gradient(135deg, #0A5D54 0%, #0D7C70 60%, #1C2A25 100%);">
+                      {d.imageUrl ? (
+                        <img
+                          src={d.imageUrl}
+                          alt={d.name}
+                          width="320"
+                          height="400"
+                          loading="lazy"
+                          decoding="async"
+                          class="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div class="flex h-full w-full items-center justify-center">
+                          <span class="display" style="color: rgba(246,241,230,.8); font-size: 56px; letter-spacing: -0.03em;">{monogram(d.name)}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div class="p-5 flex flex-col flex-1">
+                      {d.title && (
+                        <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">
+                          {d.title}
+                        </div>
+                      )}
+                      <div class="serif mt-1" style="font-size: 19px; line-height: 1.2; letter-spacing: -0.005em; color: var(--color-ink);">
+                        {firstWord(clean)}{restOfName(clean) && <> <span class="italic-display">{restOfName(clean)}</span></>}
+                      </div>
+                      {d.qualifications && (
+                        <div class="mt-2 mono text-[10px] uppercase tracking-wider line-clamp-1" style="color: var(--color-ink-subtle);">
+                          {d.qualifications}
+                        </div>
+                      )}
+                      {d.hospitalName && (
+                        <div class="mt-2 text-[12.5px]" style="color: var(--color-ink-muted);">
+                          {d.hospitalName}{d.cityName && <> · {d.cityName}</>}
+                        </div>
+                      )}
+                      <div
+                        class="mt-auto flex items-center justify-between"
+                        style="border-top: 1px dashed var(--color-border); margin-top: 12px; padding-top: 10px;"
+                      >
+                        <div class="flex items-center gap-3 text-[12px]" style="color: var(--color-ink-subtle);">
+                          {d.experienceYears && <span class="tnum">{d.experienceYears}yr</span>}
+                          {d.rating && Number(d.rating) > 0 && (
+                            <span class="tnum inline-flex items-center gap-1">
+                              <span style="color: var(--color-saffron);">★</span>
+                              {Number(d.rating).toFixed(1)}
+                            </span>
+                          )}
+                        </div>
+                        <ChevronRight className="h-3.5 w-3.5 mirror-x text-[var(--color-ink-subtle)] group-hover:text-[var(--color-accent)] transition-colors" />
+                      </div>
+                    </div>
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
         )}
-        <span class="rounded-lg bg-accent text-accent-contrast px-3 py-2 text-sm font-semibold">Page {page}</span>
-        {hasNext && (
-          <a href={`${localizedPath(locale, path)}?page=${page + 1}`} class="rounded-lg border border-border bg-surface px-3 py-2 text-sm hover:border-border-strong">Next →</a>
-        )}
-      </nav>
+
+        <nav class="mt-12 flex items-center justify-center gap-2.5">
+          {page > 1 && (
+            <a
+              href={page === 2 ? localizedPath(locale, path) : `${localizedPath(locale, path)}?page=${page - 1}`}
+              class="mono text-[11px] uppercase tracking-wider"
+              style="border: 1px solid var(--color-border); color: var(--color-ink); padding: 9px 16px; border-radius: 9999px;"
+            >
+              ← Previous
+            </a>
+          )}
+          <span
+            class="display tnum"
+            style="font-size: 14px; padding: 9px 18px; border-radius: 9999px; background: var(--color-ink); color: var(--color-bg);"
+          >
+            Page {page}
+          </span>
+          {hasNext && (
+            <a
+              href={`${localizedPath(locale, path)}?page=${page + 1}`}
+              class="mono text-[11px] uppercase tracking-wider"
+              style="border: 1px solid var(--color-border); color: var(--color-ink); padding: 9px 16px; border-radius: 9999px;"
+            >
+              Next →
+            </a>
+          )}
+        </nav>
+      </div>
     </section>
 
     <SiteFooter locale={locale} />

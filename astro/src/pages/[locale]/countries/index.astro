@@ -3,9 +3,16 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
-import { isLocale, type Locale } from "@/lib/i18n";
-import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import EntityListingHero from "@/components/EntityListingHero.astro";
+import PhotoBlock from "@/components/PhotoBlock.astro";
+import Price from "@/components/Price.astro";
+import { db } from "@/lib/db";
+import { sql } from "drizzle-orm";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, collectionPageJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
+import { hospitalCover } from "@/lib/images";
+import { ChevronRight } from "lucide-react";
 
 export const prerender = false;
 
@@ -13,9 +20,70 @@ const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect("/en/countries", 308);
 const locale = rawLocale as Locale;
 
+type CountryRow = {
+  slug: string;
+  name: string;
+  isoCode: string;
+  hospitals: number;
+  doctors: number;
+  fromUsd: number | null;
+  topSpecialty: string | null;
+};
+
+let rows: CountryRow[] = [];
+try {
+  rows = Array.from(
+    await db.execute<CountryRow>(sql`
+      SELECT c.slug, c.name, c.iso_code as "isoCode",
+        (SELECT COUNT(*)::int FROM hospitals h JOIN cities ci ON ci.id = h.city_id WHERE ci.country_id = c.id AND h.is_active = true) AS hospitals,
+        (SELECT COUNT(*)::int FROM doctors d JOIN hospitals h ON h.id = d.hospital_id JOIN cities ci ON ci.id = h.city_id WHERE ci.country_id = c.id AND d.is_active = true) AS doctors,
+        (SELECT MIN(ht.cost_min_usd)::int FROM hospital_treatments ht
+           JOIN hospitals h ON h.id = ht.hospital_id
+           JOIN cities ci ON ci.id = h.city_id
+           WHERE ci.country_id = c.id AND ht.cost_min_usd IS NOT NULL) AS "fromUsd",
+        (SELECT sp.name FROM hospital_specialties hs
+           JOIN specialties sp ON sp.id = hs.specialty_id
+           JOIN hospitals h ON h.id = hs.hospital_id
+           JOIN cities ci ON ci.id = h.city_id
+           WHERE ci.country_id = c.id AND h.is_active = true
+           GROUP BY sp.name
+           ORDER BY COUNT(DISTINCT h.id) DESC
+           LIMIT 1) AS "topSpecialty"
+      FROM countries c
+      WHERE c.is_destination = true
+      ORDER BY hospitals DESC
+    `),
+  );
+} catch {
+  rows = [];
+}
+
+const FLAG_MAP: Record<string, string> = {
+  india: "🇮🇳", turkey: "🇹🇷", thailand: "🇹🇭", uae: "🇦🇪",
+  germany: "🇩🇪", singapore: "🇸🇬", "south-korea": "🇰🇷",
+  malaysia: "🇲🇾", "saudi-arabia": "🇸🇦",
+};
+function countryFlag(s: string): string { return FLAG_MAP[s] ?? "🌐"; }
+
+const BLURBS: Record<string, string> = {
+  india: "Volume, price and English-fluent doctors. JCI flagships in Delhi-NCR, Chennai, Mumbai.",
+  turkey: "Fast visas, strong aesthetics and oncology programs. Istanbul handles 70% of flow.",
+  thailand: "Bumrungrad, BDMS and Bangkok Hospital set the Asia-Pacific standard.",
+  uae: "Dubai and Abu Dhabi Cleveland Clinic — premium pricing, zero language friction.",
+  germany: "Complex surgery, cancer, transplants. Slower bookings, strongest outcomes.",
+  singapore: "Boutique, very expensive, best-in-class outcomes for high-stakes cases.",
+  "south-korea": "Seoul leads on aesthetics, oncology, and robotic surgery.",
+  malaysia: "KL hospitals courted Commonwealth patients — English-fluent, low visa friction.",
+  "saudi-arabia": "Riyadh and Jeddah — MOH-regulated, mostly regional patient flow.",
+};
+
+const totalHospitals = rows.reduce((s, r) => s + r.hospitals, 0);
+const totalDoctors = rows.reduce((s, r) => s + r.doctors, 0);
+const lowestFrom = rows.reduce((m, r) => (r.fromUsd && (!m || r.fromUsd < m) ? r.fromUsd : m), null as number | null);
+
 const tc = getTranslator(locale, "common");
-const seoTitle = "Medical tourism destinations";
-const seoDescription = "Compare top medical tourism destinations — hospitals, doctors, costs, and visa info per country.";
+const seoTitle = "Medical travel destinations";
+const seoDescription = `Compare ${rows.length} medical-tourism destinations — hospital count, doctor availability, starting prices, visa shape. Transparent data per country.`;
 const path = "/countries";
 
 const crumbs = breadcrumbJsonLd([
@@ -23,23 +91,121 @@ const crumbs = breadcrumbJsonLd([
   { name: "Destinations", url: localeUrl(locale, path) },
 ]);
 
-Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-revalidate=3600");
+const collectionLd = collectionPageJsonLd({
+  name: "Medical travel destinations",
+  description: seoDescription,
+  url: localeUrl(locale, path),
+  items: rows.map((r) => ({ name: r.name, url: localeUrl(locale, `/country/${r.slug}`) })),
+});
+
+const stats = [
+  { l: "Destinations", v: rows.length.toString() },
+  { l: "Hospitals", v: totalHospitals.toLocaleString() },
+  { l: "Doctors", v: totalDoctors.toLocaleString() },
+  lowestFrom ? { l: "From", v: `$${(lowestFrom / 1000).toFixed(1)}k` } : null,
+].filter(Boolean) as Array<{ l: string; v: string }>;
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
 ---
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(collectionLd)} />
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
   <main class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
-    <section class="mx-auto max-w-7xl px-6 pt-10 pb-16">
-      <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">Compare</p>
-      <h1 class="mt-2 font-display text-3xl md:text-5xl leading-[1.05]">Destinations</h1>
-      <p class="lede mt-4">Discover countries leading in medical tourism — quality, cost, and accessibility.</p>
-      {/* TODO: country cards grid */}
+
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">Destinations</span>
+        </nav>
+      </div>
+    </div>
+
+    <EntityListingHero
+      eyebrow={`Destinations · ${rows.length} countries`}
+      h1First="Where patients travel"
+      h1Italic="for care"
+      lede={`${rows.length} medical-tourism destinations, ${totalHospitals.toLocaleString()} accredited hospitals. Honest trade-offs per country — strengths, watch-outs, visa shape, language support.`}
+      stats={stats}
+    />
+
+    <section style="padding: 32px 0 88px;">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
+        <ul class="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {rows.map((c, i) => (
+            <li>
+              <a
+                href={localizedPath(locale, `/country/${c.slug}`)}
+                class="paper group flex h-full flex-col overflow-hidden transition hover:-translate-y-0.5"
+                style="padding: 0;"
+              >
+                <PhotoBlock
+                  aspect="16/10"
+                  rounded={false}
+                  imgUrl={hospitalCover({ coverImageUrl: null, countrySlug: c.slug })}
+                  alt={c.name}
+                >
+                  {i === 0 && (
+                    <span
+                      class="mono uppercase absolute"
+                      style="top: 14px; inset-inline-end: 14px; font-size: 9.5px; letter-spacing: 0.14em; background: var(--color-coral); color: var(--color-bg); padding: 4px 10px; border-radius: 9999px;"
+                    >
+                      Most visited
+                    </span>
+                  )}
+                </PhotoBlock>
+                <div class="p-6 flex flex-col flex-1">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2.5">
+                      <span aria-hidden="true" style="font-size: 20px;">{countryFlag(c.slug)}</span>
+                      <div class="serif" style="font-size: 22px; line-height: 1.15; letter-spacing: -0.01em; color: var(--color-ink);">
+                        <span class="italic-display">{c.name}</span>
+                      </div>
+                    </div>
+                    <span class="mono text-[10px] uppercase tracking-wider" style="color: var(--color-ink-subtle);">{c.isoCode}</span>
+                  </div>
+                  <p class="mt-3 serif" style="font-size: 14.5px; line-height: 1.55; color: var(--color-ink-muted);">
+                    {BLURBS[c.slug] ?? `${c.hospitals.toLocaleString()} accredited hospitals across ${c.name}.`}
+                  </p>
+                  {c.topSpecialty && (
+                    <div class="mt-3 mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">
+                      Known for · {c.topSpecialty}
+                    </div>
+                  )}
+                  <div
+                    class="mt-auto flex items-center justify-between"
+                    style="border-top: 1px dashed var(--color-border); margin-top: 16px; padding-top: 14px;"
+                  >
+                    <div class="text-[12.5px]" style="color: var(--color-ink-muted);">
+                      {c.fromUsd ? (
+                        <>From <span class="display tnum text-ink text-[15px]"><Price usd={c.fromUsd} /></span> · {c.hospitals.toLocaleString()} hospitals</>
+                      ) : (
+                        <>{c.hospitals.toLocaleString()} hospitals · {c.doctors.toLocaleString()} doctors</>
+                      )}
+                    </div>
+                    <span
+                      class="inline-flex items-center gap-1 text-[12px] font-semibold"
+                      style="background: var(--color-ink); color: var(--color-bg); padding: 6px 12px; border-radius: 9999px;"
+                    >
+                      Explore
+                      <ChevronRight className="h-3 w-3 mirror-x" />
+                    </span>
+                  </div>
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
     </section>
+
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { hospitals, hospitalSpecialties, specialties } from "../../../src/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { buildLocalizedSitemap, SITEMAP_HEADERS } from "@/lib/sitemap";
 
 export const GET: APIRoute = async () => {
@@ -10,7 +10,7 @@ export const GET: APIRoute = async () => {
     .from(hospitalSpecialties)
     .innerJoin(hospitals, eq(hospitals.id, hospitalSpecialties.hospitalId))
     .innerJoin(specialties, eq(specialties.id, hospitalSpecialties.specialtyId))
-    .where(eq(hospitals.isActive, true))
+    .where(and(eq(hospitals.isActive, true), eq(specialties.isActive, true)))
     .limit(45000);
 
   const paths = rows.map((r) => `/hospital/${r.h}/${r.s}`);

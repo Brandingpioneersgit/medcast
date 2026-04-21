@@ -3,13 +3,18 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import EntityListingHero from "@/components/EntityListingHero.astro";
+import PhotoBlock from "@/components/PhotoBlock.astro";
 import Pagination from "@/components/Pagination.astro";
 import { listHospitals, getHospitalFilterOptions } from "@/lib/queries";
+import { db } from "@/lib/db";
+import { sql } from "drizzle-orm";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
-import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { breadcrumbJsonLd, localeUrl, itemListJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
-import { Bed, X } from "lucide-react";
+import { ChevronRight, X } from "lucide-react";
 import { hospitalCover } from "@/lib/images";
+import CompareToggle from "@/components/CompareToggle.astro";
 
 export const prerender = false;
 
@@ -33,6 +38,31 @@ const [{ rows, total, totalPages }, options] = await Promise.all([
   getHospitalFilterOptions({ country: countryFilter, specialty: specialtyFilter }),
 ]);
 
+// Batch-fetch accreditation chips for visible rows
+const hospitalIds = rows.map((h) => h.id);
+const accreditationMap = new Map<number, string[]>();
+if (hospitalIds.length > 0) {
+  try {
+    const accr = await db.execute<{ hospital_id: number; codes: string[] }>(sql`
+      SELECT ha.hospital_id, ARRAY_AGG(DISTINCT COALESCE(a.acronym, a.name)) AS codes
+      FROM hospital_accreditations ha
+      INNER JOIN accreditations a ON a.id = ha.accreditation_id
+      WHERE ha.hospital_id = ANY(${hospitalIds}::int[])
+      GROUP BY ha.hospital_id
+    `);
+    for (const r of Array.from(accr)) accreditationMap.set(r.hospital_id, r.codes);
+  } catch {
+    // non-fatal
+  }
+}
+
+const FLAG_MAP: Record<string, string> = {
+  india: "🇮🇳", turkey: "🇹🇷", thailand: "🇹🇭", uae: "🇦🇪",
+  germany: "🇩🇪", singapore: "🇸🇬", "south-korea": "🇰🇷",
+  malaysia: "🇲🇾", "saudi-arabia": "🇸🇦",
+};
+function countryFlag(s: string | null | undefined): string { return s ? (FLAG_MAP[s] ?? "🌐") : "🌐"; }
+
 const tc = getTranslator(locale, "common");
 const seoTitle = `${total > 0 ? total.toLocaleString() : "All"} accredited hospitals`;
 const seoDescription = `Browse ${total.toLocaleString()} accredited hospitals worldwide. Compare specialties, ratings, costs. Transparent pricing, multilingual care.`;
@@ -43,10 +73,13 @@ const crumbs = breadcrumbJsonLd([
   { name: tc("hospitals"), url: localeUrl(locale, path) },
 ]);
 
-Astro.response.headers.set(
-  "Cache-Control",
-  "public, s-maxage=600, stale-while-revalidate=3600",
-);
+const itemLd = page === 1 && rows.length > 0
+  ? itemListJsonLd(
+      rows.map((h) => ({ name: h.name, url: localeUrl(locale, `/hospital/${h.slug}`) })),
+    )
+  : null;
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-revalidate=3600");
 
 type Patch = { sort?: string; country?: string; specialty?: string };
 function buildHref(patch: Patch): string {
@@ -80,49 +113,63 @@ if (specialtyFilter) {
 }
 
 const paginationBase = buildHref({});
+
+const selfCanonicalFilter = countryFilter && !specialtyFilter;
+const shouldNoindex = page > 1 || !!specialtyFilter;
+const canonicalQuery = selfCanonicalFilter
+  ? new URLSearchParams({ country: countryFilter! }).toString()
+  : "";
+
+const stats = page === 1 && !countryFilter && !specialtyFilter ? [
+  { l: "Accredited", v: total.toLocaleString() },
+  { l: "Countries", v: options.countries.length.toString() },
+  { l: "Specialties", v: options.specialties.length.toString() },
+  { l: "Reply time", v: "9 min" },
+] : [];
 ---
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <HeadMeta
+      title={seoTitle}
+      description={seoDescription}
+      path={path}
+      locale={locale}
+      noindex={shouldNoindex}
+      pathQuery={canonicalQuery}
+    />
+    {itemLd && <script type="application/ld+json" set:html={JSON.stringify(itemLd)} />}
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
   <main class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
-    <section style="border-bottom: 1px solid var(--color-border);">
-      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-10 md:py-14">
-        <p
-          class="mono uppercase mb-3 tnum"
-          style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-ink-subtle);"
-        >
-          {total.toLocaleString()} accredited · {options.countries.length} countries
-        </p>
-        <h1
-          class="display display-tight"
-          style="font-size: clamp(2.25rem, 5vw, 3.75rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;"
-        >
-          Browse <span class="italic-display">hospitals</span>
-        </h1>
-        <p class="lede mt-4 max-w-[44rem]">
-          Every listing is verified for active accreditation, outcomes reporting and price
-          transparency — and continuously re-vetted by our medical panel.
-        </p>
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">Hospitals</span>
+        </nav>
       </div>
-    </section>
+    </div>
+
+    <EntityListingHero
+      eyebrow={`${total.toLocaleString()} accredited · ${options.countries.length} countries`}
+      h1First="Browse"
+      h1Italic="hospitals"
+      lede="Every listing is verified for active accreditation, outcomes reporting and price transparency — and continuously re-vetted by our medical panel."
+      stats={stats}
+    />
 
     <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-8 pb-12">
       <div class="grid gap-10 lg:grid-cols-[16rem,1fr] xl:grid-cols-[18rem,1fr]">
-        {/* Filter rail (desktop) */}
         <aside class="hidden lg:block sticky top-24 self-start">
           <div class="space-y-8">
             {options.countries.length > 0 && (
               <div>
-                <p
-                  class="mono uppercase mb-3"
-                  style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);"
-                >
+                <p class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                   Country
                 </p>
                 <ul class="space-y-1.5">
@@ -135,7 +182,7 @@ const paginationBase = buildHref({});
                           class="flex items-center justify-between text-sm hover:text-accent transition-colors"
                           style={active ? "color: var(--color-accent); font-weight: 600;" : "color: var(--color-ink-muted);"}
                         >
-                          <span>{c.name}</span>
+                          <span class="flex items-center gap-2"><span aria-hidden="true">{countryFlag(c.slug)}</span> {c.name}</span>
                           <span class="tnum text-xs" style="color: var(--color-ink-subtle);">
                             {c.n.toLocaleString()}
                           </span>
@@ -149,10 +196,7 @@ const paginationBase = buildHref({});
 
             {options.specialties.length > 0 && (
               <div>
-                <p
-                  class="mono uppercase mb-3"
-                  style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);"
-                >
+                <p class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                   Specialty
                 </p>
                 <ul class="space-y-1.5">
@@ -180,20 +224,15 @@ const paginationBase = buildHref({});
         </aside>
 
         <div class="min-w-0">
-          {/* Sort bar */}
           <div
             class="mb-6 flex flex-wrap items-center justify-between gap-3 pb-4"
             style="border-bottom: 1px solid var(--color-border);"
           >
-            <span class="text-sm" style="color: var(--color-ink-muted);">
-              <span class="font-semibold text-ink">{total.toLocaleString()}</span> hospitals
+            <span class="serif text-[14px]" style="color: var(--color-ink-muted);">
+              <span class="display tnum text-ink">{total.toLocaleString()}</span> hospital{total === 1 ? "" : "s"}
             </span>
-
             <div class="flex items-center gap-1 -mx-1 overflow-x-auto">
-              <span
-                class="text-[11px] uppercase tracking-wider px-1 whitespace-nowrap"
-                style="color: var(--color-ink-subtle);"
-              >
+              <span class="mono uppercase px-1 whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                 Sort
               </span>
               {SORTS.map((o) => {
@@ -213,14 +252,13 @@ const paginationBase = buildHref({});
             </div>
           </div>
 
-          {/* Active filter chips */}
           {activeChips.length > 0 && (
             <div class="mb-5 flex flex-wrap items-center gap-2">
               {activeChips.map((chip) => (
                 <a
                   href={chip.remove}
-                  class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium hover:border-border-strong"
-                  style="background: var(--color-subtle); border-color: var(--color-border); color: var(--color-ink);"
+                  class="inline-flex items-center gap-1.5 mono uppercase hover:border-ink"
+                  style="font-size: 10px; letter-spacing: 0.12em; border: 1px solid var(--color-border); background: var(--color-paper); color: var(--color-ink); padding: 6px 12px; border-radius: 9999px;"
                 >
                   {chip.label}
                   <X className="h-3 w-3" />
@@ -228,75 +266,92 @@ const paginationBase = buildHref({});
               ))}
               <a
                 href={localizedPath(locale, path)}
-                class="text-xs font-medium hover:text-ink hover:underline underline-offset-2"
+                class="mono text-[10px] uppercase tracking-wider hover:text-ink"
                 style="color: var(--color-ink-muted);"
               >
-                Clear all
+                Clear all →
               </a>
             </div>
           )}
 
-          {/* Card grid */}
           {rows.length === 0 ? (
-            <div
-              class="paper text-center py-20"
-              style="color: var(--color-ink-muted);"
-            >
+            <div class="paper text-center py-20" style="color: var(--color-ink-muted);">
               <p class="serif text-lg mb-2">No hospitals match these filters.</p>
               <a
                 href={localizedPath(locale, path)}
-                class="inline-block mt-2 text-sm font-semibold"
-                style="color: var(--color-accent);"
+                class="inline-block mt-2 mono uppercase text-[11px]"
+                style="color: var(--color-accent); letter-spacing: 0.12em;"
               >
                 Clear filters →
               </a>
             </div>
           ) : (
             <ul class="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-              {rows.map((h) => (
-                <li>
-                  <a
-                    href={localizedPath(locale, `/hospital/${h.slug}`)}
-                    class="group block h-full overflow-hidden rounded-2xl border border-border bg-surface transition hover:-translate-y-0.5 hover:border-border-strong hover:shadow-md"
-                  >
-                    <div class="relative aspect-[4/3] overflow-hidden bg-subtle">
-                      <img
-                        src={hospitalCover({ coverImageUrl: h.coverImageUrl })}
+              {rows.map((h) => {
+                const codes = accreditationMap.get(h.id) ?? [];
+                return (
+                  <li class="relative h-full">
+                    <a
+                      href={localizedPath(locale, `/hospital/${h.slug}`)}
+                      class="paper group block h-full overflow-hidden transition hover:-translate-y-0.5"
+                      style="padding: 0;"
+                    >
+                      <PhotoBlock
+                        aspect="4/3"
+                        rounded={false}
+                        imgUrl={hospitalCover({ coverImageUrl: h.coverImageUrl, countrySlug: h.countrySlug })}
                         alt={h.name}
-                        class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                        loading="lazy"
-                      />
-                      {h.rating && Number(h.rating) > 0 && (
-                        <div class="absolute left-3 top-3 rounded-full bg-surface/95 px-2 py-1 text-[11px] font-semibold text-ink backdrop-blur">
-                          ★ {Number(h.rating).toFixed(1)}
-                        </div>
-                      )}
-                    </div>
-                    <div class="p-5">
-                      <p
-                        class="mono uppercase"
-                        style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);"
                       >
-                        {h.cityName}, {h.countryName}
-                      </p>
-                      <h3 class="mt-1.5 font-display text-lg leading-snug text-ink group-hover:text-accent transition-colors line-clamp-2">
-                        {h.name}
-                      </h3>
-                      <div class="mt-3 flex gap-3 text-xs" style="color: var(--color-ink-muted);">
-                        {h.bedCapacity && (
-                          <span class="inline-flex items-center gap-1">
-                            <Bed className="h-3.5 w-3.5" />
-                            {h.bedCapacity.toLocaleString()} beds
-                          </span>
+                        {h.rating && Number(h.rating) > 0 && (
+                          <div
+                            class="absolute"
+                            style="top: 12px; inset-inline-start: 12px; background: rgba(246,241,230,0.95); color: var(--color-ink); padding: 4px 10px; border-radius: 9999px; font-size: 11px; backdrop-filter: blur(4px);"
+                          >
+                            <span style="color: var(--color-saffron);">★</span>
+                            <span class="tnum ms-1">{Number(h.rating).toFixed(1)}</span>
+                          </div>
                         )}
-                        {h.reviewCount && h.reviewCount > 0 && (
-                          <span class="tnum">{h.reviewCount.toLocaleString()} reviews</span>
+                      </PhotoBlock>
+                      <div class="p-5">
+                        <p class="mono uppercase flex items-center gap-1.5" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                          <span aria-hidden="true">{countryFlag(h.countrySlug)}</span>
+                          {h.cityName}, {h.countryName}
+                        </p>
+                        <h3 class="mt-1.5 serif group-hover:text-accent transition-colors line-clamp-2" style="font-size: 19px; line-height: 1.22; letter-spacing: -0.005em; color: var(--color-ink);">
+                          {h.name}
+                        </h3>
+                        {codes.length > 0 && (
+                          <div class="mt-3 flex flex-wrap gap-1.5">
+                            {codes.slice(0, 3).map((c) => (
+                              <span
+                                class="mono uppercase"
+                                style="font-size: 9.5px; letter-spacing: 0.1em; border: 1px solid var(--color-accent); color: var(--color-accent); padding: 2px 7px; border-radius: 9999px;"
+                              >
+                                {c}
+                              </span>
+                            ))}
+                          </div>
                         )}
+                        <div
+                          class="mt-auto flex items-center justify-between"
+                          style="border-top: 1px dashed var(--color-border); margin-top: 14px; padding-top: 12px;"
+                        >
+                          <div class="flex items-center gap-3 text-[12px]" style="color: var(--color-ink-muted);">
+                            {h.bedCapacity && <span class="tnum">{h.bedCapacity.toLocaleString()} beds</span>}
+                            {h.reviewCount && h.reviewCount > 0 && (
+                              <span class="tnum">{h.reviewCount.toLocaleString()} reviews</span>
+                            )}
+                          </div>
+                          <ChevronRight className="h-3.5 w-3.5 mirror-x text-[var(--color-ink-subtle)] group-hover:text-[var(--color-accent)] transition-colors" />
+                        </div>
                       </div>
+                    </a>
+                    <div class="absolute end-3 top-3 z-10">
+                      <CompareToggle slug={h.slug} name={h.name} />
                     </div>
-                  </a>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
 

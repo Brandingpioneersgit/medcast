@@ -6,7 +6,7 @@ import SiteFooter from "@/components/SiteFooter.astro";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
-import { Plane, Phone, Clock, MapPin, ChevronRight, Heart, Stethoscope } from "lucide-react";
+import { Plane, Phone, ChevronRight, Heart, Stethoscope } from "lucide-react";
 
 export const prerender = false;
 
@@ -20,13 +20,32 @@ const url = localeUrl(locale, path);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Emergency / Air Ambulance", url },
+  { name: "Emergency desk", url },
 ]);
 
 Astro.response.headers.set(
   "Cache-Control",
   "public, s-maxage=3600, stale-while-revalidate=86400",
 );
+
+const DESTINATIONS: Array<{ slug: string; name: string; flag: string }> = [
+  { slug: "india", name: "India", flag: "🇮🇳" },
+  { slug: "thailand", name: "Thailand", flag: "🇹🇭" },
+  { slug: "turkey", name: "Turkey", flag: "🇹🇷" },
+  { slug: "germany", name: "Germany", flag: "🇩🇪" },
+  { slug: "south-korea", name: "South Korea", flag: "🇰🇷" },
+  { slug: "malaysia", name: "Malaysia", flag: "🇲🇾" },
+  { slug: "singapore", name: "Singapore", flag: "🇸🇬" },
+  { slug: "uae", name: "UAE", flag: "🇦🇪" },
+  { slug: "saudi-arabia", name: "Saudi Arabia", flag: "🇸🇦" },
+];
+
+const STEPS = [
+  { n: "01", t: "First contact ≤ 3 minutes", d: "You reach a case manager — not an answering service. We collect patient condition, current location, and preferred destination." },
+  { n: "02", t: "Destination hospital confirmed ≤ 30 min", d: "Tier-1 hospital admission + receiving specialist confirmed. Estimated cost window shared upfront." },
+  { n: "03", t: "Air ambulance wheels up ≤ 4 hours", d: "Fixed-wing medical flight dispatched. Family receives live coordinates and ETA updates throughout." },
+  { n: "04", t: "Bedside-to-bedside transition", d: "Patient moved from home ICU → flight → destination ICU without ever being off monitoring." },
+];
 ---
 
 <BaseLayout locale={locale}>
@@ -43,79 +62,178 @@ Astro.response.headers.set(
   <main class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
-    <section class="bg-red-50/40 dark:bg-red-950/10 border-b border-red-200/40 dark:border-red-900/30">
-      <div class="mx-auto max-w-7xl px-6 py-10">
-        <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-red-600 dark:text-red-400">
-          24 / 7 emergency desk
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">Emergency desk</span>
+        </nav>
+      </div>
+    </div>
+
+    {/* Hero — ink-on-parchment with coral accents for urgency */}
+    <section
+      style="position: relative; overflow: hidden; background: var(--color-ink); color: var(--color-bg);"
+    >
+      <div
+        aria-hidden="true"
+        style="position: absolute; inset: 0; background: radial-gradient(circle at 20% 30%, rgba(232,90,79,0.18) 0, transparent 45%), radial-gradient(circle at 85% 70%, rgba(10,93,84,0.16) 0, transparent 50%);"
+      ></div>
+      <div class="relative mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-14 md:pt-20 pb-16">
+        <p class="mono uppercase inline-flex items-center gap-2" style="font-size: 11px; letter-spacing: 0.16em; color: var(--color-coral);">
+          <span class="inline-block w-1.5 h-1.5 rounded-full live-dot" style="background: var(--color-coral);" aria-hidden="true" />
+          24/7 emergency desk · One call moves a patient
         </p>
-        <h1 class="mt-3 font-display text-3xl md:text-5xl leading-[1.05]">
-          When minutes matter, one call moves a patient.
-        </h1>
-        <p class="lede mt-5 max-w-3xl">
-          Air ambulance dispatch, ground transfer, ICU admission, specialist on standby at destination — coordinated from a single desk, any hour. No hold music, no transfers between operators.
-        </p>
-        <div class="mt-8 flex flex-wrap gap-3">
-          <a
-            href="tel:+918000000000"
-            class="inline-flex items-center gap-2 rounded-lg bg-red-600 text-white font-semibold px-6 py-3.5 hover:bg-red-700 transition"
-          >
-            <Phone className="h-4 w-4" />
-            Call emergency desk
-          </a>
-          <a
-            href="https://wa.me/"
-            class="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-6 py-3.5 font-semibold text-ink hover:border-border-strong transition"
-          >
-            WhatsApp (fastest)
-            <ChevronRight className="h-4 w-4 mirror-x" />
-          </a>
+        <div class="grid gap-10 lg:grid-cols-[1.5fr,1fr] lg:gap-14 mt-3">
+          <div>
+            <h1
+              class="display display-tight"
+              style="font-size: clamp(2.5rem, 5.5vw, 5rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em; color: var(--color-bg);"
+            >
+              When minutes matter, <span class="italic-display">one call.</span>
+            </h1>
+            <p class="serif mt-5 max-w-[44rem]" style="font-size: 19px; line-height: 1.5; color: rgba(246,241,230,0.75);">
+              Air ambulance dispatch, ground transfer, ICU admission, specialist on standby at destination — coordinated from a single desk, any hour. No hold music, no transfers between operators.
+            </p>
+
+            <div
+              class="mt-8 grid grid-cols-3"
+              style="border-top: 1px solid rgba(246,241,230,0.2); border-bottom: 1px solid rgba(246,241,230,0.12);"
+            >
+              {[
+                { l: "First contact", v: "≤ 3 min" },
+                { l: "Destination locked", v: "≤ 30 min" },
+                { l: "Wheels up", v: "≤ 4 hr" },
+              ].map((s, i) => (
+                <div class="px-4 md:px-5 py-5" style={i > 0 ? "border-inline-start: 1px solid rgba(246,241,230,0.12);" : ""}>
+                  <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: rgba(246,241,230,0.55);">
+                    {s.l}
+                  </div>
+                  <div class="display tnum mt-1.5" style="font-size: 28px; color: var(--color-bg);">{s.v}</div>
+                </div>
+              ))}
+            </div>
+
+            <div class="mt-8 flex flex-wrap gap-3">
+              <a
+                href="tel:+918006210000"
+                class="inline-flex items-center gap-2 font-semibold"
+                style="background: var(--color-coral); color: var(--color-bg); padding: 14px 24px; border-radius: 9999px;"
+              >
+                <Phone className="h-4 w-4" />
+                Call emergency desk
+              </a>
+              <a
+                href="https://wa.me/918006210000"
+                class="inline-flex items-center gap-2 font-semibold"
+                style="background: var(--color-bg); color: var(--color-ink); padding: 14px 24px; border-radius: 9999px;"
+              >
+                WhatsApp · fastest
+                <ChevronRight className="h-4 w-4 mirror-x" />
+              </a>
+            </div>
+            <p class="mt-5 mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: rgba(246,241,230,0.55);">
+              +91 800 621 000 · Answered by a case manager, 24/7
+            </p>
+          </div>
+
+          <aside class="lg:sticky lg:top-32 lg:self-start">
+            <div style="background: rgba(246,241,230,0.06); border: 1px solid rgba(246,241,230,0.12); border-radius: var(--radius-lg); padding: 26px 28px;">
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-coral);">
+                Desk capability
+              </div>
+              <ul class="mt-5 space-y-4">
+                <li class="flex items-start gap-3">
+                  <Plane className="h-5 w-5 mt-0.5 shrink-0" style={{color: "var(--color-bg)"}} />
+                  <div>
+                    <div class="serif" style="font-size: 15.5px; color: var(--color-bg);">Fixed-wing air ambulance</div>
+                    <div class="mono uppercase mt-1" style="font-size: 10px; letter-spacing: 0.12em; color: rgba(246,241,230,0.55);">
+                      ICU-grade equipment · flight doctor · CCN
+                    </div>
+                  </div>
+                </li>
+                <li class="flex items-start gap-3">
+                  <Heart className="h-5 w-5 mt-0.5 shrink-0" style={{color: "var(--color-bg)"}} />
+                  <div>
+                    <div class="serif" style="font-size: 15.5px; color: var(--color-bg);">Bedside-to-bedside</div>
+                    <div class="mono uppercase mt-1" style="font-size: 10px; letter-spacing: 0.12em; color: rgba(246,241,230,0.55);">
+                      Ground → airport → destination ICU, end-to-end
+                    </div>
+                  </div>
+                </li>
+                <li class="flex items-start gap-3">
+                  <Stethoscope className="h-5 w-5 mt-0.5 shrink-0" style={{color: "var(--color-bg)"}} />
+                  <div>
+                    <div class="serif" style="font-size: 15.5px; color: var(--color-bg);">Receiving specialist</div>
+                    <div class="mono uppercase mt-1" style="font-size: 10px; letter-spacing: 0.12em; color: rgba(246,241,230,0.55);">
+                      Pre-briefed, on standby at destination
+                    </div>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </aside>
         </div>
       </div>
     </section>
 
-    <section class="border-t border-border py-12">
-      <div class="mx-auto max-w-7xl px-6">
-        <h2 class="font-display text-2xl md:text-3xl mb-8">What we coordinate</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div class="rounded-xl border border-border bg-surface p-6">
-            <Plane className="h-6 w-6 text-accent" />
-            <h3 class="mt-4 font-display text-lg">Air ambulance</h3>
-            <p class="mt-2 text-sm text-ink-muted">
-              Fixed-wing medical evacuation with ICU-grade equipment, flight doctor, and critical-care nurse.
-              Wheels up typically within 4-8 hours of clearance.
-            </p>
+    <section style="padding: 88px 0;">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="mb-8">
+          <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+            How the desk works
           </div>
-          <div class="rounded-xl border border-border bg-surface p-6">
-            <Heart className="h-6 w-6 text-accent" />
-            <h3 class="mt-4 font-display text-lg">Bedside-to-bedside transfer</h3>
-            <p class="mt-2 text-sm text-ink-muted">
-              Ground ambulance + airport transfer + hospital admission — handled end-to-end so the family never has to coordinate multiple vendors.
-            </p>
-          </div>
-          <div class="rounded-xl border border-border bg-surface p-6">
-            <Stethoscope className="h-6 w-6 text-accent" />
-            <h3 class="mt-4 font-display text-lg">Receiving specialist</h3>
-            <p class="mt-2 text-sm text-ink-muted">
-              Specialist on standby at destination, pre-briefed on the case with imaging and reports, ready to assume care on arrival.
-            </p>
-          </div>
+          <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
+            Four moves, <span class="italic-display">in order.</span>
+          </h2>
         </div>
+        <ol class="space-y-0">
+          {STEPS.map((s, i) => (
+            <li
+              class="grid gap-6 py-6"
+              style={`grid-template-columns: 56px 1fr; ${i > 0 ? "border-top: 1px dashed var(--color-border);" : ""}`}
+            >
+              <div class="display tnum" style="font-size: 36px; line-height: 1; color: var(--color-coral); letter-spacing: -0.02em;">
+                {s.n}
+              </div>
+              <div>
+                <div class="serif" style="font-size: 21px; line-height: 1.25; letter-spacing: -0.005em; color: var(--color-ink);">
+                  {s.t}
+                </div>
+                <p class="mt-2 serif max-w-[52rem]" style="font-size: 15px; line-height: 1.55; color: var(--color-ink-muted);">
+                  {s.d}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ol>
       </div>
     </section>
 
-    <section class="border-t border-border bg-surface-muted py-12">
-      <div class="mx-auto max-w-7xl px-6">
-        <h2 class="font-display text-2xl md:text-3xl mb-2">Operating across 9 destinations</h2>
-        <p class="text-sm text-ink-muted mb-8">Tier-1 hospital tie-ups for emergency admission.</p>
+    <section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="mb-8">
+          <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+            Destinations · Tier-1 hospital tie-ups
+          </div>
+          <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
+            Operating across <span class="italic-display">9 countries</span>
+          </h2>
+        </div>
         <ul class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-          {["india", "thailand", "turkey", "germany", "south-korea", "malaysia", "singapore", "united-arab-emirates", "saudi-arabia"].map((c) => (
+          {DESTINATIONS.map((c) => (
             <li>
               <a
-                href={localizedPath(locale, `/country/${c}`)}
-                class="group flex items-center justify-between rounded-lg border border-border bg-surface p-3 transition hover:border-border-strong"
+                href={localizedPath(locale, `/country/${c.slug}`)}
+                class="paper group flex items-center justify-between transition hover:-translate-y-0.5"
+                style="padding: 14px 18px;"
               >
-                <span class="font-medium text-sm capitalize">{c.replace(/-/g, " ")}</span>
-                <ChevronRight className="h-4 w-4 text-ink-subtle mirror-x" />
+                <span class="flex items-center gap-2.5">
+                  <span aria-hidden="true" style="font-size: 18px;">{c.flag}</span>
+                  <span class="serif" style="font-size: 15px; color: var(--color-ink);">{c.name}</span>
+                </span>
+                <ChevronRight className="h-3.5 w-3.5 mirror-x text-[var(--color-ink-subtle)] group-hover:text-[var(--color-accent)] transition-colors" />
               </a>
             </li>
           ))}
@@ -123,39 +241,28 @@ Astro.response.headers.set(
       </div>
     </section>
 
-    <section class="border-t border-border py-12">
-      <div class="mx-auto max-w-4xl px-6">
-        <h2 class="font-display text-2xl md:text-3xl mb-8">How the desk works</h2>
-        <ol class="space-y-6">
-          <li class="flex gap-5">
-            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-600 text-white font-semibold">1</span>
-            <div>
-              <p class="font-medium text-lg">First contact ≤ 3 minutes</p>
-              <p class="mt-1 text-sm text-ink-muted">You reach a case manager — not an answering service. We collect patient condition, current location, and preferred destination.</p>
+    <section style="background: var(--color-coral); color: var(--color-bg); padding: 56px 0;">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="grid gap-6 md:grid-cols-[1.5fr,1fr] items-center">
+          <div>
+            <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.85);">
+              Desk is live · 24/7
             </div>
-          </li>
-          <li class="flex gap-5">
-            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-600 text-white font-semibold">2</span>
-            <div>
-              <p class="font-medium text-lg">Destination hospital confirmed ≤ 30 minutes</p>
-              <p class="mt-1 text-sm text-ink-muted">Tier-1 hospital admission + receiving specialist confirmed. Estimated cost window shared upfront.</p>
-            </div>
-          </li>
-          <li class="flex gap-5">
-            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-600 text-white font-semibold">3</span>
-            <div>
-              <p class="font-medium text-lg">Air ambulance wheels up ≤ 4 hours</p>
-              <p class="mt-1 text-sm text-ink-muted">Fixed-wing medical flight dispatched. Family receives live coordinates and ETA updates throughout.</p>
-            </div>
-          </li>
-          <li class="flex gap-5">
-            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-600 text-white font-semibold">4</span>
-            <div>
-              <p class="font-medium text-lg">Bedside-to-bedside transition</p>
-              <p class="mt-1 text-sm text-ink-muted">Patient moved from home ICU → flight → destination ICU without ever being off monitoring.</p>
-            </div>
-          </li>
-        </ol>
+            <h2 class="display mt-2" style="font-size: clamp(1.75rem, 3.5vw, 2.5rem); line-height: 1.1; letter-spacing: -0.02em; color: var(--color-bg);">
+              Don't type a message. <span class="italic-display">Call.</span>
+            </h2>
+          </div>
+          <div class="flex flex-wrap gap-3 md:justify-end">
+            <a
+              href="tel:+918006210000"
+              class="inline-flex items-center gap-2 font-semibold"
+              style="background: var(--color-bg); color: var(--color-coral); padding: 14px 22px; border-radius: 9999px;"
+            >
+              <Phone className="h-4 w-4" />
+              +91 800 621 000
+            </a>
+          </div>
+        </div>
       </div>
     </section>
 

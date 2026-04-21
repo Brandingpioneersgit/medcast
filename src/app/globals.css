@@ -398,6 +398,17 @@ h1, h2, h3, h4 {
   border-radius: var(--radius-sm);
 }
 
+/* Details / summary — strip default triangle across browsers */
+summary { list-style: none; }
+summary::-webkit-details-marker { display: none; }
+summary::marker { display: none; content: ""; }
+summary:focus { outline: none; }
+summary:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
 @media (pointer: fine) {
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }

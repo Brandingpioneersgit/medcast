@@ -5,17 +5,19 @@ import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import Price from "@/components/Price.astro";
 import PriceRange from "@/components/PriceRange.astro";
-import { getCountryBySlug } from "@/lib/queries";
+import { getCountryBySlug, listFaqsFor } from "@/lib/queries";
 import {
   getContent,
   getContentBatch,
   applyTranslated,
+  isUntranslated,
 } from "@/lib/translate";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
-import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
-import { hospitalCover } from "@/lib/images";
+import { breadcrumbJsonLd, localeUrl, itemListJsonLd, touristDestinationJsonLd, faqJsonLd } from "@/lib/seo";
+import { hospitalCover, countryBanner } from "@/lib/images";
 import LastUpdated from "@/components/LastUpdated.astro";
+import CompareToggle from "@/components/CompareToggle.astro";
 import { ChevronRight, MapPin, Building2, Users, Globe } from "lucide-react";
 
 export const prerender = false;
@@ -31,7 +33,14 @@ if (!data) return new Response(`Not found: ${slug}`, { status: 404 });
 
 const tc = getTranslator(locale, "common");
 
-const { country, hospitalCount, doctorCount, cityCount, topHospitals, topTreatments, cityList } = data;
+const rawData = data;
+const countryMap = await getContent("country", rawData.country.id, locale);
+const country = applyTranslated(rawData.country, countryMap, ["name"]);
+const { hospitalCount, doctorCount, cityCount, topHospitals, topTreatments, cityList } = rawData;
+const untranslated = isUntranslated(locale, countryMap);
+
+const faqRows = await listFaqsFor("country", country.id);
+const faqSchema = faqRows.length > 0 ? faqJsonLd(faqRows) : null;
 
 const hospitalIds = topHospitals.map((h) => h.id);
 const hospitalMap = await getContentBatch("hospital", hospitalIds, locale);
@@ -105,6 +114,26 @@ const crumbs = breadcrumbJsonLd([
   { name: country.name, url },
 ]);
 
+const itemLd = hospitalsXl.length > 0
+  ? itemListJsonLd(
+      hospitalsXl.map((h) => ({
+        name: h.name,
+        url: localeUrl(locale, `/hospital/${h.slug}`),
+      })),
+    )
+  : null;
+
+const destinationLd = touristDestinationJsonLd({
+  name: country.name,
+  description: ctx?.intro ?? seoDescription,
+  url,
+  countryCode: country.isoCode ?? null,
+  includesAttraction: hospitalsXl.slice(0, 6).map((h) => ({
+    name: h.name,
+    url: localeUrl(locale, `/hospital/${h.slug}`),
+  })),
+});
+
 Astro.response.headers.set(
   "Cache-Control",
   "public, s-maxage=3600, stale-while-revalidate=86400",
@@ -113,29 +142,55 @@ Astro.response.headers.set(
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
+    <script type="application/ld+json" set:html={JSON.stringify(destinationLd)} />
+    {itemLd && <script type="application/ld+json" set:html={JSON.stringify(itemLd)} />}
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    {faqSchema && <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />}
   </Fragment>
 
   <main class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
-    <div class="border-b border-border bg-bg">
+    <nav aria-label="Breadcrumb" class="border-b border-border bg-bg">
       <div class="mx-auto max-w-7xl px-6 py-3.5 text-sm text-ink-muted">
         <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
         <span class="mx-2 text-ink-subtle">/</span>
         <a href={localizedPath(locale, "/countries")} class="hover:text-accent">Destinations</a>
         <span class="mx-2 text-ink-subtle">/</span>
-        <span class="text-ink">{country.name}</span>
+        <span class="text-ink" aria-current="page">{country.name}</span>
       </div>
-    </div>
+    </nav>
 
-    {/* Hero */}
+    {/* Hero banner */}
+    <section class="relative overflow-hidden" style="height: 360px;">
+      <img
+        src={countryBanner(country.slug, 1600, 720)}
+        alt=""
+        width="1600"
+        height="720"
+        loading="eager"
+        fetchpriority="high"
+        decoding="async"
+        class="absolute inset-0 h-full w-full object-cover"
+      />
+      <div class="image-veil-hero absolute inset-0" />
+      <div class="relative mx-auto max-w-7xl px-6 h-full flex flex-col justify-end pb-10">
+        <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/80">
+          Destination
+        </p>
+        <h1 class="mt-2 font-display text-3xl md:text-5xl leading-[1.05] text-white">
+          Medical travel to {country.name}
+        </h1>
+        <p class="mt-3 text-white/85 text-sm md:text-base max-w-2xl">
+          {hospitalCount.toLocaleString()} accredited hospitals · {doctorCount.toLocaleString()} specialists
+        </p>
+      </div>
+    </section>
+
+    {/* Intro */}
     <section class="mx-auto max-w-7xl px-6 pt-10 md:pt-14 pb-10">
-      <h1 class="font-display text-3xl md:text-5xl leading-[1.05]">
-        Medical travel to {country.name}
-      </h1>
-      <p class="lede mt-5 max-w-3xl">
+      <p class="lede max-w-3xl">
         {ctx?.intro ??
           `${country.name} is a destination for international medical care. ${hospitalCount.toLocaleString()} hospitals across ${cityCount} cities handle overseas patients.`}
       </p>
@@ -188,17 +243,23 @@ Astro.response.headers.set(
           <p class="text-sm text-ink-muted mb-8">Curated by patient rating and review volume.</p>
           <ul class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {hospitalsXl.map((h) => (
-              <li>
+              <li class="relative">
+                <div class="absolute end-3 top-3 z-10">
+                  <CompareToggle slug={h.slug} name={h.name} />
+                </div>
                 <a
                   href={localizedPath(locale, `/hospital/${h.slug}`)}
                   class="group flex flex-col h-full rounded-xl border border-border bg-surface overflow-hidden transition hover:border-border-strong hover:shadow-sm"
                 >
-                  <img
-                    src={hospitalCover({ coverImageUrl: h.coverImageUrl, countrySlug: country.slug })}
-                    alt={h.name}
-                    class="h-40 w-full object-cover"
-                    loading="lazy"
-                  />
+                  <div class="relative">
+                    <img
+                      src={hospitalCover({ coverImageUrl: h.coverImageUrl, countrySlug: country.slug })}
+                      alt={h.name}
+                      class="h-40 w-full object-cover"
+                      loading="lazy"
+                    />
+                    <div class="image-veil" />
+                  </div>
                   <div class="p-5 flex-1">
                     <p class="font-display text-lg text-ink group-hover:text-accent transition-colors">
                       {h.name}
@@ -230,6 +291,42 @@ Astro.response.headers.set(
               <ChevronRight className="h-4 w-4 mirror-x" />
             </a>
           </div>
+        </div>
+      </section>
+    )}
+
+    {/* Surgeons-by-specialty deep links — cross-mesh */}
+    {treatmentsXl.length > 0 && (
+      <section class="border-t border-border py-12">
+        <div class="mx-auto max-w-7xl px-6">
+          <h2 class="font-display text-2xl md:text-3xl mb-2">Surgeons in {country.name} by specialty</h2>
+          <p class="text-sm text-ink-muted mb-8">Ranked by volume and years in practice — auto-populated from active hospital rosters.</p>
+          <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from(
+              new Map(
+                treatmentsXl
+                  .filter((t) => t.specialty_slug && t.specialty)
+                  .map((t) => [t.specialty_slug, { slug: t.specialty_slug, name: t.specialty }]),
+              ).values(),
+            )
+              .slice(0, 9)
+              .map((s) => (
+                <li>
+                  <a
+                    href={localizedPath(locale, `/surgeons/${s.slug}/${country.slug}`)}
+                    class="group flex items-center justify-between rounded-lg border border-border bg-surface p-4 transition-colors hover:border-border-strong"
+                  >
+                    <span class="min-w-0">
+                      <span class="mono uppercase block" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                        Surgeons
+                      </span>
+                      <span class="mt-1 block font-medium text-ink group-hover:text-accent">{s.name} · {country.name}</span>
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-ink-subtle mirror-x shrink-0" />
+                  </a>
+                </li>
+              ))}
+          </ul>
         </div>
       </section>
     )}
@@ -295,6 +392,70 @@ Astro.response.headers.set(
         </div>
       </section>
     )}
+
+    {/* FAQ */}
+    {faqRows.length > 0 && (
+      <section style="padding: 56px 28px; border-top: 1px solid var(--color-border);">
+        <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+          <div>
+            <div class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">FAQ</div>
+            <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
+              Common questions about {country.name}
+            </h2>
+          </div>
+          <div class="divide-y" style="border-color: var(--color-border-soft);">
+            {faqRows.map((f) => (
+              <details class="group py-5">
+                <summary class="flex cursor-pointer items-start justify-between gap-6">
+                  <span class="serif" style="font-size: 17px; font-weight: 500; line-height: 1.4;">{f.question}</span>
+                  <span class="mt-1 shrink-0 transition-transform group-open:rotate-45" style="color: var(--color-ink-subtle); font-size: 20px; line-height: 1;" aria-hidden="true">+</span>
+                </summary>
+                <p class="serif mt-3" style="color: var(--color-ink-muted); font-size: 15.5px; line-height: 1.6;">{f.answer}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+
+    {/* CTA */}
+    <section class="border-t border-border py-14">
+      <div class="mx-auto max-w-7xl px-6">
+        <div class="rounded-2xl border border-border bg-surface p-8 md:p-10 grid gap-6 md:grid-cols-[1fr,auto] md:items-center">
+          <div>
+            <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-subtle">Considering {country.name}?</p>
+            <h2 class="mt-2 font-display text-2xl md:text-3xl leading-tight">
+              Compare {country.name} hospitals on price and surgeon volume
+            </h2>
+            <p class="mt-3 text-ink-muted leading-relaxed max-w-2xl">
+              Send us your case — imaging, current plan, treatment needed. We'll shortlist 3 hospitals with transparent pricing and tell you honestly which is the best fit. No obligation to travel.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <a
+              href={localizedPath(locale, `/contact?country=${country.slug}`)}
+              class="inline-flex items-center gap-2 rounded-lg bg-accent text-accent-contrast font-semibold px-5 py-3 hover:bg-accent-hover transition-colors"
+            >
+              Request quotes
+              <ChevronRight className="h-4 w-4 mirror-x" />
+            </a>
+            <a
+              href={localizedPath(locale, "/second-opinion")}
+              class="inline-flex items-center gap-2 rounded-lg border border-border-strong text-ink font-semibold px-5 py-3 hover:bg-surface-muted transition-colors"
+            >
+              Second opinion
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="mx-auto max-w-7xl px-6 pb-10">
+      <LastUpdated
+        updated="2026-04-20"
+        note="Hospital counts and pricing ranges updated monthly from our partner network."
+      />
+    </div>
 
     <SiteFooter locale={locale} />
   </main>

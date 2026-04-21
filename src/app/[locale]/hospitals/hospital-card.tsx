@@ -20,6 +20,7 @@ export function HospitalCard({ h }: { h: HospitalListRow }) {
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
           loading="lazy"
         />
+        <div className="image-veil" />
         {h.rating && Number(h.rating) > 0 && (
           <div className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-surface/95 px-2 py-1 text-[11px] font-semibold text-ink backdrop-blur">
             <RatingStars value={h.rating} size="xs" />

@@ -1,36 +1,190 @@
 ---
 import { getTranslator } from "@/lib/messages";
 import { localizedPath, type Locale } from "@/lib/i18n";
+import { Menu, X, Search } from "lucide-react";
+import McLogo from "@/components/McLogo.astro";
+import HeaderSwitchers from "@/components/HeaderSwitchers.astro";
 
 interface Props {
   locale: Locale;
   sticky?: boolean;
+  active?: string;
 }
 
-const { locale, sticky = true } = Astro.props;
+const { locale, sticky = true, active = "" } = Astro.props;
 const tc = getTranslator(locale, "common");
+const isRTL = locale === "ar";
+
+const navLinks = [
+  { key: "hospitals", href: "/hospitals", label: tc("hospitals") },
+  { key: "treatments", href: "/treatments", label: tc("treatments") },
+  { key: "doctors", href: "/doctors", label: tc("doctors") },
+  { key: "destinations", href: "/countries", label: isRTL ? "الوجهات" : "Destinations" },
+  { key: "second-opinion", href: "/second-opinion", label: isRTL ? "الرأي الثاني" : "Second opinion" },
+];
+
+const path = Astro.url.pathname;
+function isActive(key: string, href: string) {
+  if (active === key) return true;
+  return path === localizedPath(locale, href) || path.startsWith(localizedPath(locale, href) + "/");
+}
 ---
 
-<header class:list={[
-  "border-b border-border bg-bg/80 backdrop-blur z-40",
-  sticky && "sticky top-0",
-]}>
-  <div class="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between gap-6">
-    <a href={localizedPath(locale, "/")} class="font-display text-xl tracking-tight">
-      MedCasts
-    </a>
-    <nav class="text-sm text-ink-muted hidden md:flex gap-6">
-      <a href={localizedPath(locale, "/hospitals")} class="hover:text-accent">{tc("hospitals")}</a>
-      <a href={localizedPath(locale, "/doctors")} class="hover:text-accent">{tc("doctors")}</a>
-      <a href={localizedPath(locale, "/treatments")} class="hover:text-accent">{tc("treatments")}</a>
-      <a href={localizedPath(locale, "/specialties")} class="hover:text-accent">{tc("specialties")}</a>
-      <a href={localizedPath(locale, "/contact")} class="hover:text-accent">{tc("contactUs")}</a>
+<header
+  class:list={[
+    "site-header z-40",
+    sticky && "sticky top-0",
+  ]}
+>
+  {/* Utility strip */}
+  <div style="background: var(--color-ink); color: var(--color-bg); font-size: 12px;">
+    <div class="mx-auto max-w-[1440px] px-7 flex items-center justify-between gap-4 py-[7px]">
+      <div class="flex items-center gap-5 min-w-0">
+        <span class="flex items-center gap-1.5 whitespace-nowrap">
+          <span
+            class="inline-block w-1.5 h-1.5 rounded-full"
+            style="background: #6EE7B7; box-shadow: 0 0 8px #6EE7B7;"
+            aria-hidden="true"
+          />
+          <span class="hidden sm:inline">
+            {isRTL ? "منسقون متاحون · متوسط الرد ٩ دقائق" : "Coordinators online · avg reply 9 min"}
+          </span>
+          <span class="sm:hidden">{isRTL ? "متاح الآن" : "Online"}</span>
+        </span>
+        <span class="hidden md:inline opacity-60 truncate">
+          {isRTL ? "طوارئ ٢٤/٧: +٩١ ٨٠٠ ٦٢١ ٠٠٠" : "24/7 emergency: +91 800 621 000"}
+        </span>
+      </div>
+      <div class="flex items-center gap-3 md:gap-4 shrink-0">
+        <a href={localizedPath(locale, "/portal")} class="opacity-80 hover:opacity-100 hidden sm:inline">
+          {isRTL ? "تتبع حالتي" : "Track case"}
+        </a>
+        <span class="opacity-40 hidden sm:inline">·</span>
+        <HeaderSwitchers locale={locale} pathname={path} />
+      </div>
+    </div>
+  </div>
+
+  {/* Main nav */}
+  <div class="mx-auto max-w-[1440px] px-7 flex items-center justify-between gap-6 py-4 md:py-5">
+    <div class="flex items-center" style="gap: 36px;">
+      <a href={localizedPath(locale, "/")} class="shrink-0">
+        <McLogo size={32} color="var(--color-ink)" />
+      </a>
+      <nav aria-label="Primary" class="hidden lg:flex items-center" style="gap: 22px;">
+        {navLinks.map((l) => {
+          const on = isActive(l.key, l.href);
+          return (
+            <a
+              href={localizedPath(locale, l.href)}
+              class="relative pb-1"
+              style={`font-size: 14px; font-weight: 500; color: ${on ? "var(--color-ink)" : "var(--color-ink-muted)"}; border-bottom: 2px solid ${on ? "var(--color-ink)" : "transparent"};`}
+            >
+              {l.label}
+            </a>
+          );
+        })}
+      </nav>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button
+        type="button"
+        data-command-trigger
+        aria-label="Quick navigation"
+        class="hidden md:flex items-center gap-2 min-w-[260px] transition-colors hover:border-border-strong"
+        style="padding: 8px 14px; border-radius: 9999px; border: 1px solid var(--color-border); background: var(--color-paper); font-size: 13px; color: var(--color-ink-subtle); cursor: pointer;"
+      >
+        <Search className="h-3.5 w-3.5" />
+        <span>{isRTL ? "ابحث عن علاج، مستشفى، طبيب" : "Treatment, hospital, doctor…"}</span>
+        <kbd
+          class="mono ms-auto"
+          style="font-size: 10px; padding: 2px 6px; border: 1px solid var(--color-border); border-radius: 4px;"
+        >⌘K</kbd>
+      </button>
+      <a
+        href={localizedPath(locale, "/contact")}
+        class="inline-flex items-center gap-1.5 font-medium transition-colors"
+        style="background: var(--color-ink); color: var(--color-bg); border: 1px solid var(--color-ink); padding: 10px 18px; font-size: 14px; border-radius: 9999px; letter-spacing: -0.005em;"
+      >
+        {tc("getQuote")}
+      </a>
+      <button
+        type="button"
+        aria-label="Open menu"
+        aria-controls="mobile-nav"
+        aria-expanded="false"
+        data-mobile-nav-toggle
+        class="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors"
+        style="border-color: var(--color-border); color: var(--color-ink);"
+      >
+        <Menu className="h-5 w-5" data-menu-open-icon />
+        <X className="h-5 w-5 hidden" data-menu-close-icon />
+      </button>
+    </div>
+  </div>
+
+  <div
+    id="mobile-nav"
+    data-mobile-nav
+    class="lg:hidden hidden"
+    style="background: var(--color-bg); border-top: 1px solid var(--color-border);"
+  >
+    <nav aria-label="Mobile" class="mx-auto max-w-[1440px] px-7 py-4 flex flex-col">
+      {navLinks.map((l) => (
+        <a
+          href={localizedPath(locale, l.href)}
+          class="py-3 text-base transition-colors"
+          style="color: var(--color-ink); border-bottom: 1px solid var(--color-border-soft);"
+        >
+          {l.label}
+        </a>
+      ))}
+      <a
+        href={localizedPath(locale, "/blog")}
+        class="py-3 text-base transition-colors"
+        style="color: var(--color-ink); border-bottom: 1px solid var(--color-border-soft);"
+      >
+        Blog
+      </a>
+      <a
+        href={localizedPath(locale, "/contact")}
+        class="py-3 text-base transition-colors"
+        style="color: var(--color-ink);"
+      >
+        {tc("contactUs")}
+      </a>
     </nav>
-    <a
-      href={localizedPath(locale, "/contact")}
-      class="inline-flex items-center rounded-lg bg-accent text-accent-contrast px-3.5 py-2 text-sm font-semibold hover:bg-accent-hover transition-colors"
-    >
-      {tc("getQuote")}
-    </a>
   </div>
 </header>
+
+<style>
+  .site-header {
+    background: rgba(246, 241, 230, 0.96);
+    border-bottom: 1px solid var(--color-border);
+  }
+  /* Backdrop-blur only on devices that support it cheaply — avoids scroll jank on pre-2018 Android. */
+  @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .site-header {
+      background: rgba(246, 241, 230, 0.85);
+      backdrop-filter: saturate(160%) blur(14px);
+      -webkit-backdrop-filter: saturate(160%) blur(14px);
+    }
+  }
+</style>
+
+<script is:inline>
+  (() => {
+    const btn = document.querySelector("[data-mobile-nav-toggle]");
+    const panel = document.querySelector("[data-mobile-nav]");
+    const openIcon = btn?.querySelector("[data-menu-open-icon]");
+    const closeIcon = btn?.querySelector("[data-menu-close-icon]");
+    if (!btn || !panel) return;
+    btn.addEventListener("click", () => {
+      const open = panel.classList.toggle("hidden") === false;
+      btn.setAttribute("aria-expanded", String(open));
+      openIcon?.classList.toggle("hidden", open);
+      closeIcon?.classList.toggle("hidden", !open);
+    });
+  })();
+</script>

@@ -3,6 +3,7 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import EntityListingHero from "@/components/EntityListingHero.astro";
 import { compareCountries } from "@/lib/queries";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
@@ -18,18 +19,37 @@ const tc = getTranslator(locale, "common");
 
 const rows = await compareCountries();
 
+const FLAG_MAP: Record<string, string> = {
+  india: "🇮🇳", turkey: "🇹🇷", thailand: "🇹🇭", uae: "🇦🇪",
+  germany: "🇩🇪", singapore: "🇸🇬", "south-korea": "🇰🇷",
+  malaysia: "🇲🇾", "saudi-arabia": "🇸🇦",
+};
+function countryFlag(s: string): string { return FLAG_MAP[s] ?? "🌐"; }
+
 const path = "/compare/countries";
 const url = localeUrl(locale, path);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Compare Countries", url },
+  { name: "Compare destinations", url },
 ]);
 
 Astro.response.headers.set(
   "Cache-Control",
   "public, s-maxage=3600, stale-while-revalidate=86400",
 );
+
+const totalHospitals = rows.reduce((s, r) => s + r.hospital_count, 0);
+const totalDoctors = rows.reduce((s, r) => s + r.doctor_count, 0);
+
+const stats = [
+  { l: "Destinations", v: rows.length.toString() },
+  { l: "Hospitals", v: totalHospitals.toLocaleString() },
+  { l: "Specialists", v: totalDoctors.toLocaleString() },
+  { l: "Treatments", v: rows.reduce((s, r) => s + r.treatment_count, 0).toLocaleString() },
+];
+
+const maxHospitals = rows.reduce((m, r) => Math.max(m, r.hospital_count), 0);
 ---
 
 <BaseLayout locale={locale}>
@@ -46,52 +66,99 @@ Astro.response.headers.set(
   <main class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
-    <section class="mx-auto max-w-7xl px-6 pt-12 md:pt-16 pb-8">
-      <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">Compare</p>
-      <h1 class="mt-3 font-display text-3xl md:text-5xl leading-[1.05]">
-        Destination comparison
-      </h1>
-      <p class="lede mt-5 max-w-3xl">
-        Compare {rows.length} medical travel destinations — hospital count, specialist volume, treatment variety, and city coverage.
-      </p>
-    </section>
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">Compare destinations</span>
+        </nav>
+      </div>
+    </div>
 
-    <section class="mx-auto max-w-7xl px-6 py-10">
-      <ul class="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {rows.map((r) => (
-          <li>
-            <a
-              href={localizedPath(locale, `/country/${r.slug}`)}
-              class="group flex flex-col h-full rounded-xl border border-border bg-surface p-6 transition hover:border-border-strong hover:shadow-sm"
-            >
-              <div class="flex items-start justify-between">
-                <h2 class="font-display text-2xl text-ink group-hover:text-accent transition-colors">
-                  {r.name}
-                </h2>
-                <ChevronRight className="h-5 w-5 text-ink-subtle shrink-0 mt-1 mirror-x" />
-              </div>
-              <dl class="mt-6 grid grid-cols-2 gap-4">
-                <div>
-                  <dt class="text-xs text-ink-subtle uppercase tracking-wider">Hospitals</dt>
-                  <dd class="mt-1 font-display text-xl">{r.hospital_count.toLocaleString()}</dd>
-                </div>
-                <div>
-                  <dt class="text-xs text-ink-subtle uppercase tracking-wider">Specialists</dt>
-                  <dd class="mt-1 font-display text-xl">{r.doctor_count.toLocaleString()}</dd>
-                </div>
-                <div>
-                  <dt class="text-xs text-ink-subtle uppercase tracking-wider">Treatments</dt>
-                  <dd class="mt-1 font-display text-xl">{r.treatment_count.toLocaleString()}</dd>
-                </div>
-                <div>
-                  <dt class="text-xs text-ink-subtle uppercase tracking-wider">Cities</dt>
-                  <dd class="mt-1 font-display text-xl">{r.city_count.toLocaleString()}</dd>
-                </div>
-              </dl>
-            </a>
-          </li>
-        ))}
-      </ul>
+    <EntityListingHero
+      eyebrow={`Compare · ${rows.length} destinations`}
+      h1First="Destinations"
+      h1Italic="head-to-head"
+      lede={`Hospital count, specialist volume, treatment variety, and city coverage across ${rows.length} medical travel destinations. Open any row for the full country guide.`}
+      stats={stats}
+    />
+
+    <section style="padding: 32px 0 88px;">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
+        <div class="paper overflow-x-auto" style="padding: 0;">
+          <table class="w-full" style="border-collapse: collapse; min-width: 780px;">
+            <thead>
+              <tr style="border-bottom: 1px solid var(--color-ink);">
+                <th class="text-start mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal; width: 36px;">#</th>
+                <th class="text-start mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Destination</th>
+                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Scale</th>
+                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Hospitals</th>
+                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Specialists</th>
+                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Treatments</th>
+                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Cities</th>
+                <th style="padding: 16px 20px;"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => {
+                const widthPct = maxHospitals > 0 ? Math.max(14, (r.hospital_count / maxHospitals) * 100) : 50;
+                return (
+                  <tr
+                    class="group"
+                    style={`${i > 0 ? "border-top: 1px dashed var(--color-border);" : ""}`}
+                  >
+                    <td class="display tnum" style="font-size: 18px; color: var(--color-ink-subtle); padding: 16px 20px;">
+                      {String(i + 1).padStart(2, "0")}
+                    </td>
+                    <td style="padding: 16px 20px;">
+                      <div class="flex items-center gap-2.5">
+                        <span aria-hidden="true" style="font-size: 20px;">{countryFlag(r.slug)}</span>
+                        <a
+                          href={localizedPath(locale, `/country/${r.slug}`)}
+                          class="serif group-hover:text-accent transition-colors"
+                          style="font-size: 17px; letter-spacing: -0.005em; color: var(--color-ink);"
+                        >
+                          {r.name}
+                        </a>
+                      </div>
+                    </td>
+                    <td style="padding: 16px 20px; min-width: 120px;">
+                      <div class="h-1 rounded-full" style={`background: var(--color-accent); opacity: 0.85; width: ${widthPct}%;`} />
+                    </td>
+                    <td class="display tnum whitespace-nowrap" style="font-size: 16px; color: var(--color-ink); padding: 16px 20px;">
+                      {r.hospital_count.toLocaleString()}
+                    </td>
+                    <td class="tnum whitespace-nowrap" style="font-size: 14px; color: var(--color-ink-muted); padding: 16px 20px;">
+                      {r.doctor_count.toLocaleString()}
+                    </td>
+                    <td class="tnum whitespace-nowrap" style="font-size: 14px; color: var(--color-ink-muted); padding: 16px 20px;">
+                      {r.treatment_count.toLocaleString()}
+                    </td>
+                    <td class="tnum whitespace-nowrap" style="font-size: 14px; color: var(--color-ink-muted); padding: 16px 20px;">
+                      {r.city_count.toLocaleString()}
+                    </td>
+                    <td style="padding: 16px 20px; text-align: end;">
+                      <a
+                        href={localizedPath(locale, `/country/${r.slug}`)}
+                        class="inline-flex items-center gap-1 mono uppercase"
+                        style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);"
+                      >
+                        Open
+                        <ChevronRight className="h-3 w-3 mirror-x" />
+                      </a>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <p class="mt-4 mono uppercase" style="font-size: 10.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+          Scale bar is relative to the highest-count destination · Counts from live DB
+        </p>
+      </div>
     </section>
 
     <SiteFooter locale={locale} />

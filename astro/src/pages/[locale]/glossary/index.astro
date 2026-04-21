@@ -1,0 +1,132 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { db } from "@/lib/db";
+import { sql } from "drizzle-orm";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { ChevronRight } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/glossary", 308);
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+type Row = { slug: string; term: string; category: string | null; short_definition: string };
+const terms = Array.from(
+  (await db
+    .execute(sql`
+      SELECT slug, term, category, short_definition FROM glossary_terms
+      ORDER BY category, term
+    `)
+    .catch(() => [] as unknown[])) as Iterable<Row>,
+);
+
+const byCategory = new Map<string, Row[]>();
+for (const t of terms) {
+  const cat = t.category ?? "General";
+  if (!byCategory.has(cat)) byCategory.set(cat, []);
+  byCategory.get(cat)!.push(t);
+}
+const categories = Array.from(byCategory.keys()).sort();
+
+const seoTitle = "Medical travel glossary — terms explained plainly";
+const seoDescription = `Plain-language definitions for ${terms.length} medical-travel terms across ${categories.length} categories — accreditations, procedures, insurance, visas.`;
+const path = "/glossary";
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Glossary", url: localeUrl(locale, path) },
+]);
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+    <SiteHeader locale={locale} />
+
+    <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
+      <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+        <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+        <span class="mx-1.5">/</span>
+        <span style="color: var(--color-ink);">Glossary</span>
+      </nav>
+    </div>
+
+    <section style="padding: 56px 28px;">
+      <div class="mx-auto" style="max-width: 1120px;">
+        <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
+          Plain-language reference
+        </div>
+        <h1
+          class="display display-tight mt-3"
+          style="font-size: clamp(2.25rem, 5vw, 3.5rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;"
+        >
+          Medical-travel <span class="italic-display">glossary</span>
+        </h1>
+        <p class="serif mt-5" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted); max-width: 680px;">
+          The acronyms, accreditations, and procedure names you'll encounter while planning medical travel — defined plainly, with links to deeper guides where useful.
+        </p>
+
+        {/* Category tabs (anchor links) */}
+        <div class="flex flex-wrap gap-2 mt-7">
+          {categories.map((c) => (
+            <a
+              href={`#${c.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+              class="inline-flex items-center"
+              style="padding: 6px 14px; border-radius: 9999px; font-size: 12px; font-weight: 500; background: var(--color-surface-elevated); color: var(--color-ink); border: 1px solid var(--color-border);"
+            >
+              {c}
+            </a>
+          ))}
+        </div>
+
+        {/* Category sections */}
+        {categories.map((c) => (
+          <section id={c.toLowerCase().replace(/[^a-z0-9]+/g, "-")} class="mt-12" style="scroll-margin-top: 120px;">
+            <h2
+              class="display"
+              style="font-size: 28px; letter-spacing: -0.02em; padding-bottom: 12px; border-bottom: 1px solid var(--color-ink);"
+            >
+              {c}
+            </h2>
+            <ul class="mt-6 grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));">
+              {byCategory.get(c)!.map((t) => (
+                <li>
+                  <a
+                    href={localizedPath(locale, `/glossary/${t.slug}`)}
+                    class="paper flex items-start gap-3 transition hover:-translate-y-0.5"
+                    style="padding: 16px 18px;"
+                  >
+                    <div class="flex-1 min-w-0">
+                      <div class="serif font-medium" style="font-size: 15.5px; letter-spacing: -0.005em;">
+                        {t.term}
+                      </div>
+                      <p class="mt-1.5 line-clamp-2" style="font-size: 13px; color: var(--color-ink-muted); line-height: 1.5;">
+                        {t.short_definition}
+                      </p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 mirror-x shrink-0 mt-1" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

@@ -1,0 +1,209 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import LastUpdated from "@/components/LastUpdated.astro";
+import { listConditionDoctors } from "@/lib/queries";
+import { getContent, getContentBatch, applyTranslated, isUntranslated } from "@/lib/translate";
+import { getTranslator } from "@/lib/messages";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, itemListJsonLd, withProvenance } from "@/lib/seo";
+import { Award, ChevronRight, MapPin, Users } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const slug = Astro.params.slug;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/condition/${slug}/doctors`, 308);
+if (!slug) return new Response("Not found", { status: 404 });
+const locale = rawLocale as Locale;
+
+const data = await listConditionDoctors(slug, 30);
+if (!data) return new Response(`Not found: ${slug}`, { status: 404 });
+
+const tc = getTranslator(locale, "common");
+
+const conditionMap = await getContent("condition", data.condition.id, locale);
+const condition = applyTranslated(data.condition, conditionMap, ["name", "description"]);
+
+const doctorMap = await getContentBatch("doctor", data.doctors.map((d) => d.id), locale);
+const doctors = data.doctors.map((d) => ({
+  ...d,
+  ...applyTranslated({ name: d.name, qualifications: d.qualifications }, doctorMap[d.id] ?? {}, ["name", "qualifications"]),
+}));
+
+const seoTitle = `Doctors who treat ${condition.name}`;
+const seoDescription =
+  `${data.total.toLocaleString()} specialists across ${data.specialties.length} relevant specialties handling ${condition.name.toLowerCase()}. Ranked by volume and experience; free case-specific shortlist on request.`.slice(0, 160);
+
+const path = `/condition/${slug}/doctors`;
+const url = localeUrl(locale, path);
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Conditions", url: localeUrl(locale, "/conditions") },
+  { name: condition.name, url: localeUrl(locale, `/condition/${slug}`) },
+  { name: "Doctors", url },
+]);
+
+const itemLd = withProvenance(
+  itemListJsonLd(
+    doctors.slice(0, 15).map((d) => ({
+      name: d.title ? `${d.title} ${d.name}`.replace(/^Dr\. Dr\./i, "Dr.") : d.name,
+      url: localeUrl(locale, `/doctor/${d.slug}`),
+    })),
+  ),
+  { dateModified: new Date() },
+);
+
+const untranslated = isUntranslated(locale, conditionMap);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=3600, stale-while-revalidate=86400",
+);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" set:html={JSON.stringify(itemLd)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <nav aria-label="Breadcrumb" class="border-b border-border bg-bg">
+      <div class="mx-auto max-w-7xl px-6 py-3.5 text-sm text-ink-muted overflow-x-auto whitespace-nowrap">
+        <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <a href={localizedPath(locale, "/conditions")} class="hover:text-accent">Conditions</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <a href={localizedPath(locale, `/condition/${slug}`)} class="hover:text-accent">{condition.name}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <span class="text-ink" aria-current="page">Doctors</span>
+      </div>
+    </nav>
+
+    <section class="mx-auto max-w-7xl px-6 pt-10 md:pt-14 pb-8">
+      <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.18em; color: var(--color-accent);">
+        {condition.name}
+      </p>
+      <h1 class="mt-2 display display-tight" style="font-size: clamp(2rem, 4.5vw, 3.5rem); letter-spacing: -0.025em; line-height: 1.02;">
+        Doctors who treat {condition.name.toLowerCase()}
+      </h1>
+      <p class="lede mt-5 max-w-[44rem]">
+        {data.total.toLocaleString()} specialists at hospitals credentialed for the {data.specialties.length} specialt{data.specialties.length === 1 ? "y" : "ies"} that commonly handle {condition.name.toLowerCase()} — ranked by volume and experience. These are directory listings; your case may need a sub-specialist we'll surface on request.
+      </p>
+      <div class="mt-5 flex flex-wrap items-center gap-3">
+        <LastUpdated updated={new Date()} locale={locale} />
+      </div>
+
+      {data.specialties.length > 0 && (
+        <div class="mt-6 flex flex-wrap items-center gap-2">
+          <span class="mono uppercase text-[11px]" style="letter-spacing: 0.12em; color: var(--color-ink-subtle);">Relevant specialties</span>
+          {data.specialties.map((s) => (
+            <a
+              href={localizedPath(locale, `/surgeons/${s.slug}`)}
+              class="rounded-full border border-border bg-surface px-3 py-1 text-[13px] font-medium text-ink hover:border-border-strong"
+            >
+              {s.name}
+            </a>
+          ))}
+        </div>
+      )}
+    </section>
+
+    {doctors.length === 0 ? (
+      <section class="mx-auto max-w-3xl px-6 pb-20">
+        <div class="paper p-8 text-center" style="color: var(--color-ink-muted);">
+          <p class="serif text-lg mb-3">No doctors on file yet for the specialties that treat this condition.</p>
+          <p class="text-sm mb-5">Ask for a human-curated shortlist instead — our case manager replies within 11 minutes.</p>
+          <a
+            href={localizedPath(locale, `/contact?condition=${slug}`)}
+            class="inline-flex items-center rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover"
+          >
+            Request a shortlist →
+          </a>
+        </div>
+      </section>
+    ) : (
+      <section class="mx-auto max-w-7xl px-6 pb-10 border-t border-border-soft pt-8">
+        <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {doctors.map((d) => {
+            const nameHasTitle = /^(dr\.?|prof\.?|mr\.?|ms\.?|mrs\.?)\s/i.test(d.name);
+            const titlePrefix = nameHasTitle ? "" : (d.title ?? "Dr.");
+            const fullName = titlePrefix ? `${titlePrefix} ${d.name}` : d.name;
+            return (
+              <li>
+                <a
+                  href={localizedPath(locale, `/doctor/${d.slug}`)}
+                  class="group flex h-full gap-4 rounded-xl border border-border bg-surface p-4 transition-colors hover:border-border-strong"
+                >
+                  {d.image_url ? (
+                    <img src={d.image_url} alt={d.name} width="64" height="64" loading="lazy" decoding="async" class="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-border" />
+                  ) : (
+                    <div class="h-16 w-16 shrink-0 rounded-full bg-accent-soft text-accent inline-flex items-center justify-center font-display text-lg">
+                      {d.name.slice(0, 1)}
+                    </div>
+                  )}
+                  <div class="min-w-0 flex-1">
+                    <span class="block font-display text-[17px] leading-tight text-ink group-hover:text-accent line-clamp-1">{fullName}</span>
+                    {d.qualifications && <span class="mt-1 block text-[12.5px] text-ink-muted line-clamp-1">{d.qualifications}</span>}
+                    <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-subtle">
+                      {d.experience_years != null && (
+                        <span class="inline-flex items-center gap-1"><Award className="h-3 w-3 text-accent" />{d.experience_years} yrs</span>
+                      )}
+                      {d.patients_treated != null && d.patients_treated > 0 && (
+                        <span class="inline-flex items-center gap-1"><Users className="h-3 w-3 text-accent" />{d.patients_treated.toLocaleString()}</span>
+                      )}
+                      {d.rating && Number(d.rating) > 0 && (
+                        <span class="inline-flex items-center gap-1"><span class="text-gold-500">★</span><span class="tnum">{Number(d.rating).toFixed(1)}</span></span>
+                      )}
+                    </div>
+                    <div class="mt-2 text-[12px] text-ink-subtle inline-flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />{d.hospital_name} · {d.city}, {d.country}
+                    </div>
+                  </div>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    )}
+
+    <section class="mx-auto max-w-7xl px-6 pb-20">
+      <div class="paper p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+        <div class="max-w-[36rem]">
+          <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">Match me to a doctor</p>
+          <h3 class="mt-2 font-display text-2xl md:text-3xl">
+            Want three named specialists picked for your {condition.name.toLowerCase()} case?
+          </h3>
+          <p class="mt-2 text-sm text-ink-muted">
+            Send your reports — we'll match, confirm availability, and come back with a quote in under a day.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-3 shrink-0">
+          <a
+            href={localizedPath(locale, `/second-opinion`)}
+            class="inline-flex items-center rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover"
+          >
+            Get a free second opinion
+          </a>
+          <a
+            href={localizedPath(locale, `/condition/${slug}`)}
+            class="inline-flex items-center rounded-lg border border-border px-5 py-2.5 text-sm font-semibold hover:border-border-strong"
+          >
+            Back to {condition.name}
+            <ChevronRight className="ml-1 h-4 w-4" />
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

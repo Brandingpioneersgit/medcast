@@ -6,12 +6,12 @@ import { buildLocalizedSitemap, SITEMAP_HEADERS } from "@/lib/sitemap";
 
 export const GET: APIRoute = async () => {
   const rows = await db
-    .select({ slug: specialties.slug })
+    .select({ slug: specialties.slug, updatedAt: specialties.updatedAt })
     .from(specialties)
     .where(eq(specialties.isActive, true));
 
-  const paths = rows.map((r) => `/specialty/${r.slug}`);
-  return new Response(buildLocalizedSitemap(paths, { priority: 0.8, changefreq: "monthly" }), {
+  const entries = rows.map((r) => ({ path: `/specialty/${r.slug}`, lastmod: r.updatedAt }));
+  return new Response(buildLocalizedSitemap(entries, { priority: 0.8, changefreq: "monthly" }), {
     headers: SITEMAP_HEADERS,
   });
 };

@@ -1,0 +1,62 @@
+---
+interface Props {
+  slug: string;
+  name: string;
+  size?: "sm" | "md";
+}
+const { slug, name, size = "sm" } = Astro.props;
+const padding = size === "md" ? "px-3 py-1.5 text-[13px]" : "px-2.5 py-1 text-[11.5px]";
+---
+
+<button
+  type="button"
+  data-compare-toggle
+  data-compare-slug={slug}
+  aria-pressed="false"
+  aria-label={`Add ${name} to compare`}
+  class={`mc-compare-toggle inline-flex items-center gap-1.5 rounded-full border font-medium transition-colors backdrop-blur ${padding} border-border bg-surface/90 text-ink hover:border-border-strong`}
+>
+  <span aria-hidden="true" class="mc-compare-box inline-flex h-3.5 w-3.5 items-center justify-center rounded-sm border">
+    <span data-compare-check hidden style="font-size: 10px; line-height: 1;">✓</span>
+  </span>
+  <span data-compare-label-idle>Compare</span>
+  <span data-compare-label-active hidden>Added</span>
+</button>
+
+<style is:global>
+  .mc-compare-toggle {
+    min-height: 32px;
+  }
+  /* Expand hit area to 44×44 WCAG target on touch devices without growing the visual pill. */
+  @media (pointer: coarse) {
+    .mc-compare-toggle {
+      min-height: 44px;
+      position: relative;
+    }
+    .mc-compare-toggle::before {
+      content: "";
+      position: absolute;
+      inset: -8px -6px;
+    }
+  }
+  .mc-compare-toggle .mc-compare-box {
+    border-color: var(--color-border-strong, var(--color-border));
+    background: transparent;
+  }
+  .mc-compare-toggle.is-active {
+    background: var(--color-accent);
+    color: var(--color-accent-contrast);
+    border-color: var(--color-accent);
+  }
+  .mc-compare-toggle.is-active .mc-compare-box {
+    border-color: var(--color-accent-contrast);
+    background: var(--color-accent-contrast);
+  }
+  .mc-compare-toggle.is-active [data-compare-check] {
+    color: var(--color-accent);
+  }
+  .mc-compare-toggle.is-full {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+</style>

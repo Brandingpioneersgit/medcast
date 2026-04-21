@@ -1,0 +1,236 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { getHospitalsForCompare } from "@/lib/queries";
+import { getContentBatch, applyTranslated } from "@/lib/translate";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { hospitalCover } from "@/lib/images";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/compare/hospitals", 308);
+const locale = rawLocale as Locale;
+
+const url = new URL(Astro.request.url);
+const idsParam = url.searchParams.get("ids") ?? "";
+const slugs = idsParam
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean)
+  .slice(0, 4);
+
+const hospitalsRaw = slugs.length > 0 ? await getHospitalsForCompare(slugs) : [];
+
+// Translate hospital names (DB overrides per-locale)
+const tMap = hospitalsRaw.length > 0
+  ? await getContentBatch("hospital", hospitalsRaw.map((h) => h.id), locale)
+  : {};
+const hospitals = hospitalsRaw.map((h) => ({
+  ...h,
+  ...applyTranslated({ name: h.name }, tMap[h.id] ?? {}, ["name"]),
+}));
+
+const tc = getTranslator(locale, "common");
+
+const seoTitle = hospitals.length > 0
+  ? `Compare ${hospitals.map((h) => h.name).join(" vs ")}`
+  : "Compare hospitals side-by-side";
+const seoDescription = hospitals.length > 0
+  ? `Side-by-side comparison of ${hospitals.length} hospitals — specialties, beds, accreditations, and pricing ranges.`
+  : "Shortlist up to 4 hospitals, then compare specialties, beds, accreditations and pricing side-by-side.";
+const path = "/compare/hospitals";
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: tc("hospitals"), url: localeUrl(locale, "/hospitals") },
+  { name: "Compare", url: localeUrl(locale, path) },
+]);
+
+// Never cache — result depends on user's slug list
+Astro.response.headers.set("Cache-Control", "private, no-store");
+
+// Rows configuration — one row per comparable attribute.
+type Row = {
+  key: string;
+  label: string;
+  render: (h: (typeof hospitals)[number]) => string;
+};
+const rows: Row[] = [
+  {
+    key: "location",
+    label: "Location",
+    render: (h) => `${h.cityName}, ${h.countryName}`,
+  },
+  {
+    key: "rating",
+    label: "Rating",
+    render: (h) => h.rating && Number(h.rating) > 0
+      ? `★ ${Number(h.rating).toFixed(1)}${h.reviewCount ? ` (${h.reviewCount.toLocaleString()})` : ""}`
+      : "—",
+  },
+  {
+    key: "accreditations",
+    label: "Accreditations",
+    render: (h) => (h.accreditations.length > 0 ? h.accreditations.join(", ") : "—"),
+  },
+  {
+    key: "beds",
+    label: "Beds",
+    render: (h) => h.bedCapacity ? h.bedCapacity.toLocaleString() : "—",
+  },
+  {
+    key: "established",
+    label: "Established",
+    render: (h) => h.establishedYear ? String(h.establishedYear) : "—",
+  },
+  {
+    key: "airport",
+    label: "Airport distance",
+    render: (h) => h.airportDistanceKm != null ? `${h.airportDistanceKm} km` : "—",
+  },
+  {
+    key: "pricing",
+    label: "Treatment pricing (USD)",
+    render: (h) => h.pricing
+      ? `$${Math.round(h.pricing.lo).toLocaleString()} — $${Math.round(h.pricing.hi).toLocaleString()} · ${h.pricing.n} procedures`
+      : "—",
+  },
+  {
+    key: "specialties",
+    label: "Specialties",
+    render: (h) => h.specialties.length > 0
+      ? h.specialties.slice(0, 10).map((s) => s.name).join(", ")
+      : "—",
+  },
+];
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <nav aria-label="Breadcrumb" class="border-b border-border bg-bg">
+      <div class="mx-auto max-w-7xl px-6 py-3.5 text-sm text-ink-muted">
+        <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <a href={localizedPath(locale, "/hospitals")} class="hover:text-accent">{tc("hospitals")}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <span class="text-ink" aria-current="page">Compare</span>
+      </div>
+    </nav>
+
+    <section class="mx-auto max-w-7xl px-6 pt-10 md:pt-14 pb-6">
+      <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.18em; color: var(--color-accent);">
+        Side by side
+      </p>
+      <h1 class="mt-2 display display-tight" style="font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -0.025em;">
+        Compare hospitals
+      </h1>
+      <p class="lede mt-4 max-w-[42rem]">
+        {hospitals.length > 0
+          ? `Reviewing ${hospitals.length} hospitals side by side. Pricing is the range across all procedures we have on record for each hospital.`
+          : "Add hospitals to your shortlist from any hospital card around the site, then return here."}
+      </p>
+    </section>
+
+    {hospitals.length === 0 && (
+      <section class="mx-auto max-w-3xl px-6 pb-20">
+        <div class="paper p-8 text-center" style="color: var(--color-ink-muted);">
+          <p class="serif text-lg mb-3">Your comparison list is empty.</p>
+          <p class="text-sm mb-5">
+            Browse hospitals and click the "Compare" chip on any card to shortlist up to four.
+          </p>
+          <a
+            href={localizedPath(locale, "/hospitals")}
+            class="inline-flex items-center rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover"
+          >
+            Browse hospitals →
+          </a>
+        </div>
+      </section>
+    )}
+
+    {hospitals.length > 0 && (
+      <section class="mx-auto max-w-7xl px-4 md:px-6 pb-20">
+        <div class="overflow-x-auto -mx-4 md:mx-0">
+          <table class="min-w-full border-separate" style="border-spacing: 0;">
+            <caption class="sr-only">Comparison of hospitals</caption>
+            <thead>
+              <tr>
+                <th scope="col" class="w-36 md:w-44 text-start align-top p-3 md:p-4"></th>
+                {hospitals.map((h) => (
+                  <th scope="col" class="min-w-[15rem] p-3 md:p-4 text-start align-top" style="border-bottom: 1px solid var(--color-border);">
+                    <div class="rounded-xl overflow-hidden border border-border bg-surface">
+                      <div class="relative aspect-[16/9] bg-subtle">
+                        <img src={hospitalCover({ coverImageUrl: h.coverImageUrl, countrySlug: h.countrySlug })} alt="" width="480" height="270" loading="lazy" decoding="async" class="h-full w-full object-cover" />
+                        <div class="image-veil" />
+                      </div>
+                      <div class="p-3.5">
+                        <p class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                          {h.cityName}, {h.countryName}
+                        </p>
+                        <a href={localizedPath(locale, `/hospital/${h.slug}`)} class="mt-1 block font-display text-[17px] leading-snug text-ink hover:text-accent line-clamp-2">
+                          {h.name}
+                        </a>
+                        <div class="mt-3 flex items-center gap-3">
+                          <a
+                            href={localizedPath(locale, `/hospital/${h.slug}`)}
+                            class="inline-flex items-center rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-contrast hover:bg-accent-hover"
+                          >
+                            Open
+                          </a>
+                          <a
+                            href={localizedPath(locale, `/contact?hospital=${h.slug}`)}
+                            class="inline-flex items-center rounded-lg border border-border px-3 py-1.5 text-[12px] font-semibold hover:border-border-strong"
+                          >
+                            Quote
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr>
+                  <th scope="row" class="align-top p-3 md:p-4 text-start" style="border-bottom: 1px solid var(--color-border-soft); color: var(--color-ink-subtle);">
+                    <span class="mono uppercase" style="font-size: 10.5px; letter-spacing: 0.14em;">
+                      {r.label}
+                    </span>
+                  </th>
+                  {hospitals.map((h) => (
+                    <td class="align-top p-3 md:p-4 text-[14px] text-ink" style="border-bottom: 1px solid var(--color-border-soft);">
+                      {r.render(h)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <p class="mt-8 text-[12.5px] text-ink-subtle">
+          Need help narrowing down?{" "}
+          <a href={localizedPath(locale, "/calculator")} class="underline hover:text-accent">Run the quote calculator</a>{" "}
+          or{" "}
+          <a href={localizedPath(locale, "/contact")} class="underline hover:text-accent">request a human shortlist</a>{" "}
+          — we'll match you with a case manager who knows these hospitals first-hand.
+        </p>
+      </section>
+    )}
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

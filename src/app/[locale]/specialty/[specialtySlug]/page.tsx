@@ -357,6 +357,7 @@ export default async function SpecialtyPage({ params }: Props) {
                         className="absolute inset-0 h-full w-full object-cover"
                         loading="lazy"
                       />
+                      <div className="image-veil" />
                     </div>
                     <div style={{ padding: 18 }}>
                       <div
@@ -422,6 +423,7 @@ export default async function SpecialtyPage({ params }: Props) {
                         className="absolute inset-0 h-full w-full object-cover"
                         loading="lazy"
                       />
+                      <div className="image-veil" />
                     </div>
                     <div style={{ padding: 16 }}>
                       <div

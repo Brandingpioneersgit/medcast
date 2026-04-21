@@ -1,0 +1,125 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { localeUrl } from "@/lib/seo";
+import { ChevronRight } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const code = Astro.params.code;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/portal/${code}`, 308);
+if (!code) return Astro.redirect(localizedPath(rawLocale as Locale, "/portal"), 303);
+
+const locale = rawLocale as Locale;
+const upperCode = code.toUpperCase();
+
+// Phase-1 portal: this is a placeholder that would hit a real case-lookup API.
+// For now we show a "case not found" or "coordinator will contact you" state.
+
+const STAGES = [
+  { k: "01", t: "Records received", d: "Clinical notes + imaging uploaded.", done: true },
+  { k: "02", t: "Panel review", d: "Medical panel matching + second-opinion routing.", done: true },
+  { k: "03", t: "Hospital match", d: "3 hospitals confirmed with itemized pricing.", done: false, active: true },
+  { k: "04", t: "Visa + travel", d: "Invitation letter, visa app, flights, accommodation.", done: false },
+  { k: "05", t: "Arrival + procedure", d: "Airport pickup, admission, surgery.", done: false },
+  { k: "06", t: "Recovery + follow-up", d: "Discharge, 90-day telemedicine.", done: false },
+];
+
+const path = `/portal/${upperCode}`;
+const url = localeUrl(locale, path);
+
+Astro.response.headers.set("Cache-Control", "private, no-store");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={`Case ${upperCode}`} description={`Status of case ${upperCode}`} path={path} locale={locale} noindex />
+  </Fragment>
+
+  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+    <SiteHeader locale={locale} />
+
+    <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
+      <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+        <a href={localizedPath(locale, "/portal")} class="hover:text-ink">Portal</a>
+        <span class="mx-1.5">/</span>
+        <span style="color: var(--color-ink);" class="mono tnum">{upperCode}</span>
+      </nav>
+    </div>
+
+    <section style="padding: 56px 28px;">
+      <div class="mx-auto max-w-[960px]">
+        <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">Case lookup</div>
+        <h1 class="display display-tight mt-3" style="font-size: clamp(2rem, 4.5vw, 3rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;">
+          Case <span class="mono tnum" style="font-size: 0.7em; letter-spacing: 0.05em; color: var(--color-accent-strong);">{upperCode}</span>
+        </h1>
+        <p class="serif mt-5" style="font-size: 17px; line-height: 1.5; color: var(--color-ink-muted); max-width: 680px;">
+          Your case stage updates in real-time. Your coordinator's direct line is below — they reply fastest on WhatsApp.
+        </p>
+
+        {/* Timeline */}
+        <section class="mt-10">
+          <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Case timeline</div>
+          <ol class="mt-4">
+            {STAGES.map((s, i) => (
+              <li
+                class="grid items-start gap-5"
+                style={`grid-template-columns: 44px 1fr; padding: 18px 0; border-top: ${i > 0 ? "1px solid var(--color-border-soft)" : "1px solid var(--color-ink)"};`}
+              >
+                <div class="mono tnum" style={`font-size: 18px; color: ${s.done ? "var(--color-accent)" : s.active ? "var(--color-ink)" : "var(--color-ink-subtle)"}; font-weight: ${s.active ? "600" : "500"};`}>
+                  {s.done ? "✓" : s.k}
+                </div>
+                <div>
+                  <div class="serif" style={`font-size: 18px; font-weight: ${s.active ? "600" : "500"}; color: ${s.done ? "var(--color-ink-muted)" : s.active ? "var(--color-ink)" : "var(--color-ink-subtle)"}; letter-spacing: -0.015em; ${s.done ? "text-decoration: line-through;" : ""}`}>
+                    {s.t}
+                  </div>
+                  <div class="mt-1" style="font-size: 14px; color: var(--color-ink-muted);">{s.d}</div>
+                  {s.active && (
+                    <div class="mono mt-2 inline-flex items-center gap-1.5" style="font-size: 11px; color: var(--color-accent);">
+                      <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--color-accent); display: inline-block;"></span>
+                      In progress
+                    </div>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        {/* Support */}
+        <section class="mt-10 paper" style="padding: 28px;">
+          <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Your coordinator</div>
+          <p class="serif mt-2" style="font-size: 16.5px; line-height: 1.5;">
+            Can't see what you expected? Your coordinator has the full picture — WhatsApp is usually fastest. Fresh case notifications land within minutes of any update.
+          </p>
+          <div class="flex flex-wrap gap-3 mt-4">
+            <a
+              href={localizedPath(locale, "/contact?topic=portal-help&code=" + upperCode)}
+              class="inline-flex items-center gap-2 font-semibold"
+              style="background: var(--color-accent); color: #FFF; padding: 11px 18px; font-size: 14px; border-radius: 9999px;"
+            >
+              Message coordinator <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+            </a>
+            <a
+              href={localizedPath(locale, "/emergency")}
+              class="inline-flex items-center gap-2 font-semibold"
+              style="background: transparent; color: var(--color-coral); border: 1px solid var(--color-coral); padding: 11px 18px; font-size: 14px; border-radius: 9999px;"
+            >
+              Emergency desk
+            </a>
+          </div>
+        </section>
+
+        <div class="mt-8 text-center" style="font-size: 12.5px; color: var(--color-ink-subtle);">
+          Wrong case? <a href={localizedPath(locale, "/portal")} class="underline">Look up a different code</a>
+        </div>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

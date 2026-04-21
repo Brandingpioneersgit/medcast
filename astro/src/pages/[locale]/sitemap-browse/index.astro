@@ -1,0 +1,199 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { db } from "@/lib/db";
+import {
+  specialties as specialtiesTbl,
+  treatments as treatmentsTbl,
+  countries as countriesTbl,
+  conditions as conditionsTbl,
+} from "../../../../../src/lib/db/schema";
+import { asc, eq, sql } from "drizzle-orm";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/sitemap-browse", 308);
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+const [specialties, treatments, countries, conditions, cities, topBlog, topHospitals] = await Promise.all([
+  db.select({ slug: specialtiesTbl.slug, name: specialtiesTbl.name }).from(specialtiesTbl).where(eq(specialtiesTbl.isActive, true)).orderBy(asc(specialtiesTbl.name)),
+  db.select({ slug: treatmentsTbl.slug, name: treatmentsTbl.name }).from(treatmentsTbl).where(eq(treatmentsTbl.isActive, true)).orderBy(asc(treatmentsTbl.name)),
+  db.select({ slug: countriesTbl.slug, name: countriesTbl.name }).from(countriesTbl).where(eq(countriesTbl.isDestination, true)).orderBy(asc(countriesTbl.name)),
+  db.select({ slug: conditionsTbl.slug, name: conditionsTbl.name }).from(conditionsTbl).orderBy(asc(conditionsTbl.name)),
+  db.execute<{ slug: string; name: string }>(sql`
+    SELECT ci.slug, ci.name
+    FROM cities ci
+    JOIN countries c ON c.id = ci.country_id
+    WHERE c.is_destination = true
+      AND EXISTS(SELECT 1 FROM hospitals h WHERE h.city_id = ci.id AND h.is_active = true)
+    ORDER BY ci.name ASC
+    LIMIT 40
+  `).then((r) => Array.from(r)).catch(() => []),
+  db.execute<{ slug: string; title: string }>(sql`
+    SELECT slug, title FROM blog_posts WHERE published_at IS NOT NULL ORDER BY published_at DESC LIMIT 20
+  `).then((r) => Array.from(r)).catch(() => []),
+  db.execute<{ slug: string; name: string }>(sql`
+    SELECT slug, name FROM hospitals WHERE is_active = true AND is_featured = true ORDER BY rating DESC NULLS LAST LIMIT 12
+  `).then((r) => Array.from(r)).catch(() => []),
+]);
+
+const seoTitle = "Site map — browse MedCasts by section";
+const seoDescription = `Human-readable site map of 200+ topic pages — ${specialties.length} specialties, ${treatments.length} treatments, ${countries.length} destinations, ${conditions.length} conditions, blog, glossary, Q&A, services, accreditation hubs.`;
+const path = "/sitemap-browse";
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Site map", url: localeUrl(locale, path) },
+]);
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+
+type Section = { title: string; rows: Array<{ href: string; label: string }> };
+const sections: Section[] = [
+  { title: "Quick actions", rows: [
+    { href: "/quote", label: "Free quote (3 hospitals in 48 hr)" },
+    { href: "/second-opinion", label: "Free second opinion" },
+    { href: "/find-specialist", label: "Find a specialist" },
+    { href: "/emergency", label: "Emergency + air ambulance" },
+    { href: "/portal", label: "Track my case" },
+    { href: "/referral", label: "Refer someone" },
+  ]},
+  { title: "Reference", rows: [
+    { href: "/glossary", label: "Glossary (34 terms)" },
+    { href: "/qa", label: "Q&A (30 questions answered)" },
+    { href: "/accreditation", label: "Accreditations (JCI, NABH, ISO…)" },
+    { href: "/services", label: "Services" },
+    { href: "/editorial-policy", label: "Editorial policy" },
+    { href: "/privacy-policy", label: "Privacy policy" },
+    { href: "/terms", label: "Terms of service" },
+  ]},
+];
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+    <SiteHeader locale={locale} />
+
+    <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
+      <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+        <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+        <span class="mx-1.5">/</span>
+        <span style="color: var(--color-ink);">Site map</span>
+      </nav>
+    </div>
+
+    <section style="padding: 56px 28px;">
+      <div class="mx-auto max-w-[1440px]">
+        <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">Browse everything</div>
+        <h1 class="display display-tight mt-3" style="font-size: clamp(2.25rem, 5vw, 3.5rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;">
+          Site <span class="italic-display">map</span>
+        </h1>
+        <p class="serif mt-5" style="font-size: 17px; line-height: 1.5; color: var(--color-ink-muted); max-width: 680px;">
+          Every indexable topic page on MedCasts, grouped. For the machine-readable XML: <a href={localizedPath(locale, "/sitemap.xml")} class="underline">/sitemap.xml</a>
+        </p>
+
+        <div class="grid gap-10 lg:grid-cols-3 mt-12">
+          {/* Quick actions + Reference (static) */}
+          {sections.map((sec) => (
+            <section>
+              <h2 class="display" style="font-size: 22px; letter-spacing: -0.015em; padding-bottom: 10px; border-bottom: 1px solid var(--color-ink);">{sec.title}</h2>
+              <ul class="mt-3 flex flex-col gap-2">
+                {sec.rows.map((r) => (
+                  <li><a href={localizedPath(locale, r.href)} class="hover:text-accent" style="font-size: 14px; color: var(--color-ink-muted);">{r.label}</a></li>
+                ))}
+              </ul>
+            </section>
+          ))}
+
+          <section>
+            <h2 class="display" style="font-size: 22px; letter-spacing: -0.015em; padding-bottom: 10px; border-bottom: 1px solid var(--color-ink);">Destinations ({countries.length})</h2>
+            <ul class="mt-3 flex flex-col gap-2">
+              {countries.map((c) => (
+                <li><a href={localizedPath(locale, `/country/${c.slug}`)} class="hover:text-accent" style="font-size: 14px; color: var(--color-ink-muted);">{c.name}</a></li>
+              ))}
+            </ul>
+          </section>
+
+          <section>
+            <h2 class="display" style="font-size: 22px; letter-spacing: -0.015em; padding-bottom: 10px; border-bottom: 1px solid var(--color-ink);">Specialties ({specialties.length})</h2>
+            <ul class="mt-3 flex flex-col gap-2">
+              {specialties.map((s) => (
+                <li><a href={localizedPath(locale, `/specialty/${s.slug}`)} class="hover:text-accent" style="font-size: 14px; color: var(--color-ink-muted);">{s.name}</a></li>
+              ))}
+            </ul>
+          </section>
+
+          <section>
+            <h2 class="display" style="font-size: 22px; letter-spacing: -0.015em; padding-bottom: 10px; border-bottom: 1px solid var(--color-ink);">Treatments ({treatments.length})</h2>
+            <ul class="mt-3 flex flex-col gap-2" style="max-height: 600px; overflow-y: auto; padding-inline-end: 8px;">
+              {treatments.map((t) => (
+                <li><a href={localizedPath(locale, `/treatment/${t.slug}`)} class="hover:text-accent" style="font-size: 14px; color: var(--color-ink-muted);">{t.name}</a></li>
+              ))}
+            </ul>
+          </section>
+
+          <section>
+            <h2 class="display" style="font-size: 22px; letter-spacing: -0.015em; padding-bottom: 10px; border-bottom: 1px solid var(--color-ink);">Conditions ({conditions.length})</h2>
+            <ul class="mt-3 flex flex-col gap-2" style="max-height: 600px; overflow-y: auto; padding-inline-end: 8px;">
+              {conditions.map((c) => (
+                <li><a href={localizedPath(locale, `/condition/${c.slug}`)} class="hover:text-accent" style="font-size: 14px; color: var(--color-ink-muted);">{c.name}</a></li>
+              ))}
+            </ul>
+          </section>
+
+          <section>
+            <h2 class="display" style="font-size: 22px; letter-spacing: -0.015em; padding-bottom: 10px; border-bottom: 1px solid var(--color-ink);">Top cities</h2>
+            <ul class="mt-3 flex flex-col gap-2">
+              {cities.map((c) => (
+                <li><a href={localizedPath(locale, `/city/${c.slug}`)} class="hover:text-accent" style="font-size: 14px; color: var(--color-ink-muted);">{c.name}</a></li>
+              ))}
+            </ul>
+          </section>
+
+          <section>
+            <h2 class="display" style="font-size: 22px; letter-spacing: -0.015em; padding-bottom: 10px; border-bottom: 1px solid var(--color-ink);">Featured hospitals</h2>
+            <ul class="mt-3 flex flex-col gap-2">
+              {topHospitals.map((h) => (
+                <li><a href={localizedPath(locale, `/hospital/${h.slug}`)} class="hover:text-accent" style="font-size: 14px; color: var(--color-ink-muted);">{h.name}</a></li>
+              ))}
+            </ul>
+          </section>
+
+          <section>
+            <h2 class="display" style="font-size: 22px; letter-spacing: -0.015em; padding-bottom: 10px; border-bottom: 1px solid var(--color-ink);">Editorial ({topBlog.length})</h2>
+            <ul class="mt-3 flex flex-col gap-2">
+              {topBlog.map((b) => (
+                <li><a href={localizedPath(locale, `/blog/${b.slug}`)} class="hover:text-accent" style="font-size: 14px; color: var(--color-ink-muted);">{b.title}</a></li>
+              ))}
+            </ul>
+          </section>
+
+          <section>
+            <h2 class="display" style="font-size: 22px; letter-spacing: -0.015em; padding-bottom: 10px; border-bottom: 1px solid var(--color-ink);">Compare</h2>
+            <ul class="mt-3 flex flex-col gap-2">
+              <li><a href={localizedPath(locale, "/compare/hospitals")} class="hover:text-accent" style="font-size: 14px; color: var(--color-ink-muted);">Compare hospitals</a></li>
+              <li><a href={localizedPath(locale, "/compare/doctors")} class="hover:text-accent" style="font-size: 14px; color: var(--color-ink-muted);">Compare doctors</a></li>
+              <li><a href={localizedPath(locale, "/compare/treatments")} class="hover:text-accent" style="font-size: 14px; color: var(--color-ink-muted);">Compare treatments</a></li>
+              <li><a href={localizedPath(locale, "/compare/countries")} class="hover:text-accent" style="font-size: 14px; color: var(--color-ink-muted);">Compare countries</a></li>
+              <li><a href={localizedPath(locale, "/calculator")} class="hover:text-accent" style="font-size: 14px; color: var(--color-ink-muted);">Cost calculator</a></li>
+            </ul>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

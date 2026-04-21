@@ -1,0 +1,188 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { db } from "@/lib/db";
+import { sql } from "drizzle-orm";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { ChevronRight } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const slug = Astro.params.slug;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/qa/${slug}`, 308);
+if (!slug) return new Response("Not found", { status: 404 });
+
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+type Row = {
+  slug: string;
+  question: string;
+  answer: string;
+  category: string | null;
+  author: string | null;
+  reviewed_by: string | null;
+  related_slugs: string[] | null;
+  updated_at: Date | null;
+};
+const res = await db
+  .execute(sql`
+    SELECT slug, question, answer, category, author, reviewed_by, related_slugs, updated_at
+    FROM qa_posts WHERE slug = ${slug}
+  `)
+  .catch(() => [] as unknown[]);
+const post = Array.from(res as Iterable<Row>)[0] ?? null;
+if (!post) return new Response(`Not found: ${slug}`, { status: 404 });
+
+const related = (post.related_slugs ?? []).filter((s): s is string => typeof s === "string");
+const relatedRows = related.length > 0
+  ? Array.from(
+      (await db
+        .execute(sql`
+          SELECT slug, question FROM qa_posts
+          WHERE slug = ANY(${sql`ARRAY[${sql.join(related.map((s) => sql`${s}`), sql`, `)}]::text[]`})
+        `)
+        .catch(() => [] as unknown[])) as Iterable<{ slug: string; question: string }>,
+    )
+  : [];
+
+const seoTitle = post.question;
+const seoDescription = post.answer.slice(0, 160);
+const path = `/qa/${slug}`;
+const url = localeUrl(locale, path);
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Q&A", url: localeUrl(locale, "/qa") },
+  ...(post.category ? [{ name: post.category, url: `${localeUrl(locale, "/qa")}#${post.category.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` }] : []),
+  { name: post.question, url },
+]);
+
+const qaLd = {
+  "@context": "https://schema.org",
+  "@type": "QAPage",
+  mainEntity: {
+    "@type": "Question",
+    name: post.question,
+    text: post.question,
+    author: { "@type": "Organization", name: post.author ?? "MedCasts Editorial" },
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: post.answer,
+      author: post.reviewed_by
+        ? { "@type": "Person", name: post.reviewed_by }
+        : { "@type": "Organization", name: post.author ?? "MedCasts Editorial" },
+      ...(post.updated_at ? { dateCreated: new Date(post.updated_at).toISOString() } : {}),
+    },
+  },
+  url,
+};
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+
+const answerParas = post.answer.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" set:html={JSON.stringify(qaLd)} />
+  </Fragment>
+
+  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+    <SiteHeader locale={locale} />
+
+    <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
+      <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+        <a href={localizedPath(locale, "/qa")} class="hover:text-ink">Q&amp;A</a>
+        {post.category && (
+          <>
+            <span class="mx-1.5">/</span>
+            <a href={`${localizedPath(locale, "/qa")}#${post.category.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`} class="hover:text-ink">
+              {post.category}
+            </a>
+          </>
+        )}
+      </nav>
+    </div>
+
+    <section style="padding: 56px 28px;">
+      <div class="mx-auto" style="max-width: 760px;">
+        {post.category && (
+          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">{post.category}</div>
+        )}
+        <h1
+          class="display display-tight mt-3"
+          style="font-size: clamp(2rem, 4vw, 3rem); line-height: 1.05; font-weight: 400; letter-spacing: -0.03em;"
+        >
+          {post.question}
+        </h1>
+
+        <div class="mt-6 flex flex-wrap items-center gap-3" style="font-size: 12.5px; color: var(--color-ink-subtle);">
+          <span>{post.author ?? "MedCasts Editorial"}</span>
+          {post.reviewed_by && (
+            <>
+              <span>·</span>
+              <span>Reviewed by <strong style="color: var(--color-ink); font-weight: 500;">{post.reviewed_by}</strong></span>
+            </>
+          )}
+          {post.updated_at && (
+            <>
+              <span>·</span>
+              <span class="mono">Updated {new Date(post.updated_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span>
+            </>
+          )}
+        </div>
+
+        <div class="prose-editorial mt-10" style="max-width: none;">
+          {answerParas.map((p) => <p>{p}</p>)}
+        </div>
+
+        {relatedRows.length > 0 && (
+          <section class="mt-12 pt-10" style="border-top: 1px solid var(--color-border);">
+            <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">Related questions</div>
+            <ul class="mt-5 grid gap-2">
+              {relatedRows.map((r) => (
+                <li>
+                  <a
+                    href={localizedPath(locale, `/qa/${r.slug}`)}
+                    class="flex items-start justify-between gap-4 py-3 hover:text-accent"
+                    style="border-bottom: 1px solid var(--color-border-soft);"
+                  >
+                    <span class="serif" style="font-size: 15.5px; font-weight: 500;">{r.question}</span>
+                    <ChevronRight className="h-4 w-4 mirror-x shrink-0 mt-1" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        <section
+          class="mt-12 p-6"
+          style="background: var(--color-accent-mist); border: 1px solid var(--color-accent-soft); border-radius: var(--radius-lg);"
+        >
+          <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent); text-transform: uppercase;">Specific case?</div>
+          <p class="serif mt-2" style="font-size: 15.5px; line-height: 1.55; color: var(--color-ink);">
+            This answer is general guidance. For your specific situation, share records with a case manager — written response in hours, not days.
+          </p>
+          <a
+            href={localizedPath(locale, "/contact")}
+            class="inline-flex items-center gap-1 mt-3 font-semibold"
+            style="background: var(--color-ink); color: var(--color-bg); padding: 10px 18px; font-size: 14px; border-radius: 9999px;"
+          >
+            Ask about my case <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+          </a>
+        </section>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

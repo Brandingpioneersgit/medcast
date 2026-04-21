@@ -293,14 +293,7 @@ function Hero({ data }: { data: HomeData }) {
                 className="absolute inset-0 h-full w-full object-cover"
                 style={{ objectPosition: "center top" }}
               />
-              {/* gradient overlay for caption legibility */}
-              <div
-                className="absolute inset-x-0 bottom-0 z-[1]"
-                style={{
-                  height: "40%",
-                  background: "linear-gradient(to bottom, transparent, rgb(14 23 19 / 0.65))",
-                }}
-              />
+              <div className="image-veil" />
               <span
                 className="mono absolute"
                 style={{
@@ -509,7 +502,7 @@ function TreatmentExplorer({
                 className="group paper block overflow-hidden transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-md"
                 style={{ padding: 0 }}
               >
-                <div className="photo-block relative overflow-hidden" style={{ aspectRatio: "5/3" }}>
+                <div className="relative overflow-hidden bg-subtle" style={{ aspectRatio: "5/3" }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={specialtyImage(s.slug, 600, 360)}
@@ -518,14 +511,7 @@ function TreatmentExplorer({
                     loading="lazy"
                     decoding="async"
                   />
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      background:
-                        "linear-gradient(180deg, rgba(14,23,19,0) 45%, rgba(14,23,19,0.6) 100%)",
-                      zIndex: 1,
-                    }}
-                  />
+                  <div className="image-veil" />
                   <span
                     className="mono absolute"
                     style={{
@@ -943,13 +929,7 @@ function Destinations({ countries }: { countries: CountryRow[] }) {
                   className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                   loading="lazy"
                 />
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    background:
-                      "linear-gradient(180deg, rgba(14,23,19,0.1) 40%, rgba(14,23,19,0.85) 100%)",
-                  }}
-                />
+                <div className="image-veil-strong" />
                 {i === 0 && (
                   <span
                     className="absolute font-semibold text-[9.5px]"

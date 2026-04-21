@@ -10,6 +10,7 @@ import {
   getContent,
   getContentBatch,
   applyTranslated,
+  isUntranslated,
 } from "@/lib/translate";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
@@ -17,10 +18,14 @@ import {
   hospitalJsonLd,
   breadcrumbJsonLd,
   faqJsonLd,
+  reviewJsonLd,
   localeUrl,
   SITE_URL,
+  withProvenance,
 } from "@/lib/seo";
-import { getWhatsAppUrl, getHospitalInquiryMessage } from "@/lib/whatsapp";
+import LastUpdated from "@/components/LastUpdated.astro";
+import { doctorPortrait } from "@/lib/images";
+import { whatsappFor } from "@/lib/whatsapp";
 import {
   Award,
   Bed,
@@ -78,7 +83,14 @@ const faqs = data.faqs;
 
 const cityName = hospital.city?.name ?? null;
 const countryName = hospital.city?.country?.name ?? null;
-const whatsappUrl = getWhatsAppUrl(getHospitalInquiryMessage(hospital.name, specialty.name));
+const whatsappUrl = whatsappFor({
+  page: "hospital",
+  slug: `${slug}-${specialtySlug}`,
+  hospitalName: hospital.name,
+  specialtyName: specialty.name,
+  cityName: cityName ?? undefined,
+  countryName: countryName ?? undefined,
+});
 
 const seoTitle = `${specialty.name} at ${hospital.name}`;
 const seoDescription =
@@ -87,7 +99,7 @@ const seoDescription =
 const path = `/hospital/${slug}/${specialtySlug}`;
 const url = localeUrl(locale, path);
 
-const jsonLd = hospitalJsonLd({
+const hospitalLd = hospitalJsonLd({
   name: hospital.name,
   description: hospital.description,
   address: hospital.address,
@@ -103,6 +115,25 @@ const jsonLd = hospitalJsonLd({
   medicalSpecialties: [specialty.name],
 });
 
+const reviewEntries = testimonials
+  .filter((t) => t.story)
+  .slice(0, 10)
+  .map((t) =>
+    reviewJsonLd({
+      author: t.patientName ?? "Anonymous patient",
+      country: t.patientCountry,
+      title: t.title,
+      body: t.story as string,
+      rating: t.rating ? Number(t.rating) : null,
+      datePublished: t.createdAt ?? null,
+    }),
+  );
+
+const jsonLd = withProvenance(
+  reviewEntries.length > 0 ? { ...hospitalLd, review: reviewEntries } : hospitalLd,
+  { dateModified: data.hospital.updatedAt, dateCreated: data.hospital.createdAt },
+);
+
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
   { name: tc("hospitals"), url: localeUrl(locale, "/hospitals") },
@@ -114,6 +145,8 @@ const faqLd =
   faqs.length > 0
     ? faqJsonLd(faqs.map((f) => ({ question: f.question, answer: f.answer })))
     : null;
+
+const untranslated = isUntranslated(locale, hMap, sMap);
 
 Astro.response.headers.set(
   "Cache-Control",
@@ -129,6 +162,7 @@ Astro.response.headers.set(
       path={path}
       locale={locale}
       image={hospital.coverImageUrl ?? undefined}
+      noindex={untranslated}
     />
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
@@ -138,7 +172,7 @@ Astro.response.headers.set(
   <main class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
-    <div class="border-b border-border bg-bg">
+    <nav aria-label="Breadcrumb" class="border-b border-border bg-bg">
       <div class="mx-auto max-w-7xl px-6 py-3.5 text-sm text-ink-muted overflow-x-auto whitespace-nowrap">
         <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
         <span class="mx-2 text-ink-subtle">/</span>
@@ -146,9 +180,9 @@ Astro.response.headers.set(
         <span class="mx-2 text-ink-subtle">/</span>
         <a href={localizedPath(locale, `/hospital/${slug}`)} class="hover:text-accent">{hospital.name}</a>
         <span class="mx-2 text-ink-subtle">/</span>
-        <span class="text-ink">{specialty.name}</span>
+        <span class="text-ink" aria-current="page">{specialty.name}</span>
       </div>
-    </div>
+    </nav>
 
     {/* Hero */}
     <section class="mx-auto max-w-7xl px-6 pt-10 md:pt-14 pb-10">
@@ -169,6 +203,7 @@ Astro.response.headers.set(
               {cityName}{countryName && `, ${countryName}`}
             </p>
           )}
+          <LastUpdated updated={data.hospital.updatedAt} locale={locale} class="mt-4" />
           {specialty.description && (
             <p class="lede mt-5">{specialty.description}</p>
           )}
@@ -277,13 +312,15 @@ Astro.response.headers.set(
                   href={localizedPath(locale, `/doctor/${doc.slug}`)}
                   class="group flex items-start gap-4 rounded-lg border border-border bg-surface p-5 transition-colors hover:border-border-strong"
                 >
-                  {doc.imageUrl ? (
-                    <img src={doc.imageUrl} alt={doc.name} class="h-14 w-14 rounded-full object-cover" />
-                  ) : (
-                    <div class="h-14 w-14 rounded-full bg-accent-soft text-accent inline-flex items-center justify-center font-semibold">
-                      {doc.name.slice(0, 1)}
-                    </div>
-                  )}
+                  <img
+                    src={doctorPortrait({ imageUrl: doc.imageUrl, id: doc.id }, 112)}
+                    alt={doc.name}
+                    width="56"
+                    height="56"
+                    loading="lazy"
+                    decoding="async"
+                    class="h-14 w-14 rounded-full object-cover"
+                  />
                   <div class="min-w-0 flex-1">
                     <p class="font-display text-base leading-tight text-ink group-hover:text-accent transition-colors">
                       {doc.title ? `${doc.title} ` : ""}{doc.name}

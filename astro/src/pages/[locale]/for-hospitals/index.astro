@@ -3,10 +3,11 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import EntityListingHero from "@/components/EntityListingHero.astro";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
-import { TrendingUp, Globe, Users, ChevronRight, CheckCircle2 } from "lucide-react";
+import { ChevronRight, Check } from "lucide-react";
 
 export const prerender = false;
 
@@ -20,13 +21,44 @@ const url = localeUrl(locale, path);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "For Hospitals", url },
+  { name: "For hospitals", url },
 ]);
 
 Astro.response.headers.set(
   "Cache-Control",
   "public, s-maxage=86400, stale-while-revalidate=604800",
 );
+
+const stats = [
+  { l: "Pre-qualified", v: "34%" },
+  { l: "Languages", v: "8" },
+  { l: "Commission on", v: "Admission" },
+  { l: "Retainer", v: "$0" },
+];
+
+const PROMISES = [
+  { eyebrow: "01", title: "Pre-qualified leads", body: "Only patients with a real diagnosis, budget, and travel intent reach your IPD desk. Average lead → admission conversion: 34%." },
+  { eyebrow: "02", title: "8-language front desk", body: "Arabic, Russian, French, Portuguese, Bengali, Turkish, Hindi, English — we handle patient communication in-language, not your staff." },
+  { eyebrow: "03", title: "End-to-end coordination", body: "Visa, airport transfer, hotel, post-op follow-up — handled by our case managers. Your team sees a ready-to-admit patient." },
+];
+
+const STEPS = [
+  { n: "01", t: "Hospital onboarding · 7 days", d: "We collect specialties, pricing ranges, doctor profiles, accreditations, and capacity constraints." },
+  { n: "02", t: "Lead routing · ≤ 6 hours", d: "Patients matching your specialties and pricing bracket get routed with full case files, imaging, and budget." },
+  { n: "03", t: "Quote & acceptance", d: "Itemised quote via hospital portal. We present it in the patient's language. Acceptance triggers travel booking." },
+  { n: "04", t: "Admission & care", d: "Patient arrives with all paperwork done. You deliver care. We handle check-ins, translation, and post-op follow-up." },
+  { n: "05", t: "Commission settled", d: "Transparent fee billed monthly per successful admission. No success, no fee. Standard: 10-15% by specialty and volume." },
+  { n: "06", t: "Performance review", d: "Monthly dashboard for lead quality, conversion, patient NPS, and reimbursement timing. Quarterly IPD review." },
+];
+
+const QUALIFIES = [
+  "JCI, NABH, or equivalent national accreditation",
+  "Active international patient department with dedicated coordinator",
+  "Published pricing for at least 10 core treatments in our catalog",
+  "Digital records (DICOM imaging, PDF reports exportable)",
+  "Responsive quote turnaround (24-48 hours typical)",
+  "Transparent inclusion / exclusion line items",
+];
 ---
 
 <BaseLayout locale={locale}>
@@ -43,104 +75,133 @@ Astro.response.headers.set(
   <main class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
-    <section class="mx-auto max-w-7xl px-6 pt-12 md:pt-20 pb-12">
-      <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">For hospitals</p>
-      <h1 class="mt-4 font-display text-4xl md:text-6xl leading-[1.02] max-w-3xl">
-        Another ad won't fill your international beds. This might.
-      </h1>
-      <p class="lede mt-6 max-w-2xl">
-        Patients reach your IPD coordinator with reports, budget, and visa paperwork already done. You bill on admission, not on a lead. If the patient doesn't fly, we don't bill — so we pre-qualify hard on our side, not yours.
-      </p>
-    </section>
-
-    <section class="border-t border-border bg-surface-muted py-12">
-      <div class="mx-auto max-w-7xl px-6">
-        <h2 class="font-display text-2xl md:text-3xl mb-8">What partner hospitals get</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div class="rounded-xl border border-border bg-surface p-6">
-            <TrendingUp className="h-6 w-6 text-accent" />
-            <h3 class="mt-4 font-display text-lg">Pre-qualified leads</h3>
-            <p class="mt-2 text-sm text-ink-muted">
-              Only patients with a real diagnosis, budget, and travel intent reach your IPD desk.
-              Average lead → admission conversion: 34%.
-            </p>
-          </div>
-          <div class="rounded-xl border border-border bg-surface p-6">
-            <Globe className="h-6 w-6 text-accent" />
-            <h3 class="mt-4 font-display text-lg">8-language front desk</h3>
-            <p class="mt-2 text-sm text-ink-muted">
-              Arabic, Russian, French, Portuguese, Bengali, Turkish, Hindi, English — we handle patient communication in-language, not your staff.
-            </p>
-          </div>
-          <div class="rounded-xl border border-border bg-surface p-6">
-            <Users className="h-6 w-6 text-accent" />
-            <h3 class="mt-4 font-display text-lg">End-to-end patient coordination</h3>
-            <p class="mt-2 text-sm text-ink-muted">
-              Visa, airport transfer, hotel, post-op follow-up — handled by our case managers. Your team sees a ready-to-admit patient.
-            </p>
-          </div>
-        </div>
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">For hospitals</span>
+        </nav>
       </div>
-    </section>
+    </div>
 
-    <section class="border-t border-border py-12">
-      <div class="mx-auto max-w-5xl px-6">
-        <h2 class="font-display text-2xl md:text-3xl mb-8">How the partnership works</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {[
-            { step: "01", title: "Hospital onboarding", body: "We collect specialties, pricing ranges, doctor profiles, accreditations, and capacity constraints. Your profile goes live in 7 days." },
-            { step: "02", title: "Lead routing", body: "Patients who match your specialties and pricing bracket are routed to you within 6 hours of inquiry. You receive full case files, imaging, and budget." },
-            { step: "03", title: "Quote + acceptance", body: "You return an itemized quote via the hospital portal. We present it to the patient in their language. Acceptance triggers travel booking." },
-            { step: "04", title: "Admission + care", body: "Patient arrives with all paperwork pre-done. Your team delivers care. We handle check-ins, translation, post-op follow-up, and insurance claims." },
-            { step: "05", title: "Commission settled", body: "Transparent fee billed monthly per successful admission. No success, no fee. Standard rate: 10-15% depending on specialty and volume." },
-            { step: "06", title: "Performance review", body: "Monthly dashboard shows lead quality, conversion, patient NPS, and reimbursement timing. Quarterly strategy review with your IPD head." },
-          ].map((c) => (
-            <div class="rounded-xl border border-border bg-surface p-6">
-              <p class="font-display text-2xl text-accent">{c.step}</p>
-              <h3 class="mt-3 font-display text-lg">{c.title}</h3>
-              <p class="mt-2 text-sm text-ink-muted">{c.body}</p>
-            </div>
-          ))}
+    <EntityListingHero
+      eyebrow="For hospitals · IPD partnership program"
+      h1First="Another ad won't fill your international beds."
+      h1Italic="This might."
+      lede="Patients reach your IPD coordinator with reports, budget, and visa paperwork already done. You bill on admission, not on a lead. If the patient doesn't fly, we don't bill — so we pre-qualify hard on our side, not yours."
+      stats={stats}
+    />
+
+    <section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft); margin-top: 24px;">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="mb-8">
+          <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+            01 · Partnership promises
+          </div>
+          <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
+            What partner hospitals <span class="italic-display">get</span>
+          </h2>
         </div>
-      </div>
-    </section>
-
-    <section class="border-t border-border bg-surface-muted py-12">
-      <div class="mx-auto max-w-5xl px-6">
-        <h2 class="font-display text-2xl md:text-3xl mb-8">What qualifies a hospital</h2>
-        <ul class="space-y-3 max-w-3xl">
-          {[
-            "JCI, NABH, or equivalent national accreditation",
-            "Active international patient department with dedicated coordinator",
-            "Published pricing for at least 10 core treatments in our catalog",
-            "Digital records (DICOM imaging, PDF reports exportable)",
-            "Responsive quote turnaround (24-48h typical)",
-            "Transparent inclusion / exclusion line items",
-          ].map((q) => (
-            <li class="flex items-start gap-3">
-              <CheckCircle2 className="h-5 w-5 text-accent shrink-0 mt-0.5" />
-              <span class="text-ink-muted">{q}</span>
+        <ul class="grid grid-cols-1 gap-5 md:grid-cols-3">
+          {PROMISES.map((p) => (
+            <li class="paper" style="padding: 26px 28px;">
+              <div class="display tnum" style="font-size: 40px; line-height: 0.95; color: var(--color-accent); letter-spacing: -0.02em;">
+                {p.eyebrow}
+              </div>
+              <div class="serif mt-3" style="font-size: 19px; line-height: 1.25; letter-spacing: -0.005em; color: var(--color-ink);">
+                {p.title}
+              </div>
+              <p class="mt-2 serif" style="font-size: 14.5px; line-height: 1.55; color: var(--color-ink-muted);">
+                {p.body}
+              </p>
             </li>
           ))}
         </ul>
       </div>
     </section>
 
-    <section class="border-t border-border py-12">
-      <div class="mx-auto max-w-3xl px-6 text-center">
-        <h2 class="font-display text-2xl md:text-3xl mb-3">
-          Ready to explore partnership?
-        </h2>
-        <p class="text-ink-muted mb-6">
-          30-min intro call with our growth team. No commitment — we share market data for your destination + specialties first.
-        </p>
-        <a
-          href={localizedPath(locale, "/contact?type=partnership")}
-          class="inline-flex items-center gap-2 rounded-lg bg-accent text-white font-semibold px-6 py-3 hover:bg-accent-hover transition"
-        >
-          Request an intro call
-          <ChevronRight className="h-4 w-4 mirror-x" />
-        </a>
+    <section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="mb-8">
+          <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+            02 · How it works
+          </div>
+          <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
+            Six stages, <span class="italic-display">end-to-end.</span>
+          </h2>
+        </div>
+        <ol>
+          {STEPS.map((s, i) => (
+            <li
+              class="grid gap-6 py-6"
+              style={`grid-template-columns: 56px 1fr; ${i > 0 ? "border-top: 1px dashed var(--color-border);" : "border-top: 1px dashed var(--color-border);"}`}
+            >
+              <div class="display tnum" style="font-size: 32px; line-height: 1; color: var(--color-accent); letter-spacing: -0.02em;">
+                {s.n}
+              </div>
+              <div>
+                <div class="serif" style="font-size: 20px; line-height: 1.25; letter-spacing: -0.005em; color: var(--color-ink);">
+                  {s.t}
+                </div>
+                <p class="mt-2 serif max-w-[52rem]" style="font-size: 15px; line-height: 1.55; color: var(--color-ink-muted);">
+                  {s.d}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+
+    <section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+          <div>
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+              03 · Qualifies
+            </div>
+            <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
+              What we look for <span class="italic-display">in a hospital</span>
+            </h2>
+          </div>
+          <ul class="space-y-3.5">
+            {QUALIFIES.map((q) => (
+              <li class="flex items-start gap-3 serif" style="font-size: 16px; line-height: 1.5; color: var(--color-ink);">
+                <Check className="h-4 w-4 mt-1.5 shrink-0" style={{color: "var(--color-accent)"}} />
+                <span>{q}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section style="background: var(--color-ink); color: var(--color-bg); padding: 72px 0;">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="grid gap-8 lg:grid-cols-[1.5fr,1fr] items-end">
+          <div>
+            <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
+              Explore partnership
+            </div>
+            <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.02; letter-spacing: -0.02em; color: var(--color-bg);">
+              30-minute intro call, <span class="italic-display">no commitment.</span>
+            </h2>
+            <p class="serif mt-4 max-w-[42rem]" style="font-size: 17px; line-height: 1.5; color: rgba(246,241,230,0.75);">
+              We share market data for your destination + specialties before you commit to anything. If the numbers don't work for either side, we say so on the call.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-3 lg:justify-end">
+            <a
+              href={localizedPath(locale, "/contact?type=partnership")}
+              class="inline-flex items-center gap-2 font-semibold"
+              style="background: var(--color-bg); color: var(--color-ink); padding: 14px 22px; border-radius: 9999px;"
+            >
+              Request intro call
+              <ChevronRight className="h-4 w-4 mirror-x" />
+            </a>
+          </div>
+        </div>
       </div>
     </section>
 

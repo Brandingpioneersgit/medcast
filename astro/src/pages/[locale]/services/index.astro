@@ -1,0 +1,112 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { ChevronRight } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/services", 308);
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+const services = [
+  { slug: "quote-matching", icon: "🎯", title: "Quote matching", blurb: "Itemized quotes from 3 hospitals within 48 hours — no markup, no upfront fees.", cta: "Request quotes", href: "/quote" },
+  { slug: "second-opinion", icon: "🧠", title: "Free second opinion", blurb: "Multidisciplinary review of your case by senior specialists — 5-10 day turnaround.", cta: "Upload reports", href: "/second-opinion" },
+  { slug: "visa-coordination", icon: "📄", title: "Medical visa coordination", blurb: "Invitation letters, documentation checklists, embassy-appointment guidance across 9 destinations.", cta: "Start visa", href: "/contact?topic=visa" },
+  { slug: "case-management", icon: "🧭", title: "Named case manager", blurb: "One person handling your case end-to-end — in your language, 8 supported.", cta: "Meet your coordinator", href: "/contact" },
+  { slug: "airport-pickup", icon: "🛬", title: "Airport pickup + accommodation", blurb: "Coordinator meets you planeside, hospital-vetted hotels at corporate rates, interpreter on call.", cta: "Plan my trip", href: "/contact?topic=travel" },
+  { slug: "post-op-followup", icon: "🩺", title: "90-day post-op follow-up", blurb: "Weekly telemedicine check-ins with your operating surgeon, lab coordination with your home doctor.", cta: "Learn more", href: "/editorial-policy" },
+  { slug: "emergency-evac", icon: "🚁", title: "Emergency + air ambulance", blurb: "24/7 desk reaches a senior physician directly, not a call centre. Lear-jet evacuation under 4 hours from major hubs.", cta: "Emergency desk", href: "/emergency" },
+  { slug: "insurance-liaison", icon: "🧾", title: "Insurance + payment liaison", blurb: "Escrow for large deposits, direct-billing partners for Gulf insurers, FX with 0.5–1% spreads via regulated processors.", cta: "Payment options", href: "/insurance" },
+];
+
+const seoTitle = "Services — MedCasts coordination end-to-end";
+const seoDescription = "Every coordination service we run — quote matching, second opinions, visa, case management, post-op follow-up, emergency evac, insurance liaison. Free to you.";
+const path = "/services";
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Services", url: localeUrl(locale, path) },
+]);
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+    <SiteHeader locale={locale} />
+
+    <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
+      <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+        <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+        <span class="mx-1.5">/</span>
+        <span style="color: var(--color-ink);">Services</span>
+      </nav>
+    </div>
+
+    <section style="padding: 56px 28px;">
+      <div class="mx-auto max-w-[1120px]">
+        <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">What we do</div>
+        <h1 class="display display-tight mt-3" style="font-size: clamp(2.25rem, 5vw, 3.5rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;">
+          Eight services, <span class="italic-display">one coordinator.</span>
+        </h1>
+        <p class="serif mt-5" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted); max-width: 680px;">
+          Everything between your first message and your return flight home — handled. You never pay us directly; hospitals pay our coordination fee only after you choose to proceed.
+        </p>
+
+        <ul class="grid gap-5 mt-12" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));">
+          {services.map((s) => (
+            <li class="paper flex flex-col h-full" style="padding: 28px;">
+              <div style="font-size: 36px; line-height: 1;">{s.icon}</div>
+              <div class="serif mt-4" style="font-size: 22px; font-weight: 500; letter-spacing: -0.015em;">{s.title}</div>
+              <p class="mt-3 flex-1" style="font-size: 14.5px; color: var(--color-ink-muted); line-height: 1.55;">{s.blurb}</p>
+              <a
+                href={localizedPath(locale, s.href)}
+                class="inline-flex items-center gap-1 mt-5 font-medium"
+                style="color: var(--color-accent); font-size: 13.5px;"
+              >
+                {s.cta} <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+
+    <section style="padding: 72px 28px; background: var(--color-ink); color: var(--color-bg);">
+      <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[1fr,auto] lg:items-end">
+        <div>
+          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7;">Always</div>
+          <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.05; letter-spacing: -0.025em; font-weight: 400;">
+            Free to you —
+            <span class="italic-display"> hospitals pay us.</span>
+          </h2>
+          <p class="serif mt-4" style="font-size: 17px; line-height: 1.55; max-width: 560px; opacity: 0.85;">
+            Coordination fee (5-15% of the hospital invoice) comes from the hospital after you choose to proceed. Second opinions, quote preparation, visa coordination, and pre-travel support are free regardless.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <a href={localizedPath(locale, "/quote")} class="inline-flex items-center gap-2 font-semibold" style="background: var(--color-accent); color: #FFF; padding: 13px 22px; font-size: 15px; border-radius: 9999px;">
+            Start now <ChevronRight className="h-4 w-4 mirror-x" />
+          </a>
+          <a href={localizedPath(locale, "/terms")} class="inline-flex items-center gap-2 font-semibold" style="background: transparent; color: var(--color-bg); border: 1px solid rgba(246,241,230,0.3); padding: 13px 22px; font-size: 15px; border-radius: 9999px;">
+            Read terms
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

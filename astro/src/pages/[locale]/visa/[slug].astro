@@ -3,11 +3,13 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
-import { getVisaByCountry } from "@/lib/queries";
-import { getTranslator } from "@/lib/messages";
+import { db } from "@/lib/db";
+import { countries } from "../../../../../src/lib/db/schema";
+import { eq, sql } from "drizzle-orm";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, faqJsonLd } from "@/lib/seo";
-import { ChevronRight, FileText, Clock, Check, AlertCircle } from "lucide-react";
+import { getTranslator } from "@/lib/messages";
+import { ChevronRight, AlertCircle } from "lucide-react";
 
 export const prerender = false;
 
@@ -17,239 +19,102 @@ if (!isLocale(rawLocale)) return Astro.redirect(`/en/visa/${slug}`, 308);
 if (!slug) return new Response("Not found", { status: 404 });
 
 const locale = rawLocale as Locale;
-const data = await getVisaByCountry(slug);
-if (!data) return new Response(`Not found: ${slug}`, { status: 404 });
-
 const tc = getTranslator(locale, "common");
-const { country, hospitalCount } = data;
 
-// Country-specific visa content. Keep as data, not hardcoded HTML, so per-locale
-// overrides can flow through the translation table later.
-const VISA_PLAYBOOKS: Record<
-  string,
-  {
-    visaName: string;
-    processingDays: string;
-    validity: string;
-    multipleEntry: boolean;
-    attendantsAllowed: number;
-    applyOnline: boolean;
-    extendableOnArrival: boolean;
-    keyDocs: string[];
-    notes: string[];
-  }
-> = {
-  india: {
-    visaName: "Medical Visa (M-Visa) + Medical Attendant Visa",
-    processingDays: "3–5 business days (e-Visa); 7–15 days (regular)",
-    validity: "Up to 60 days, triple entry; extendable once in-country",
-    multipleEntry: true,
-    attendantsAllowed: 2,
-    applyOnline: true,
-    extendableOnArrival: true,
-    keyDocs: [
-      "Letter from registered Indian hospital with appointment details",
-      "Passport valid 6+ months, 2 blank pages",
-      "Proof of treatment cost / funds",
-      "Return ticket (or onward travel)",
-      "Medical attendant's relationship proof (for MX-Visa)",
-    ],
-    notes: [
-      "Apply at indianvisaonline.gov.in — e-Visa available to 166 countries.",
-      "FRRO registration required if staying beyond 180 days.",
-    ],
-  },
-  thailand: {
-    visaName: "Non-Immigrant Visa (MT) / Medical Treatment Visa",
-    processingDays: "5–10 business days",
-    validity: "90 days, extendable up to 1 year for treatment",
-    multipleEntry: false,
-    attendantsAllowed: 3,
-    applyOnline: true,
-    extendableOnArrival: true,
-    keyDocs: [
-      "Appointment confirmation from licensed Thai hospital",
-      "Proof of funds (≥ ฿80,000 individual / ฿160,000 family)",
-      "Passport valid 6+ months",
-      "Travel insurance covering treatment duration",
-    ],
-    notes: [
-      "Many nationalities get a 30-day visa-on-arrival sufficient for short procedures.",
-      "MT visa extension handled at Thai Immigration Bureau.",
-    ],
-  },
-  turkey: {
-    visaName: "Short-term Visa (Medical Treatment)",
-    processingDays: "3–7 business days (e-Visa)",
-    validity: "90 days in a 180-day period",
-    multipleEntry: true,
-    attendantsAllowed: 2,
-    applyOnline: true,
-    extendableOnArrival: true,
-    keyDocs: [
-      "Letter from Turkish Ministry of Health–licensed hospital",
-      "Passport valid 6+ months",
-      "Proof of accommodation and funds",
-    ],
-    notes: [
-      "E-Visa via evisa.gov.tr. Many nationalities travel visa-free for up to 90 days.",
-    ],
-  },
-  germany: {
-    visaName: "Schengen Type C (Medical) / National Type D (long-term)",
-    processingDays: "10–15 business days",
-    validity: "Type C: 90 days. Type D: duration of treatment",
-    multipleEntry: true,
-    attendantsAllowed: 2,
-    applyOnline: false,
-    extendableOnArrival: false,
-    keyDocs: [
-      "Appointment letter + treatment plan from German clinic",
-      "Proof of treatment cost (or prepayment receipt)",
-      "Travel medical insurance (min €30,000)",
-      "Proof of accommodation",
-    ],
-    notes: [
-      "Apply at German embassy in your country of residence.",
-      "Prepayment typically required before visa issuance.",
-    ],
-  },
-  "south-korea": {
-    visaName: "C-3-3 (Short-term Medical) / G-1-10 (Long-term Medical)",
-    processingDays: "5–10 business days",
-    validity: "C-3-3: 90 days. G-1-10: 1 year renewable",
-    multipleEntry: true,
-    attendantsAllowed: 2,
-    applyOnline: true,
-    extendableOnArrival: true,
-    keyDocs: [
-      "Medical certificate from KAHF-registered facilitator or hospital",
-      "Treatment plan and estimated cost",
-      "Financial proof",
-    ],
-    notes: [
-      "Apply via Korea Visa Portal (visa.go.kr). Over 100 nationalities eligible.",
-    ],
-  },
-  malaysia: {
-    visaName: "Medical Visit Pass (MVP)",
-    processingDays: "5–7 business days",
-    validity: "30 days, extendable up to 6 months",
-    multipleEntry: false,
-    attendantsAllowed: 1,
-    applyOnline: true,
-    extendableOnArrival: true,
-    keyDocs: [
-      "Letter from MHTC (Malaysia Healthcare Travel Council) hospital",
-      "Passport valid 6+ months",
-      "Return ticket",
-    ],
-    notes: [
-      "MHTC concierge handles fast-track immigration at KLIA/KLIA2.",
-    ],
-  },
-  singapore: {
-    visaName: "Short-term Visit Pass (Medical)",
-    processingDays: "5–10 business days",
-    validity: "30 days, extendable",
-    multipleEntry: false,
-    attendantsAllowed: 2,
-    applyOnline: true,
-    extendableOnArrival: true,
-    keyDocs: [
-      "Hospital appointment confirmation",
-      "Passport valid 6+ months",
-      "Proof of funds",
-    ],
-    notes: [
-      "Most nationalities receive visa-free entry sufficient for short stays.",
-    ],
-  },
-  "united-arab-emirates": {
-    visaName: "Medical Treatment Visa",
-    processingDays: "3–5 business days",
-    validity: "90 days, extendable up to 1 year",
-    multipleEntry: true,
-    attendantsAllowed: 3,
-    applyOnline: true,
-    extendableOnArrival: true,
-    keyDocs: [
-      "Letter from DHA/MOHAP-licensed hospital",
-      "Passport valid 6+ months",
-      "Proof of funds",
-    ],
-    notes: [
-      "Dubai Health Experience (DXH) portal streamlines the process.",
-    ],
-  },
-  "saudi-arabia": {
-    visaName: "Medical Visa",
-    processingDays: "5–10 business days",
-    validity: "90 days, extendable",
-    multipleEntry: false,
-    attendantsAllowed: 2,
-    applyOnline: true,
-    extendableOnArrival: true,
-    keyDocs: [
-      "Letter from Saudi MoH–licensed hospital",
-      "Medical report (translated to Arabic if required)",
-      "Proof of funds",
-    ],
-    notes: [
-      "Apply via MOFA/ Visit Saudi portal.",
-    ],
-  },
+const country = await db.query.countries.findFirst({ where: eq(countries.slug, slug) });
+if (!country) return new Response(`Not found: ${slug}`, { status: 404 });
+
+type VisaRow = {
+  visa_required: boolean;
+  visa_type: string | null;
+  processing_time_days: number | null;
+  duration_days: number | null;
+  extendable: boolean;
+  allows_attendants: boolean;
+  overview: string | null;
+  requirements: string | null;
+  tips: string | null;
+  embassy_url: string | null;
+  updated_at: Date | null;
 };
+const visaRes = await db.execute(sql`
+  SELECT visa_required, visa_type, processing_time_days, duration_days,
+         extendable, allows_attendants, overview, requirements, tips, embassy_url, updated_at
+  FROM visa_info WHERE country_id = ${country.id}
+`).catch(() => [] as unknown[]);
+const visa: VisaRow | null = Array.from(visaRes as Iterable<VisaRow>)[0] ?? null;
 
-const playbook = VISA_PLAYBOOKS[slug];
+type CountRow = { c: number };
+const hospitalCount = await db
+  .execute(sql`
+    SELECT COUNT(*)::int AS c
+    FROM hospitals h
+    JOIN cities ci ON ci.id = h.city_id
+    WHERE ci.country_id = ${country.id} AND h.is_active = true
+  `)
+  .catch(() => [] as unknown[]);
+const countHospitals = Array.from(hospitalCount as Iterable<CountRow>)[0]?.c ?? 0;
 
-const faqs = playbook
-  ? [
-      {
-        question: `How long does a medical visa to ${country.name} take to process?`,
-        answer: `Typical processing time is ${playbook.processingDays}.`,
-      },
-      {
-        question: `Can family members travel with me on a medical visa to ${country.name}?`,
-        answer: `Yes — up to ${playbook.attendantsAllowed} medical attendants can accompany the patient under the same visa category.`,
-      },
-      {
-        question: `Is the ${country.name} medical visa extendable?`,
-        answer: playbook.extendableOnArrival
-          ? `Yes. ${playbook.visaName} can be extended in-country by ${country.name} immigration authorities.`
-          : `Extension requires returning home and re-applying.`,
-      },
-      {
-        question: `Can I apply online for a ${country.name} medical visa?`,
-        answer: playbook.applyOnline
-          ? `Yes — ${country.name} offers an online / e-Visa application.`
-          : `No. Apply at the nearest ${country.name} embassy or consulate.`,
-      },
-    ]
-  : [];
+const FLAG: Record<string, string> = {
+  india: "🇮🇳", turkey: "🇹🇷", thailand: "🇹🇭", uae: "🇦🇪",
+  germany: "🇩🇪", singapore: "🇸🇬", "south-korea": "🇰🇷",
+  malaysia: "🇲🇾", "saudi-arabia": "🇸🇦",
+};
+const flag = FLAG[country.slug] ?? "🌐";
 
-const currentYear = new Date().getFullYear();
-const lastVerified = `April ${currentYear}`;
+const reqList = (visa?.requirements ?? "")
+  .split(/\s*·\s*/)
+  .map((s) => s.trim())
+  .filter(Boolean);
 
-const seoTitle = playbook
-  ? `${country.name} Medical Visa: Requirements, Cost, Processing (${currentYear})`
-  : `${country.name} Medical Visa Guide`;
-const seoDescription = playbook
-  ? `${country.name} medical visa: ${playbook.processingDays}, ${playbook.attendantsAllowed} attendants allowed, ${playbook.applyOnline ? "online" : "embassy"} application. Verified ${lastVerified}.`.slice(0, 160)
-  : `Medical visa requirements for travel to ${country.name} for treatment. Verified ${lastVerified}.`;
+const faqList = [
+  {
+    question: `Do I need a medical visa for ${country.name}?`,
+    answer: visa?.visa_required
+      ? `Yes — ${country.name} requires a ${visa.visa_type ?? "Medical Visa"} for treatment travel. Processing typically takes ${visa.processing_time_days ?? "3-5"} working days.`
+      : `Most nationalities can enter ${country.name} visa-free or with visa-on-arrival for short elective procedures. For stays beyond 30 days or surgical cases requiring extension, a medical visa is recommended.`,
+  },
+  {
+    question: `How long does the visa last?`,
+    answer: visa?.duration_days
+      ? `${visa.duration_days} days, ${visa.extendable ? "extendable" : "non-extendable"}. ${visa.allows_attendants ? "Family attendants can be included on related visa categories." : ""}`.trim()
+      : `Typical medical visas for ${country.name} last 60-90 days, often extendable. Confirm the latest rules with the embassy or your case manager.`,
+  },
+  {
+    question: `Can family members travel with me?`,
+    answer: visa?.allows_attendants
+      ? `Yes — most destinations including ${country.name} issue attendant visas for immediate family travelling with the patient. Relationship documentation is typically required.`
+      : `${country.name} does not have a dedicated attendant visa category — family members apply via standard tourist or visit visa.`,
+  },
+  {
+    question: `What should I prepare before applying?`,
+    answer:
+      "Get your hospital's invitation letter in writing (not just email), translate civil documents if required, photograph your passport + photos in advance, and have 3-6 months of bank statements ready. Your case manager prepares most of this bundle for you.",
+  },
+  {
+    question: `Is MedCasts help with the visa included?`,
+    answer:
+      "Yes — visa invitation letter, documentation checklist, and embassy-appointment coordination are all part of the standard case-manager service. You handle the in-person appointment if one is required; we handle the paperwork bundle.",
+  },
+];
+
+const seoTitle = `${country.name} Medical Visa — Requirements, Processing, Timeline`;
+const seoDescription = visa?.overview?.slice(0, 160) ??
+  `How to get a medical visa for ${country.name}. ${visa?.visa_type ? `${visa.visa_type}. ` : ""}${visa?.processing_time_days ? `Processed in ~${visa.processing_time_days} days.` : ""} Hospital list + free assistance.`;
 
 const path = `/visa/${slug}`;
 const url = localeUrl(locale, path);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: country.name, url: localeUrl(locale, `/country/${slug}`) },
-  { name: "Medical Visa", url },
+  { name: country.name, url: localeUrl(locale, `/country/${country.slug}`) },
+  { name: "Medical visa", url },
 ]);
+const faqSchema = faqJsonLd(faqList);
 
 Astro.response.headers.set(
   "Cache-Control",
-  "public, s-maxage=86400, stale-while-revalidate=604800",
+  "public, s-maxage=3600, stale-while-revalidate=86400",
 );
 ---
 
@@ -257,162 +122,228 @@ Astro.response.headers.set(
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    {faqs.length > 0 && (
-      <script type="application/ld+json" set:html={JSON.stringify(faqJsonLd(faqs))} />
-    )}
+    <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} />
 
-    <div class="border-b border-border bg-bg">
-      <div class="mx-auto max-w-7xl px-6 py-3.5 text-sm text-ink-muted">
-        <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
-        <span class="mx-2 text-ink-subtle">/</span>
-        <a href={localizedPath(locale, `/country/${slug}`)} class="hover:text-accent">{country.name}</a>
-        <span class="mx-2 text-ink-subtle">/</span>
-        <span class="text-ink">Medical Visa</span>
-      </div>
+    {/* Breadcrumb */}
+    <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
+      <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+        <a href={localizedPath(locale, `/country/${country.slug}`)} class="hover:text-ink">{country.name}</a>
+        <span class="mx-1.5">/</span>
+        <span style="color: var(--color-ink);">Medical visa</span>
+      </nav>
     </div>
 
-    <section class="mx-auto max-w-4xl px-6 pt-10 md:pt-14 pb-10">
-      <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">
-        Visa guide · Verified {lastVerified}
-      </p>
-      <h1 class="mt-3 font-display text-3xl md:text-5xl leading-[1.05]">
-        {country.name} medical visa — what you actually need
-      </h1>
-      {playbook ? (
-        <p class="lede mt-5 max-w-3xl">
-          The relevant category is {playbook.visaName}. Typical turnaround from document submission to passport return runs {playbook.processingDays}. Once issued, the visa is good for {playbook.validity}{playbook.attendantsAllowed > 0 ? `, and you can bring up to ${playbook.attendantsAllowed} medical attendants on the same paperwork` : ""}.
-        </p>
-      ) : (
-        <p class="lede mt-5 max-w-3xl">
-          We haven't finalised the playbook for {country.name} yet. If you're mid-planning, message the desk and we'll pull current requirements from the embassy within 24 hours.
-        </p>
-      )}
+    {/* Hero */}
+    <section style="padding: 56px 28px;">
+      <div class="mx-auto max-w-[1440px] grid gap-10 lg:grid-cols-[2fr,1fr] items-start">
+        <div>
+          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent); margin-bottom: 12px;">
+            Visa playbook
+          </div>
+          <h1
+            class="display display-tight"
+            style="font-size: clamp(2.5rem, 5.5vw, 4rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em;"
+          >
+            {country.name} <span style="font-style: italic;">medical visa</span>
+          </h1>
+          <div class="flex items-center gap-3 mt-4" style="color: var(--color-ink-muted); font-size: 14px;">
+            <span>{flag}</span>
+            <span>{countHospitals.toLocaleString()} active hospitals</span>
+            {visa?.updated_at && (
+              <>
+                <span style="width: 3px; height: 3px; border-radius: 50%; background: var(--color-border);" aria-hidden="true" />
+                <span class="mono" style="font-size: 11.5px; color: var(--color-ink-subtle);">
+                  Verified {new Date(visa.updated_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                </span>
+              </>
+            )}
+          </div>
+
+          {visa?.overview && (
+            <p class="serif mt-6 max-w-[680px]" style="font-size: 20px; line-height: 1.45; color: var(--color-ink-muted);">
+              {visa.overview}
+            </p>
+          )}
+
+          <div
+            class="grid mt-8 py-5"
+            style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); border-top: 1px solid var(--color-ink); border-bottom: 1px solid var(--color-border);"
+          >
+            {[
+              visa?.visa_type && { l: "Visa type", v: visa.visa_type.split("(")[0].trim() },
+              visa?.processing_time_days && { l: "Processing", v: `${visa.processing_time_days} days` },
+              visa?.duration_days && { l: "Duration", v: `${visa.duration_days} days` },
+              { l: "Extendable", v: visa?.extendable ? "Yes" : "No" },
+            ].filter(Boolean).map((s: any, i: number) => (
+              <div style={`padding-inline: 18px; ${i > 0 ? "border-inline-start: 1px solid var(--color-border);" : ""}`}>
+                <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">{s.l}</div>
+                <div class="display tnum" style="font-size: 22px; margin-top: 4px;">{s.v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <aside class="lg:sticky lg:top-32 lg:self-start">
+          <div class="paper" style="padding: 22px;">
+            <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">
+              Need visa help?
+            </div>
+            <div class="display mt-1.5" style="font-size: 22px; letter-spacing: -0.02em; line-height: 1.2;">
+              We handle the full
+              <span style="font-style: italic;"> paperwork bundle.</span>
+            </div>
+            <p style="font-size: 13.5px; color: var(--color-ink-muted); margin-top: 10px; line-height: 1.55;">
+              Invitation letter, documentation checklist, embassy-appointment coordination. You show up; we handle the rest.
+            </p>
+            <a
+              href={localizedPath(locale, `/contact?country=${country.slug}&topic=visa`)}
+              class="inline-flex items-center justify-center gap-2 w-full mt-4 font-semibold"
+              style="background: var(--color-accent); color: #FFF; padding: 13px 22px; font-size: 14.5px; border-radius: 9999px;"
+            >
+              Request visa help
+              <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+            </a>
+            {visa?.embassy_url && (
+              <a
+                href={visa.embassy_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center justify-center gap-1.5 w-full mt-2 font-medium"
+                style="background: transparent; color: var(--color-ink); border: 1px solid var(--color-border); padding: 9px 14px; font-size: 13px; border-radius: 9999px;"
+              >
+                Official embassy portal →
+              </a>
+            )}
+          </div>
+        </aside>
+      </div>
     </section>
 
-    {playbook && (
-      <>
-        <section class="border-t border-border bg-surface-muted py-10">
-          <div class="mx-auto max-w-4xl px-6">
-            <h2 class="font-display text-xl md:text-2xl mb-6">At a glance</h2>
-            <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="rounded-xl border border-border bg-surface p-5">
-                <dt class="text-xs text-ink-subtle uppercase tracking-wider">Visa type</dt>
-                <dd class="mt-1.5 font-medium text-ink">{playbook.visaName}</dd>
-              </div>
-              <div class="rounded-xl border border-border bg-surface p-5">
-                <dt class="text-xs text-ink-subtle uppercase tracking-wider">Processing</dt>
-                <dd class="mt-1.5 font-medium text-ink">{playbook.processingDays}</dd>
-              </div>
-              <div class="rounded-xl border border-border bg-surface p-5">
-                <dt class="text-xs text-ink-subtle uppercase tracking-wider">Validity</dt>
-                <dd class="mt-1.5 font-medium text-ink">{playbook.validity}</dd>
-              </div>
-              <div class="rounded-xl border border-border bg-surface p-5">
-                <dt class="text-xs text-ink-subtle uppercase tracking-wider">Attendants</dt>
-                <dd class="mt-1.5 font-medium text-ink">Up to {playbook.attendantsAllowed}</dd>
-              </div>
-              <div class="rounded-xl border border-border bg-surface p-5">
-                <dt class="text-xs text-ink-subtle uppercase tracking-wider">Online application</dt>
-                <dd class="mt-1.5 font-medium text-ink inline-flex items-center gap-1.5">
-                  {playbook.applyOnline ? (
-                    <><Check className="h-4 w-4 text-accent" /> Available</>
-                  ) : (
-                    <><AlertCircle className="h-4 w-4 text-ink-subtle" /> Embassy only</>
-                  )}
-                </dd>
-              </div>
-              <div class="rounded-xl border border-border bg-surface p-5">
-                <dt class="text-xs text-ink-subtle uppercase tracking-wider">Extendable</dt>
-                <dd class="mt-1.5 font-medium text-ink inline-flex items-center gap-1.5">
-                  {playbook.extendableOnArrival ? (
-                    <><Check className="h-4 w-4 text-accent" /> In-country</>
-                  ) : (
-                    <><AlertCircle className="h-4 w-4 text-ink-subtle" /> Not extendable</>
-                  )}
-                </dd>
-              </div>
-            </dl>
-          </div>
-        </section>
-
-        <section class="border-t border-border py-10">
-          <div class="mx-auto max-w-4xl px-6">
-            <h2 class="font-display text-xl md:text-2xl mb-6">Required documents</h2>
-            <ul class="space-y-3">
-              {playbook.keyDocs.map((d) => (
-                <li class="flex items-start gap-3">
-                  <FileText className="h-5 w-5 text-accent shrink-0 mt-0.5" />
-                  <span class="text-ink-muted">{d}</span>
+    {reqList.length > 0 && (
+      <section style="padding: 48px 28px; background: var(--color-paper); border-top: 1px solid var(--color-border);">
+        <div class="mx-auto max-w-[1120px]">
+          <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+            <div>
+              <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">Requirements</div>
+              <h2 class="display mt-3" style="font-size: 30px; letter-spacing: -0.02em;">What you'll need</h2>
+            </div>
+            <ul class="grid gap-2.5">
+              {reqList.map((r) => (
+                <li class="flex items-start gap-3 serif" style="font-size: 15.5px; line-height: 1.5;">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--color-accent)" stroke-width="2" class="mt-1 shrink-0"><path d="M3 8l3 3 7-7"/></svg>
+                  <span>{r}</span>
                 </li>
               ))}
             </ul>
           </div>
-        </section>
-
-        {playbook.notes.length > 0 && (
-          <section class="border-t border-border bg-surface-muted py-10">
-            <div class="mx-auto max-w-4xl px-6">
-              <h2 class="font-display text-xl md:text-2xl mb-6">Important notes</h2>
-              <ul class="space-y-3">
-                {playbook.notes.map((n) => (
-                  <li class="flex items-start gap-3">
-                    <AlertCircle className="h-5 w-5 text-accent shrink-0 mt-0.5" />
-                    <span class="text-ink-muted">{n}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </section>
-        )}
-
-        {faqs.length > 0 && (
-          <section class="border-t border-border py-10">
-            <div class="mx-auto max-w-4xl px-6">
-              <h2 class="font-display text-xl md:text-2xl mb-6">Frequently asked questions</h2>
-              <div class="space-y-2">
-                {faqs.map((f) => (
-                  <details class="group rounded-lg border border-border bg-surface p-5">
-                    <summary class="cursor-pointer font-medium text-ink list-none flex items-center justify-between">
-                      {f.question}
-                      <ChevronRight className="h-4 w-4 text-ink-subtle transition-transform group-open:rotate-90 mirror-x" />
-                    </summary>
-                    <p class="mt-3 text-ink-muted text-sm">{f.answer}</p>
-                  </details>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
-      </>
+        </div>
+      </section>
     )}
 
-    <section class="border-t border-border bg-surface-muted py-12">
-      <div class="mx-auto max-w-3xl px-6 text-center">
-        <h2 class="font-display text-2xl md:text-3xl mb-3">
-          Looking for treatment in {country.name}?
+    {visa?.tips && (
+      <section style="padding: 48px 28px; border-top: 1px solid var(--color-border);">
+        <div class="mx-auto max-w-[1120px]">
+          <div class="paper" style="padding: 28px; background: var(--color-accent-mist); border: 1px solid var(--color-accent-soft);">
+            <div class="flex items-start gap-4">
+              <AlertCircle className="h-5 w-5 shrink-0 mt-1" />
+              <div>
+                <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent); text-transform: uppercase;">Insider tip</div>
+                <p class="serif mt-2" style="font-size: 17px; line-height: 1.5; color: var(--color-ink);">
+                  {visa.tips}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    )}
+
+    <section style="padding: 56px 28px; border-top: 1px solid var(--color-border);">
+      <div class="mx-auto max-w-[1120px]">
+        <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent); margin-bottom: 12px;">
+          Step-by-step
+        </div>
+        <h2 class="display" style="font-size: 30px; letter-spacing: -0.02em;">
+          From first enquiry to boarding pass
         </h2>
-        <p class="text-ink-muted mb-6">
-          Our case managers handle hospital selection, pricing negotiation, and visa documentation —
-          browse {hospitalCount.toLocaleString()} hospitals or request a free quote.
-        </p>
-        <div class="flex flex-wrap justify-center gap-3">
+
+        <ol class="mt-8">
+          {[
+            { k: "01", t: "Share your case", d: "Upload imaging + current treatment plan. We share with 2-3 hospitals, get back itemized quotes in 48 hr.", dur: "Day 1-2" },
+            { k: "02", t: "Pick a hospital", d: `Confirm the chosen hospital in ${country.name}. They issue the invitation letter + treatment plan letter on letterhead.`, dur: "Day 3-5" },
+            { k: "03", t: "Apply for visa", d: `Submit ${visa?.visa_type ?? "medical visa"} application with hospital documentation. ${visa?.processing_time_days ? `Processed in ~${visa.processing_time_days} working days.` : ""}`, dur: visa?.processing_time_days ? `Day 6-${6 + visa.processing_time_days}` : "Day 6-14" },
+            { k: "04", t: "Finalise travel", d: "Book flights + accommodation. Your coordinator arranges airport pickup, SIM card, interpreter if needed.", dur: "1-2 weeks pre-travel" },
+            { k: "05", t: "Arrive + treat", d: "Land → check in → case manager meets you at the hospital. Everything pre-scheduled.", dur: "Day of arrival" },
+          ].map((step, i) => (
+            <li
+              class="grid items-start gap-4"
+              style={`grid-template-columns: 56px 1fr 140px; padding: 20px 0; border-top: ${i > 0 ? "1px solid var(--color-border-soft)" : "1px solid var(--color-ink)"};`}
+            >
+              <div class="mono display tnum" style="font-size: 26px; color: var(--color-ink-subtle);">{step.k}</div>
+              <div>
+                <div class="serif" style="font-size: 20px; font-weight: 500; letter-spacing: -0.015em;">{step.t}</div>
+                <div style="font-size: 14px; color: var(--color-ink-muted); margin-top: 4px; max-width: 520px;">{step.d}</div>
+              </div>
+              <div class="mono" style="font-size: 12px; color: var(--color-ink-subtle); text-align: end; padding-top: 8px;">{step.dur}</div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+
+    <section style="padding: 56px 28px; border-top: 1px solid var(--color-border);">
+      <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+        <div>
+          <div class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">FAQ</div>
+          <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
+            Common visa questions
+          </h2>
+        </div>
+        <div class="divide-y" style="border-color: var(--color-border-soft);">
+          {faqList.map((f) => (
+            <details class="group py-5">
+              <summary class="flex cursor-pointer items-start justify-between gap-6">
+                <span class="serif" style="font-size: 17px; font-weight: 500; line-height: 1.4;">{f.question}</span>
+                <span class="mt-1 shrink-0 transition-transform group-open:rotate-45" style="color: var(--color-ink-subtle); font-size: 20px; line-height: 1;" aria-hidden="true">+</span>
+              </summary>
+              <p class="serif mt-3" style="color: var(--color-ink-muted); font-size: 15.5px; line-height: 1.6;">{f.answer}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section style="padding: 72px 28px; border-top: 1px solid var(--color-border); background: var(--color-ink); color: var(--color-bg);">
+      <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[1fr,auto] lg:items-end">
+        <div>
+          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7;">Ready when you are</div>
+          <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.05; letter-spacing: -0.025em; font-weight: 400;">
+            Get a {country.name} {flag} visa + treatment plan
+            <span style="font-style: italic;"> in two weeks.</span>
+          </h2>
+          <p class="serif mt-4" style="font-size: 17px; line-height: 1.55; max-width: 560px; opacity: 0.85;">
+            We prepare the full bundle: hospital invitation, document checklist, embassy-appointment guidance, and itemized quotes from 3 accredited hospitals.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-3">
           <a
-            href={localizedPath(locale, `/country/${slug}`)}
-            class="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-5 py-3 font-semibold text-ink hover:border-border-strong transition"
+            href={localizedPath(locale, `/contact?country=${country.slug}&topic=visa`)}
+            class="inline-flex items-center gap-2 font-semibold"
+            style="background: var(--color-accent); color: #FFF; padding: 13px 22px; font-size: 15px; border-radius: 9999px;"
           >
-            Hospitals in {country.name}
+            Start now
             <ChevronRight className="h-4 w-4 mirror-x" />
           </a>
           <a
-            href={localizedPath(locale, "/contact")}
-            class="inline-flex items-center gap-2 rounded-lg bg-accent text-white font-semibold px-5 py-3 hover:bg-accent-hover transition"
+            href={localizedPath(locale, `/country/${country.slug}`)}
+            class="inline-flex items-center gap-2 font-semibold"
+            style="background: transparent; color: var(--color-bg); border: 1px solid rgba(246,241,230,0.3); padding: 13px 22px; font-size: 15px; border-radius: 9999px;"
           >
-            Get free quote
-            <ChevronRight className="h-4 w-4 mirror-x" />
+            Browse {country.name} hospitals
           </a>
         </div>
       </div>

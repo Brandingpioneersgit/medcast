@@ -1,0 +1,53 @@
+---
+// PhotoBlock — warm editorial placeholder w/ teal gradient + mono caption.
+// Used when no real photo is available (hero mock, specialty cards, etc.).
+interface Props {
+  label?: string;
+  aspect?: string;
+  imgUrl?: string | null;
+  class?: string;
+  rounded?: boolean;
+  /** Hero/above-the-fold photo — sets loading=eager + fetchpriority=high for LCP. */
+  priority?: boolean;
+  alt?: string;
+}
+const {
+  label,
+  aspect = "16/10",
+  imgUrl = null,
+  class: className = "",
+  rounded = true,
+  priority = false,
+  alt,
+} = Astro.props;
+---
+
+<div
+  class:list={["relative overflow-hidden", rounded && "rounded-[var(--radius-lg)]", className]}
+  style={`aspect-ratio: ${aspect}; background: linear-gradient(135deg, #0A5D54 0%, #0D7C70 50%, #1C2A25 100%);`}
+>
+  {imgUrl && (
+    <img
+      src={imgUrl}
+      alt={alt ?? label ?? ""}
+      class="absolute inset-0 h-full w-full object-cover"
+      loading={priority ? "eager" : "lazy"}
+      decoding={priority ? "sync" : "async"}
+      {...(priority ? { fetchpriority: "high" } : {})}
+    />
+  )}
+  <div
+    class="absolute inset-0"
+    style="background-image: radial-gradient(circle at 30% 20%, rgba(246,241,230,.12) 0, transparent 50%), repeating-linear-gradient(45deg, transparent 0 12px, rgba(246,241,230,.04) 12px 13px);"
+    aria-hidden="true"
+  />
+  {label && (
+    <div
+      class="mono absolute"
+      style="bottom: 12px; inset-inline-start: 14px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(246,241,230,.7);"
+    >
+      {label}
+    </div>
+  )}
+  <slot />
+</div>

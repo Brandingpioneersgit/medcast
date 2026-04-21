@@ -292,29 +292,22 @@ export default async function HospitalPage({ params }: Props) {
                       alt={hospital.name}
                       className="absolute inset-0 h-full w-full object-cover"
                     />
+                    <div className="image-veil" />
                     {fallback && (
-                      <>
-                        <div
-                          className="absolute inset-0"
-                          style={{
-                            background:
-                              "linear-gradient(180deg, rgba(14,23,19,0) 55%, rgba(14,23,19,0.55) 100%)",
-                          }}
-                        />
-                        <span
-                          className="mono absolute"
-                          style={{
-                            bottom: 14,
-                            insetInlineStart: 18,
-                            fontSize: 10,
-                            letterSpacing: "0.14em",
-                            textTransform: "uppercase",
-                            color: "rgb(246 241 230 / 0.85)",
-                          }}
-                        >
-                          {hospital.name} · {hospital.city?.name ?? "exterior"}
-                        </span>
-                      </>
+                      <span
+                        className="mono absolute"
+                        style={{
+                          bottom: 14,
+                          insetInlineStart: 18,
+                          fontSize: 10,
+                          letterSpacing: "0.14em",
+                          textTransform: "uppercase",
+                          color: "rgb(246 241 230 / 0.85)",
+                          zIndex: 1,
+                        }}
+                      >
+                        {hospital.name} · {hospital.city?.name ?? "exterior"}
+                      </span>
                     )}
                   </div>
                 );
@@ -791,13 +784,7 @@ export default async function HospitalPage({ params }: Props) {
                     alt={`${hospital.city?.name ?? ""} ${hospital.city?.country?.name ?? ""}`}
                     className="absolute inset-0 h-full w-full object-cover"
                   />
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      background:
-                        "linear-gradient(180deg, rgba(14,23,19,0) 45%, rgba(14,23,19,0.6) 100%)",
-                    }}
-                  />
+                  <div className="image-veil-strong" />
                   <span
                     className="mono absolute"
                     style={{

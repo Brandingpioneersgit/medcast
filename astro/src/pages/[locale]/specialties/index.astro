@@ -3,9 +3,12 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import EntityListingHero from "@/components/EntityListingHero.astro";
+import PhotoBlock from "@/components/PhotoBlock.astro";
+import Price from "@/components/Price.astro";
 import { listSpecialties } from "@/lib/queries";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
-import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { breadcrumbJsonLd, localeUrl, collectionPageJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { ChevronRight } from "lucide-react";
 
@@ -20,7 +23,7 @@ const rows = Array.from(rowsRaw);
 
 const tc = getTranslator(locale, "common");
 const seoTitle = "Medical specialties";
-const seoDescription = "Explore specialty care — cardiology, oncology, orthopedics, neurology and more. Find the right hospital and specialist for your condition.";
+const seoDescription = `Explore specialty care — ${rows.length} specialties across accredited hospitals in 9 destinations. Compare cardiology, oncology, orthopedics, neurology and more.`;
 const path = "/specialties";
 
 const crumbs = breadcrumbJsonLd([
@@ -28,46 +31,115 @@ const crumbs = breadcrumbJsonLd([
   { name: tc("specialties"), url: localeUrl(locale, path) },
 ]);
 
+const collectionLd = collectionPageJsonLd({
+  name: "Medical specialties",
+  description: seoDescription,
+  url: localeUrl(locale, path),
+  items: rows.map((sp) => ({
+    name: sp.name,
+    url: localeUrl(locale, `/specialty/${sp.slug}`),
+  })),
+});
+
+const totalHospitals = rows.reduce((s, r) => s + r.hospitals, 0);
+const totalTreatments = rows.reduce((s, r) => s + r.treatments, 0);
+const lowestFrom = rows.reduce((m, r) => (r.from_usd && (!m || r.from_usd < m) ? r.from_usd : m), null as number | null);
+
+const stats = [
+  { l: "Specialties", v: rows.length.toString() },
+  { l: "Hospitals", v: totalHospitals.toLocaleString() },
+  { l: "Treatments", v: totalTreatments.toString() },
+  lowestFrom ? { l: "From", v: `$${(lowestFrom / 1000).toFixed(1)}k` } : null,
+].filter(Boolean) as Array<{ l: string; v: string }>;
+
+function firstWord(s: string) { const i = s.indexOf(" "); return i === -1 ? s : s.slice(0, i); }
+function restOfName(s: string) { const i = s.indexOf(" "); return i === -1 ? "" : s.slice(i + 1); }
+
 Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-revalidate=3600");
 ---
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(collectionLd)} />
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
   <main class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
-    <section class="mx-auto max-w-7xl px-6 pt-10 pb-6">
-      <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">{tc("specialties")}</p>
-      <h1 class="mt-2 font-display text-3xl md:text-5xl leading-[1.05]">Specialty care</h1>
-      <p class="lede mt-4">{rows.length} specialties · accredited hospitals in 9 destinations.</p>
-    </section>
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">Specialties</span>
+        </nav>
+      </div>
+    </div>
 
-    <section class="mx-auto max-w-7xl px-6 pb-12">
-      <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {rows.map((sp) => (
-          <li>
-            <a
-              href={localizedPath(locale, `/specialty/${sp.slug}`)}
-              class="group flex h-full flex-col rounded-xl border border-border bg-surface p-6 transition hover:-translate-y-0.5 hover:border-border-strong hover:shadow-sm"
-            >
-              <h3 class="font-display text-xl text-ink group-hover:text-accent transition-colors">{sp.name}</h3>
-              {sp.description && (
-                <p class="mt-2 text-sm text-ink-muted line-clamp-3">{sp.description}</p>
-              )}
-              <div class="mt-auto pt-4 flex items-center justify-between text-xs text-ink-subtle">
-                <span>
-                  {sp.hospitals.toLocaleString()} hospitals · {sp.treatments} treatments
-                </span>
-                <ChevronRight className="h-4 w-4 mirror-x" />
-              </div>
-            </a>
-          </li>
-        ))}
-      </ul>
+    <EntityListingHero
+      eyebrow={`Specialty care · ${rows.length} areas of practice`}
+      h1First="Specialty"
+      h1Italic="care"
+      lede={`${rows.length} medical specialties spanning ${totalHospitals.toLocaleString()} accredited hospitals across 9 destinations. Each hub ranks the credentialed facilities, surgeons and typical pricing.`}
+      stats={stats}
+    />
+
+    <section style="padding: 32px 0 88px;">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
+        <ul class="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {rows.map((sp) => (
+            <li>
+              <a
+                href={localizedPath(locale, `/specialty/${sp.slug}`)}
+                class="paper group flex h-full flex-col overflow-hidden transition hover:-translate-y-0.5"
+                style="padding: 0;"
+              >
+                <PhotoBlock
+                  aspect="16/10"
+                  rounded={false}
+                  label={sp.name}
+                />
+                <div class="p-6 flex flex-col flex-1">
+                  <div class="serif" style="font-size: 21px; line-height: 1.2; letter-spacing: -0.01em; color: var(--color-ink);">
+                    {firstWord(sp.name)}{restOfName(sp.name) && <> <span class="italic-display">{restOfName(sp.name)}</span></>}
+                  </div>
+                  {sp.top_treatments && sp.top_treatments.length > 0 && (
+                    <div class="mt-2 mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                      {sp.top_treatments.slice(0, 2).join(" · ")}
+                    </div>
+                  )}
+                  {sp.description && (
+                    <p class="mt-3 serif line-clamp-2" style="font-size: 14.5px; line-height: 1.55; color: var(--color-ink-muted);">
+                      {sp.description}
+                    </p>
+                  )}
+                  <div
+                    class="mt-auto flex items-center justify-between"
+                    style="border-top: 1px dashed var(--color-border); margin-top: 16px; padding-top: 14px;"
+                  >
+                    <div class="text-[12.5px]" style="color: var(--color-ink-muted);">
+                      {sp.from_usd ? (
+                        <>From <span class="display tnum text-ink text-[15px]"><Price usd={sp.from_usd} /></span> · {sp.hospitals.toLocaleString()} hospitals</>
+                      ) : (
+                        <>{sp.hospitals.toLocaleString()} hospitals · {sp.treatments} treatments</>
+                      )}
+                    </div>
+                    <span
+                      class="inline-flex items-center gap-1 text-[12px] font-semibold"
+                      style="background: var(--color-ink); color: var(--color-bg); padding: 6px 12px; border-radius: 9999px;"
+                    >
+                      Explore
+                      <ChevronRight className="h-3 w-3 mirror-x" />
+                    </span>
+                  </div>
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
     </section>
 
     <SiteFooter locale={locale} />

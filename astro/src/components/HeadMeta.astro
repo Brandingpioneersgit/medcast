@@ -1,6 +1,6 @@
 ---
 import { hreflangMap, localeUrl, toOgLocale, SITE_NAME, SITE_URL } from "@/lib/seo";
-import { locales, type Locale } from "@/lib/i18n";
+import { locales, defaultLocale, type Locale } from "@/lib/i18n";
 
 interface Props {
   title: string;
@@ -10,6 +10,15 @@ interface Props {
   image?: string;
   type?: "website" | "article";
   noindex?: boolean;
+  /** Restrict hreflang alternates to these locales (+ x-default). Default: all locales. */
+  translatedLocales?: Locale[];
+  /**
+   * Query string to preserve on canonical + hreflang URLs when the page state
+   * depends on filters or pagination. Include the leading `?`. Pass only for
+   * filter states that should self-canonicalise (e.g. `?country=india`);
+   * leave undefined for root listings so canonical stays clean.
+   */
+  pathQuery?: string;
 }
 
 const {
@@ -20,13 +29,25 @@ const {
   image,
   type = "website",
   noindex = false,
+  translatedLocales,
+  pathQuery,
 } = Astro.props;
 
 const fullTitle = `${title} | ${SITE_NAME}`;
-const canonical = localeUrl(locale, path);
-const langs = hreflangMap(path);
+const qs = pathQuery && pathQuery.length > 0
+  ? (pathQuery.startsWith("?") ? pathQuery : `?${pathQuery}`)
+  : "";
+const canonical = `${localeUrl(locale, path)}${qs}`;
+const fullMap = hreflangMap(path);
+const langs: Record<string, string> = {};
+if (translatedLocales && translatedLocales.length > 0) {
+  for (const l of translatedLocales) langs[l] = `${fullMap[l]}${qs}`;
+  langs["x-default"] = `${fullMap[defaultLocale]}${qs}`;
+} else {
+  for (const [code, href] of Object.entries(fullMap)) langs[code] = `${href}${qs}`;
+}
 const ogImage =
-  image ?? `${SITE_URL}/api/og?title=${encodeURIComponent(title)}&locale=${locale}`;
+  image ?? `${SITE_URL}/og?title=${encodeURIComponent(title)}&locale=${locale}`;
 ---
 
 <title>{fullTitle}</title>

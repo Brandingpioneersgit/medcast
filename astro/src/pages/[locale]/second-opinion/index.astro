@@ -6,7 +6,7 @@ import SiteFooter from "@/components/SiteFooter.astro";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, faqJsonLd } from "@/lib/seo";
-import { Upload, Clock, Lock, Check, ChevronRight } from "lucide-react";
+import { Upload, Lock, ChevronRight } from "lucide-react";
 
 export const prerender = false;
 
@@ -17,7 +17,7 @@ const tc = getTranslator(locale, "common");
 
 const faqs = [
   { question: "Is the second opinion really free?", answer: "Yes. A specialist reviews your case at zero cost. The economics: if you later decide to travel, you pay the hospital directly for treatment — no markup from us. If you don't travel, we've spent an hour on your case. That's the whole deal." },
-  { question: "How fast do I get the opinion?", answer: "48 working hours from upload, usually. Complex cases (rare cancers, combined procedures, pediatric referrals) can stretch to 72-96 hours — we tell you upfront if yours is in that bucket." },
+  { question: "How fast do I get the opinion?", answer: "48 working hours from upload, usually. Complex cases (rare cancers, combined procedures, paediatric referrals) can stretch to 72-96 hours — we tell you upfront if yours is in that bucket." },
   { question: "Which reports should I share?", answer: "Most recent imaging (MRI, CT, X-ray — DICOM files preferred over screenshots), all lab results from the last 6 months, biopsy pathology if any, current medications list, and a one-paragraph history. PDFs, JPGs, or WhatsApp all work. If you don't have something, tell us — we'll say whether the opinion can still be useful." },
   { question: "Who actually writes the opinion?", answer: "A board-certified specialist in the relevant field, currently practising at one of our partner hospitals. Their name, hospital, and credentials are on the report — not a ghost-written template." },
   { question: "Is my data safe?", answer: "Files are encrypted in transit and at rest. Only the assigned doctor and your case manager can read them. Everything is purged 30 days after we deliver the opinion. GDPR-aligned, and we'll sign an NDA on request." },
@@ -25,18 +25,34 @@ const faqs = [
   { question: "What if the second opinion disagrees with my current doctor?", answer: "It happens in about 28% of the cases we see — usually when surgery was recommended and our panel suggests a less-invasive option. We send both views to you in writing so you can take them back to your original doctor. We don't put pressure either way." },
 ];
 
+const url = new URL(Astro.request.url);
+const prefillCondition = url.searchParams.get("condition") ?? "";
+
 const path = "/second-opinion";
-const url = localeUrl(locale, path);
+const canonical = localeUrl(locale, path);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Second Opinion", url },
+  { name: "Second Opinion", url: canonical },
 ]);
 
 Astro.response.headers.set(
   "Cache-Control",
   "public, s-maxage=86400, stale-while-revalidate=604800",
 );
+
+const STEPS = [
+  { n: "01", t: "You upload reports", d: "Imaging, pathology, latest labs, current plan. PDF, JPG, DICOM — whatever you have." },
+  { n: "02", t: "Case manager routes it · 6 h", d: "A named coordinator matches your case to the right specialist on our panel." },
+  { n: "03", t: "Specialist writes the opinion · 48 h", d: "Board-certified physician, currently operating. Their name, hospital, and credentials sign the report." },
+  { n: "04", t: "You get it in writing", d: "Second opinion + treatment options + cost ranges, delivered as PDF. No pressure either way." },
+];
+
+const PROMISES = [
+  { eyebrow: "28%", title: "Cases we advise against surgery", body: "When our panel disagrees with an aggressive plan, we say so in writing. You take it back to your original doctor." },
+  { eyebrow: "$0", title: "Now and always", body: "Free to you. We're paid by partner hospitals only if you later book — no referral kickback on the opinion itself." },
+  { eyebrow: "40+", title: "Senior specialists on panel", body: "Cardiac, oncology, ortho, neuro, transplant, fertility, bariatric, paediatric. Named clinicians, not AI or a template." },
+];
 ---
 
 <BaseLayout locale={locale}>
@@ -54,98 +70,187 @@ Astro.response.headers.set(
   <main class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
-    <section class="mx-auto max-w-7xl px-6 pt-12 md:pt-20 pb-12">
-      <div class="grid lg:grid-cols-[1.2fr_1fr] gap-12 items-start">
-        <div>
-          <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">
-            Free · 48 hours · named specialist · 8 languages
-          </p>
-          <h1 class="mt-4 font-display text-4xl md:text-6xl leading-[1.02]">
-            A second opinion, written and signed.
-          </h1>
-          <p class="lede mt-6 max-w-xl">
-            Upload what you have. A specialist — named, board-certified, actively operating — sends back a written opinion in 48 hours. No travel needed, and no cost. Ever.
-          </p>
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">Second opinion</span>
+        </nav>
+      </div>
+    </div>
 
-          <div class="mt-10 grid grid-cols-3 gap-4 max-w-md">
-            <div>
-              <p class="font-display text-3xl text-accent">28%</p>
-              <p class="text-xs text-ink-subtle mt-1">cases we recommend against surgery</p>
+    <section class="pt-12 md:pt-16">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
+        <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
+          Free · 48 hours · named specialist · 8 languages
+        </p>
+        <div class="grid gap-10 lg:grid-cols-[1.5fr,1fr] lg:gap-14 mt-3">
+          <div>
+            <h1
+              class="display display-tight"
+              style="font-size: clamp(2.25rem, 5vw, 4.5rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em;"
+            >
+              A second opinion, <span class="italic-display">written and signed.</span>
+            </h1>
+            <p class="serif mt-5 max-w-[44rem]" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">
+              Upload what you have. A specialist — named, board-certified, actively operating — sends back a written opinion in 48 hours. No travel needed, and no cost. Ever.
+            </p>
+
+            <div
+              class="mt-8 grid grid-cols-3"
+              style="border-top: 1px solid var(--color-ink); border-bottom: 1px solid var(--color-border);"
+            >
+              {[
+                { l: "Recommend against surgery", v: "28%" },
+                { l: "Senior specialists", v: "40+" },
+                { l: "Now and always", v: "$0" },
+              ].map((s, i) => (
+                <div class="px-4 md:px-5 py-5" style={i > 0 ? "border-inline-start: 1px solid var(--color-border);" : ""}>
+                  <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
+                    {s.l}
+                  </div>
+                  <div class="display tnum mt-1.5" style="font-size: 28px;">{s.v}</div>
+                </div>
+              ))}
             </div>
-            <div>
-              <p class="font-display text-3xl text-accent">40+</p>
-              <p class="text-xs text-ink-subtle mt-1">senior specialists on panel</p>
-            </div>
-            <div>
-              <p class="font-display text-3xl text-accent">$0</p>
-              <p class="text-xs text-ink-subtle mt-1">now and always</p>
+
+            <div class="mt-8 flex flex-wrap gap-3">
+              <a
+                href={localizedPath(locale, `/contact?type=second-opinion${prefillCondition ? `&condition=${prefillCondition}` : ""}`)}
+                class="inline-flex items-center gap-2 font-semibold"
+                style="background: var(--color-ink); color: var(--color-bg); padding: 14px 24px; border-radius: 9999px;"
+              >
+                <Upload className="h-4 w-4" />
+                Upload your reports
+              </a>
+              <a
+                href="https://wa.me/918006210000"
+                class="inline-flex items-center gap-2 font-semibold"
+                style="border: 1px solid var(--color-border); color: var(--color-ink); padding: 13px 24px; border-radius: 9999px;"
+              >
+                Message on WhatsApp
+                <ChevronRight className="h-4 w-4 mirror-x" />
+              </a>
             </div>
           </div>
 
-          <div class="mt-10 flex flex-wrap gap-3">
-            <a
-              href={localizedPath(locale, "/contact?type=second-opinion")}
-              class="inline-flex items-center gap-2 rounded-lg bg-accent text-white font-semibold px-6 py-3 hover:bg-accent-hover transition"
-            >
-              <Upload className="h-4 w-4" />
-              Upload your reports
-            </a>
-            <a
-              href={localizedPath(locale, "/contact?type=second-opinion&channel=whatsapp")}
-              class="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-6 py-3 font-semibold text-ink hover:border-border-strong transition"
-            >
-              Message on WhatsApp
-              <ChevronRight className="h-4 w-4 mirror-x" />
-            </a>
-          </div>
+          <aside class="lg:sticky lg:top-32 lg:self-start">
+            <div class="paper" style="padding: 26px 28px;">
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                How it works
+              </div>
+              <ol class="mt-5 space-y-5">
+                {STEPS.map((s) => (
+                  <li class="grid gap-3" style="grid-template-columns: 40px 1fr;">
+                    <div class="display tnum" style="font-size: 22px; line-height: 1; color: var(--color-accent); letter-spacing: -0.02em;">
+                      {s.n}
+                    </div>
+                    <div>
+                      <div class="serif" style="font-size: 15.5px; line-height: 1.3; color: var(--color-ink);">
+                        {s.t}
+                      </div>
+                      <p class="mt-1.5 serif" style="font-size: 13.5px; line-height: 1.5; color: var(--color-ink-muted);">
+                        {s.d}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+              <div class="mt-6 pt-5 flex items-start gap-2.5" style="border-top: 1px dashed var(--color-border);">
+                <Lock className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{color: "var(--color-ink-subtle)"}} />
+                <p class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                  Encrypted end-to-end · Deleted 30 days after delivery · GDPR-compliant
+                </p>
+              </div>
+            </div>
+          </aside>
         </div>
-
-        <aside class="rounded-2xl border border-border bg-surface p-6 md:p-8">
-          <h2 class="font-display text-xl mb-4">How it works</h2>
-          <ol class="space-y-5">
-            <li class="flex gap-4">
-              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent font-semibold">1</span>
-              <div>
-                <p class="font-medium">Upload reports</p>
-                <p class="text-sm text-ink-muted mt-1">Imaging, lab results, biopsy, current diagnosis.</p>
-              </div>
-            </li>
-            <li class="flex gap-4">
-              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent font-semibold">2</span>
-              <div>
-                <p class="font-medium">Case manager matched</p>
-                <p class="text-sm text-ink-muted mt-1">We route to the right specialist within 6 hours.</p>
-              </div>
-            </li>
-            <li class="flex gap-4">
-              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent font-semibold">3</span>
-              <div>
-                <p class="font-medium">Written opinion in 48h</p>
-                <p class="text-sm text-ink-muted mt-1">Second opinion, treatment options, cost ranges.</p>
-              </div>
-            </li>
-          </ol>
-          <div class="mt-6 pt-6 border-t border-border flex items-start gap-3">
-            <Lock className="h-4 w-4 text-ink-subtle shrink-0 mt-0.5" />
-            <p class="text-xs text-ink-subtle">Encrypted end-to-end. Deleted 30 days after opinion delivered. GDPR-compliant.</p>
-          </div>
-        </aside>
       </div>
     </section>
 
-    <section class="border-t border-border bg-surface-muted py-12">
-      <div class="mx-auto max-w-4xl px-6">
-        <h2 class="font-display text-2xl md:text-3xl mb-8">Frequently asked</h2>
-        <div class="space-y-2">
-          {faqs.map((f) => (
-            <details class="group rounded-lg border border-border bg-surface p-5">
-              <summary class="cursor-pointer font-medium text-ink list-none flex items-center justify-between">
-                {f.question}
-                <ChevronRight className="h-4 w-4 text-ink-subtle transition-transform group-open:rotate-90 mirror-x" />
-              </summary>
-              <p class="mt-3 text-ink-muted text-sm">{f.answer}</p>
-            </details>
+    <section style="padding: 88px 0; border-top: 1px solid var(--color-border-soft); margin-top: 56px;">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="mb-8">
+          <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+            Our promise
+          </div>
+          <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
+            What you get <span class="italic-display">in writing</span>
+          </h2>
+        </div>
+        <ul class="grid grid-cols-1 gap-5 md:grid-cols-3">
+          {PROMISES.map((p) => (
+            <li class="paper" style="padding: 26px 28px;">
+              <div class="display tnum" style="font-size: 40px; line-height: 0.95; color: var(--color-accent); letter-spacing: -0.02em;">
+                {p.eyebrow}
+              </div>
+              <div class="serif mt-3" style="font-size: 19px; line-height: 1.25; letter-spacing: -0.005em; color: var(--color-ink);">
+                {p.title}
+              </div>
+              <p class="mt-2 serif" style="font-size: 14.5px; line-height: 1.55; color: var(--color-ink-muted);">
+                {p.body}
+              </p>
+            </li>
           ))}
+        </ul>
+      </div>
+    </section>
+
+    <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+          <div>
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+              FAQ
+            </div>
+            <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
+              Frequently asked
+            </h2>
+          </div>
+          <div class="divide-y divide-[var(--color-border-soft)]">
+            {faqs.map((f) => (
+              <details class="group py-5">
+                <summary class="flex cursor-pointer items-start justify-between gap-6 list-none" style="color: var(--color-ink);">
+                  <span class="serif" style="font-size: 18px; line-height: 1.4; font-weight: 500;">{f.question}</span>
+                  <span class="mt-1 shrink-0 transition-transform group-open:rotate-45" style="color: var(--color-ink-subtle); font-size: 20px; line-height: 1;" aria-hidden="true">+</span>
+                </summary>
+                <p class="mt-3 serif" style="color: var(--color-ink-muted); font-size: 16px; line-height: 1.6;">{f.answer}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section style="background: var(--color-ink); color: var(--color-bg); padding: 72px 0;">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="grid gap-8 lg:grid-cols-[1.5fr,1fr] items-end">
+          <div>
+            <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
+              Ready when you are
+            </div>
+            <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.02; letter-spacing: -0.02em; color: var(--color-bg);">
+              Send reports, <span class="italic-display">receive clarity.</span>
+            </h2>
+          </div>
+          <div class="flex flex-wrap gap-3 lg:justify-end">
+            <a
+              href={localizedPath(locale, "/contact?type=second-opinion")}
+              class="inline-flex items-center gap-2 font-semibold"
+              style="background: var(--color-bg); color: var(--color-ink); padding: 14px 22px; border-radius: 9999px;"
+            >
+              <Upload className="h-4 w-4" />
+              Upload reports
+            </a>
+            <a
+              href={localizedPath(locale, "/contact")}
+              class="inline-flex items-center gap-2 font-semibold"
+              style="border: 1px solid rgba(246,241,230,0.35); color: var(--color-bg); padding: 13px 22px; border-radius: 9999px;"
+            >
+              Talk to a coordinator
+            </a>
+          </div>
         </div>
       </div>
     </section>

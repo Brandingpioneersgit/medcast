@@ -1,0 +1,62 @@
+---
+// Shared editorial hero for listing pages (specialties, countries, doctors,
+// treatments, conditions, blog, hospitals). Renders eyebrow + italic display
+// H1 + serif lede + optional 4-up stat ribbon. Width + breadcrumb come from
+// the parent page so each listing can tune crumbs and max-width independently.
+interface Stat { l: string; v: string }
+interface Props {
+  eyebrow: string;
+  h1First: string;
+  h1Italic: string;
+  lede?: string | null;
+  stats?: Stat[];
+  maxWidth?: string;
+}
+const {
+  eyebrow,
+  h1First,
+  h1Italic,
+  lede = null,
+  stats = [],
+  maxWidth = "90rem",
+} = Astro.props;
+---
+
+<section class="pt-12 md:pt-16 pb-8">
+  <div class="mx-auto w-full px-5 md:px-8" style={`max-width: ${maxWidth};`}>
+    <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
+      {eyebrow}
+    </p>
+    <h1
+      class="display display-tight mt-3"
+      style="font-size: clamp(2.25rem, 5vw, 4.5rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em;"
+    >
+      {h1First}{h1Italic && <> <span class="italic-display">{h1Italic}</span></>}
+    </h1>
+    {lede && (
+      <p class="serif mt-5 max-w-[48rem]" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">
+        {lede}
+      </p>
+    )}
+
+    {stats.length > 0 && (
+      <div
+        class="mt-8 grid max-w-[64rem]"
+        style={`grid-template-columns: repeat(${stats.length}, minmax(0,1fr)); border-top: 1px solid var(--color-ink); border-bottom: 1px solid var(--color-border);`}
+      >
+        {stats.map((s, i) => (
+          <div
+            class="px-4 md:px-5 py-5"
+            style={i > 0 ? "border-inline-start: 1px solid var(--color-border);" : ""}
+          >
+            <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
+              {s.l}
+            </div>
+            <div class="display tnum mt-1.5" style="font-size: 28px;">{s.v}</div>
+          </div>
+        ))}
+      </div>
+    )}
+    <slot />
+  </div>
+</section>

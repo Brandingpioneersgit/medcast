@@ -1,0 +1,143 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { db } from "@/lib/db";
+import { sql } from "drizzle-orm";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { ChevronRight } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/qa", 308);
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+type Row = { slug: string; question: string; answer: string; category: string | null; reviewed_by: string | null };
+const posts = Array.from(
+  (await db
+    .execute(sql`
+      SELECT slug, question, answer, category, reviewed_by FROM qa_posts
+      ORDER BY category ASC, question ASC
+    `)
+    .catch(() => [] as unknown[])) as Iterable<Row>,
+);
+
+const byCategory = new Map<string, Row[]>();
+for (const p of posts) {
+  const cat = p.category ?? "General";
+  if (!byCategory.has(cat)) byCategory.set(cat, []);
+  byCategory.get(cat)!.push(p);
+}
+const categories = Array.from(byCategory.keys()).sort();
+
+const seoTitle = "Medical travel Q&A — real answers to real questions";
+const seoDescription = `${posts.length} high-intent questions about medical travel answered plainly — cost, recovery, visa, destinations, red flags.`;
+const path = "/qa";
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Q&A", url: localeUrl(locale, path) },
+]);
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+    <SiteHeader locale={locale} />
+
+    <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
+      <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+        <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+        <span class="mx-1.5">/</span>
+        <span style="color: var(--color-ink);">Q&A</span>
+      </nav>
+    </div>
+
+    <section style="padding: 56px 28px;">
+      <div class="mx-auto max-w-[1120px]">
+        <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">Real answers</div>
+        <h1
+          class="display display-tight mt-3"
+          style="font-size: clamp(2.25rem, 5vw, 3.5rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;"
+        >
+          Q&amp;A — the questions<br />
+          <span class="italic-display">our case managers hear most.</span>
+        </h1>
+        <p class="serif mt-5" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted); max-width: 680px;">
+          {posts.length} high-intent medical-travel questions answered without the marketing gloss. Reviewed by our medical panel where the answer is clinical.
+        </p>
+
+        <div class="flex flex-wrap gap-2 mt-7">
+          {categories.map((c) => (
+            <a
+              href={`#${c.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+              class="inline-flex items-center"
+              style="padding: 6px 14px; border-radius: 9999px; font-size: 12px; font-weight: 500; background: var(--color-surface-elevated); color: var(--color-ink); border: 1px solid var(--color-border);"
+            >
+              {c}
+              <span class="mono ms-2" style="color: var(--color-ink-subtle); font-size: 10.5px;">{byCategory.get(c)!.length}</span>
+            </a>
+          ))}
+        </div>
+
+        {categories.map((c) => (
+          <section id={c.toLowerCase().replace(/[^a-z0-9]+/g, "-")} class="mt-12" style="scroll-margin-top: 120px;">
+            <h2 class="display" style="font-size: 28px; letter-spacing: -0.02em; padding-bottom: 12px; border-bottom: 1px solid var(--color-ink);">{c}</h2>
+            <div class="mt-6 divide-y" style="border-color: var(--color-border-soft);">
+              {byCategory.get(c)!.map((p) => (
+                <a
+                  href={localizedPath(locale, `/qa/${p.slug}`)}
+                  class="group flex items-start justify-between gap-6 py-5 transition-colors hover:text-accent"
+                >
+                  <div class="min-w-0 flex-1">
+                    <div class="serif" style="font-size: 17px; font-weight: 500; letter-spacing: -0.005em;">
+                      {p.question}
+                    </div>
+                    <p class="mt-2 line-clamp-2" style="font-size: 13.5px; color: var(--color-ink-muted); line-height: 1.55;">
+                      {p.answer}
+                    </p>
+                    {p.reviewed_by && (
+                      <div class="mono mt-2" style="font-size: 10px; letter-spacing: 0.08em; color: var(--color-ink-subtle); text-transform: uppercase;">
+                        Reviewed by {p.reviewed_by}
+                      </div>
+                    )}
+                  </div>
+                  <ChevronRight className="h-4 w-4 mirror-x shrink-0 mt-1 opacity-60 group-hover:opacity-100 transition-opacity" />
+                </a>
+              ))}
+            </div>
+          </section>
+        ))}
+
+        <section class="mt-16 p-6" style="background: var(--color-accent-mist); border: 1px solid var(--color-accent-soft); border-radius: var(--radius-lg);">
+          <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent); text-transform: uppercase;">
+            Not finding your question?
+          </div>
+          <p class="serif mt-2" style="font-size: 16px; line-height: 1.5; color: var(--color-ink);">
+            Ask a case manager directly. Replies typically within 9 minutes during business hours across 8 languages.
+          </p>
+          <a
+            href={localizedPath(locale, "/contact")}
+            class="inline-flex items-center gap-1 mt-4 font-semibold"
+            style="background: var(--color-ink); color: var(--color-bg); padding: 10px 18px; font-size: 14px; border-radius: 9999px;"
+          >
+            Ask a question <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+          </a>
+        </section>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

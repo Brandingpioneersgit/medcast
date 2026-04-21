@@ -1,0 +1,279 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import EntityListingHero from "@/components/EntityListingHero.astro";
+import { db } from "@/lib/db";
+import { treatments, specialties, countries } from "../../../../../src/lib/db/schema";
+import { eq, asc } from "drizzle-orm";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { ChevronRight } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/quote", 308);
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+const [treatmentRows, specialtyRows, countryRows] = await Promise.all([
+  db.select({ slug: treatments.slug, name: treatments.name, specialtyId: treatments.specialtyId })
+    .from(treatments).where(eq(treatments.isActive, true)).orderBy(asc(treatments.name)),
+  db.select({ id: specialties.id, slug: specialties.slug, name: specialties.name })
+    .from(specialties).where(eq(specialties.isActive, true)).orderBy(asc(specialties.name)),
+  db.select({ slug: countries.slug, name: countries.name })
+    .from(countries).where(eq(countries.isDestination, true)).orderBy(asc(countries.name)),
+]);
+
+const url = Astro.url;
+const preTreatment = url.searchParams.get("treatment") ?? "";
+const preCountry = url.searchParams.get("country") ?? "";
+
+const STEPS = ["Condition", "Reports", "Preferences", "Contact"];
+
+const seoTitle = "Free quote — 3 hospitals in 48 hours";
+const seoDescription = "Tell us your case; our medical panel returns 3 itemised hospital quotes in 48 hours. Free, no obligation. Surgeon fee + stay + follow-up all broken out line-by-line.";
+const path = "/quote";
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Free quote", url: localeUrl(locale, path) },
+]);
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
+
+const heroStats = [
+  { l: "Response", v: "48 hr" },
+  { l: "Quotes", v: "3 itemised" },
+  { l: "Hospitals vetted", v: "9,254" },
+  { l: "You pay", v: "$0" },
+];
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+    <SiteHeader locale={locale} />
+
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">Free quote</span>
+        </nav>
+      </div>
+    </div>
+
+    <EntityListingHero
+      eyebrow={`Free quote · 3 hospitals in 48 hours`}
+      h1First="Tell us your case,"
+      h1Italic="we'll do the rest."
+      lede="Describe your condition and budget. Our medical panel returns three itemised hospital quotes within 48 hours — surgeon fee, anaesthesia, implants, stay, follow-up, all broken out line-by-line. Free, no obligation."
+      stats={heroStats}
+    />
+
+    <section style="padding: 24px 0 56px;">
+      <div class="mx-auto w-full max-w-[62rem] px-5 md:px-8">
+        <div class="flex items-center gap-3 mono" style="font-size: 11px; color: var(--color-ink-subtle);">
+          {STEPS.map((label, i) => (
+            <>
+              <span class="flex items-center gap-2 shrink-0" style={i === 0 ? "color: var(--color-ink);" : ""}>
+                <span
+                  class="inline-flex items-center justify-center tnum"
+                  style={`width: 24px; height: 24px; border-radius: 50%; font-size: 11px; ${i === 0 ? "background: var(--color-ink); color: var(--color-bg);" : "border: 1px solid var(--color-border); color: var(--color-ink-subtle);"}`}
+                >{i + 1}</span>
+                <span class="uppercase" style="letter-spacing: 0.1em;">{label}</span>
+              </span>
+              {i < STEPS.length - 1 && <span style="flex: 1; height: 1px; background: var(--color-border); min-width: 8px;" />}
+            </>
+          ))}
+        </div>
+
+        <form
+          action={localizedPath(locale, "/contact")}
+          method="get"
+          class="paper mt-8"
+          style="padding: 32px;"
+        >
+          <div class="flex items-baseline justify-between flex-wrap gap-2">
+            <div class="serif" style="font-size: 26px; letter-spacing: -0.015em;">
+              Step 1 of 4 · <span class="italic-display">What brings you here?</span>
+            </div>
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+              ~2 minutes
+            </div>
+          </div>
+          <div class="serif mt-2" style="font-size: 15px; line-height: 1.5; color: var(--color-ink-muted);">
+            Pick a treatment or describe your condition. The more specific, the better the match.
+          </div>
+
+          <div class="mt-7 grid gap-4 md:grid-cols-2">
+            <label class="block">
+              <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Specialty</span>
+              <select
+                name="specialty"
+                class="w-full serif"
+                style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14.5px; color: var(--color-ink);"
+              >
+                <option value="">Any — help me pick</option>
+                {specialtyRows.map((s) => (
+                  <option value={s.slug}>{s.name}</option>
+                ))}
+              </select>
+            </label>
+
+            <label class="block">
+              <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Treatment (if known)</span>
+              <select
+                name="treatment"
+                class="w-full serif"
+                style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14.5px; color: var(--color-ink);"
+              >
+                <option value="">Not sure / any</option>
+                {treatmentRows.map((t) => (
+                  <option value={t.slug} selected={t.slug === preTreatment}>{t.name}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <label class="block mt-4">
+            <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Describe what you're dealing with</span>
+            <textarea
+              name="description"
+              rows="4"
+              placeholder="e.g. 60yo male, 2-vessel coronary disease on recent angiogram, diabetic. Cardiologist recommended CABG."
+              class="w-full serif"
+              style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14.5px; color: var(--color-ink); font-family: inherit; resize: vertical;"
+            ></textarea>
+          </label>
+
+          <div class="grid gap-4 md:grid-cols-2 mt-4">
+            <label class="block">
+              <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Preferred destination</span>
+              <select
+                name="country"
+                class="w-full serif"
+                style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14.5px; color: var(--color-ink);"
+              >
+                <option value="">Anywhere — optimise for outcome</option>
+                {countryRows.map((c) => (
+                  <option value={c.slug} selected={c.slug === preCountry}>{c.name}</option>
+                ))}
+              </select>
+            </label>
+            <label class="block">
+              <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Budget (USD)</span>
+              <select
+                name="budget"
+                class="w-full serif"
+                style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14.5px; color: var(--color-ink);"
+              >
+                <option value="">Open</option>
+                <option value="under-5k">Under $5,000</option>
+                <option value="5-15k">$5,000 – $15,000</option>
+                <option value="15-30k">$15,000 – $30,000</option>
+                <option value="30-60k">$30,000 – $60,000</option>
+                <option value="60-plus">$60,000+</option>
+              </select>
+            </label>
+          </div>
+
+          <div
+            class="mt-7 text-center"
+            style="padding: 22px; border: 2px dashed var(--color-border); border-radius: 14px; background: var(--color-bg);"
+          >
+            <div class="serif" style="font-size: 19px; color: var(--color-ink);">
+              Attach reports on the <span class="italic-display">next step</span>
+            </div>
+            <div class="mono mt-2 uppercase" style="font-size: 10.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+              PDF · JPG · DICOM · up to 25 MB · encrypted in transit
+            </div>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-2 mt-7">
+            <label class="block">
+              <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Your name</span>
+              <input
+                name="name" required placeholder="Full name"
+                class="w-full serif"
+                style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14.5px; color: var(--color-ink);"
+              />
+            </label>
+            <label class="block">
+              <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">WhatsApp / phone</span>
+              <input
+                name="phone" required placeholder="+91 98765 43210"
+                class="w-full serif"
+                style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14.5px; color: var(--color-ink);"
+              />
+            </label>
+          </div>
+
+          <label class="block mt-4">
+            <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Email (optional)</span>
+            <input
+              name="email" type="email" placeholder="you@example.com"
+              class="w-full serif"
+              style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14.5px; color: var(--color-ink);"
+            />
+          </label>
+
+          <div class="flex items-center justify-between mt-8 flex-wrap gap-4">
+            <a
+              href={localizedPath(locale, "/")}
+              class="mono uppercase inline-flex items-center gap-1"
+              style="color: var(--color-ink); padding: 10px 18px; font-size: 11px; letter-spacing: 0.12em; border-radius: 9999px; border: 1px solid var(--color-border);"
+            >
+              ← Cancel
+            </a>
+            <button
+              type="submit"
+              class="inline-flex items-center gap-2 font-semibold"
+              style="background: var(--color-ink); color: var(--color-bg); padding: 14px 24px; font-size: 14px; border-radius: 9999px;"
+            >
+              Continue → attach reports
+              <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2 mt-5 mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+            <span class="inline-block w-1.5 h-1.5 rounded-full live-dot" style="background: var(--color-accent);" aria-hidden="true" />
+            Encrypted · Case manager replies in ~9 min during business hours
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section style="background: var(--color-ink); color: var(--color-bg); padding: 56px 0;">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="mono uppercase mb-8" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
+          Why this works
+        </div>
+        <ul class="grid gap-8 md:grid-cols-4">
+          {[
+            { n: "9,254", l: "Accredited hospitals vetted" },
+            { n: "48 h", l: "From reports to itemised quotes" },
+            { n: "$0", l: "You pay us nothing" },
+            { n: "28%", l: "Cases where we advise against surgery" },
+          ].map((s) => (
+            <li>
+              <div class="display tnum" style="font-size: 40px; line-height: 1; letter-spacing: -0.02em; color: var(--color-bg);">{s.n}</div>
+              <div class="mono mt-2 uppercase" style="font-size: 10.5px; letter-spacing: 0.14em; color: rgba(246,241,230,0.6);">{s.l}</div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

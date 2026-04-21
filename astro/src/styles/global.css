@@ -3,62 +3,183 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ==========================================================================
+   Self-hosted fonts — served same-origin, cached at Cloudflare edge.
+   Dropped Google Fonts round-trip (~600-800 ms saved on 2G/3G cold load).
+   `font-display: swap` → text renders immediately in fallback, swaps in
+   when web font arrives. `unicode-range` ensures browsers only download
+   the Latin-Ext subset when the page actually contains those glyphs.
+   ========================================================================== */
+
+/* Fraunces — variable weight axis, serves 300..700 from one file */
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 300 700;
+  src: url("/fonts/fraunces-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Fraunces";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 300 700;
+  src: url("/fonts/fraunces-latin-ext-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* Inter — static weights used: 400, 500, 600 */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url("/fonts/inter-latin-400-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url("/fonts/inter-latin-ext-400-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url("/fonts/inter-latin-500-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url("/fonts/inter-latin-ext-500-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url("/fonts/inter-latin-600-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url("/fonts/inter-latin-ext-600-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* JetBrains Mono — 400 only, used for small microcopy labels */
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url("/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Noto Naskh Arabic — loaded via unicode-range, so browsers skip it on non-Arabic pages */
+@font-face {
+  font-family: "Noto Naskh Arabic";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url("/fonts/noto-naskh-arabic-arabic-400-normal.woff2") format("woff2");
+  unicode-range: U+0600-06FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FEFC;
+}
+@font-face {
+  font-family: "Noto Naskh Arabic";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url("/fonts/noto-naskh-arabic-arabic-500-normal.woff2") format("woff2");
+  unicode-range: U+0600-06FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FEFC;
+}
+
+/* ==========================================================================
    MedCasts design tokens — editorial clinical
    Light-first. Dark mode via .dark class (ThemeScript).
    ========================================================================== */
 
 @theme {
-  /* Fonts — Fraunces for display (variable serif, warm but authoritative),
-     Inter for UI/body. Monospace for kbd/code. */
+  /* Fonts — Editorial Clinical v2:
+     Fraunces for display (variable serif with WONK/SOFT axes), Inter for UI,
+     JetBrains Mono for eyebrow microcopy + tabular figures. */
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-display: "Fraunces", "New York", ui-serif, Georgia, "Times New Roman", serif;
-  --font-heading: "Fraunces", "New York", ui-serif, Georgia, "Times New Roman", serif;
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, monospace;
+  --font-display: "Fraunces", "Source Serif Pro", ui-serif, Georgia, "Times New Roman", serif;
+  --font-heading: "Fraunces", "Source Serif Pro", ui-serif, Georgia, "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-arabic: "Noto Naskh Arabic", "Amiri", serif;
 
-  /* Core neutrals (light defaults). Dark overrides below. */
-  --color-bg: #FAFAF7;            /* page background — warm off-white */
-  --color-surface: #FFFFFF;       /* card/panel bg (kept name for compat) */
-  --color-surface-muted: #F3F2ED; /* muted section (kept name for compat) */
+  /* Core palette — parchment + deep forest teal + green-tinted ink (Editorial Clinical v2) */
+  --color-bg: #F6F1E6;            /* parchment — page background */
+  --color-parchment-2: #EDE6D3;   /* warmer parchment for frames */
+  --color-surface: #FBF8F1;       /* paper (card bg) */
+  --color-surface-muted: #EDE6D3; /* muted parchment section */
   --color-surface-elevated: #FFFFFF;
-  --color-subtle: #F3F2ED;        /* hover/inset bg */
-  --color-border: #E6E3DC;        /* default border */
-  --color-border-strong: #CFCCC4;
-  --color-ink: #0A0A0A;           /* primary text (kept name for compat) */
-  --color-ink-muted: #57534E;     /* secondary text */
-  --color-ink-subtle: #78716C;    /* tertiary text / captions */
+  --color-subtle: #EDE6D3;        /* hover/inset bg */
+  --color-paper: #FBF8F1;         /* warmer cream for .paper cards */
+  --color-border: #D9D3C3;        /* default hairline on parchment */
+  --color-border-strong: #C4BDA8;
+  --color-border-soft: #E7E1D1;   /* softer hairline for in-card dividers */
+  --color-ink: #0E1713;           /* green-tinted near-black — primary text */
+  --color-ink-2: #1C2A25;         /* dark green-tinted for dark sections */
+  --color-ink-muted: #3B4A44;     /* graphite — secondary text */
+  --color-ink-subtle: #6B7570;    /* stone — tertiary text/captions */
+  --color-ink-mist: #A8AEA9;      /* mist — quaternary/placeholders */
 
-  /* Signature accent — deep clinical teal. Single accent used sparingly. */
-  --color-accent: #0D7C70;
-  --color-accent-hover: #0A6B60;
-  --color-accent-soft: #E6F4F1;
-  --color-accent-strong: #064A42;
+  /* Signature — deep forest teal (not clinical teal). Used sparingly. */
+  --color-accent: #0A5D54;        /* deep forest teal */
+  --color-accent-hover: #073D37;
+  --color-accent-soft: #D9EDE8;
+  --color-accent-mist: #EAF3F0;
+  --color-accent-strong: #073D37;
+  --color-accent-2: #0D7C70;      /* lighter teal for gradient blocks */
   --color-accent-contrast: #FFFFFF;
 
+  /* Editorial accents — used sparingly */
+  --color-saffron: #E2A54B;        /* ratings / highlights */
+  --color-saffron-soft: #F7E9CD;
+  --color-coral: #E85A4F;          /* emergency / urgency */
+  --color-coral-soft: #FBE3DF;
+  --color-ocean: #1E4A7A;          /* info / links where not teal */
+  --color-ocean-soft: #E1EAF3;
+
   /* Legacy brand map → accent, so existing code lights up in the new palette. */
-  --color-brand-50: #F0F9F7;
+  --color-brand-50: #EAF3F0;
   --color-brand-100: #D9EDE8;
   --color-brand-200: #B4DCD3;
   --color-brand-300: #86C6B9;
   --color-brand-400: #52AB9C;
-  --color-brand-500: #0D7C70;     /* primary */
-  --color-brand-600: #0A6B60;
-  --color-brand-700: #085952;
-  --color-brand-800: #064A42;
-  --color-brand-900: #043830;
+  --color-brand-500: #0A5D54;     /* primary — deep forest teal */
+  --color-brand-600: #085048;
+  --color-brand-700: #073D37;
+  --color-brand-800: #05322E;
+  --color-brand-900: #032822;
 
-  /* Semantic status */
-  --color-success: #0D7C70;
-  --color-success-soft: #E6F4F1;
+  /* Semantic status — anchored to editorial accents */
+  --color-success: #0A5D54;
+  --color-success-soft: #D9EDE8;
   --color-warning: #B45309;
-  --color-warning-soft: #FEF3C7;
-  --color-danger: #B91C1C;
-  --color-danger-soft: #FEE2E2;
-  --color-info: #1D4ED8;
-  --color-info-soft: #DBEAFE;
+  --color-warning-soft: #F7E9CD;
+  --color-danger: #E85A4F;
+  --color-danger-soft: #FBE3DF;
+  --color-info: #1E4A7A;
+  --color-info-soft: #E1EAF3;
 
-  /* Gold for ratings */
-  --color-gold-400: #F2C94C;
-  --color-gold-500: #E0B325;
+  /* Gold for ratings — aligned to saffron */
+  --color-gold-400: #E8B75E;
+  --color-gold-500: #E2A54B;
 
   /* Typography scale (matches editorial sizing) */
   --text-display-2xl: 4.5rem;   /* 72 */
@@ -123,22 +244,33 @@
    ========================================================================== */
 
 .dark {
-  --color-bg: #0B0B0A;
-  --color-surface: #141413;
-  --color-surface-muted: #1A1A18;
-  --color-surface-elevated: #1A1A18;
-  --color-subtle: #1F1F1D;
-  --color-border: #2A2A28;
-  --color-border-strong: #3A3A38;
-  --color-ink: #F5F5F4;
-  --color-ink-muted: #A8A29E;
-  --color-ink-subtle: #78716C;
+  --color-bg: #0E1713;           /* ink — deep green-tinted black */
+  --color-parchment-2: #1C2A25;
+  --color-surface: #1C2A25;      /* ink-2 — card bg */
+  --color-surface-muted: #141F1A;
+  --color-surface-elevated: #1C2A25;
+  --color-subtle: #1C2A25;
+  --color-paper: #1C2A25;
+  --color-border: #2A3B34;
+  --color-border-strong: #3B4A44;
+  --color-border-soft: #233028;
+  --color-ink: #F6F1E6;          /* parchment flips to foreground */
+  --color-ink-2: #EDE6D3;
+  --color-ink-muted: #A8AEA9;
+  --color-ink-subtle: #6B7570;
+  --color-ink-mist: #3B4A44;
 
-  --color-accent: #2FAF9F;        /* lifted for dark contrast */
+  --color-accent: #2FAF9F;        /* lifted teal for dark-mode contrast */
   --color-accent-hover: #53C1B2;
-  --color-accent-soft: #0D2A26;
+  --color-accent-soft: #103B35;
+  --color-accent-mist: #0D2A26;
   --color-accent-strong: #7FDDCF;
-  --color-accent-contrast: #0B0B0A;
+  --color-accent-2: #53C1B2;
+  --color-accent-contrast: #0E1713;
+
+  --color-saffron-soft: #3A2D11;
+  --color-coral-soft: #3E1515;
+  --color-ocean-soft: #14244A;
 
   --color-brand-50: #0D2A26;
   --color-brand-100: #103B35;
@@ -217,12 +349,26 @@ h1, h2, h3, h4 {
   color: var(--color-ink);
 }
 
-/* Lead text */
+/* Lead text — editorial serif, slightly larger than the design min */
 .lede {
-  font-size: 1.125rem;
-  line-height: 1.6;
+  font-family: var(--font-display);
+  font-size: 1.3125rem;          /* 21px */
+  line-height: 1.45;
   color: var(--color-ink-muted);
   max-width: 62ch;
+  font-weight: 400;
+}
+
+/* Thick editorial rule — single 1px ink line under section eyebrows */
+.rule { height: 1px; background: var(--color-ink); }
+.rule-soft { height: 1px; background: var(--color-border); }
+
+/* Dashed editorial divider */
+.dashed {
+  background-image: linear-gradient(90deg, currentColor 50%, transparent 50%);
+  background-size: 6px 1px;
+  background-repeat: repeat-x;
+  background-position: 0 100%;
 }
 
 /* Selection */
@@ -235,6 +381,18 @@ h1, h2, h3, h4 {
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Details / summary — strip default triangle across browsers, let us use
+   our own + indicator. Applied to all <details> so we don't need per-use flags. */
+summary { list-style: none; }
+summary::-webkit-details-marker { display: none; }
+summary::marker { display: none; content: ""; }
+summary:focus { outline: none; }
+summary:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
   border-radius: var(--radius-sm);
 }
 
@@ -270,6 +428,132 @@ h1, h2, h3, h4 {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* Editorial typography utilities — used throughout page templates. */
+.font-display,
+.display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  font-variation-settings: "SOFT" 30, "WONK" 0;
+  letter-spacing: -0.01em;
+}
+.display-tight {
+  letter-spacing: -0.025em;
+  font-variation-settings: "SOFT" 20;
+}
+.serif { font-family: var(--font-display); }
+.mono  { font-family: var(--font-mono); }
+.tnum  { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+.italic-display { font-style: italic; font-weight: 300; }
+
+/* Eyebrow — uppercase mono microcopy above section headings */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ink-subtle);
+}
+
+/* Paper card — warm cream with hairline border */
+.paper {
+  background: var(--color-paper);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+.paper-flat {
+  background: var(--color-paper);
+  border: 1px solid var(--color-border);
+}
+
+/* Photo block — editorial gradient placeholder */
+.photo-block {
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 50%, var(--color-ink-2) 100%);
+  position: relative;
+  overflow: hidden;
+}
+.photo-block::after {
+  content: "";
+  position: absolute; inset: 0;
+  background-image:
+    radial-gradient(circle at 30% 20%, rgb(246 241 230 / 0.12) 0, transparent 50%),
+    repeating-linear-gradient(45deg, transparent 0 12px, rgb(246 241 230 / 0.04) 12px 13px);
+}
+
+/* Uniform ink-fade overlay on every image card/hero.
+   Keeps caption/label text readable and makes the whole site feel consistent. */
+.image-veil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(14, 23, 19, 0) 35%,
+    rgba(14, 23, 19, 0.18) 65%,
+    rgba(14, 23, 19, 0.62) 100%
+  );
+}
+.image-veil-strong {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(14, 23, 19, 0.05) 10%,
+    rgba(14, 23, 19, 0.35) 55%,
+    rgba(14, 23, 19, 0.82) 100%
+  );
+}
+.image-veil-hero {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgba(246, 241, 230, 0.97) 0%,
+    rgba(246, 241, 230, 0.88) 45%,
+    rgba(246, 241, 230, 0.55) 100%
+  );
+}
+
+/* Map texture — subtle grid + radial wash */
+.map-bg {
+  background-image:
+    radial-gradient(circle at 12% 18%, rgb(10 93 84 / 0.06) 0, transparent 28%),
+    radial-gradient(circle at 82% 72%, rgb(10 93 84 / 0.05) 0, transparent 30%),
+    repeating-linear-gradient(0deg, transparent 0 39px, rgb(14 23 19 / 0.04) 39px 40px),
+    repeating-linear-gradient(90deg, transparent 0 39px, rgb(14 23 19 / 0.04) 39px 40px);
+}
+
+/* Dashed divider */
+.rule-dashed {
+  background-image: linear-gradient(90deg, currentColor 50%, transparent 50%);
+  background-size: 6px 1px;
+  background-repeat: repeat-x;
+  background-position: 0 100%;
+}
+
+/* Live dot pulse */
+.live-dot {
+  width: 8px; height: 8px; border-radius: 9999px;
+  background: #10B981;
+  box-shadow: 0 0 10px #10B981;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 10px #10B981; opacity: 1; }
+  50% { box-shadow: 0 0 18px #10B981; opacity: 0.75; }
+}
+
+/* Stat ribbon — first-in-row cells drop the leading border */
+.stat-cell + .stat-cell { border-inline-start: 1px solid var(--color-border); }
+@media (min-width: 640px) {
+  .stat-cell:nth-child(3n+1) { border-inline-start: none; }
+}
+@media (min-width: 1024px) {
+  .stat-cell:nth-child(n) { border-inline-start: 1px solid var(--color-border); }
+  .stat-cell:nth-child(5n+1) { border-inline-start: none; }
 }
 
 /* Prose — editorial content (blog, visa guides, insurance etc.) */

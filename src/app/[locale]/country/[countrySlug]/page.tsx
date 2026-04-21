@@ -178,13 +178,7 @@ export default async function CountryHubPage({ params }: Props) {
           alt={data.country.name ?? ""}
           className="absolute inset-0 h-full w-full object-cover"
         />
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(90deg, rgba(246,241,230,0.97) 0%, rgba(246,241,230,0.88) 45%, rgba(246,241,230,0.55) 100%)",
-          }}
-        />
+        <div className="image-veil-hero" />
         <div className="relative mx-auto w-full max-w-[90rem] px-5 md:px-8 py-14 md:py-16">
           <div className="grid gap-10 lg:grid-cols-[2fr,1fr] lg:items-end lg:gap-12">
             <div>
@@ -277,13 +271,7 @@ export default async function CountryHubPage({ params }: Props) {
                         className="absolute inset-0 h-full w-full object-cover"
                         loading="lazy"
                       />
-                      <div
-                        className="absolute inset-0"
-                        style={{
-                          background:
-                            "linear-gradient(180deg, rgba(14,23,19,0) 45%, rgba(14,23,19,0.6) 100%)",
-                        }}
-                      />
+                      <div className="image-veil" />
                       <span
                         className="mono absolute"
                         style={{
@@ -402,6 +390,7 @@ export default async function CountryHubPage({ params }: Props) {
                         className="absolute inset-0 h-full w-full object-cover"
                         loading="lazy"
                       />
+                      <div className="image-veil" />
                     </div>
                     <div style={{ padding: 18 }}>
                       <div className="serif" style={{ fontSize: 20, fontWeight: 500, letterSpacing: "-0.01em" }}>

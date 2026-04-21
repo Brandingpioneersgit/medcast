@@ -1,0 +1,157 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/privacy-policy", 308);
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+const seoTitle = "Privacy Policy";
+const seoDescription =
+  "How MedCasts collects, uses, and protects your personal and medical information. GDPR-aligned, HIPAA-informed. No data sold, ever.";
+const path = "/privacy-policy";
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Privacy policy", url: localeUrl(locale, path) },
+]);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=86400, stale-while-revalidate=604800",
+);
+
+const LAST_UPDATED = "April 2026";
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+    <SiteHeader locale={locale} />
+
+    <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
+      <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+        <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+        <span class="mx-1.5">/</span>
+        <span style="color: var(--color-ink);">Privacy policy</span>
+      </nav>
+    </div>
+
+    <section style="padding: 56px 28px;">
+      <div class="mx-auto" style="max-width: 780px;">
+        <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
+          Legal
+        </div>
+        <h1
+          class="display display-tight mt-3"
+          style="font-size: clamp(2.25rem, 5vw, 3.5rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;"
+        >
+          Privacy <span class="italic-display">policy</span>
+        </h1>
+        <p class="serif mt-5" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">
+          How we collect, use, and protect your personal and medical information. Plain-language version below; GDPR terms in the appendix.
+        </p>
+        <div class="mono mt-4" style="font-size: 12px; color: var(--color-ink-subtle);">
+          Last updated: {LAST_UPDATED} · <a href={localizedPath(locale, "/editorial-policy")} class="underline">Editorial policy</a>
+        </div>
+
+        <div class="prose-editorial mt-10" style="max-width: none;">
+          <h2>1. What we collect</h2>
+          <p>When you request a quote, second opinion, or speak with a case manager, we collect:</p>
+          <ul>
+            <li><strong>Identity:</strong> name, country of residence, date of birth when relevant to clinical matching.</li>
+            <li><strong>Contact:</strong> email, phone, WhatsApp, preferred language.</li>
+            <li><strong>Clinical:</strong> medical reports, imaging, diagnoses, current medications — only what you explicitly share with us.</li>
+            <li><strong>Usage:</strong> pages viewed, approximate location from IP, device type. Never tied to named individuals unless you log in.</li>
+          </ul>
+
+          <h2>2. What we do with it</h2>
+          <ul>
+            <li>Route your case to 1–3 matching hospitals and coordinate itemized quotes.</li>
+            <li>Facilitate communication between you, the hospital's international desk, and your case manager.</li>
+            <li>Send transactional updates about your case (quote, visa, travel).</li>
+            <li>Improve the service: anonymized usage patterns, never individual browsing histories.</li>
+          </ul>
+
+          <h2>3. What we never do</h2>
+          <ul>
+            <li>Sell your data. Not to insurers, pharma, or marketers.</li>
+            <li>Share your clinical records outside hospitals you've explicitly authorised.</li>
+            <li>Run targeted advertising based on medical history.</li>
+            <li>Store financial data — all payments go through regulated processors (Stripe, PayTabs, bank wires) with no card details stored on our servers.</li>
+          </ul>
+
+          <h2>4. Who sees your data</h2>
+          <ul>
+            <li><strong>You and your case manager</strong> — always.</li>
+            <li><strong>Hospital international desks</strong> you've been matched to — only the specific hospitals, only the records you've authorised.</li>
+            <li><strong>Medical panel for second opinions</strong> — your case, de-identified where possible, shared with the specific panel member reviewing it.</li>
+            <li><strong>Service providers:</strong> our hosting (Supabase, Cloudflare), email (Resend), upload (Cloudflare R2), SMS/WhatsApp gateway. Each is bound by data-processing agreements.</li>
+          </ul>
+          <p>We publish a list of sub-processors on request. Email <a href="mailto:privacy@medcasts.com">privacy@medcasts.com</a>.</p>
+
+          <h2>5. Your rights (GDPR, UK GDPR, and beyond)</h2>
+          <ul>
+            <li><strong>Access:</strong> ask for a copy of everything we hold about you.</li>
+            <li><strong>Correct:</strong> fix inaccuracies.</li>
+            <li><strong>Delete:</strong> we delete all identifiable records within 30 days of request, except where legal retention applies (billing records, minimum 7 years in most jurisdictions).</li>
+            <li><strong>Portability:</strong> export your clinical uploads in original format at any time.</li>
+            <li><strong>Withdraw consent:</strong> at any time, for any purpose. Stops active processing; past actions (already-sent quotes) stand.</li>
+          </ul>
+          <p>To exercise any of these: email <a href="mailto:privacy@medcasts.com">privacy@medcasts.com</a> from the email address on file. We respond within 5 working days.</p>
+
+          <h2>6. Retention</h2>
+          <ul>
+            <li><strong>Active case data:</strong> retained while your case is open and 12 months after last contact.</li>
+            <li><strong>Medical records you uploaded:</strong> deleted from our systems within 90 days of case closure unless you request extended retention.</li>
+            <li><strong>Transactional records (quotes, invoices):</strong> 7 years, required by most tax authorities.</li>
+            <li><strong>Anonymized analytics:</strong> indefinite, but never re-identifiable.</li>
+          </ul>
+
+          <h2>7. International transfers</h2>
+          <p>Your clinical data may transit to hospitals outside your home country — that's the nature of medical travel. Standard Contractual Clauses (SCCs) apply to EU and UK data subjects; adequacy frameworks apply where available. You always see and approve which hospitals receive your records before we send anything.</p>
+
+          <h2>8. Security</h2>
+          <p>Encryption in transit (TLS 1.3) and at rest (AES-256 at the storage layer). Upload vault is on Cloudflare R2 with pre-signed URLs expiring in 7 days. Case managers access via SSO with 2FA. We run quarterly penetration tests and disclose breaches to affected users within 72 hours, per GDPR Article 33.</p>
+
+          <h2>9. Children</h2>
+          <p>Where you're arranging medical travel for a minor, we require explicit documentation of parental responsibility. We don't hold direct accounts for under-18s.</p>
+
+          <h2>10. Contact</h2>
+          <p>Data Protection Officer: <a href="mailto:privacy@medcasts.com">privacy@medcasts.com</a></p>
+          <p>EU/UK representative: via the same address; response in-language for 8 locales.</p>
+          <p>Regulatory contact: if we don't resolve your concern, you can file with your national data-protection authority.</p>
+
+          <h2>11. Changes to this policy</h2>
+          <p>We'll update this page when material changes happen and notify active case clients by email. The date at the top of this page reflects the current version.</p>
+        </div>
+
+        <div
+          class="mt-12 p-6"
+          style="background: var(--color-accent-mist); border: 1px solid var(--color-accent-soft); border-radius: var(--radius-lg);"
+        >
+          <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent); text-transform: uppercase;">
+            Questions?
+          </div>
+          <p class="serif mt-2" style="font-size: 17px; line-height: 1.5; color: var(--color-ink);">
+            We answer privacy questions in plain language within 5 working days. Email <a href="mailto:privacy@medcasts.com" class="underline">privacy@medcasts.com</a> or talk to your case manager.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

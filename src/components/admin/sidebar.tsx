@@ -15,6 +15,8 @@ import {
   Upload,
   CalendarClock,
   MessageCircle,
+  Activity,
+  ArrowRightLeft,
   LogOut,
   Menu,
   X,
@@ -35,6 +37,8 @@ const navItems = [
   { href: "/admin/blog", label: "Blog", icon: FileText },
   { href: "/admin/translations", label: "Translations", icon: Globe },
   { href: "/admin/import", label: "Bulk Import", icon: Upload },
+  { href: "/admin/data-health", label: "Data Health", icon: Activity },
+  { href: "/admin/redirects", label: "Redirects", icon: ArrowRightLeft },
 ];
 
 export function AdminSidebar({ session }: { session: { email: string; role: string } }) {

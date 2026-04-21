@@ -1,0 +1,147 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { db } from "@/lib/db";
+import {
+  specialties as specialtiesTbl,
+  countries as countriesTbl,
+  conditions as conditionsTbl,
+} from "../../../../../src/lib/db/schema";
+import { asc, eq } from "drizzle-orm";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { ChevronRight } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/find-specialist", 308);
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+const [specialties, countries, conditions] = await Promise.all([
+  db.select({ slug: specialtiesTbl.slug, name: specialtiesTbl.name }).from(specialtiesTbl).where(eq(specialtiesTbl.isActive, true)).orderBy(asc(specialtiesTbl.name)),
+  db.select({ slug: countriesTbl.slug, name: countriesTbl.name }).from(countriesTbl).where(eq(countriesTbl.isDestination, true)).orderBy(asc(countriesTbl.name)),
+  db.select({ slug: conditionsTbl.slug, name: conditionsTbl.name }).from(conditionsTbl).orderBy(asc(conditionsTbl.name)),
+]);
+
+const seoTitle = "Find a specialist — matched to your condition";
+const seoDescription = "Tell us your condition or specialty and preferred destination; we shortlist 3 surgeons with volume + rating + language match, free.";
+const path = "/find-specialist";
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Find a specialist", url: localeUrl(locale, path) },
+]);
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+    <SiteHeader locale={locale} />
+
+    <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
+      <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+        <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+        <span class="mx-1.5">/</span>
+        <span style="color: var(--color-ink);">Find a specialist</span>
+      </nav>
+    </div>
+
+    <section style="padding: 56px 28px;">
+      <div class="mx-auto" style="max-width: 800px;">
+        <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">Matching</div>
+        <h1 class="display display-tight mt-3" style="font-size: clamp(2.25rem, 5vw, 3.5rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;">
+          Find the right <span class="italic-display">specialist</span>
+        </h1>
+        <p class="serif mt-5" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">
+          Tell us your condition or the specialty you need and (optionally) where you'd like to go. We shortlist 3 surgeons: volume + rating + language + program depth considered. Free.
+        </p>
+
+        <form
+          action={localizedPath(locale, "/contact")}
+          method="get"
+          class="paper mt-10"
+          style="padding: 32px; box-shadow: var(--shadow-md);"
+        >
+          <input type="hidden" name="topic" value="specialist-match" />
+
+          <div class="grid gap-4 md:grid-cols-2">
+            <label class="block">
+              <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Specialty</span>
+              <select name="specialty" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;">
+                <option value="">— Any / recommend for me —</option>
+                {specialties.map((s) => (<option value={s.slug}>{s.name}</option>))}
+              </select>
+            </label>
+            <label class="block">
+              <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Condition (optional)</span>
+              <select name="condition" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;">
+                <option value="">— Skip if unsure —</option>
+                {conditions.map((c) => (<option value={c.slug}>{c.name}</option>))}
+              </select>
+            </label>
+          </div>
+
+          <div class="grid gap-4 md:grid-cols-2 mt-4">
+            <label class="block">
+              <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Preferred destination</span>
+              <select name="country" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;">
+                <option value="">Anywhere — optimise for fit</option>
+                {countries.map((c) => (<option value={c.slug}>{c.name}</option>))}
+              </select>
+            </label>
+            <label class="block">
+              <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Preferred language</span>
+              <select name="language" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;">
+                <option value="">English (default)</option>
+                <option value="ar">العربية</option>
+                <option value="ru">Русский</option>
+                <option value="fr">Français</option>
+                <option value="pt">Português</option>
+                <option value="bn">বাংলা</option>
+                <option value="tr">Türkçe</option>
+                <option value="hi">हिन्दी</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="block mt-4">
+            <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Details (age, prior treatment, specific concerns)</span>
+            <textarea name="description" rows="4" placeholder="e.g. 58yo, 3-vessel CAD on angiogram, diabetic, ejection fraction 40%. Home cardiologist recommended CABG." class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
+          </label>
+
+          <div class="grid gap-4 md:grid-cols-2 mt-4">
+            <label class="block">
+              <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Your name</span>
+              <input name="name" required placeholder="Full name" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;" />
+            </label>
+            <label class="block">
+              <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">WhatsApp / phone</span>
+              <input name="phone" required placeholder="+91 98765 43210" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;" />
+            </label>
+          </div>
+
+          <button type="submit" class="inline-flex items-center justify-center gap-2 w-full mt-6 font-semibold" style="background: var(--color-ink); color: var(--color-bg); padding: 14px 22px; font-size: 15px; border-radius: 9999px;">
+            Shortlist 3 specialists <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+          </button>
+
+          <p class="mono mt-4 text-center" style="font-size: 11px; color: var(--color-ink-subtle);">
+            Free · no obligation · case manager replies in ~9 min (business hours)
+          </p>
+        </form>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

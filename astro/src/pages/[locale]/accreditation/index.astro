@@ -1,0 +1,178 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { db } from "@/lib/db";
+import { sql } from "drizzle-orm";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { ChevronRight } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/accreditation", 308);
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+type Row = {
+  id: number;
+  slug: string;
+  name: string;
+  acronym: string | null;
+  description: string | null;
+  hospital_count: number;
+};
+
+const rows = Array.from(
+  (await db.execute(sql`
+    SELECT a.id, a.slug, a.name, a.acronym, a.description,
+      COUNT(DISTINCT ha.hospital_id)::int AS hospital_count
+    FROM accreditations a
+    LEFT JOIN hospital_accreditations ha ON ha.accreditation_id = a.id
+    LEFT JOIN hospitals h ON h.id = ha.hospital_id AND h.is_active = true
+    GROUP BY a.id
+    ORDER BY hospital_count DESC NULLS LAST, a.name ASC
+  `)) as Iterable<Row>,
+);
+
+const totalHospitals = Array.from(
+  (await db.execute(sql`
+    SELECT COUNT(DISTINCT hospital_id)::int AS c FROM hospital_accreditations
+  `)) as Iterable<{ c: number }>,
+)[0]?.c ?? 0;
+
+const seoTitle = "Hospital accreditations — JCI, NABH, ISO, and more";
+const seoDescription = `Find hospitals certified by ${rows.length} international and national accreditation bodies — JCI, NABH, ISO 9001, HA Thailand, KTQ, and more. ${totalHospitals.toLocaleString()} accredited hospitals across 9 destinations.`;
+const path = "/accreditation";
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Accreditations", url: localeUrl(locale, path) },
+]);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=3600, stale-while-revalidate=86400",
+);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+    <SiteHeader locale={locale} />
+
+    <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
+      <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+        <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+        <span class="mx-1.5">/</span>
+        <span style="color: var(--color-ink);">Accreditations</span>
+      </nav>
+    </div>
+
+    <section style="padding: 56px 28px;">
+      <div class="mx-auto max-w-[1120px]">
+        <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
+          Quality filter
+        </div>
+        <h1
+          class="display display-tight mt-3"
+          style="font-size: clamp(2.25rem, 5vw, 3.75rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;"
+        >
+          Accredited hospitals,
+          <span style="font-style: italic;"> by certifying body</span>
+        </h1>
+        <p class="serif mt-5" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted); max-width: 680px;">
+          International and national healthcare accreditation filters out hospitals that don't meet minimum quality, safety, and patient-experience standards. Below is every certifying body we verify against, and the hospital count currently certified by each.
+        </p>
+
+        <div class="grid gap-14 lg:grid-cols-[2fr,1fr] mt-10">
+          <div>
+            <div class="grid gap-3">
+              {rows.map((a) => (
+                <a
+                  href={localizedPath(locale, `/accreditation/${a.slug}`)}
+                  class="paper flex items-start justify-between gap-6 transition hover:-translate-y-0.5"
+                  style="padding: 20px 22px;"
+                >
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-3 flex-wrap">
+                      <span
+                        class="inline-flex items-center"
+                        style="padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; background: var(--color-accent-soft); color: var(--color-accent-strong);"
+                      >
+                        {a.acronym ?? a.name}
+                      </span>
+                      {a.acronym && (
+                        <span class="serif" style="font-size: 16px; font-weight: 500;">{a.name}</span>
+                      )}
+                    </div>
+                    {a.description && (
+                      <p class="mt-2" style="font-size: 13.5px; color: var(--color-ink-muted); line-height: 1.5;">
+                        {a.description}
+                      </p>
+                    )}
+                  </div>
+                  <div class="shrink-0 text-end">
+                    <div class="display tnum" style="font-size: 22px; line-height: 1;">
+                      {a.hospital_count.toLocaleString()}
+                    </div>
+                    <div class="mono mt-0.5" style="font-size: 10px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">
+                      hospitals
+                    </div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <aside>
+            <div class="paper" style="padding: 22px;">
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">
+                What is accreditation?
+              </div>
+              <p class="serif mt-3" style="font-size: 15px; line-height: 1.55; color: var(--color-ink);">
+                Independent third-party certification that a hospital meets documented standards for patient safety, infection control, medication management, and governance. Re-assessed every 3 years at most bodies.
+              </p>
+              <div class="mt-4 pt-4" style="border-top: 1px solid var(--color-border-soft);">
+                <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">
+                  Not a guarantee
+                </div>
+                <p class="mt-2" style="font-size: 13.5px; line-height: 1.55; color: var(--color-ink-muted);">
+                  Accreditation is a floor, not a ceiling. Within any accreditation tier, outcomes vary widely by surgeon volume, ICU protocols, and program depth. Use accreditation as a qualifying filter, not a decision.
+                </p>
+              </div>
+            </div>
+
+            <div
+              class="paper mt-3.5"
+              style="padding: 22px; background: var(--color-ink); color: var(--color-bg);"
+            >
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; opacity: 0.6; text-transform: uppercase;">
+                Not sure which matters?
+              </div>
+              <div class="serif mt-2" style="font-size: 17px;">
+                For international patients, JCI is the most-recognized global mark; NABH (India), KTQ (Germany), HA (Thailand), CBAHI (Saudi) are the national anchors. Your case manager picks the right filter for your destination.
+              </div>
+              <a
+                href={localizedPath(locale, "/contact")}
+                class="inline-flex items-center gap-1 mt-4"
+                style="background: transparent; color: var(--color-bg); border: 1px solid rgba(246,241,230,0.3); border-radius: 9999px; padding: 9px 14px; font-size: 13px; font-weight: 500;"
+              >
+                Ask a case manager <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+              </a>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

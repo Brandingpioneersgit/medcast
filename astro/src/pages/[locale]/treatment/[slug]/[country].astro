@@ -1,0 +1,455 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { db } from "@/lib/db";
+import {
+  hospitals, hospitalTreatments, treatments, specialties, cities, countries,
+} from "../../../../../../src/lib/db/schema";
+import { and, asc, eq } from "drizzle-orm";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import {
+  getContent,
+  getContentBatch,
+  applyTranslated,
+  isUntranslated,
+} from "@/lib/translate";
+import { breadcrumbJsonLd, localeUrl, treatmentJsonLd, faqJsonLd } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { ChevronRight } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const slug = Astro.params.slug;
+const countrySlug = Astro.params.country;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/treatment/${slug}/${countrySlug}`, 308);
+if (!slug || !countrySlug) return new Response("Not found", { status: 404 });
+
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+const treatmentRow = await db.query.treatments.findFirst({
+  where: eq(treatments.slug, slug),
+  with: { specialty: true },
+});
+if (!treatmentRow) return new Response(`Not found: ${slug}`, { status: 404 });
+
+const countryRow = await db.query.countries.findFirst({ where: eq(countries.slug, countrySlug) });
+if (!countryRow) return new Response(`Not found: ${countrySlug}`, { status: 404 });
+
+// Hospital pricing for this treatment × country
+const pricingRows = await db
+  .select({
+    hospitalId: hospitals.id,
+    hospitalName: hospitals.name,
+    hospitalSlug: hospitals.slug,
+    hospitalRating: hospitals.rating,
+    hospitalBeds: hospitals.bedCapacity,
+    hospitalImage: hospitals.coverImageUrl,
+    cityName: cities.name,
+    citySlug: cities.slug,
+    costMinUsd: hospitalTreatments.costMinUsd,
+    costMaxUsd: hospitalTreatments.costMaxUsd,
+    includesDescription: hospitalTreatments.includesDescription,
+  })
+  .from(hospitalTreatments)
+  .innerJoin(hospitals, eq(hospitalTreatments.hospitalId, hospitals.id))
+  .innerJoin(cities, eq(hospitals.cityId, cities.id))
+  .innerJoin(countries, eq(cities.countryId, countries.id))
+  .where(
+    and(
+      eq(hospitalTreatments.treatmentId, treatmentRow.id),
+      eq(hospitals.isActive, true),
+      eq(countries.slug, countrySlug),
+    ),
+  )
+  .orderBy(asc(hospitalTreatments.costMinUsd))
+  .limit(30);
+
+// Translations
+const treatmentMap = await getContent("treatment", treatmentRow.id, locale);
+const treatment = applyTranslated(treatmentRow, treatmentMap, ["name", "description"]);
+const specialty = treatmentRow.specialty
+  ? applyTranslated(treatmentRow.specialty, await getContent("specialty", treatmentRow.specialty.id, locale), ["name"])
+  : null;
+
+const hospitalIds = pricingRows.map((r) => r.hospitalId);
+const hospitalMap = await getContentBatch("hospital", hospitalIds, locale);
+const hospitalPricing = pricingRows.map((hp) => ({
+  ...hp,
+  hospitalName: hospitalMap[hp.hospitalId]?.name ?? hp.hospitalName,
+}));
+
+const lowestPrice = hospitalPricing[0]?.costMinUsd ? Number(hospitalPricing[0].costMinUsd) : null;
+const highestPrice = hospitalPricing.reduce((acc, hp) => {
+  const v = hp.costMaxUsd ? Number(hp.costMaxUsd) : 0;
+  return v > acc ? v : acc;
+}, 0);
+const avgPrice =
+  hospitalPricing.length > 0
+    ? Math.round(hospitalPricing.reduce((sum, h) => sum + Number(h.costMinUsd || 0), 0) / hospitalPricing.length)
+    : null;
+
+const US_REFERENCE: Record<string, number> = {
+  "cabg-heart-bypass": 120000,
+  "total-knee-replacement": 50000,
+  "hip-replacement": 55000,
+  "liver-transplant": 500000,
+  "cancer-surgery": 80000,
+  "kidney-transplant": 200000,
+  "spine-surgery": 80000,
+  "heart-valve-replacement": 150000,
+  "ivf-cycle": 20000,
+  "hair-transplant-fue": 15000,
+  "gastric-sleeve": 22000,
+};
+const usPrice = US_REFERENCE[slug] ?? null;
+const savingsPct = usPrice && lowestPrice ? Math.round((1 - lowestPrice / usPrice) * 100) : null;
+
+const FLAG: Record<string, string> = {
+  india: "🇮🇳", turkey: "🇹🇷", thailand: "🇹🇭", uae: "🇦🇪",
+  germany: "🇩🇪", singapore: "🇸🇬", "south-korea": "🇰🇷",
+  malaysia: "🇲🇾", "saudi-arabia": "🇸🇦",
+};
+const flag = FLAG[countryRow.slug] ?? "🌐";
+
+const seoTitle = `${treatment.name} cost in ${countryRow.name} (${new Date().getFullYear()})`;
+const seoDescription = lowestPrice
+  ? `${treatment.name} in ${countryRow.name} starts from $${Math.round(lowestPrice).toLocaleString()}. Compare ${hospitalPricing.length} accredited hospitals${savingsPct ? `, save up to ${savingsPct}% vs US prices` : ""}. Transparent pricing + free quotes.`
+  : `${treatment.name} in ${countryRow.name}. Compare accredited hospitals with transparent pricing. Request a free itemized quote.`;
+
+const path = `/treatment/${slug}/${countrySlug}`;
+const url = localeUrl(locale, path);
+
+const jsonLd = treatmentJsonLd({
+  name: `${treatment.name} in ${countryRow.name}`,
+  description: treatment.description,
+  costMinUsd: lowestPrice ? String(lowestPrice) : undefined,
+  costMaxUsd: highestPrice > 0 ? String(highestPrice) : undefined,
+  url,
+  hospitalStayDays: treatmentRow.hospitalStayDays,
+  successRatePercent: treatmentRow.successRatePercent ? Number(treatmentRow.successRatePercent) : null,
+});
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: tc("treatments"), url: localeUrl(locale, "/treatments") },
+  ...(specialty ? [{ name: specialty.name, url: localeUrl(locale, `/specialty/${specialty.slug}`) }] : []),
+  { name: treatment.name, url: localeUrl(locale, `/treatment/${slug}`) },
+  { name: countryRow.name, url },
+]);
+
+// FAQs for this cost-in-country slice
+const faqList = [
+  {
+    question: `Why is ${treatment.name} cheaper in ${countryRow.name}?`,
+    answer: `Price differences are driven mainly by labour costs, surgeon fees, facility overhead, and currency effects — not equipment or outcomes. Many ${countryRow.name} centres run tier-1 platforms (da Vinci, Zeiss, Nobel) at a fraction of US or UK prices because staffing and real-estate costs are lower.`,
+  },
+  {
+    question: `Are the hospitals we list in ${countryRow.name} internationally accredited?`,
+    answer: `We only surface hospitals with active accreditation (JCI, NABH, ISO, national ministry licenses) and transparent pricing. Each listing shows the specific accreditation bodies relevant to that facility.`,
+  },
+  {
+    question: `What's included in the ${treatment.name} package in ${countryRow.name}?`,
+    answer: `A typical package covers the surgeon fee, anesthesia, standard room ward stay, routine medications, and first follow-up. Implants, ICU days beyond protocol, revisions, and extended medications are usually billed separately — your case manager itemises everything before you commit.`,
+  },
+  {
+    question: `How long should I plan to be in ${countryRow.name}?`,
+    answer: `Plan around the procedure + first follow-up happening before you fly home. For ${treatment.name}, that's typically ${treatmentRow.hospitalStayDays ? treatmentRow.hospitalStayDays + " inpatient nights + " : ""}around ${Math.max(14, (treatmentRow.hospitalStayDays ?? 0) + (treatmentRow.recoveryDays ?? 14))} days in-country before the flight home.`,
+  },
+  {
+    question: `Can I get a second opinion before booking?`,
+    answer: `Yes — free across our panel. Share imaging and current plan; we route to a multidisciplinary tumor-board or surgical panel and return a written opinion in 5–10 working days, no obligation to travel.`,
+  },
+];
+const faqSchema = faqJsonLd(faqList);
+
+const untranslated = isUntranslated(locale, treatmentMap);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=3600, stale-while-revalidate=86400",
+);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+  </Fragment>
+
+  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+    <SiteHeader locale={locale} active="treatments" />
+
+    {/* Breadcrumb */}
+    <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
+      <nav
+        class="mono mx-auto max-w-[1440px]"
+        style="font-size: 12px; color: var(--color-ink-subtle);"
+        aria-label="Breadcrumb"
+      >
+        <a href={localizedPath(locale, "/treatments")} class="hover:text-ink">{tc("treatments")}</a>
+        <span class="mx-1.5">/</span>
+        <a href={localizedPath(locale, `/treatment/${slug}`)} class="hover:text-ink">{treatment.name}</a>
+        <span class="mx-1.5">/</span>
+        <span style="color: var(--color-ink);">{countryRow.name}</span>
+      </nav>
+    </div>
+
+    {/* Hero */}
+    <section style="padding: 48px 28px 0;">
+      <div class="mx-auto max-w-[1440px]">
+        {specialty && (
+          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent); margin-bottom: 8px;">
+            {specialty.name}
+          </div>
+        )}
+        <div class="grid gap-10 lg:grid-cols-[2fr,1fr] lg:gap-[48px] items-start">
+          <div>
+            <h1
+              class="display display-tight"
+              style="font-size: clamp(2.5rem, 5.5vw, 4.25rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em;"
+            >
+              {treatment.name} cost in
+              <span style="font-style: italic;"> {flag} {countryRow.name}</span>
+            </h1>
+            <p
+              class="serif mt-5"
+              style="font-size: 20px; line-height: 1.45; color: var(--color-ink-muted); max-width: 680px;"
+            >
+              {lowestPrice
+                ? `${treatment.name} in ${countryRow.name} starts from $${Math.round(lowestPrice).toLocaleString()} across ${hospitalPricing.length} accredited hospitals${savingsPct ? `. Roughly ${savingsPct}% less than typical US pricing` : ""}.`
+                : `${treatment.name} pricing in ${countryRow.name} — compare accredited hospitals and request a free itemized quote.`}
+            </p>
+
+            {/* Price stat ribbon */}
+            <div
+              class="grid mt-8 py-5"
+              style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); border-top: 1px solid var(--color-ink); border-bottom: 1px solid var(--color-border);"
+            >
+              {[
+                lowestPrice && { l: "Starting price", v: `$${Math.round(lowestPrice).toLocaleString()}` },
+                avgPrice && { l: "Average", v: `$${avgPrice.toLocaleString()}` },
+                { l: "Hospitals listed", v: hospitalPricing.length.toString() },
+                treatmentRow.hospitalStayDays && { l: "Hospital stay", v: `${treatmentRow.hospitalStayDays} days` },
+                usPrice && savingsPct && { l: "Save vs US", v: `~${savingsPct}%` },
+              ].filter(Boolean).slice(0, 4).map((s: any, i: number) => (
+                <div style={`padding-inline: 18px; ${i > 0 ? "border-inline-start: 1px solid var(--color-border);" : ""}`}>
+                  <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">{s.l}</div>
+                  <div class="display tnum" style="font-size: 28px; margin-top: 4px;">{s.v}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Sticky quote panel */}
+          <aside class="lg:sticky lg:top-32 lg:self-start">
+            <div class="paper" style="padding: 22px;">
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">
+                Free itemized quote
+              </div>
+              <div class="display mt-1.5" style="font-size: 22px; line-height: 1.2; letter-spacing: -0.02em;">
+                For {treatment.name} in {countryRow.name}
+              </div>
+              {lowestPrice && highestPrice > 0 && (
+                <div class="flex items-baseline gap-2 mt-3">
+                  <span class="display tnum" style="font-size: 32px; line-height: 1;">${Math.round(lowestPrice / 1000).toFixed(1)}k</span>
+                  <span class="tnum" style="font-size: 13px; color: var(--color-ink-subtle);">— ${Math.round(highestPrice).toLocaleString()}</span>
+                </div>
+              )}
+              <form action={localizedPath(locale, `/contact`)} method="get" class="mt-4">
+                <input type="hidden" name="treatment" value={slug} />
+                <input type="hidden" name="country" value={countrySlug} />
+                <a
+                  href={localizedPath(locale, `/contact?treatment=${slug}&country=${countrySlug}`)}
+                  class="inline-flex items-center justify-center gap-2 w-full font-semibold"
+                  style="background: var(--color-accent); color: #FFF; padding: 14px 22px; font-size: 15px; border-radius: 9999px;"
+                >
+                  Get 3 free quotes
+                  <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+                </a>
+              </form>
+              <div class="flex items-center gap-2 mt-3 mono justify-center" style="font-size: 11px; color: var(--color-ink-subtle);">
+                <span style="width: 6px; height: 6px; border-radius: 50%; background: #10B981;" />
+                Case manager replies in ~9 min
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    {/* Ranked hospitals */}
+    {hospitalPricing.length > 0 && (
+      <section style="padding: 64px 28px; margin-top: 32px;">
+        <div class="mx-auto max-w-[1440px]">
+          <div class="flex items-end justify-between flex-wrap gap-4 mb-7">
+            <h2 class="display" style="font-size: 32px; letter-spacing: -0.02em;">
+              Top {countryRow.name} hospitals for {treatment.name},
+              <span style="font-style: italic;"> ranked by value</span>
+            </h2>
+            <a
+              href={localizedPath(locale, `/treatment/${slug}`)}
+              class="inline-flex items-center gap-1 text-sm"
+              style="color: var(--color-accent);"
+            >
+              Compare across all destinations →
+            </a>
+          </div>
+
+          <div class="paper overflow-hidden" style="padding: 0;">
+            {hospitalPricing.map((hp, i) => (
+              <div
+                class="grid items-center gap-4 p-5 md:p-6"
+                style={`grid-template-columns: 36px 1.4fr 1fr 0.8fr 0.6fr auto; ${i > 0 ? "border-top: 1px solid var(--color-border-soft);" : ""}`}
+              >
+                <div class="display tnum" style="font-size: 22px; color: var(--color-ink-subtle);">
+                  {String(i + 1).padStart(2, "0")}
+                </div>
+                <div class="min-w-0">
+                  <a href={localizedPath(locale, `/hospital/${hp.hospitalSlug}`)}>
+                    <div class="serif font-medium hover:text-accent truncate" style="font-size: 17px; letter-spacing: -0.005em;">
+                      {hp.hospitalName}
+                    </div>
+                  </a>
+                  <div class="mt-1 flex items-center gap-1.5" style="font-size: 12px; color: var(--color-ink-subtle);">
+                    <span>{flag}</span>
+                    {hp.cityName}, {countryRow.name}
+                  </div>
+                </div>
+                <div>
+                  <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">From</div>
+                  <div class="display tnum mt-0.5" style="font-size: 19px;">
+                    {hp.costMinUsd ? `$${Number(hp.costMinUsd).toLocaleString()}` : "—"}
+                  </div>
+                </div>
+                <div>
+                  <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">Beds</div>
+                  <div class="tnum mt-1" style="font-size: 14px;">
+                    {hp.hospitalBeds ? hp.hospitalBeds.toLocaleString() : "—"}
+                  </div>
+                </div>
+                <div>
+                  {hp.hospitalRating && Number(hp.hospitalRating) > 0 ? (
+                    <div class="inline-flex items-center gap-1.5" style="font-size: 13px;">
+                      <span style="color: var(--color-saffron);">★</span>
+                      <span class="tnum">{Number(hp.hospitalRating).toFixed(1)}</span>
+                    </div>
+                  ) : (
+                    <span style="font-size: 13px; color: var(--color-ink-subtle);">—</span>
+                  )}
+                </div>
+                <a
+                  href={localizedPath(locale, `/hospital/${hp.hospitalSlug}`)}
+                  class="inline-flex items-center gap-1 font-semibold"
+                  style="background: var(--color-ink); color: var(--color-bg); padding: 8px 14px; font-size: 12.5px; border-radius: 9999px;"
+                >
+                  Quote
+                  <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+
+    {/* What's included */}
+    <section style="padding: 64px 28px; background: var(--color-paper); border-top: 1px solid var(--color-border);">
+      <div class="mx-auto max-w-[1120px]">
+        <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+          <div>
+            <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">What's covered</div>
+            <h2 class="display mt-3" style="font-size: 30px; letter-spacing: -0.02em;">What the {countryRow.name} package includes</h2>
+          </div>
+          <div class="grid gap-8 md:grid-cols-2">
+            <div>
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent); text-transform: uppercase;">Typically included</div>
+              <ul class="mt-3 space-y-2.5 serif" style="font-size: 15.5px; line-height: 1.55; color: var(--color-ink);">
+                <li>Surgeon + anesthesia fee</li>
+                <li>Operating-room time + protocol consumables</li>
+                <li>{treatmentRow.hospitalStayDays ?? 3}-night ward stay</li>
+                <li>Routine medications + first follow-up</li>
+                <li>Language-matched case manager</li>
+              </ul>
+            </div>
+            <div>
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-coral); text-transform: uppercase;">Watch out for</div>
+              <ul class="mt-3 space-y-2.5 serif" style="font-size: 15.5px; line-height: 1.55; color: var(--color-ink);">
+                <li>Implant brand upgrades (tier-1 adds $1–3k)</li>
+                <li>Extended ICU days if complications arise</li>
+                <li>Physiotherapy billed separately in some packages</li>
+                <li>Airport transfer + accommodation may be optional</li>
+                <li>Revision surgery — confirm warranty terms in writing</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {/* FAQ */}
+    <section style="padding: 64px 28px; border-top: 1px solid var(--color-border);">
+      <div class="mx-auto max-w-[1120px]">
+        <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+          <div>
+            <div class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">FAQ</div>
+            <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
+              Common questions
+            </h2>
+          </div>
+          <div class="divide-y" style="border-color: var(--color-border-soft);">
+            {faqList.map((f) => (
+              <details class="group py-5">
+                <summary class="flex cursor-pointer items-start justify-between gap-6">
+                  <span class="serif" style="font-size: 17px; font-weight: 500; line-height: 1.4;">{f.question}</span>
+                  <span class="mt-1 shrink-0 transition-transform group-open:rotate-45" style="color: var(--color-ink-subtle); font-size: 20px; line-height: 1;" aria-hidden="true">+</span>
+                </summary>
+                <p class="serif mt-3" style="color: var(--color-ink-muted); font-size: 15.5px; line-height: 1.6;">{f.answer}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {/* CTA */}
+    <section style="padding: 72px 28px; border-top: 1px solid var(--color-border); background: var(--color-ink); color: var(--color-bg);">
+      <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[1fr,auto] lg:items-end">
+        <div>
+          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7;">Ready to plan</div>
+          <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.05; letter-spacing: -0.025em; font-weight: 400;">
+            Get 3 itemized {countryRow.name} quotes for {treatment.name}
+            <span style="font-style: italic;"> this week.</span>
+          </h2>
+          <p class="serif mt-4" style="font-size: 17px; line-height: 1.55; max-width: 560px; opacity: 0.85;">
+            Share your imaging or current plan. A named case manager shortlists 3 hospitals and returns an itemized quote + travel plan in under 48 hours.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <a
+            href={localizedPath(locale, `/contact?treatment=${slug}&country=${countrySlug}`)}
+            class="inline-flex items-center gap-2 font-semibold"
+            style="background: var(--color-accent); color: #FFF; padding: 13px 22px; font-size: 15px; border-radius: 9999px;"
+          >
+            Request quotes
+            <ChevronRight className="h-4 w-4 mirror-x" />
+          </a>
+          <a
+            href={localizedPath(locale, "/second-opinion")}
+            class="inline-flex items-center gap-2 font-semibold"
+            style="background: transparent; color: var(--color-bg); border: 1px solid rgba(246,241,230,0.3); padding: 13px 22px; font-size: 15px; border-radius: 9999px;"
+          >
+            Free 2nd opinion
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

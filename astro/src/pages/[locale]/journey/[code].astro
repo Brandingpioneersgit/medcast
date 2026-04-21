@@ -1,0 +1,14 @@
+---
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+
+export const prerender = false;
+
+// Journey tracker is a legacy entry point — redirect to the unified portal.
+const rawLocale = Astro.params.locale ?? "en";
+const code = Astro.params.code;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/journey/${code}`, 308);
+const locale = rawLocale as Locale;
+
+if (!code) return Astro.redirect(localizedPath(locale, "/portal"), 303);
+return Astro.redirect(localizedPath(locale, `/portal/${code.toUpperCase()}`), 301);
+---

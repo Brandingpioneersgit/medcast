@@ -1,0 +1,289 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { db } from "@/lib/db";
+import { sql } from "drizzle-orm";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, itemListJsonLd } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { hospitalCover } from "@/lib/images";
+import PhotoBlock from "@/components/PhotoBlock.astro";
+import { ChevronRight } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const code = Astro.params.code;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/accreditation/${code}`, 308);
+if (!code) return new Response("Not found", { status: 404 });
+
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+type AccredRow = {
+  id: number;
+  slug: string;
+  name: string;
+  acronym: string | null;
+  description: string | null;
+  website: string | null;
+};
+const accRes = await db
+  .execute(sql`SELECT id, slug, name, acronym, description, website FROM accreditations WHERE slug = ${code}`)
+  .catch(() => [] as unknown[]);
+const acc = Array.from(accRes as Iterable<AccredRow>)[0] ?? null;
+if (!acc) return new Response(`Not found: ${code}`, { status: 404 });
+
+type HospitalRow = {
+  id: number;
+  slug: string;
+  name: string;
+  coverImageUrl: string | null;
+  rating: string | null;
+  reviewCount: number | null;
+  bedCapacity: number | null;
+  cityName: string | null;
+  countryName: string | null;
+  countrySlug: string | null;
+  accrCount: number;
+  fromUsd: number | null;
+};
+const hospitals = Array.from(
+  (await db.execute(sql`
+    SELECT h.id, h.slug, h.name, h.cover_image_url as "coverImageUrl",
+      h.rating, h.review_count as "reviewCount", h.bed_capacity as "bedCapacity",
+      ci.name as "cityName", co.name as "countryName", co.slug as "countrySlug",
+      (SELECT COUNT(*)::int FROM hospital_accreditations WHERE hospital_id = h.id) as "accrCount",
+      (SELECT MIN(cost_min_usd)::int FROM hospital_treatments WHERE hospital_id = h.id) as "fromUsd"
+    FROM hospitals h
+    INNER JOIN hospital_accreditations ha ON ha.hospital_id = h.id AND ha.accreditation_id = ${acc.id}
+    INNER JOIN cities ci ON ci.id = h.city_id
+    INNER JOIN countries co ON co.id = ci.country_id
+    WHERE h.is_active = true
+    ORDER BY h.is_featured DESC NULLS LAST, h.rating DESC NULLS LAST, h.review_count DESC NULLS LAST
+    LIMIT 60
+  `)) as Iterable<HospitalRow>,
+);
+
+type CountrySplit = { country_slug: string; country_name: string; n: number };
+const byCountry = Array.from(
+  (await db.execute(sql`
+    SELECT co.slug as country_slug, co.name as country_name, COUNT(DISTINCT h.id)::int AS n
+    FROM hospital_accreditations ha
+    INNER JOIN hospitals h ON h.id = ha.hospital_id AND h.is_active = true
+    INNER JOIN cities ci ON ci.id = h.city_id
+    INNER JOIN countries co ON co.id = ci.country_id
+    WHERE ha.accreditation_id = ${acc.id}
+    GROUP BY co.slug, co.name
+    ORDER BY n DESC
+  `)) as Iterable<CountrySplit>,
+);
+
+const FLAG: Record<string, string> = {
+  india: "🇮🇳", turkey: "🇹🇷", thailand: "🇹🇭", uae: "🇦🇪",
+  germany: "🇩🇪", singapore: "🇸🇬", "south-korea": "🇰🇷",
+  malaysia: "🇲🇾", "saudi-arabia": "🇸🇦",
+};
+
+const label = acc.acronym ?? acc.name;
+const seoTitle = `${label}-accredited hospitals — ${hospitals.length} worldwide`;
+const seoDescription = acc.description
+  ? `${acc.description} Browse all ${hospitals.length} ${label}-accredited hospitals across ${byCountry.length} countries.`
+  : `All ${hospitals.length} ${label}-accredited hospitals across ${byCountry.length} countries.`;
+
+const path = `/accreditation/${code}`;
+const url = localeUrl(locale, path);
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Accreditations", url: localeUrl(locale, "/accreditation") },
+  { name: label, url },
+]);
+
+const itemLd = hospitals.length > 0
+  ? itemListJsonLd(hospitals.slice(0, 20).map((h) => ({
+      name: h.name,
+      url: localeUrl(locale, `/hospital/${h.slug}`),
+    })))
+  : null;
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=3600, stale-while-revalidate=86400",
+);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    {itemLd && <script type="application/ld+json" set:html={JSON.stringify(itemLd)} />}
+  </Fragment>
+
+  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+    <SiteHeader locale={locale} />
+
+    <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
+      <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+        <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+        <span class="mx-1.5">/</span>
+        <a href={localizedPath(locale, "/accreditation")} class="hover:text-ink">Accreditations</a>
+        <span class="mx-1.5">/</span>
+        <span style="color: var(--color-ink);">{label}</span>
+      </nav>
+    </div>
+
+    <section style="padding: 48px 28px;">
+      <div class="mx-auto max-w-[1440px]">
+        <div class="grid gap-10 lg:grid-cols-[2fr,1fr]">
+          <div>
+            <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
+              Certifying body
+            </div>
+            <h1
+              class="display display-tight mt-3"
+              style="font-size: clamp(2.5rem, 5.5vw, 4rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;"
+            >
+              {label}
+              {acc.acronym && acc.name !== acc.acronym && (
+                <span style="font-style: italic; display: block; font-size: 0.55em; color: var(--color-ink-muted); margin-top: 8px;">{acc.name}</span>
+              )}
+            </h1>
+            {acc.description && (
+              <p class="serif mt-5" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted); max-width: 680px;">
+                {acc.description}
+              </p>
+            )}
+            {acc.website && (
+              <a
+                href={acc.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center gap-1 mt-4"
+                style="font-size: 13px; color: var(--color-accent);"
+              >
+                Official body website →
+              </a>
+            )}
+
+            <div
+              class="grid mt-7 py-5"
+              style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); border-top: 1px solid var(--color-ink); border-bottom: 1px solid var(--color-border);"
+            >
+              <div style="padding-inline: 18px;">
+                <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">Accredited</div>
+                <div class="display tnum" style="font-size: 28px; margin-top: 4px;">{hospitals.length.toLocaleString()}</div>
+              </div>
+              <div style="padding-inline: 18px; border-inline-start: 1px solid var(--color-border);">
+                <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">Countries</div>
+                <div class="display tnum" style="font-size: 28px; margin-top: 4px;">{byCountry.length}</div>
+              </div>
+            </div>
+          </div>
+
+          <aside>
+            <div class="paper" style="padding: 22px;">
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">
+                By country
+              </div>
+              <ul class="mt-3 space-y-2">
+                {byCountry.map((c) => (
+                  <li>
+                    <a
+                      href={localizedPath(locale, `/country/${c.country_slug}`)}
+                      class="flex items-center justify-between gap-3 hover:text-accent"
+                      style="font-size: 14px;"
+                    >
+                      <span class="flex items-center gap-2">
+                        <span aria-hidden="true">{FLAG[c.country_slug] ?? "🌐"}</span>
+                        {c.country_name}
+                      </span>
+                      <span class="mono tnum" style="font-size: 12px; color: var(--color-ink-subtle);">
+                        {c.n.toLocaleString()}
+                      </span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    {/* Hospital grid */}
+    {hospitals.length > 0 && (
+      <section style="padding: 32px 28px 80px; border-top: 1px solid var(--color-border);">
+        <div class="mx-auto max-w-[1440px]">
+          <h2 class="display" style="font-size: 28px; letter-spacing: -0.02em; margin-bottom: 24px;">
+            Every {label}-accredited hospital in our network
+          </h2>
+          <ul class="grid gap-5" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
+            {hospitals.map((h) => (
+              <li>
+                <a
+                  href={localizedPath(locale, `/hospital/${h.slug}`)}
+                  class="paper block overflow-hidden transition hover:-translate-y-0.5"
+                  style="padding: 0;"
+                >
+                  <PhotoBlock
+                    aspect="16/10"
+                    imgUrl={hospitalCover({ coverImageUrl: h.coverImageUrl, countrySlug: h.countrySlug })}
+                    label={h.name}
+                    rounded={false}
+                  />
+                  <div style="padding: 18px;">
+                    <div class="mono flex items-center gap-2" style="font-size: 10px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">
+                      <span aria-hidden="true">{FLAG[h.countrySlug ?? ""] ?? "🌐"}</span>
+                      {h.cityName}, {h.countryName}
+                    </div>
+                    <div class="serif mt-2" style="font-size: 19px; font-weight: 500; letter-spacing: -0.015em;">
+                      {h.name}
+                    </div>
+                    <div class="flex items-center gap-3 flex-wrap mt-3" style="font-size: 12.5px; color: var(--color-ink-muted);">
+                      {h.rating && Number(h.rating) > 0 && (
+                        <span class="inline-flex items-center gap-1">
+                          <span style="color: var(--color-saffron);">★</span>
+                          <span class="tnum">{Number(h.rating).toFixed(1)}</span>
+                        </span>
+                      )}
+                      {h.bedCapacity && (
+                        <span class="tnum">{h.bedCapacity.toLocaleString()} beds</span>
+                      )}
+                      <span class="mono" style="font-size: 10px; color: var(--color-ink-subtle);">
+                        {h.accrCount} accreditations
+                      </span>
+                    </div>
+                    {h.fromUsd && (
+                      <div class="flex items-end justify-between mt-4 pt-4" style="border-top: 1px solid var(--color-border-soft);">
+                        <div>
+                          <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">
+                            From
+                          </div>
+                          <div class="display tnum" style="font-size: 20px;">
+                            ${Math.round(h.fromUsd).toLocaleString()}
+                          </div>
+                        </div>
+                        <span
+                          class="inline-flex items-center gap-1"
+                          style="background: var(--color-ink); color: var(--color-bg); padding: 6px 12px; font-size: 12px; font-weight: 500; border-radius: 9999px;"
+                        >
+                          View
+                          <ChevronRight className="h-3 w-3 mirror-x" />
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

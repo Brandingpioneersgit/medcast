@@ -1,0 +1,183 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { db } from "@/lib/db";
+import { sql } from "drizzle-orm";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { ChevronRight } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const termSlug = Astro.params.term;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/glossary/${termSlug}`, 308);
+if (!termSlug) return new Response("Not found", { status: 404 });
+
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+type Row = {
+  slug: string;
+  term: string;
+  category: string | null;
+  short_definition: string;
+  long_definition: string | null;
+  related_slugs: string[] | null;
+  updated_at: Date | null;
+};
+const res = await db
+  .execute(sql`
+    SELECT slug, term, category, short_definition, long_definition, related_slugs, updated_at
+    FROM glossary_terms WHERE slug = ${termSlug}
+  `)
+  .catch(() => [] as unknown[]);
+const term = Array.from(res as Iterable<Row>)[0] ?? null;
+if (!term) return new Response(`Not found: ${termSlug}`, { status: 404 });
+
+// Related terms
+const relatedSlugs = (term.related_slugs ?? []).filter((s): s is string => typeof s === "string");
+const relatedTerms = relatedSlugs.length > 0
+  ? Array.from(
+      (await db
+        .execute(sql`
+          SELECT slug, term, short_definition
+          FROM glossary_terms
+          WHERE slug = ANY(${sql`ARRAY[${sql.join(relatedSlugs.map((s) => sql`${s}`), sql`, `)}]::text[]`})
+        `)
+        .catch(() => [] as unknown[])) as Iterable<{ slug: string; term: string; short_definition: string }>,
+    )
+  : [];
+
+const seoTitle = `${term.term} — defined plainly`;
+const seoDescription = term.short_definition.slice(0, 160);
+const path = `/glossary/${termSlug}`;
+const url = localeUrl(locale, path);
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Glossary", url: localeUrl(locale, "/glossary") },
+  { name: term.term, url },
+]);
+
+const defLd = {
+  "@context": "https://schema.org",
+  "@type": "DefinedTerm",
+  name: term.term,
+  description: term.short_definition,
+  url,
+  inDefinedTermSet: {
+    "@type": "DefinedTermSet",
+    name: "MedCasts Medical Travel Glossary",
+    url: localeUrl(locale, "/glossary"),
+  },
+};
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" set:html={JSON.stringify(defLd)} />
+  </Fragment>
+
+  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+    <SiteHeader locale={locale} />
+
+    <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
+      <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+        <a href={localizedPath(locale, "/glossary")} class="hover:text-ink">Glossary</a>
+        {term.category && (
+          <>
+            <span class="mx-1.5">/</span>
+            <span>{term.category}</span>
+          </>
+        )}
+        <span class="mx-1.5">/</span>
+        <span style="color: var(--color-ink);">{term.term}</span>
+      </nav>
+    </div>
+
+    <section style="padding: 56px 28px;">
+      <div class="mx-auto" style="max-width: 780px;">
+        {term.category && (
+          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
+            {term.category}
+          </div>
+        )}
+        <h1
+          class="display display-tight mt-3"
+          style="font-size: clamp(2.25rem, 5vw, 3.5rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;"
+        >
+          {term.term}
+        </h1>
+
+        <p class="serif mt-6" style="font-size: 21px; line-height: 1.45; color: var(--color-ink); font-weight: 400;">
+          {term.short_definition}
+        </p>
+
+        {term.long_definition && (
+          <div class="prose-editorial mt-8" style="max-width: none;">
+            <p>{term.long_definition}</p>
+          </div>
+        )}
+
+        {relatedTerms.length > 0 && (
+          <section class="mt-12 pt-10" style="border-top: 1px solid var(--color-border);">
+            <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">
+              See also
+            </div>
+            <ul class="mt-5 grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+              {relatedTerms.map((r) => (
+                <li>
+                  <a
+                    href={localizedPath(locale, `/glossary/${r.slug}`)}
+                    class="paper flex items-start gap-3 transition hover:-translate-y-0.5"
+                    style="padding: 16px 18px;"
+                  >
+                    <div class="flex-1 min-w-0">
+                      <div class="serif font-medium" style="font-size: 15.5px; letter-spacing: -0.005em;">
+                        {r.term}
+                      </div>
+                      <p class="mt-1 line-clamp-2" style="font-size: 13px; color: var(--color-ink-muted); line-height: 1.5;">
+                        {r.short_definition}
+                      </p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 mirror-x shrink-0 mt-1" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        <section
+          class="mt-12 p-6"
+          style="background: var(--color-accent-mist); border: 1px solid var(--color-accent-soft); border-radius: var(--radius-lg);"
+        >
+          <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent); text-transform: uppercase;">
+            Need a plain-English second opinion?
+          </div>
+          <p class="serif mt-2" style="font-size: 15.5px; line-height: 1.55; color: var(--color-ink);">
+            Medical terminology shouldn't be a language barrier when you're deciding on surgery. Ask us; we explain anything in your case in plain language — your language.
+          </p>
+          <a
+            href={localizedPath(locale, "/contact?topic=explain")}
+            class="inline-flex items-center gap-1 mt-3 font-medium"
+            style="background: var(--color-accent); color: #FFF; padding: 8px 14px; font-size: 13px; border-radius: 9999px;"
+          >
+            Ask a case manager
+            <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+          </a>
+        </section>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>
