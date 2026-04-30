@@ -14,6 +14,7 @@ const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect(`/en/second-opinion`, 308);
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tso = getTranslator(locale, "secondOpinionPage");
 
 const faqs = [
   { question: "Is the second opinion really free?", answer: "Yes. A specialist reviews your case at zero cost. The economics: if you later decide to travel, you pay the hospital directly for treatment — no markup from us. If you don't travel, we've spent an hour on your case. That's the whole deal." },
@@ -33,7 +34,7 @@ const canonical = localeUrl(locale, path);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Second Opinion", url: canonical },
+  { name: tso("breadcrumbSecondOpinion"), url: canonical },
 ]);
 
 Astro.response.headers.set(
@@ -42,26 +43,27 @@ Astro.response.headers.set(
 );
 
 const STEPS = [
-  { n: "01", t: "You upload reports", d: "Imaging, pathology, latest labs, current plan. PDF, JPG, DICOM — whatever you have." },
-  { n: "02", t: "Case manager routes it · 6 h", d: "A named coordinator matches your case to the right specialist on our panel." },
-  { n: "03", t: "Specialist writes the opinion · 48 h", d: "Board-certified physician, currently operating. Their name, hospital, and credentials sign the report." },
-  { n: "04", t: "You get it in writing", d: "Second opinion + treatment options + cost ranges, delivered as PDF. No pressure either way." },
+  { n: "01", t: tso("step01Title"), d: tso("step01Desc") },
+  { n: "02", t: tso("step02Title"), d: tso("step02Desc") },
+  { n: "03", t: tso("step03Title"), d: tso("step03Desc") },
+  { n: "04", t: tso("step04Title"), d: tso("step04Desc") },
 ];
 
 const PROMISES = [
-  { eyebrow: "28%", title: "Cases we advise against surgery", body: "When our panel disagrees with an aggressive plan, we say so in writing. You take it back to your original doctor." },
-  { eyebrow: "$0", title: "Now and always", body: "Free to you. We're paid by partner hospitals only if you later book — no referral kickback on the opinion itself." },
-  { eyebrow: "40+", title: "Senior specialists on panel", body: "Cardiac, oncology, ortho, neuro, transplant, fertility, bariatric, paediatric. Named clinicians, not AI or a template." },
+  { eyebrow: tso("promise01eyebrow"), title: tso("promise01title"), body: tso("promise01body") },
+  { eyebrow: tso("promise02eyebrow"), title: tso("promise02title"), body: tso("promise02body") },
+  { eyebrow: tso("promise03eyebebrow"), title: tso("promise03title"), body: tso("promise03body") },
 ];
 ---
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta
-      title="Free second medical opinion in 48 hours — written, named specialist"
-      description="Upload your reports. A named specialist reviews your case and writes back in 48 hours. Free, confidential, no obligation to travel. 8 languages."
+      title={tso("seoTitle")}
+      description={tso("seoDescription")}
       path={path}
       locale={locale}
+      noindex={locale !== "en"}
     />
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
     <script type="application/ld+json" set:html={JSON.stringify(faqJsonLd(faqs))} />
@@ -71,19 +73,19 @@ const PROMISES = [
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
-      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
-        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+      <div class="mx-auto max-w-[1440px] px-7 md:px-10 py-4">
+        <nav class="mono text-[12px] flex items-center gap-2 flex-wrap" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
-          <span class="mx-1.5">/</span>
-          <span style="color: var(--color-ink);">Second opinion</span>
+          <span aria-hidden="true" class="text-[var(--color-border-strong)]">/</span>
+          <span style="color: var(--color-ink);">{tso("breadcrumbSecondOpinion")}</span>
         </nav>
       </div>
     </div>
 
     <section class="pt-12 md:pt-16">
-      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
+      <div class="mx-auto max-w-[1440px] px-7 md:px-10">
         <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
-          Free · 48 hours · named specialist · 8 languages
+          {tso("eyebrow")}
         </p>
         <div class="grid gap-10 lg:grid-cols-[1.5fr,1fr] lg:gap-14 mt-3">
           <div>
@@ -91,22 +93,35 @@ const PROMISES = [
               class="display display-tight"
               style="font-size: clamp(2.25rem, 5vw, 4.5rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em;"
             >
-              A second opinion, <span class="italic-display">written and signed.</span>
+              {tso("h1")}
             </h1>
             <p class="serif mt-5 max-w-[44rem]" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">
-              Upload what you have. A specialist — named, board-certified, actively operating — sends back a written opinion in 48 hours. No travel needed, and no cost. Ever.
+              {tso("lede")}
             </p>
+
+            {/* YMYL disclaimer — second-opinion is a remote written review,
+                not in-person care. Sets expectations + protects users facing
+                acute symptoms who may misread us as urgent care. */}
+            <div
+              role="note"
+              class="mt-5"
+              style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 12px 16px; max-width: 44rem;"
+            >
+              <p class="serif" style="font-size: 13.5px; line-height: 1.55; color: var(--color-ink-muted);">
+                A second opinion is a remote written review and <strong>does not replace in-person physician evaluation</strong>. For acute or worsening symptoms, contact a local doctor or emergency services first.
+              </p>
+            </div>
 
             <div
               class="mt-8 grid grid-cols-3"
               style="border-top: 1px solid var(--color-ink); border-bottom: 1px solid var(--color-border);"
             >
               {[
-                { l: "Recommend against surgery", v: "28%" },
-                { l: "Senior specialists", v: "40+" },
-                { l: "Now and always", v: "$0" },
+                { l: "Recommend against surgery", v: tso("promise01eyebrow") },
+                { l: "Senior specialists", v: tso("promise03eyebebrow") },
+                { l: "Now and always", v: tso("promise02eyebrow") },
               ].map((s, i) => (
-                <div class="px-4 md:px-5 py-5" style={i > 0 ? "border-inline-start: 1px solid var(--color-border);" : ""}>
+                <div class="px-4 md:px-5 py-5" style={i > 0 ? {borderInlineStart: "1px solid var(--color-border)"} : {}}>
                   <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
                     {s.l}
                   </div>
@@ -122,14 +137,14 @@ const PROMISES = [
                 style="background: var(--color-ink); color: var(--color-bg); padding: 14px 24px; border-radius: 9999px;"
               >
                 <Upload className="h-4 w-4" />
-                Upload your reports
+                {tc("uploadReports")}
               </a>
               <a
                 href="https://wa.me/918006210000"
                 class="inline-flex items-center gap-2 font-semibold"
                 style="border: 1px solid var(--color-border); color: var(--color-ink); padding: 13px 24px; border-radius: 9999px;"
               >
-                Message on WhatsApp
+                {tc("messageOnWhatsApp")}
                 <ChevronRight className="h-4 w-4 mirror-x" />
               </a>
             </div>
@@ -138,7 +153,7 @@ const PROMISES = [
           <aside class="lg:sticky lg:top-32 lg:self-start">
             <div class="paper" style="padding: 26px 28px;">
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                How it works
+                {tc("howItWorks")}
               </div>
               <ol class="mt-5 space-y-5">
                 {STEPS.map((s) => (
@@ -160,7 +175,7 @@ const PROMISES = [
               <div class="mt-6 pt-5 flex items-start gap-2.5" style="border-top: 1px dashed var(--color-border);">
                 <Lock className="h-3.5 w-3.5 mt-0.5 shrink-0" style={{color: "var(--color-ink-subtle)"}} />
                 <p class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-                  Encrypted end-to-end · Deleted 30 days after delivery · GDPR-compliant
+                  {tc("encryptedNote")}
                 </p>
               </div>
             </div>
@@ -173,10 +188,10 @@ const PROMISES = [
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
         <div class="mb-8">
           <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-            Our promise
+            {tc("ourPromise")}
           </div>
           <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
-            What you get <span class="italic-display">in writing</span>
+            {tso("promise01title") ? tso("promise01title").split(" ").slice(0, 2).join(" ") + " " : ""}<span class="italic-display">{tc("inWriting")}</span>
           </h2>
         </div>
         <ul class="grid grid-cols-1 gap-5 md:grid-cols-3">
@@ -202,10 +217,10 @@ const PROMISES = [
         <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
           <div>
             <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-              FAQ
+              {tc("faq")}
             </div>
             <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
-              Frequently asked
+              {tso("promise01title") ? "Frequently asked" : tc("frequentlyAsked")}
             </h2>
           </div>
           <div class="divide-y divide-[var(--color-border-soft)]">
@@ -228,10 +243,10 @@ const PROMISES = [
         <div class="grid gap-8 lg:grid-cols-[1.5fr,1fr] items-end">
           <div>
             <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
-              Ready when you are
+              {tc("readyWhenYouAre")}
             </div>
             <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.02; letter-spacing: -0.02em; color: var(--color-bg);">
-              Send reports, <span class="italic-display">receive clarity.</span>
+              {tc("sendReports")}
             </h2>
           </div>
           <div class="flex flex-wrap gap-3 lg:justify-end">
@@ -241,14 +256,14 @@ const PROMISES = [
               style="background: var(--color-bg); color: var(--color-ink); padding: 14px 22px; border-radius: 9999px;"
             >
               <Upload className="h-4 w-4" />
-              Upload reports
+              {tc("uploadReports")}
             </a>
             <a
               href={localizedPath(locale, "/contact")}
               class="inline-flex items-center gap-2 font-semibold"
               style="border: 1px solid rgba(246,241,230,0.35); color: var(--color-bg); padding: 13px 22px; border-radius: 9999px;"
             >
-              Talk to a coordinator
+              {tc("talkToCoordinator")}
             </a>
           </div>
         </div>

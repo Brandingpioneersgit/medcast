@@ -1,0 +1,139 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { getTranslator } from "@/lib/messages";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/emergency-triage", 308);
+const locale = rawLocale as Locale;
+
+const tc = getTranslator(locale, "common");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta
+      title="Emergency Triage"
+      description="Check your symptoms against our clinical triage guide. Call emergency services for any life-threatening condition."
+      path="/emergency-triage"
+      locale={locale}
+      noindex={true}
+    />
+  </Fragment>
+
+  <main class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto max-w-[1440px] px-7 md:px-10 py-4">
+        <nav class="mono text-[12px] flex items-center gap-2 flex-wrap" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span aria-hidden="true" class="text-[var(--color-border-strong)]">/</span>
+          <span style="color: var(--color-ink);">Emergency Triage</span>
+        </nav>
+      </div>
+    </div>
+
+    <section class="mx-auto w-full max-w-[80rem] px-5 md:px-8 py-12">
+      <div class="mb-8">
+        <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-coral);">24/7 Emergency</p>
+        <h1 class="display mt-2" style="font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -0.02em;">
+          Symptom <span class="italic-display">triage guide</span>
+        </h1>
+        <p class="serif mt-3 max-w-[48rem]" style="font-size: 17px; line-height: 1.55; color: var(--color-ink-muted);">
+          Not sure if you need urgent help? Work through this guide to understand your next step. For any life-threatening symptoms, call emergency services immediately.
+        </p>
+
+        {/* YMYL disclaimer — informational, not medical advice. */}
+        <div
+          role="note"
+          class="mt-5"
+          style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 14px 18px; max-width: 720px;"
+        >
+          <p class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-coral); margin-bottom: 6px;">
+            Important
+          </p>
+          <p class="serif" style="font-size: 14.5px; line-height: 1.55; color: var(--color-ink-muted);">
+            This guide is informational only — it is <strong>not medical advice</strong> and does not replace evaluation by a clinician. If symptoms are severe, worsening, or you are unsure, contact a doctor or your local emergency services without delay.
+          </p>
+        </div>
+      </div>
+
+      <div class="grid gap-6 md:grid-cols-3">
+        {/* GREEN — Routine */}
+        <div class="paper p-6" style="border-top: 4px solid var(--color-success);">
+          <div class="display tnum mb-2" style="font-size: 48px; color: var(--color-success); line-height: 1;">✓</div>
+          <h2 class="serif mb-2" style="font-size: 22px; color: var(--color-success);">Green — Routine</h2>
+          <p class="text-sm mb-4" style="color: var(--color-ink-muted);">Continue monitoring. Contact your coordinator at next check-in.</p>
+          <ul class="space-y-2 text-sm" style="color: var(--color-ink-muted);">
+            <li>Mild soreness at incision site</li>
+            <li>Minor bruising around wound</li>
+            <li>Slight fatigue that improves with rest</li>
+            <li>Normal appetite variations</li>
+            <li>Mild stiffness in the morning</li>
+          </ul>
+        </div>
+
+        {/* YELLOW — Contact coordinator */}
+        <div class="paper p-6" style="border-top: 4px solid var(--color-saffron);">
+          <div class="display tnum mb-2" style="font-size: 48px; color: var(--color-saffron); line-height: 1;">⚠</div>
+          <h2 class="serif mb-2" style="font-size: 22px; color: var(--color-saffron);">Yellow — Contact coordinator</h2>
+          <p class="text-sm mb-4" style="color: var(--color-ink-muted);">Reach out immediately. Do not wait for your scheduled check-in.</p>
+          <ul class="space-y-2 text-sm" style="color: var(--color-ink-muted);">
+            <li>Fever above 38°C for more than 24h</li>
+            <li>Increasing redness or swelling at wound</li>
+            <li>Drainage that is yellow or foul-smelling</li>
+            <li>Persistent dizziness or shortness of breath</li>
+            <li>Pain not controlled by prescribed medication</li>
+            <li>Unable to pass urine in 8+ hours</li>
+          </ul>
+        </div>
+
+        {/* RED — Emergency */}
+        <div class="paper p-6" style="border-top: 4px solid var(--color-coral);">
+          <div class="display tnum mb-2" style="font-size: 48px; color: var(--color-coral); line-height: 1;">✗</div>
+          <h2 class="serif mb-2" style="font-size: 22px; color: var(--color-coral);">Red — Call emergency now</h2>
+          <p class="text-sm mb-4" style="color: var(--color-ink-muted);">For life-threatening symptoms. Call emergency services in your destination country.</p>
+          <ul class="space-y-2 text-sm" style="color: var(--color-ink-muted);">
+            <li>Chest pain or pressure</li>
+            <li>Sudden severe shortness of breath</li>
+            <li>Bleeding that won't stop</li>
+            <li>Signs of stroke (face droop, arm weakness, speech difficulty)</li>
+            <li>Loss of consciousness</li>
+            <li>Severe allergic reaction</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="mt-10 paper p-6">
+        <h2 class="serif mb-4" style="font-size: 22px;">Emergency contacts by destination</h2>
+        <div class="grid gap-4 md:grid-cols-2">
+          {[
+            { country: "India", emergency: "112", ambulance: "102", medcasts: "+91 800 621 000" },
+            { country: "Turkey", emergency: "112", ambulance: "112", medcasts: "+90 850 222 0 666" },
+            { country: "Thailand", emergency: "1669", ambulance: "1669", medcasts: "+66 800 111 222" },
+            { country: "UAE", emergency: "998", ambulance: "998", medcasts: "+971 800 2000" },
+            { country: "Germany", emergency: "112", ambulance: "112", medcasts: "+49 800 111 2222" },
+          ].map((c) => (
+            <div class="flex items-start justify-between border-b border-[var(--color-border-soft)] pb-3">
+              <div>
+                <span class="font-medium text-[15px]">{c.country}</span>
+                <p class="text-xs mt-0.5" style="color: var(--color-ink-muted);">Emergency: {c.emergency}{c.ambulance ? ` · Ambulance: ${c.ambulance}` : ""}</p>
+              </div>
+              <span class="mono text-[11px]" style="color: var(--color-accent);">
+                MedCasts: {c.medcasts}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

@@ -5,8 +5,9 @@ import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
-import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { breadcrumbJsonLd, localeUrl, SITE_NAME, SITE_URL } from "@/lib/seo";
 import { Mail, Phone, MessageCircle, ChevronRight } from "lucide-react";
+import { getAvailableCoordinators } from "@/lib/queries";
 
 export const prerender = false;
 
@@ -14,14 +15,49 @@ const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect(`/en/contact`, 308);
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tc2 = getTranslator(locale, "contactPage");
 
 const path = "/contact";
 const url = localeUrl(locale, path);
 
+const coordinators = await getAvailableCoordinators(1);
+
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Contact", url },
+  { name: tc2("breadcrumbContact"), url },
 ]);
+
+// ContactPage schema — primary contact surface; mirrors the Org-level
+// contactPoint catalog (also in BaseLayout) so Google can resolve "contact
+// medcasts" intent directly to this page.
+const contactPageLd = {
+  "@context": "https://schema.org",
+  "@type": "ContactPage",
+  name: tc2("seoTitle"),
+  description: tc2("seoDescription"),
+  url,
+  mainEntity: {
+    "@type": "Organization",
+    name: SITE_NAME,
+    url: SITE_URL,
+    contactPoint: [
+      {
+        "@type": "ContactPoint",
+        contactType: "customer support",
+        email: "care@medcasts.com",
+        telephone: "+918006210000",
+        availableLanguage: ["en", "ar", "ru", "fr", "pt", "bn", "tr", "hi"],
+      },
+      {
+        "@type": "ContactPoint",
+        contactType: "emergency",
+        telephone: "+918006210000",
+        availableLanguage: ["en", "ar", "hi"],
+        hoursAvailable: "24/7",
+      },
+    ],
+  },
+};
 
 // Pre-fill values from query string — passed from various CTAs across the site.
 const reqUrl = new URL(Astro.request.url);
@@ -43,10 +79,10 @@ const prefillContext =
   prefillCountry;
 
 const STEPS = [
-  { n: "01", t: "You submit case details", d: "Form, WhatsApp, or email — whatever's easier. Include imaging if available." },
-  { n: "02", t: "Case manager assigned · ~9 min", d: "A named coordinator replies with clarifying questions and routes your case to 3 matched surgeons." },
-  { n: "03", t: "Three itemised quotes · 48 h", d: "You get line-item quotes (surgery, anaesthesia, implants, stay, transfers) so you can compare cleanly." },
-  { n: "04", t: "Video consult before booking", d: "Talk to the surgeon on video before committing. We coordinate timing and interpretation if needed." },
+  { n: "01", t: tc2("step01Title"), d: tc2("step01Desc") },
+  { n: "02", t: tc2("step02Title"), d: tc2("step02Desc") },
+  { n: "03", t: tc2("step03Title"), d: tc2("step03Desc") },
+  { n: "04", t: tc2("step04Title"), d: tc2("step04Desc") },
 ];
 
 Astro.response.headers.set(
@@ -58,32 +94,34 @@ Astro.response.headers.set(
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta
-      title="Contact MedCasts"
-      description="Reach our international patient desk. Free treatment quotes, second opinions, and case coordination across 9 destinations. Response within 9 minutes during office hours."
+      title={tc2("seoTitle")}
+      description={tc2("seoDescription")}
       path={path}
       locale={locale}
+      noindex={locale !== "en"}
     />
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" set:html={JSON.stringify(contactPageLd)} />
   </Fragment>
 
   <main class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
-      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
-        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+      <div class="mx-auto max-w-[1440px] px-7 md:px-10 py-4">
+        <nav class="mono text-[12px] flex items-center gap-2 flex-wrap" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
-          <span class="mx-1.5">/</span>
-          <span style="color: var(--color-ink);">Contact</span>
+          <span aria-hidden="true" class="text-[var(--color-border-strong)]">/</span>
+          <span style="color: var(--color-ink);">{tc2("breadcrumbContact")}</span>
         </nav>
       </div>
     </div>
 
     <section class="pt-12 md:pt-16">
-      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
+      <div class="mx-auto max-w-[1440px] px-7 md:px-10">
         <p class="mono uppercase flex items-center gap-2" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
           <span class="inline-block w-1.5 h-1.5 rounded-full live-dot" style="background: var(--color-accent);" aria-hidden="true" />
-          Coordinators online · avg reply 9 min
+          {tc2("coordinatorsOnline")}
         </p>
 
         <div class="grid gap-10 lg:grid-cols-[1.35fr,1fr] lg:gap-14 mt-3">
@@ -92,10 +130,10 @@ Astro.response.headers.set(
               class="display display-tight"
               style="font-size: clamp(2.25rem, 5vw, 4.5rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em;"
             >
-              Speak with a <span class="italic-display">case manager</span>
+              {tc2("headline").replace(tc2("headlineAccent"), `<span class="italic-display">${tc2("headlineAccent")}</span>`)}
             </h1>
             <p class="serif mt-5 max-w-[44rem]" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">
-              Free treatment quotes, second opinions, and end-to-end case coordination across 9 destinations. Named coordinators reply within the day — usually within minutes.
+              {tc2("subtitle")}
             </p>
 
             <form
@@ -103,36 +141,56 @@ Astro.response.headers.set(
               method="POST"
               class="paper mt-8"
               style="padding: 28px 28px 26px;"
+              novalidate
+              data-contact-form
             >
               {prefillContext && (
                 <div class="mb-5 mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent); padding: 10px 14px; border: 1px dashed var(--color-accent); border-radius: 9999px; display: inline-flex; align-items: center; gap: 8px;">
-                  Pre-filled for:&nbsp;
+                  {tc2("preFilledFor")}&nbsp;
                   <span style="color: var(--color-ink);">{prefillHospital || prefillDoctor || prefillTreatment || prefillSpecialty || prefillCondition || prefillCity || prefillCountry}</span>
                 </div>
               )}
 
+              <input type="hidden" name="ref" id="referral-code-input" />
+
+              {/* Step 1 of 2 — minimal first contact */}
+              <div class="mb-6 flex items-center gap-2">
+                <div class="flex items-center justify-center w-6 h-6 rounded-full" style="background: var(--color-accent); color: var(--color-bg);">
+                  <span class="mono" style="font-size: 11px;">1</span>
+                </div>
+                <span class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">{tc2("step1")}</span>
+              </div>
+
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);" for="name">Full name</label>
+                  <label class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);" for="name">{tc2("fullName")}</label>
                   <input
-                    type="text" id="name" name="name" required
+                    type="text" id="name" name="name" required autocomplete="name"
                     class="w-full serif focus:outline-none"
                     style="background: var(--color-bg); border: 1px solid var(--color-border); padding: 12px 14px; border-radius: 10px; font-size: 15px; color: var(--color-ink);"
+                    data-validate
                   />
+                  <p data-error-for="name" hidden class="mono mt-1" style="font-size: 10px; color: var(--color-danger); letter-spacing: 0.06em;">
+                    {tc2("pleaseEnterName")}
+                  </p>
                 </div>
                 <div>
-                  <label class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);" for="email">Email</label>
+                  <label class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);" for="email">{tc2("email")}</label>
                   <input
-                    type="email" id="email" name="email" required
+                    type="email" id="email" name="email" required autocomplete="email"
                     class="w-full serif focus:outline-none"
                     style="background: var(--color-bg); border: 1px solid var(--color-border); padding: 12px 14px; border-radius: 10px; font-size: 15px; color: var(--color-ink);"
+                    data-validate
                   />
+                  <p data-error-for="email" hidden class="mono mt-1" style="font-size: 10px; color: var(--color-danger); letter-spacing: 0.06em;">
+                    {tc2("enterValidEmail")}
+                  </p>
                 </div>
               </div>
 
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                 <div>
-                  <label class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);" for="phone">Phone · WhatsApp</label>
+                  <label class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);" for="phone">{tc2("phoneWhatsapp")}</label>
                   <input
                     type="tel" id="phone" name="phone"
                     class="w-full serif focus:outline-none"
@@ -140,34 +198,13 @@ Astro.response.headers.set(
                   />
                 </div>
                 <div>
-                  <label class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);" for="countryCode">Your country</label>
+                  <label class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);" for="countryCode">{tc2("yourCountry")}</label>
                   <input
                     type="text" id="countryCode" name="countryCode"
                     class="w-full serif focus:outline-none"
                     style="background: var(--color-bg); border: 1px solid var(--color-border); padding: 12px 14px; border-radius: 10px; font-size: 15px; color: var(--color-ink);"
                   />
                 </div>
-              </div>
-
-              <div class="mt-4">
-                <label class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);" for="treatment">Treatment you need</label>
-                <input
-                  type="text" id="treatment" name="treatment"
-                  value={prefillTreatment}
-                  placeholder="e.g. CABG · hair transplant · IVF · knee replacement"
-                  class="w-full serif focus:outline-none"
-                  style="background: var(--color-bg); border: 1px solid var(--color-border); padding: 12px 14px; border-radius: 10px; font-size: 15px; color: var(--color-ink);"
-                />
-              </div>
-
-              <div class="mt-4">
-                <label class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);" for="message">Brief case summary</label>
-                <textarea
-                  id="message" name="message" rows="4"
-                  placeholder="Diagnosis, current treatment, what you're hoping we can help with. Attach imaging separately by email if preferred."
-                  class="w-full serif focus:outline-none"
-                  style="background: var(--color-bg); border: 1px solid var(--color-border); padding: 12px 14px; border-radius: 10px; font-size: 15px; color: var(--color-ink); font-family: inherit;"
-                ></textarea>
               </div>
 
               {prefillSpecialty && <input type="hidden" name="specialty" value={prefillSpecialty} />}
@@ -180,24 +217,87 @@ Astro.response.headers.set(
               <div class="mt-6 flex flex-wrap items-center gap-4">
                 <button
                   type="submit"
+                  data-submit-btn
+                  data-i18n-sending={tc2("sending")}
                   class="inline-flex items-center gap-2 font-semibold"
                   style="background: var(--color-ink); color: var(--color-bg); padding: 13px 24px; border-radius: 9999px; font-size: 14px;"
                 >
-                  Send to case manager
+                  {tc2("submitBtn")}
                   <ChevronRight className="h-4 w-4 mirror-x" />
                 </button>
                 <p class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                  Shared only with coordinators on your case · No marketing lists
+                  {tc2("noMarketingNote")}
                 </p>
               </div>
+
+              {/* Step 2 — optional additional details */}
+              <details class="mt-5" data-step2>
+                <summary
+                  class="mono flex items-center gap-2 cursor-pointer"
+                  style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase; padding: 8px 0;"
+                >
+                  <div class="flex items-center justify-center w-5 h-5 rounded-full" style="border: 1px solid var(--color-border);">
+                    <span>2</span>
+                  </div>
+                  {tc2("step2Summary")}
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-inline-start: 4px;" aria-hidden="true"><path d="M2 4l3 3 3-3"/></svg>
+                </summary>
+                <div class="mt-4">
+                  <label class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);" for="treatment">{tc2("treatmentNeeded")}</label>
+                  <input
+                    type="text" id="treatment" name="treatment"
+                    value={prefillTreatment}
+                    placeholder={tc2("treatmentPlaceholder")}
+                    class="w-full serif focus:outline-none"
+                    style="background: var(--color-bg); border: 1px solid var(--color-border); padding: 12px 14px; border-radius: 10px; font-size: 15px; color: var(--color-ink);"
+                  />
+                  <label class="mono uppercase block mt-4 mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);" for="message">{tc2("caseSummary")}</label>
+                  <textarea
+                    id="message" name="message" rows="3"
+                    placeholder={tc2("caseSummaryPlaceholder")}
+                    class="w-full serif focus:outline-none"
+                    style="background: var(--color-bg); border: 1px solid var(--color-border); padding: 12px 14px; border-radius: 10px; font-size: 15px; color: var(--color-ink); font-family: inherit;"
+                  ></textarea>
+                </div>
+              </details>
             </form>
           </div>
 
           <aside class="lg:sticky lg:top-32 lg:self-start space-y-4">
+            {/* Coordinator card */}
+            {(() => {
+              const c = coordinators[0];
+              return c ? (
+                <div class="paper" style="padding: 20px 22px;">
+                  <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                    {tc2("yourCoordinator")}
+                  </div>
+                  <div class="flex items-center gap-3 mt-3">
+                    <div class="flex items-center justify-center rounded-full shrink-0" style={{width: "44px", height: "44px", background: c.avatarColor, color: "#F6F1E6", fontSize: "15px", fontWeight: 600, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center"}}>
+                      {c.avatarInitials}
+                    </div>
+                    <div>
+                      <div class="serif" style="font-size: 15px; color: var(--color-ink);">{c.name}</div>
+                      <div class="mono mt-0.5" style="font-size: 10px; color: var(--color-ink-muted); letter-spacing: 0.06em;">
+                        {tc2("speaks")} {Array.isArray(c.languages) ? c.languages.join(", ") : c.languages}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-1.5 mt-3">
+                    <span class="inline-block w-1.5 h-1.5 rounded-full" style="background: #22c55e;" aria-hidden="true" />
+                    <span class="mono" style="font-size: 10px; color: #22c55e; letter-spacing: 0.06em;">{tc2("avgReply").replace("{min}", String(c.avgReplyMinutes))}</span>
+                  </div>
+                  <a href={`tel:+918006210000`} class="mono mt-3 block text-center" style="font-size: 11px; letter-spacing: 0.1em; padding: 9px 16px; border: 1px solid var(--color-border); border-radius: 9999px; color: var(--color-ink-muted);">
+                    {tc2("requestCallback")}
+                  </a>
+                </div>
+              ) : null;
+            })()}
+
             {/* What happens next */}
             <div class="paper" style="padding: 24px 26px;">
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                What happens next
+                {tc2("whatHappensNext")}
               </div>
               <ol class="mt-5 space-y-5">
                 {STEPS.map((s) => (
@@ -221,33 +321,33 @@ Astro.response.headers.set(
             {/* Direct channels */}
             <div class="paper" style="padding: 24px 26px;">
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Prefer to skip the form
+                {tc2("skipForm")}
               </div>
               <ul class="mt-4 space-y-3.5">
                 <li class="flex items-start gap-3">
                   <MessageCircle className="h-4 w-4 mt-1 shrink-0" style={{color: "var(--color-accent)"}} />
                   <div>
-                    <div class="serif" style="font-size: 15px; color: var(--color-ink);">WhatsApp · fastest</div>
+                    <div class="serif" style="font-size: 15px; color: var(--color-ink);">{tc2("whatsappFastest")}</div>
                     <a href="https://wa.me/918006210000" class="mono uppercase" style="font-size: 11px; letter-spacing: 0.1em; color: var(--color-ink-muted);">+91 800 621 000 →</a>
                   </div>
                 </li>
                 <li class="flex items-start gap-3">
                   <Mail className="h-4 w-4 mt-1 shrink-0" style={{color: "var(--color-accent)"}} />
                   <div>
-                    <div class="serif" style="font-size: 15px; color: var(--color-ink);">Email</div>
+                    <div class="serif" style="font-size: 15px; color: var(--color-ink);">{tc2("emailLabel")}</div>
                     <a href="mailto:care@medcasts.com" class="mono uppercase" style="font-size: 11px; letter-spacing: 0.1em; color: var(--color-ink-muted);">care@medcasts.com →</a>
                   </div>
                 </li>
                 <li class="flex items-start gap-3">
                   <Phone className="h-4 w-4 mt-1 shrink-0" style={{color: "var(--color-accent)"}} />
                   <div>
-                    <div class="serif" style="font-size: 15px; color: var(--color-ink);">Phone</div>
+                    <div class="serif" style="font-size: 15px; color: var(--color-ink);">{tc2("phoneLabel")}</div>
                     <a href="tel:+918006210000" class="mono uppercase" style="font-size: 11px; letter-spacing: 0.1em; color: var(--color-ink-muted);">+91 800 621 000 →</a>
                   </div>
                 </li>
               </ul>
               <div class="mt-5 pt-4 mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); border-top: 1px dashed var(--color-border);">
-                08:00–22:00 GMT+5:30 · Emergency desk 24/7
+                {tc2("hoursNote")}
               </div>
             </div>
 
@@ -259,14 +359,69 @@ Astro.response.headers.set(
             >
               <div>
                 <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; opacity: 0.8;">
-                  Medical emergency
+                  {tc2("medicalEmergency")}
                 </div>
                 <div class="serif mt-1" style="font-size: 17px; line-height: 1.3;">
-                  24/7 air-ambulance + critical-care desk
+                  {tc2("airAmbulance")}
                 </div>
               </div>
               <ChevronRight className="h-5 w-5 mirror-x shrink-0" />
             </a>
+
+            {/* Referral CTA */}
+            <div class="paper" style="padding: 24px 26px;" id="referral-cta">
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                {tc2("referFriend")}
+              </div>
+              <p class="serif mt-3" style="font-size: 14px; line-height: 1.5; color: var(--color-ink-muted);">
+                {tc2("referFriendDesc")}
+                <strong style="color: var(--color-accent);">{tc2("perReferral")}</strong>
+              </p>
+              <div class="mt-4" id="referral-form-area">
+                <div id="referral-logged-in" class="hidden">
+                  <div class="flex items-center gap-3 flex-wrap">
+                    <code class="mono" style="font-size: 16px; padding: 6px 12px; border: 1px dashed var(--color-border); border-radius: 8px; color: var(--color-ink); letter-spacing: 0.06em;" id="referral-code-display"></code>
+                    <button type="button" id="copy-referral-btn"
+                      data-i18n-copied={tc2("copied")}
+                      data-i18n-copy={tc2("copy")}
+                      class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent); padding: 6px 12px; border: 1px solid var(--color-accent); border-radius: 9999px; cursor: pointer;">
+                      {tc2("copy")}
+                    </button>
+                  </div>
+                  <p class="mono mt-3" style="font-size: 10px; color: var(--color-ink-subtle);">
+                    {tc2("shareVia")}
+                    <a id="share-whatsapp" href="#" target="_blank" rel="noopener" class="underline ml-1" data-share-text={tc("medcasts")}>WhatsApp</a> ·
+                    <a id="share-email" href="#" target="_blank" rel="noopener" class="underline" data-share-text={tc("medcasts")}>{tc2("emailLabel")}</a>
+                  </p>
+                </div>
+                <div id="referral-signup">
+                  <div class="flex gap-2 flex-wrap">
+                    <input
+                      type="email"
+                      id="referral-email"
+                      placeholder={tc2("yourEmail")}
+                      class="w-full serif"
+                      style="background: var(--color-bg); border: 1px solid var(--color-border); padding: 10px 14px; border-radius: 10px; font-size: 14px; color: var(--color-ink);"
+                    />
+                    <button
+                      type="button"
+                      id="referral-generate-btn"
+                      data-i18n-sending={tc2("sending")}
+                      data-i18n-default={tc2("getReferralLinkDefault")}
+                      data-i18n-email-first={tc2("enterEmailFirst")}
+                      data-i18n-failed={tc2("failedGenerate")}
+                      data-i18n-network={tc2("networkError")}
+                      class="inline-flex items-center gap-2 mono uppercase"
+                      style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent); padding: 10px 16px; border: 1px solid var(--color-accent); border-radius: 9999px; cursor: pointer; white-space: nowrap;"
+                    >
+                      {tc2("getReferralLinkDefault")}
+                    </button>
+                  </div>
+                  <p id="referral-error" class="mono mt-2 hidden" style="font-size: 10px; color: var(--color-danger);"></p>
+                  <p class="mono mt-2" style="font-size: 10px; color: var(--color-ink-subtle);">{tc2("creditedNote")}</p>
+                </div>
+              </div>
+            </div>
           </aside>
         </div>
       </div>
@@ -276,14 +431,14 @@ Astro.response.headers.set(
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
         <div class="grid gap-6 md:grid-cols-4" style="border-top: 1px solid var(--color-ink); border-bottom: 1px solid var(--color-border);">
           {[
-            { l: "Coordinators online", v: "Now" },
-            { l: "Median reply", v: "9 min" },
-            { l: "Language support", v: "8" },
-            { l: "No fee", v: "For patients" },
+            { l: tc2("trustCoordinators"), v: tc2("trustCoordinatorsVal") },
+            { l: tc2("trustMedianReply"), v: tc2("trustMedianReplyVal") },
+            { l: tc2("trustLanguages"), v: tc2("trustLanguagesVal") },
+            { l: tc2("trustNoFee"), v: tc2("trustNoFeeVal") },
           ].map((s, i) => (
             <div
               class="px-5 py-6"
-              style={i > 0 ? "border-inline-start: 1px solid var(--color-border);" : ""}
+              style={i > 0 ? {borderInlineStart: "1px solid var(--color-border)"} : {}}
             >
               <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
                 {s.l}
@@ -296,5 +451,167 @@ Astro.response.headers.set(
     </section>
 
     <SiteFooter locale={locale} />
+
+    <div data-trust-bar class="paper fixed bottom-0 left-0 right-0 z-30 hidden" style="margin: 0; padding: 14px 24px; border-radius: var(--radius-lg) var(--radius-lg) 0 0; border-bottom: none; box-shadow: var(--shadow-lg); background: var(--color-paper);" aria-live="polite">
+      <div class="mx-auto max-w-[1440px] flex items-center justify-between gap-6 flex-wrap">
+        <div class="flex items-center gap-3">
+          <span class="inline-block w-2 h-2 rounded-full bg-[var(--color-accent)]" aria-hidden="true"></span>
+          <span class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+            {tc2("trustSignalsHere")} <a href={localizedPath(locale, "/accreditation")} class="hover:text-accent">JCI · ISO · GDPR</a>
+          </span>
+        </div>
+        <div class="flex items-center gap-4">
+          {["JCI Partner", "ISO 27001", "GDPR", "HIPAA"].map(badge => (
+            <span class="mono" style="font-size: 10px; padding: 4px 10px; border: 1px solid var(--color-border); border-radius: 9999px; color: var(--color-ink-subtle); letter-spacing: 0.08em;">{badge}</span>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <script is:inline>
+      (() => {
+        // Auto-populate referral code from URL ?ref= param
+        const params = new URLSearchParams(window.location.search);
+        const refCode = params.get('ref');
+        if (refCode) {
+          const input = document.getElementById('referral-code-input');
+          if (input) input.value = refCode;
+        }
+
+        const form = document.querySelector('[data-contact-form]');
+        if (!form) return;
+        const submitBtn = form.querySelector('[data-submit-btn]');
+        const trustBar = document.querySelector('[data-trust-bar]');
+        const validatedFields = form.querySelectorAll('[data-validate]');
+
+        function showError(input) {
+          const err = form.querySelector(`[data-error-for="${input.id}"]`);
+          if (err) err.removeAttribute('hidden');
+          input.style.borderColor = 'var(--color-danger)';
+        }
+        function clearError(input) {
+          const err = form.querySelector(`[data-error-for="${input.id}"]`);
+          if (err) err.setAttribute('hidden', '');
+          input.style.borderColor = 'var(--color-border)';
+        }
+
+        validatedFields.forEach(f => f.addEventListener('input', () => clearError(f)));
+
+        // Show trust bar when user focuses an input
+        form.querySelectorAll('input, textarea').forEach(el => {
+          el.addEventListener('focus', () => {
+            if (trustBar) trustBar.classList.remove('hidden');
+          }, { once: true });
+        });
+
+        form.addEventListener('submit', (e) => {
+          let valid = true;
+          validatedFields.forEach(f => {
+            if (!f.value.trim()) { showError(f); valid = false; }
+            if (f.type === 'email' && f.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.value)) {
+              showError(f); valid = false;
+            }
+          });
+          if (!valid) { e.preventDefault(); return; }
+          if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = submitBtn.dataset.i18nSending || 'Sending…';
+          }
+          if (typeof window !== 'undefined' && window.dataLayer) {
+            window.dataLayer.push({ event: 'quote_request_submit', value: 1 });
+          }
+        });
+
+        let formStarted = false;
+        form.querySelectorAll('input, textarea').forEach(el => {
+          el.addEventListener('focus', () => {
+            if (!formStarted) {
+              formStarted = true;
+              if (typeof window !== 'undefined' && window.dataLayer) {
+                window.dataLayer.push({ event: 'quote_form_start', value: 1 });
+              }
+            }
+          }, { once: true });
+        });
+
+        const step2 = form.querySelector('[data-step2]');
+        if (step2) {
+          step2.addEventListener('toggle', () => {
+            if (step2.hasAttribute('open') && window.dataLayer) {
+              window.dataLayer.push({ event: 'quote_form_step2_open', value: 1 });
+            }
+          });
+        }
+
+        // Referral section
+        const referralEmailInput = document.getElementById('referral-email');
+        const referralGenerateBtn = document.getElementById('referral-generate-btn');
+        const referralError = document.getElementById('referral-error');
+        const referralLoggedIn = document.getElementById('referral-logged-in');
+        const referralSignup = document.getElementById('referral-signup');
+        const referralCodeDisplay = document.getElementById('referral-code-display');
+        const copyBtn = document.getElementById('copy-referral-btn');
+
+        function showReferralCode(code) {
+          if (referralLoggedIn) referralLoggedIn.classList.remove('hidden');
+          if (referralSignup) referralSignup.classList.add('hidden');
+          if (referralCodeDisplay) referralCodeDisplay.textContent = code;
+          const shareBase = window.location.origin + '/contact?ref=' + encodeURIComponent(code);
+          const whatsappLink = document.getElementById('share-whatsapp');
+          const shareText = (whatsappLink && whatsappLink.dataset.shareText) ? whatsappLink.dataset.shareText : 'MedCasts';
+          if (whatsappLink) whatsappLink.href = 'https://wa.me/?text=' + encodeURIComponent('Check out ' + shareText + ': ' + shareBase);
+          const emailLink = document.getElementById('share-email');
+          const emailText = (emailLink && emailLink.dataset.shareText) ? emailLink.dataset.shareText : 'MedCasts';
+          if (emailLink) emailLink.href = 'mailto:?subject=' + encodeURIComponent(emailText + ' — Medical Travel Support') + '&body=' + encodeURIComponent('I use ' + emailText + ': ' + shareBase);
+        }
+
+        // Check for existing referral code in localStorage
+        const stored = localStorage.getItem('mc_ref_code');
+        if (stored) showReferralCode(stored);
+
+        if (referralGenerateBtn) {
+          referralGenerateBtn.addEventListener('click', async () => {
+            const email = referralEmailInput?.value?.trim() || '';
+            if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+              if (referralError) { referralError.textContent = referralGenerateBtn.dataset.i18nEmailFirst || 'Enter a valid email first'; referralError.classList.remove('hidden'); }
+              return;
+            }
+            if (referralError) referralError.classList.add('hidden');
+            referralGenerateBtn.textContent = referralGenerateBtn.dataset.i18nSending || '...';
+            referralGenerateBtn.disabled = true;
+            try {
+              const res = await fetch('/api/v1/referral', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: 'Friend', email }),
+              });
+              const data = await res.json();
+              if (data.code) {
+                localStorage.setItem('mc_ref_code', data.code);
+                showReferralCode(data.code);
+              } else {
+                if (referralError) { referralError.textContent = referralGenerateBtn.dataset.i18nFailed || 'Failed to generate code. Try again.'; referralError.classList.remove('hidden'); }
+              }
+            } catch {
+              if (referralError) { referralError.textContent = referralGenerateBtn.dataset.i18nNetwork || 'Network error. Try again.'; referralError.classList.remove('hidden'); }
+            } finally {
+              referralGenerateBtn.textContent = referralGenerateBtn.dataset.i18nDefault || 'Get referral link';
+              referralGenerateBtn.disabled = false;
+            }
+          });
+        }
+
+        if (copyBtn) {
+          copyBtn.addEventListener('click', () => {
+            const code = referralCodeDisplay?.textContent || '';
+            const shareUrl = window.location.origin + '/contact?ref=' + encodeURIComponent(code);
+            navigator.clipboard.writeText(shareUrl).then(() => {
+              copyBtn.textContent = copyBtn.dataset.i18nCopied || 'Copied!';
+              setTimeout(() => { if (copyBtn) copyBtn.textContent = copyBtn.dataset.i18nCopy || 'Copy'; }, 2000);
+            });
+          });
+        }
+      })();
+    </script>
   </main>
 </BaseLayout>

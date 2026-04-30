@@ -11,7 +11,7 @@ import {
 } from "../../../../../src/lib/db/schema";
 import { asc, eq } from "drizzle-orm";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
-import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { breadcrumbJsonLd, localeUrl, SITE_NAME, SITE_URL } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { ChevronRight } from "lucide-react";
 
@@ -37,22 +37,50 @@ const crumbs = breadcrumbJsonLd([
   { name: "Find a specialist", url: localeUrl(locale, path) },
 ]);
 
+const contactPageLd = {
+  "@context": "https://schema.org",
+  "@type": "ContactPage",
+  name: seoTitle,
+  description: seoDescription,
+  url: localeUrl(locale, path),
+  mainEntity: {
+    "@type": "Organization",
+    name: SITE_NAME,
+    url: SITE_URL,
+    contactPoint: [
+      {
+        "@type": "ContactPoint",
+        contactType: "customer support",
+        email: "hello@medcasts.com",
+        availableLanguage: ["en", "ar", "ru", "fr", "pt", "bn", "tr", "hi"],
+      },
+      {
+        "@type": "ContactPoint",
+        contactType: "specialist matching",
+        telephone: "+918006210000",
+        availableLanguage: ["en", "ar", "hi"],
+      },
+    ],
+  },
+};
+
 Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
 ---
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={locale !== "en"} />
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" set:html={JSON.stringify(contactPageLd)} />
   </Fragment>
 
   <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} />
 
     <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
-      <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+      <nav class="mono mx-auto max-w-[1440px] flex items-center gap-2 flex-wrap" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
         <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
-        <span class="mx-1.5">/</span>
+        <span aria-hidden="true" class="text-[var(--color-border-strong)]">/</span>
         <span style="color: var(--color-ink);">Find a specialist</span>
       </nav>
     </div>

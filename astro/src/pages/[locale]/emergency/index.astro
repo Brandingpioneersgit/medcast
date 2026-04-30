@@ -3,10 +3,11 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import EntityListingHero from "@/components/EntityListingHero.astro";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
-import { Plane, Phone, ChevronRight, Heart, Stethoscope } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 export const prerender = false;
 
@@ -14,13 +15,14 @@ const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect(`/en/emergency`, 308);
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const te = getTranslator(locale, "emergencyPage");
 
 const path = "/emergency";
 const url = localeUrl(locale, path);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Emergency desk", url },
+  { name: te("breadcrumbEmergency"), url },
 ]);
 
 Astro.response.headers.set(
@@ -41,38 +43,71 @@ const DESTINATIONS: Array<{ slug: string; name: string; flag: string }> = [
 ];
 
 const STEPS = [
-  { n: "01", t: "First contact ≤ 3 minutes", d: "You reach a case manager — not an answering service. We collect patient condition, current location, and preferred destination." },
-  { n: "02", t: "Destination hospital confirmed ≤ 30 min", d: "Tier-1 hospital admission + receiving specialist confirmed. Estimated cost window shared upfront." },
-  { n: "03", t: "Air ambulance wheels up ≤ 4 hours", d: "Fixed-wing medical flight dispatched. Family receives live coordinates and ETA updates throughout." },
-  { n: "04", t: "Bedside-to-bedside transition", d: "Patient moved from home ICU → flight → destination ICU without ever being off monitoring." },
+  { n: "01", t: te("step01Title"), d: te("step01Desc") },
+  { n: "02", t: te("step02Title"), d: te("step02Desc") },
+  { n: "03", t: te("step03Title"), d: te("step03Desc") },
+  { n: "04", t: te("step04Title"), d: te("step04Desc") },
 ];
 ---
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta
-      title="24/7 Air Ambulance & Emergency Desk — Medical Evacuation"
-      description="One call moves a patient: air ambulance, ground transfer, bedside-to-bedside handover, receiving specialist standing by. Tier-1 hospital tie-ups across 9 destinations."
+      title={te("seoTitle")}
+      description={te("seoDescription")}
       path={path}
       locale={locale}
     />
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "ContactPage",
+      name: `${tc("medcasts")} 24/7 Emergency Desk`,
+      description: "Air ambulance dispatch, ground transfer, ICU admission, and specialist coordination — 24 hours a day.",
+      url: `${url}`,
+      contactPoint: [
+        {
+          "@type": "ContactPoint",
+          contactType: "emergency",
+          telephone: "+918006210000",
+          availableLanguage: ["en", "ar", "hi"],
+          hoursAvailable: "24/7",
+          areaServed: [
+            { "@type": "Country", name: "India" },
+            { "@type": "Country", name: "Thailand" },
+            { "@type": "Country", name: "Turkey" },
+            { "@type": "Country", name: "Germany" },
+            { "@type": "Country", name: "South Korea" },
+            { "@type": "Country", name: "Malaysia" },
+            { "@type": "Country", name: "Singapore" },
+            { "@type": "Country", name: "United Arab Emirates" },
+            { "@type": "Country", name: "Saudi Arabia" },
+          ],
+        },
+        {
+          "@type": "ContactPoint",
+          contactType: "whatsapp",
+          url: "https://wa.me/918006210000",
+          availableLanguage: ["en", "ar", "hi"],
+          hoursAvailable: "24/7",
+        },
+      ],
+    })} />
   </Fragment>
 
   <main class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
-      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
-        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+      <div class="mx-auto max-w-[1440px] px-7 md:px-10 py-4">
+        <nav class="mono text-[12px] flex items-center gap-2 flex-wrap" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
-          <span class="mx-1.5">/</span>
-          <span style="color: var(--color-ink);">Emergency desk</span>
+          <span aria-hidden="true" class="text-[var(--color-border-strong)]">/</span>
+          <span style="color: var(--color-ink);">{te("breadcrumbEmergency")}</span>
         </nav>
       </div>
     </div>
 
-    {/* Hero — ink-on-parchment with coral accents for urgency */}
     <section
       style="position: relative; overflow: hidden; background: var(--color-ink); color: var(--color-bg);"
     >
@@ -80,10 +115,24 @@ const STEPS = [
         aria-hidden="true"
         style="position: absolute; inset: 0; background: radial-gradient(circle at 20% 30%, rgba(232,90,79,0.18) 0, transparent 45%), radial-gradient(circle at 85% 70%, rgba(10,93,84,0.16) 0, transparent 50%);"
       ></div>
-      <div class="relative mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-14 md:pt-20 pb-16">
+      <div class="relative mx-auto max-w-[1440px] px-7 md:px-10 pt-14 md:pt-20 pb-16">
+        {/* YMYL disclaimer — must be visible above the fold so visitors who
+            land here in a real emergency see life-safety routing first. */}
+        <div
+          role="alert"
+          class="mb-6"
+          style="background: rgba(232,90,79,0.12); border: 1px solid rgba(232,90,79,0.4); border-radius: var(--radius-md); padding: 14px 18px; max-width: 720px;"
+        >
+          <p class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-coral); margin-bottom: 6px;">
+            Life-threatening event?
+          </p>
+          <p class="serif" style="font-size: 14.5px; line-height: 1.5; color: rgba(246,241,230,0.9);">
+            Call your local emergency number first — <strong>911</strong> (US/Canada), <strong>112</strong> (EU/India), <strong>999</strong> (UK), <strong>1669</strong> (Thailand), <strong>998</strong> (UAE). Then call us; we coordinate the receiving hospital, ICU bed, and cross-border transfer.
+          </p>
+        </div>
         <p class="mono uppercase inline-flex items-center gap-2" style="font-size: 11px; letter-spacing: 0.16em; color: var(--color-coral);">
           <span class="inline-block w-1.5 h-1.5 rounded-full live-dot" style="background: var(--color-coral);" aria-hidden="true" />
-          24/7 emergency desk · One call moves a patient
+          {te("eyebrow")}
         </p>
         <div class="grid gap-10 lg:grid-cols-[1.5fr,1fr] lg:gap-14 mt-3">
           <div>
@@ -91,10 +140,10 @@ const STEPS = [
               class="display display-tight"
               style="font-size: clamp(2.5rem, 5.5vw, 5rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em; color: var(--color-bg);"
             >
-              When minutes matter, <span class="italic-display">one call.</span>
+              {te("h1")}
             </h1>
             <p class="serif mt-5 max-w-[44rem]" style="font-size: 19px; line-height: 1.5; color: rgba(246,241,230,0.75);">
-              Air ambulance dispatch, ground transfer, ICU admission, specialist on standby at destination — coordinated from a single desk, any hour. No hold music, no transfers between operators.
+              {te("lede")}
             </p>
 
             <div
@@ -102,11 +151,11 @@ const STEPS = [
               style="border-top: 1px solid rgba(246,241,230,0.2); border-bottom: 1px solid rgba(246,241,230,0.12);"
             >
               {[
-                { l: "First contact", v: "≤ 3 min" },
-                { l: "Destination locked", v: "≤ 30 min" },
-                { l: "Wheels up", v: "≤ 4 hr" },
+                { l: te("firstContact"), v: "≤ 3 min" },
+                { l: te("destinationLocked"), v: "≤ 30 min" },
+                { l: te("wheelsUp"), v: "≤ 4 hr" },
               ].map((s, i) => (
-                <div class="px-4 md:px-5 py-5" style={i > 0 ? "border-inline-start: 1px solid rgba(246,241,230,0.12);" : ""}>
+                <div class="px-4 md:px-5 py-5" style={i > 0 ? {borderInlineStart: "1px solid rgba(246,241,230,0.12)"} : {}}>
                   <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: rgba(246,241,230,0.55);">
                     {s.l}
                   </div>
@@ -121,53 +170,49 @@ const STEPS = [
                 class="inline-flex items-center gap-2 font-semibold"
                 style="background: var(--color-coral); color: var(--color-bg); padding: 14px 24px; border-radius: 9999px;"
               >
-                <Phone className="h-4 w-4" />
-                Call emergency desk
+                {te("callBtn")}
               </a>
               <a
                 href="https://wa.me/918006210000"
                 class="inline-flex items-center gap-2 font-semibold"
                 style="background: var(--color-bg); color: var(--color-ink); padding: 14px 24px; border-radius: 9999px;"
               >
-                WhatsApp · fastest
+                {te("whatsappBtn")}
                 <ChevronRight className="h-4 w-4 mirror-x" />
               </a>
             </div>
             <p class="mt-5 mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: rgba(246,241,230,0.55);">
-              +91 800 621 000 · Answered by a case manager, 24/7
+              {te("phoneNote")}
             </p>
           </div>
 
           <aside class="lg:sticky lg:top-32 lg:self-start">
             <div style="background: rgba(246,241,230,0.06); border: 1px solid rgba(246,241,230,0.12); border-radius: var(--radius-lg); padding: 26px 28px;">
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-coral);">
-                Desk capability
+                {te("deskCapability")}
               </div>
               <ul class="mt-5 space-y-4">
                 <li class="flex items-start gap-3">
-                  <Plane className="h-5 w-5 mt-0.5 shrink-0" style={{color: "var(--color-bg)"}} />
                   <div>
-                    <div class="serif" style="font-size: 15.5px; color: var(--color-bg);">Fixed-wing air ambulance</div>
+                    <div class="serif" style="font-size: 15.5px; color: var(--color-bg);">{te("fixedWing")}</div>
                     <div class="mono uppercase mt-1" style="font-size: 10px; letter-spacing: 0.12em; color: rgba(246,241,230,0.55);">
-                      ICU-grade equipment · flight doctor · CCN
+                      {te("fixedWingSub")}
                     </div>
                   </div>
                 </li>
                 <li class="flex items-start gap-3">
-                  <Heart className="h-5 w-5 mt-0.5 shrink-0" style={{color: "var(--color-bg)"}} />
                   <div>
-                    <div class="serif" style="font-size: 15.5px; color: var(--color-bg);">Bedside-to-bedside</div>
+                    <div class="serif" style="font-size: 15.5px; color: var(--color-bg);">{te("bedside")}</div>
                     <div class="mono uppercase mt-1" style="font-size: 10px; letter-spacing: 0.12em; color: rgba(246,241,230,0.55);">
-                      Ground → airport → destination ICU, end-to-end
+                      {te("bedsideSub")}
                     </div>
                   </div>
                 </li>
                 <li class="flex items-start gap-3">
-                  <Stethoscope className="h-5 w-5 mt-0.5 shrink-0" style={{color: "var(--color-bg)"}} />
                   <div>
-                    <div class="serif" style="font-size: 15.5px; color: var(--color-bg);">Receiving specialist</div>
+                    <div class="serif" style="font-size: 15.5px; color: var(--color-bg);">{te("receiving")}</div>
                     <div class="mono uppercase mt-1" style="font-size: 10px; letter-spacing: 0.12em; color: rgba(246,241,230,0.55);">
-                      Pre-briefed, on standby at destination
+                      {te("receivingSub")}
                     </div>
                   </div>
                 </li>
@@ -182,17 +227,20 @@ const STEPS = [
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
         <div class="mb-8">
           <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-            How the desk works
+            {te("howDeskWorks")}
           </div>
           <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
-            Four moves, <span class="italic-display">in order.</span>
+            {te("fourMoves")}
           </h2>
         </div>
         <ol class="space-y-0">
           {STEPS.map((s, i) => (
             <li
               class="grid gap-6 py-6"
-              style={`grid-template-columns: 56px 1fr; ${i > 0 ? "border-top: 1px dashed var(--color-border);" : ""}`}
+              style={i === 0
+                  ? {gridTemplateColumns: "56px 1fr"}
+                  : {gridTemplateColumns: "56px 1fr", borderTop: "1px dashed var(--color-border)"}
+                }
             >
               <div class="display tnum" style="font-size: 36px; line-height: 1; color: var(--color-coral); letter-spacing: -0.02em;">
                 {s.n}
@@ -215,10 +263,10 @@ const STEPS = [
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
         <div class="mb-8">
           <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-            Destinations · Tier-1 hospital tie-ups
+            {te("destinations")}
           </div>
           <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
-            Operating across <span class="italic-display">9 countries</span>
+            {te("nineCountries")}
           </h2>
         </div>
         <ul class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
@@ -246,10 +294,10 @@ const STEPS = [
         <div class="grid gap-6 md:grid-cols-[1.5fr,1fr] items-center">
           <div>
             <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.85);">
-              Desk is live · 24/7
+              {te("deskLive")}
             </div>
             <h2 class="display mt-2" style="font-size: clamp(1.75rem, 3.5vw, 2.5rem); line-height: 1.1; letter-spacing: -0.02em; color: var(--color-bg);">
-              Don't type a message. <span class="italic-display">Call.</span>
+              {te("dontType")}
             </h2>
           </div>
           <div class="flex flex-wrap gap-3 md:justify-end">
@@ -258,7 +306,6 @@ const STEPS = [
               class="inline-flex items-center gap-2 font-semibold"
               style="background: var(--color-bg); color: var(--color-coral); padding: 14px 22px; border-radius: 9999px;"
             >
-              <Phone className="h-4 w-4" />
               +91 800 621 000
             </a>
           </div>
