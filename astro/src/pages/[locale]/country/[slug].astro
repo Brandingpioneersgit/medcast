@@ -233,6 +233,18 @@ Astro.response.headers.set(
           <p class="text-xs text-ink-subtle uppercase tracking-wider">Treatments</p>
         </div>
       </div>
+
+      {/* Visa cross-link — high-intent companion query for any country search,
+          and the medical-visa cluster's main inbound internal link. */}
+      <a
+        href={localizedPath(locale, `/visa/${slug}`)}
+        class="mt-6 inline-flex items-center gap-2 group"
+        style="font-size: 14px; color: var(--color-accent);"
+      >
+        <span class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em;">Planning the trip?</span>
+        <span class="serif font-medium group-hover:underline">{country.name} medical visa guide</span>
+        <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+      </a>
     </section>
 
     {/* Top hospitals */}

@@ -90,6 +90,47 @@ const itemLd = hospitalsXl.length > 0
     )
   : null;
 
+// City-as-Place schema — gives Google a geo anchor so the page can surface in
+// "hospitals in {city}" map-style results. schema.org has no City type; Place
+// with PostalAddress + GeoCoordinates is the convention.
+const placeLd = {
+  "@context": "https://schema.org",
+  "@type": "Place",
+  name: city.name,
+  url,
+  ...(city.latitude && city.longitude
+    ? {
+        geo: {
+          "@type": "GeoCoordinates",
+          latitude: Number(city.latitude),
+          longitude: Number(city.longitude),
+        },
+      }
+    : {}),
+  ...(country
+    ? {
+        address: {
+          "@type": "PostalAddress",
+          addressLocality: city.name,
+          addressCountry: country.isoCode ?? country.name,
+        },
+        containedInPlace: {
+          "@type": "Country",
+          name: country.name,
+          ...(country.isoCode
+            ? {
+                identifier: {
+                  "@type": "PropertyValue",
+                  propertyID: "ISO 3166-1 alpha-2",
+                  value: country.isoCode,
+                },
+              }
+            : {}),
+        },
+      }
+    : {}),
+};
+
 Astro.response.headers.set(
   "Cache-Control",
   "public, s-maxage=3600, stale-while-revalidate=86400",
@@ -99,6 +140,7 @@ Astro.response.headers.set(
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" set:html={JSON.stringify(placeLd)} />
     {itemLd && <script type="application/ld+json" set:html={JSON.stringify(itemLd)} />}
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
   </Fragment>

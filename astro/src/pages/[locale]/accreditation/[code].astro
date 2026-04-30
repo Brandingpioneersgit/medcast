@@ -109,6 +109,18 @@ const itemLd = hospitals.length > 0
     })))
   : null;
 
+// Certifying body as Organization — surfaces the accrediting authority
+// (JCI, NABH, etc.) as a real entity Google can resolve, separate from
+// the hospitals it accredits. Helpful for "what is JCI" type queries.
+const accreditationOrgLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: acc.name,
+  ...(acc.acronym ? { alternateName: acc.acronym } : {}),
+  ...(acc.description ? { description: acc.description } : {}),
+  ...(acc.website ? { url: acc.website, sameAs: [acc.website] } : {}),
+};
+
 Astro.response.headers.set(
   "Cache-Control",
   "public, s-maxage=3600, stale-while-revalidate=86400",
@@ -119,6 +131,7 @@ Astro.response.headers.set(
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" set:html={JSON.stringify(accreditationOrgLd)} />
     {itemLd && <script type="application/ld+json" set:html={JSON.stringify(itemLd)} />}
   </Fragment>
 
