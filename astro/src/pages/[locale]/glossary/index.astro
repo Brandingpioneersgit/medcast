@@ -6,7 +6,7 @@ import SiteFooter from "@/components/SiteFooter.astro";
 import { db } from "@/lib/db";
 import { sql } from "drizzle-orm";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
-import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { breadcrumbJsonLd, localeUrl, faqJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { ChevronRight } from "lucide-react";
 
@@ -15,6 +15,7 @@ export const prerender = false;
 const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect("/en/glossary", 308);
 const locale = rawLocale as Locale;
+const tg = getTranslator(locale, "glossaryPage");
 const tc = getTranslator(locale, "common");
 
 type Row = { slug: string; term: string; category: string | null; short_definition: string };
@@ -35,49 +36,64 @@ for (const t of terms) {
 }
 const categories = Array.from(byCategory.keys()).sort();
 
-const seoTitle = "Medical travel glossary — terms explained plainly";
-const seoDescription = `Plain-language definitions for ${terms.length} medical-travel terms across ${categories.length} categories — accreditations, procedures, insurance, visas.`;
+const seoTitle = tg("seoTitle");
+const seoDescription = tg("seoDescription");
 const path = "/glossary";
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Glossary", url: localeUrl(locale, path) },
+  { name: tg("breadcrumbGlossary"), url: localeUrl(locale, path) },
 ]);
+
+const glossaryFaqs = [
+  { question: "What does JCI accreditation mean?", answer: "Joint Commission International (JCI) accreditation is the gold standard for hospital quality. JCI-accredited hospitals meet rigorous international patient safety and care standards." },
+  { question: "What's the difference between a tourist visa and a medical visa?", answer: "A tourist visa typically allows 30-60 days, suitable for minor procedures and consultations. A medical visa covers longer stays required for surgical procedures, with extensions available for recovery." },
+  { question: "What is medical tourism facilitation?", answer: "Medical tourism facilitation is the coordination of your entire treatment journey — hospital selection, doctor matching, visa support, accommodation, and follow-up care. MedCasts provides this as a free service." },
+];
+const faqSchema = faqJsonLd(glossaryFaqs);
 
 Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
 ---
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={locale !== "en"} />
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
   </Fragment>
 
   <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} />
 
-    <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
-      <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
-        <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
-        <span class="mx-1.5">/</span>
-        <span style="color: var(--color-ink);">Glossary</span>
-      </nav>
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto max-w-[1440px] px-7 md:px-10 py-4">
+        <nav class="mono text-[12px] flex items-center gap-2 flex-wrap" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span aria-hidden="true" class="text-[var(--color-border-strong)]">/</span>
+          <span style="color: var(--color-ink);">{tg("breadcrumbGlossary")}</span>
+        </nav>
+      </div>
     </div>
 
-    <section style="padding: 56px 28px;">
-      <div class="mx-auto" style="max-width: 1120px;">
+    <section style="padding: 56px 0;">
+      <div class="mx-auto max-w-[1440px] px-7 md:px-10">
         <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
-          Plain-language reference
+          {tg("eyebrow")}
         </div>
         <h1
           class="display display-tight mt-3"
           style="font-size: clamp(2.25rem, 5vw, 3.5rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;"
         >
-          Medical-travel <span class="italic-display">glossary</span>
+          {tg("h1First")} <span class="italic-display">{tg("h1Italic")}</span>
         </h1>
         <p class="serif mt-5" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted); max-width: 680px;">
-          The acronyms, accreditations, and procedure names you'll encounter while planning medical travel — defined plainly, with links to deeper guides where useful.
+          {tg("lede")}
         </p>
+
+        {/* Category tabs (anchor links) */}
+        <div class="mt-5 flex flex-wrap items-center gap-3" style="font-size: 12.5px; color: var(--color-ink-subtle);">
+          <span class="mono">{terms.length} {tg("termsCount")} · {categories.length} {tg("categoriesCount")}</span>
+        </div>
 
         {/* Category tabs (anchor links) */}
         <div class="flex flex-wrap gap-2 mt-7">
@@ -124,6 +140,28 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
             </ul>
           </section>
         ))}
+
+        {/* FAQ — schema matches visible content (FAQPage) */}
+        <section class="mt-16" style="scroll-margin-top: 120px;">
+          <h2
+            class="display"
+            style="font-size: 28px; letter-spacing: -0.02em; padding-bottom: 12px; border-bottom: 1px solid var(--color-ink);"
+          >
+            Common questions
+          </h2>
+          <div class="mt-6 grid gap-3">
+            {glossaryFaqs.map((f) => (
+              <details class="paper" style="padding: 18px 22px;">
+                <summary class="serif font-medium cursor-pointer" style="font-size: 16px; letter-spacing: -0.005em;">
+                  {f.question}
+                </summary>
+                <p class="serif mt-3" style="font-size: 14.5px; line-height: 1.6; color: var(--color-ink-muted);">
+                  {f.answer}
+                </p>
+              </details>
+            ))}
+          </div>
+        </section>
       </div>
     </section>
 
