@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import {
   hospitals, hospitalTreatments, treatments, specialties, cities, countries,
 } from "../../../../../../src/lib/db/schema";
+import { getTestimonialsForTreatment } from "@/lib/queries";
 import { and, asc, eq } from "drizzle-orm";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import {
@@ -15,7 +16,7 @@ import {
   applyTranslated,
   isUntranslated,
 } from "@/lib/translate";
-import { breadcrumbJsonLd, localeUrl, treatmentJsonLd, faqJsonLd } from "@/lib/seo";
+import { breadcrumbJsonLd, localeUrl, treatmentJsonLd, faqJsonLd, withProvenance } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { ChevronRight } from "lucide-react";
 
@@ -115,23 +116,26 @@ const FLAG: Record<string, string> = {
 };
 const flag = FLAG[countryRow.slug] ?? "🌐";
 
-const seoTitle = `${treatment.name} cost in ${countryRow.name} (${new Date().getFullYear()})`;
+const seoTitle = treatmentRow.metaTitle ?? `${treatment.name} cost in ${countryRow.name} (${new Date().getFullYear()})`;
 const seoDescription = lowestPrice
-  ? `${treatment.name} in ${countryRow.name} starts from $${Math.round(lowestPrice).toLocaleString()}. Compare ${hospitalPricing.length} accredited hospitals${savingsPct ? `, save up to ${savingsPct}% vs US prices` : ""}. Transparent pricing + free quotes.`
+  ? `${treatment.name} in ${countryRow.name} starts from $${Math.round(lowestPrice).toLocaleString()}. Compare ${hospitalPricing.length} accredited hospitals${savingsPct ? `, save up to ${savingsPct}% vs US prices` : ""}. Book with MedCasts — board-certified surgeons, JCI-accredited hospitals, free quotes.`
   : `${treatment.name} in ${countryRow.name}. Compare accredited hospitals with transparent pricing. Request a free itemized quote.`;
 
 const path = `/treatment/${slug}/${countrySlug}`;
 const url = localeUrl(locale, path);
 
-const jsonLd = treatmentJsonLd({
-  name: `${treatment.name} in ${countryRow.name}`,
-  description: treatment.description,
-  costMinUsd: lowestPrice ? String(lowestPrice) : undefined,
-  costMaxUsd: highestPrice > 0 ? String(highestPrice) : undefined,
-  url,
-  hospitalStayDays: treatmentRow.hospitalStayDays,
-  successRatePercent: treatmentRow.successRatePercent ? Number(treatmentRow.successRatePercent) : null,
-});
+const jsonLd = withProvenance(
+  treatmentJsonLd({
+    name: `${treatment.name} in ${countryRow.name}`,
+    description: treatment.description,
+    costMinUsd: lowestPrice ? String(lowestPrice) : undefined,
+    costMaxUsd: highestPrice > 0 ? String(highestPrice) : undefined,
+    url,
+    hospitalStayDays: treatmentRow.hospitalStayDays,
+    successRatePercent: treatmentRow.successRatePercent ? Number(treatmentRow.successRatePercent) : null,
+  }),
+  { dateModified: treatmentRow.updatedAt },
+);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
@@ -165,6 +169,7 @@ const faqList = [
   },
 ];
 const faqSchema = faqJsonLd(faqList);
+const testimonials = await getTestimonialsForTreatment(treatmentRow.id, 3).catch(() => []);
 
 const untranslated = isUntranslated(locale, treatmentMap);
 
@@ -176,7 +181,14 @@ Astro.response.headers.set(
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
+    <HeadMeta
+      title={seoTitle}
+      description={seoDescription}
+      path={path}
+      locale={locale}
+      canonicalPath={`/treatment/${slug}`}
+      noindex={untranslated || hospitalPricing.length === 0}
+    />
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
     <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
@@ -188,14 +200,14 @@ Astro.response.headers.set(
     {/* Breadcrumb */}
     <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
       <nav
-        class="mono mx-auto max-w-[1440px]"
-        style="font-size: 12px; color: var(--color-ink-subtle);"
         aria-label="Breadcrumb"
+        class="mono mx-auto max-w-[1440px] px-7 md:px-10 flex items-center gap-2 flex-wrap"
+        style="font-size: 12px; color: var(--color-ink-subtle);"
       >
         <a href={localizedPath(locale, "/treatments")} class="hover:text-ink">{tc("treatments")}</a>
-        <span class="mx-1.5">/</span>
+        <span aria-hidden="true" class="text-[var(--color-border-strong)]">/</span>
         <a href={localizedPath(locale, `/treatment/${slug}`)} class="hover:text-ink">{treatment.name}</a>
-        <span class="mx-1.5">/</span>
+        <span aria-hidden="true" class="text-[var(--color-border-strong)]">/</span>
         <span style="color: var(--color-ink);">{countryRow.name}</span>
       </nav>
     </div>
@@ -238,7 +250,10 @@ Astro.response.headers.set(
                 treatmentRow.hospitalStayDays && { l: "Hospital stay", v: `${treatmentRow.hospitalStayDays} days` },
                 usPrice && savingsPct && { l: "Save vs US", v: `~${savingsPct}%` },
               ].filter(Boolean).slice(0, 4).map((s: any, i: number) => (
-                <div style={`padding-inline: 18px; ${i > 0 ? "border-inline-start: 1px solid var(--color-border);" : ""}`}>
+                <div style={i === 0
+                  ? {paddingInline: "18px"}
+                  : {paddingInline: "18px", borderInlineStart: "1px solid var(--color-border)"}
+                }>
                   <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">{s.l}</div>
                   <div class="display tnum" style="font-size: 28px; margin-top: 4px;">{s.v}</div>
                 </div>
@@ -278,6 +293,16 @@ Astro.response.headers.set(
                 Case manager replies in ~9 min
               </div>
             </div>
+
+            {/* Pricing disclaimer */}
+            <div class="mt-6 paper" style="padding: 16px 20px; border: 1px solid var(--color-border-soft);">
+              <div class="mono text-[10px] uppercase tracking-wider mb-2" style="color: var(--color-ink-subtle);">
+                Pricing disclaimer
+              </div>
+              <p class="serif" style="font-size: 13.5px; line-height: 1.6; color: var(--color-ink-muted);">
+                Prices shown are either reported by patients who underwent treatment or quoted by hospitals when we enquired directly. Actual costs vary based on individual case complexity, implant selection, length of stay, and any complications. MedCasts patients receive a 15% referral discount — the full discount amount is applied directly to the patient's bill, so international patients benefit fully from treatment costs.
+              </p>
+            </div>
           </aside>
         </div>
       </div>
@@ -305,7 +330,10 @@ Astro.response.headers.set(
             {hospitalPricing.map((hp, i) => (
               <div
                 class="grid items-center gap-4 p-5 md:p-6"
-                style={`grid-template-columns: 36px 1.4fr 1fr 0.8fr 0.6fr auto; ${i > 0 ? "border-top: 1px solid var(--color-border-soft);" : ""}`}
+                style={i === 0
+                  ? {gridTemplateColumns: "36px 1.4fr 1fr 0.8fr 0.6fr auto"}
+                  : {gridTemplateColumns: "36px 1.4fr 1fr 0.8fr 0.6fr auto", borderTop: "1px solid var(--color-border-soft)"}
+                }
               >
                 <div class="display tnum" style="font-size: 22px; color: var(--color-ink-subtle);">
                   {String(i + 1).padStart(2, "0")}
@@ -416,6 +444,49 @@ Astro.response.headers.set(
         </div>
       </div>
     </section>
+
+    {/* Patient case studies */}
+    {testimonials.length > 0 && (
+      <section style="padding: 64px 28px; border-top: 1px solid var(--color-border);">
+        <div class="mx-auto max-w-[1440px]">
+          <div class="flex items-baseline justify-between flex-wrap gap-4 mb-8">
+            <div>
+              <p class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">Case studies</p>
+              <h2 class="display mt-1" style="font-size: 28px; letter-spacing: -0.02em;">
+                {treatment.name} in {countryRow.name} — patient stories
+              </h2>
+            </div>
+          </div>
+          <div class="grid gap-5 lg:grid-cols-3">
+            {testimonials.map((t) => (
+              <div class="paper" style="padding: 24px 26px;">
+                <div class="flex items-center gap-1.5 mb-3">
+                  {Array.from({ length: t.rating }, (_, i) => (
+                    <span key={i} style="color: var(--color-saffron); font-size: 14px;">&#9733;</span>
+                  ))}
+                  {t.isVerified && (
+                    <span class="mono ml-auto" style="font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-subtle);">Verified</span>
+                  )}
+                </div>
+                {t.title && (
+                  <p class="serif font-medium mb-2" style="font-size: 15px; line-height: 1.4; letter-spacing: -0.01em;">
+                    {t.title}
+                  </p>
+                )}
+                <p class="serif" style="font-size: 13.5px; line-height: 1.65; color: var(--color-ink-muted);">
+                  {t.story.length > 220 ? t.story.slice(0, 220) + "..." : t.story}
+                </p>
+                <div class="flex items-center gap-2 mt-4" style="font-size: 12px; color: var(--color-ink-subtle);">
+                  <span class="font-medium" style="color: var(--color-ink);">{t.patientName}</span>
+                  {t.patientCountry && <span>· {t.patientCountry}</span>}
+                  {t.patientAge && <span>· {t.patientAge}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
 
     {/* CTA */}
     <section style="padding: 72px 28px; border-top: 1px solid var(--color-border); background: var(--color-ink); color: var(--color-bg);">

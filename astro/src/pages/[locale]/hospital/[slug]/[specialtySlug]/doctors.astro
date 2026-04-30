@@ -4,11 +4,11 @@ import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import LastUpdated from "@/components/LastUpdated.astro";
-import { listHospitalSpecialtyDoctors } from "@/lib/queries";
+import { listHospitalSpecialtyDoctors, listFaqsFor } from "@/lib/queries";
 import { getContent, getContentBatch, applyTranslated, isUntranslated } from "@/lib/translate";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
-import { breadcrumbJsonLd, localeUrl, itemListJsonLd, withProvenance } from "@/lib/seo";
+import { breadcrumbJsonLd, localeUrl, itemListJsonLd, hospitalJsonLd, withProvenance, faqJsonLd } from "@/lib/seo";
 import { Award, MapPin, Users } from "lucide-react";
 
 export const prerender = false;
@@ -25,9 +25,10 @@ if (data.doctors.length === 0) return new Response(`No doctors listed`, { status
 
 const tc = getTranslator(locale, "common");
 
-const [hMap, sMap] = await Promise.all([
+const [hMap, sMap, faqs] = await Promise.all([
   getContent("hospital", data.hospital.id, locale),
   getContent("specialty", data.specialty.id, locale),
+  listFaqsFor("specialty", data.specialty.id),
 ]);
 const hospitalBase = applyTranslated(data.hospital, hMap, ["name"]);
 const hospital = { ...hospitalBase, city: data.hospital.city };
@@ -67,6 +68,39 @@ const itemLd = withProvenance(
   { dateModified: data.hospital.updatedAt },
 );
 
+// Hospital context schema — page is scoped to a specific hospital, so emit
+// the parent entity alongside the doctor ItemList. Without this, search engines
+// see the page as a generic doctor list and miss the hospital relationship.
+const hospitalLd = withProvenance(
+  hospitalJsonLd({
+    name: hospital.name,
+    description: hospital.description,
+    address: hospital.address,
+    city: hospital.city?.name ?? null,
+    country: hospital.city?.country?.name ?? null,
+    countryCode: hospital.city?.country?.isoCode ?? null,
+    lat: hospital.city?.latitude ?? null,
+    lng: hospital.city?.longitude ?? null,
+    phone: hospital.phone,
+    email: hospital.email,
+    website: hospital.website,
+    rating: hospital.rating,
+    reviewCount: hospital.reviewCount,
+    imageUrl: hospital.coverImageUrl,
+    url: localeUrl(locale, `/hospital/${slug}`),
+    bedCapacity: hospital.bedCapacity,
+    medicalSpecialties: [specialty.name],
+    aggregateRating: hospital.rating && Number(hospital.rating) > 0
+      ? { ratingValue: hospital.rating, reviewCount: hospital.reviewCount ?? 0 }
+      : null,
+  }),
+  { dateModified: data.hospital.updatedAt },
+);
+
+const faqLd = faqs.length > 0
+  ? faqJsonLd(faqs.map((f) => ({ question: f.question, answer: f.answer })))
+  : null;
+
 const untranslated = isUntranslated(locale, hMap, sMap);
 
 Astro.response.headers.set(
@@ -79,7 +113,9 @@ Astro.response.headers.set(
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" set:html={JSON.stringify(hospitalLd)} />
     <script type="application/ld+json" set:html={JSON.stringify(itemLd)} />
+    {faqLd && <script type="application/ld+json" set:html={JSON.stringify(faqLd)} />}
   </Fragment>
 
   <main class="min-h-dvh bg-bg text-ink">

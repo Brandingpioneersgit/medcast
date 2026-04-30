@@ -4,11 +4,11 @@ import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import LastUpdated from "@/components/LastUpdated.astro";
-import { listConditionDoctors } from "@/lib/queries";
+import { listConditionDoctors, listFaqsFor } from "@/lib/queries";
 import { getContent, getContentBatch, applyTranslated, isUntranslated } from "@/lib/translate";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
-import { breadcrumbJsonLd, localeUrl, itemListJsonLd, withProvenance } from "@/lib/seo";
+import { breadcrumbJsonLd, localeUrl, itemListJsonLd, medicalConditionJsonLd, withProvenance, faqJsonLd } from "@/lib/seo";
 import { Award, ChevronRight, MapPin, Users } from "lucide-react";
 
 export const prerender = false;
@@ -24,10 +24,12 @@ if (!data) return new Response(`Not found: ${slug}`, { status: 404 });
 
 const tc = getTranslator(locale, "common");
 
-const conditionMap = await getContent("condition", data.condition.id, locale);
+const [conditionMap, doctorMap, faqs] = await Promise.all([
+  getContent("condition", data.condition.id, locale),
+  getContentBatch("doctor", data.doctors.map((d) => d.id), locale),
+  listFaqsFor("condition", data.condition.id),
+]);
 const condition = applyTranslated(data.condition, conditionMap, ["name", "description"]);
-
-const doctorMap = await getContentBatch("doctor", data.doctors.map((d) => d.id), locale);
 const doctors = data.doctors.map((d) => ({
   ...d,
   ...applyTranslated({ name: d.name, qualifications: d.qualifications }, doctorMap[d.id] ?? {}, ["name", "qualifications"]),
@@ -57,6 +59,26 @@ const itemLd = withProvenance(
   { dateModified: new Date() },
 );
 
+// Condition context schema — page is condition-scoped, so emit MedicalCondition
+// alongside the doctor ItemList. Helps Google associate the page with the
+// condition entity rather than treating it as a generic doctor directory.
+const conditionLd = withProvenance(
+  medicalConditionJsonLd({
+    name: condition.name,
+    description: condition.description,
+    url: localeUrl(locale, `/condition/${slug}`),
+    relevantSpecialty: data.specialties.map((s) => ({
+      name: s.name,
+      url: localeUrl(locale, `/specialty/${s.slug}`),
+    })),
+  }),
+  { dateModified: data.condition.updatedAt ?? new Date() },
+);
+
+const faqLd = faqs.length > 0
+  ? faqJsonLd(faqs.map((f) => ({ question: f.question, answer: f.answer })))
+  : null;
+
 const untranslated = isUntranslated(locale, conditionMap);
 
 Astro.response.headers.set(
@@ -69,7 +91,9 @@ Astro.response.headers.set(
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" set:html={JSON.stringify(conditionLd)} />
     <script type="application/ld+json" set:html={JSON.stringify(itemLd)} />
+    {faqLd && <script type="application/ld+json" set:html={JSON.stringify(faqLd)} />}
   </Fragment>
 
   <main class="min-h-dvh bg-bg text-ink">
@@ -114,6 +138,51 @@ Astro.response.headers.set(
           ))}
         </div>
       )}
+    </section>
+
+    <section style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft); padding: 48px 0;">
+      <div class="mx-auto max-w-7xl px-6">
+        <div class="mx-auto" style="max-width: 1100px;">
+          <p class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">Finding a doctor for {condition.name.toLowerCase()}</p>
+          <h2 class="display mt-2" style="font-size: clamp(1.5rem, 3vw, 2.25rem); letter-spacing: -0.02em; line-height: 1.15;">What matters most when choosing a {condition.name.toLowerCase()} specialist</h2>
+          <div class="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-subtle);">Sub-specialty match</div>
+              <p class="serif mt-2" style="font-size: 15px; line-height: 1.6; color: var(--color-ink-muted);">{condition.name} has multiple contributing specialties. A cardiologist who sub-specialises in heart failure is better than a general cardiologist for advanced cases — check the doctor's listed focus area.</p>
+            </div>
+            <div>
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-subtle);">Published outcomes</div>
+              <p class="serif mt-2" style="font-size: 15px; line-height: 1.6; color: var(--color-ink-muted);">Where hospitals publish their complication and readmission rates for {condition.name.toLowerCase()}, we link to them. Self-reported ratings are secondary — we prioritise published clinical data.</p>
+            </div>
+            <div>
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-subtle);">MDT approach</div>
+              <p class="serif mt-2" style="font-size: 15px; line-height: 1.6; color: var(--color-ink-muted);">Complex {condition.name.toLowerCase()} cases benefit from a multidisciplinary team — not just a single surgeon. Ask whether your hospital runs a formal MDT for your condition before you commit.</p>
+            </div>
+          </div>
+          <div class="mt-10 flex flex-col sm:flex-row gap-4 items-start" style="border-top: 1px solid var(--color-border); padding-top: 32px;">
+            <div class="flex-1">
+              <p class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">Want a personalised shortlist for {condition.name.toLowerCase()}?</p>
+              <p class="serif mt-2" style="font-size: 15px; line-height: 1.6; color: var(--color-ink-muted);">Tell us your diagnosis, test results, and preferences. We'll match you to 3 specialists with confirmed {condition.name.toLowerCase()} volume, ranked by relevance to your case.</p>
+            </div>
+            <div class="flex gap-3 shrink-0">
+              <a
+                href={localizedPath(locale, "/calculator")}
+                class="inline-flex items-center gap-2 font-semibold"
+                style="background: var(--color-accent); color: var(--color-accent-contrast); padding: 11px 20px; font-size: 13px; border-radius: 9999px;"
+              >
+                Get matched →
+              </a>
+              <a
+                href={localizedPath(locale, "/contact")}
+                class="inline-flex items-center gap-2"
+                style="border: 1px solid var(--color-border); color: var(--color-ink); padding: 11px 20px; font-size: 13px; border-radius: 9999px;"
+              >
+                Talk to a case manager
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     {doctors.length === 0 ? (

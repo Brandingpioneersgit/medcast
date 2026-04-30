@@ -19,6 +19,20 @@ interface Props {
    * leave undefined for root listings so canonical stays clean.
    */
   pathQuery?: string;
+  /**
+   * When set, canonical link + og:url point at this path instead of `path`.
+   * Use to consolidate cannibalising variants onto a single authority page
+   * (e.g. /treatment/[slug]/[country] → /treatment/[slug]). hreflang still
+   * uses `path` so locale switchers continue to work.
+   */
+  canonicalPath?: string;
+  /** Override the og:image alt text (defaults to page title). */
+  imageAlt?: string;
+  /** ISO date string for article published/modified times. */
+  publishedAt?: string;
+  modifiedAt?: string;
+  /** Author display name (article type pages). */
+  author?: string;
 }
 
 const {
@@ -31,13 +45,18 @@ const {
   noindex = false,
   translatedLocales,
   pathQuery,
+  canonicalPath,
+  imageAlt,
+  publishedAt,
+  modifiedAt,
+  author,
 } = Astro.props;
 
 const fullTitle = `${title} | ${SITE_NAME}`;
 const qs = pathQuery && pathQuery.length > 0
   ? (pathQuery.startsWith("?") ? pathQuery : `?${pathQuery}`)
   : "";
-const canonical = `${localeUrl(locale, path)}${qs}`;
+const canonical = `${localeUrl(locale, canonicalPath ?? path)}${qs}`;
 const fullMap = hreflangMap(path);
 const langs: Record<string, string> = {};
 if (translatedLocales && translatedLocales.length > 0) {
@@ -71,8 +90,24 @@ const ogImage =
 <meta property="og:image" content={ogImage} />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content={imageAlt ?? title} />
 
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content={fullTitle} />
 <meta name="twitter:description" content={description} />
 <meta name="twitter:image" content={ogImage} />
+<meta name="twitter:site" content="@medcasts" />
+{type === "article" && publishedAt && (
+  <meta property="article:published_time" content={publishedAt} />
+)}
+{type === "article" && modifiedAt && (
+  <meta property="article:modified_time" content={modifiedAt} />
+)}
+{type === "article" && author && (
+  <meta property="article:author" content={author} />
+)}
+<meta name="theme-color" content="#0A5D54" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="MedCasts" />
+<link rel="alternate" type="application/rss+xml" title={`${SITE_NAME} Blog`} href="/blog/rss.xml" />

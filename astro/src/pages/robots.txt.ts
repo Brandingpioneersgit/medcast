@@ -26,6 +26,8 @@ Sitemap: ${SITE_URL}/sitemap-hospitals.xml
 Sitemap: ${SITE_URL}/sitemap-hospital-specialties.xml
 Sitemap: ${SITE_URL}/sitemap-doctors.xml
 Sitemap: ${SITE_URL}/sitemap-treatments.xml
+Sitemap: ${SITE_URL}/sitemap-treatments-countries.xml
+Sitemap: ${SITE_URL}/sitemap-treatments-cities.xml
 Sitemap: ${SITE_URL}/sitemap-specialties.xml
 Sitemap: ${SITE_URL}/sitemap-conditions.xml
 Sitemap: ${SITE_URL}/sitemap-countries.xml
@@ -33,6 +35,9 @@ Sitemap: ${SITE_URL}/sitemap-cities.xml
 Sitemap: ${SITE_URL}/sitemap-costs.xml
 Sitemap: ${SITE_URL}/sitemap-visas.xml
 Sitemap: ${SITE_URL}/sitemap-blog.xml
+Sitemap: ${SITE_URL}/sitemap-qa.xml
+Sitemap: ${SITE_URL}/sitemap-glossary.xml
+Sitemap: ${SITE_URL}/sitemap-best.xml
 `;
 
 export const GET: APIRoute = () =>
