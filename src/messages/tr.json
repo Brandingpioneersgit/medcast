@@ -766,7 +766,7 @@
     "pCuratedByRating": "Hasta puanlaması ve yorum sayısına göre derlenmiştir."
   },
   "city": {
-    "breadcrumbCities": "Cities"
+    "breadcrumbCities": "Şehirler"
   },
   "specialty": {
     "breadcrumbSpecialties": "Uzmanlıklar"
@@ -824,16 +824,16 @@
     "labelRating": "Puan"
   },
   "compareCountriesPage": {
-    "breadcrumbCompare": "Compare",
-    "breadcrumbCountries": "Destinations",
-    "eyebrow": "Side-by-side comparison",
-    "h1First": "Compare",
-    "h1Italic": "destinations",
-    "lede": "Select up to 3 countries to compare costs, hospital quality, and travel logistics.",
-    "labelHospitals": "Hospitals",
-    "labelDoctors": "Doctors",
-    "labelCost": "Starting from",
-    "labelRating": "Avg rating"
+    "breadcrumbCompare": "Karşılaştır",
+    "breadcrumbCountries": "Ülkeler",
+    "eyebrow": "Yan yana karşılaştırma",
+    "h1First": "Karşılaştır",
+    "h1Italic": "destinasyonlar",
+    "lede": "Maliyetleri, hastane kalitesini ve seyahat lojistiğini karşılaştırmak için en fazla 3 ülke seçin.",
+    "labelHospitals": "Hastaneler",
+    "labelDoctors": "Doktorlar",
+    "labelCost": "Başlangıç fiyatı",
+    "labelRating": "Ortalama puan"
   },
   "bestPage": {
     "breadcrumbBest": "En İyi",
