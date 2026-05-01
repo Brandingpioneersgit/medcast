@@ -540,7 +540,7 @@
     "labelPatientEmail": "Электронная почта (необязательно)",
     "labelClinicalSituation": "Клиническая ситуация",
     "placeholderPatientName": "Полное имя",
-    "placeholderPatientPhone": "+234 ...",
+    "placeholderPatientPhone": "+7 ...",
     "placeholderPatientEmail": "patient@example.com",
     "placeholderClinicalSituation": "Диагноз, текущий план лечения, что именно требуется",
     "consentLabel": "У меня есть согласие пациента на передачу его данных MedCasts.",

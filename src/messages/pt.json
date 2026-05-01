@@ -812,16 +812,16 @@
     "lede": "Os selos de acreditação aparecem nos perfis dos hospitais no MedCasts. Veja o que cada um significa para a segurança e a qualidade do cuidado ao paciente."
   },
   "compareDoctorsPage": {
-    "breadcrumbCompare": "Compare",
-    "breadcrumbDoctors": "Doctors",
-    "eyebrow": "Side-by-side comparison",
-    "h1First": "Compare",
-    "h1Italic": "doctors",
-    "lede": "Select up to 3 doctors to compare qualifications, experience, and patient ratings.",
-    "labelExperience": "Experience",
-    "labelQualifications": "Qualifications",
-    "labelSpecialties": "Specialties",
-    "labelRating": "Rating"
+    "breadcrumbCompare": "Comparar",
+    "breadcrumbDoctors": "Médicos",
+    "eyebrow": "Comparação lado a lado",
+    "h1First": "Comparar",
+    "h1Italic": "médicos",
+    "lede": "Selecione até 3 médicos para comparar qualificações, experiência e avaliações de pacientes.",
+    "labelExperience": "Experiência",
+    "labelQualifications": "Qualificações",
+    "labelSpecialties": "Especialidades",
+    "labelRating": "Classificação"
   },
   "compareCountriesPage": {
     "breadcrumbCompare": "Comparar",
