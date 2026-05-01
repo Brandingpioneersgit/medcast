@@ -5,6 +5,8 @@ import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import EntityListingHero from "@/components/EntityListingHero.astro";
 import { listDoctors } from "@/lib/queries";
+import { db } from "@/lib/db";
+import { sql } from "drizzle-orm";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, itemListJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
@@ -20,7 +22,15 @@ const url = new URL(Astro.request.url);
 const pageParam = parseInt(url.searchParams.get("page") ?? "1", 10);
 const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
 
-const { rows } = await listDoctors({ page });
+const [{ rows }, totalDoctors] = await Promise.all([
+  listDoctors({ page }),
+  page === 1
+    ? db
+        .execute<{ n: string }>(sql`SELECT COUNT(*)::text AS n FROM doctors WHERE is_active = true`)
+        .then((r) => Number(Array.from(r)[0]?.n ?? 0))
+        .catch(() => 0)
+    : Promise.resolve(0),
+]);
 
 const tc = getTranslator(locale, "common");
 const seoTitle = "International specialist doctors";
@@ -51,7 +61,7 @@ function firstWord(s: string) { const i = s.indexOf(" "); return i === -1 ? s : 
 function restOfName(s: string) { const i = s.indexOf(" "); return i === -1 ? "" : s.slice(i + 1); }
 
 const stats = page === 1 ? [
-  { l: "Specialists", v: rows.length >= 24 ? "800+" : rows.length.toString() },
+  { l: "Specialists", v: totalDoctors > 0 ? totalDoctors.toLocaleString() : rows.length.toString() },
   { l: "Hospitals", v: new Set(rows.map((d) => d.hospitalSlug).filter(Boolean)).size.toString() },
   { l: "Reply time", v: "9 min" },
   { l: "Reviewed by", v: "Editorial desk" },

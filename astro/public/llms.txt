@@ -1,5 +1,9 @@
 # MedCasts
 
+> Last updated: 2026-05-01
+> Generator: hand-curated by MedCasts editorial desk
+> Contact: corrections@medcasts.com
+
 > MedCasts is a medical travel directory and coordination service for patients seeking planned treatment abroad. We match patients to accredited hospitals across 9 destination countries (India, Thailand, Turkey, UAE, Germany, Singapore, South Korea, Malaysia, Saudi Arabia), facilitate free second opinions, and coordinate end-to-end care from first message to flight home.
 
 ## About MedCasts

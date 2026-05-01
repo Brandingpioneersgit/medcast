@@ -123,7 +123,13 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
 
         {term.long_definition && (
           <div class="prose-editorial mt-8" style="max-width: none;">
-            <p>{term.long_definition}</p>
+            {term.long_definition
+              .split(/\n\s*\n+/)
+              .map((para) => para.trim())
+              .filter(Boolean)
+              .map((para) => (
+                <p>{para}</p>
+              ))}
           </div>
         )}
 
