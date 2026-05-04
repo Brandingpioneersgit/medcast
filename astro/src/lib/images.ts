@@ -95,21 +95,34 @@ const HOSPITAL_DEFAULT_POOL: readonly string[] = [
   "photo-1576091160399-112ba8d25d1d",
 ];
 
+// FNV-1a 32-bit hash → well-distributed integer from a string seed.
+function fnv1a(str: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
 export function hospitalCover(h: {
   coverImageUrl?: string | null;
   countrySlug?: string | null;
   id?: number | null;
+  slug?: string | null;
 }): string {
   if (h.coverImageUrl) {
-    // Normalize legacy http://commons.wikimedia URLs to https
     if (h.coverImageUrl.startsWith("http://commons.wikimedia")) {
       return "https" + h.coverImageUrl.slice(4);
     }
     return h.coverImageUrl;
   }
-  const slug = h.countrySlug ?? "";
-  const pool = HOSPITAL_FALLBACK_POOL[slug] ?? HOSPITAL_DEFAULT_POOL;
-  const photoId = pickStable(pool, h.id ?? 0);
+  const country = h.countrySlug ?? "";
+  const pool = HOSPITAL_FALLBACK_POOL[country] ?? HOSPITAL_DEFAULT_POOL;
+  // Compose seed from id + slug so adjacent hospital ids don't land on
+  // adjacent photos. Keeps the bulk-import-time backfill in sync with this.
+  const seed = `${h.id ?? 0}-${h.slug ?? ""}`;
+  const photoId = pool[fnv1a(seed) % pool.length];
   return unsplash(photoId);
 }
 
@@ -143,38 +156,26 @@ export function hospitalInitials(name: string): string {
     .toUpperCase() || "H";
 }
 
-// Doctor portrait pool — neutral medical-professional stock. Picked
-// deterministically by doctor id so the same doctor always renders the
-// same placeholder between requests.
-const DOCTOR_PORTRAIT_POOL: readonly string[] = [
-  "photo-1559839734-2b71ea197ec2",
-  "photo-1622253692010-333f2da6031d",
-  "photo-1612349317150-e413f6a5b16d",
-  "photo-1537368910025-700350fe46c7",
-  "photo-1551884170-09bb70a3a2ed",
-  "photo-1594824476967-48c8b964273f",
-  "photo-1584467735815-f778f274e296",
-  "photo-1582750433449-648ed127bb54",
-  "photo-1612531386530-97286d97c2d2",
-  "photo-1559839734-2b71ea197ec2",
-  "photo-1638202993928-7267aad84c31",
-  "photo-1666214280391-8b6f6e6acdd1",
-  "photo-1622902046580-2b47f47f5471",
-  "photo-1607990281513-2c110a25bd8c",
-  "photo-1543333995-a78aea2eee50",
-  "photo-1551601651-2a8555f1a136",
-];
-
-export function doctorPortrait(d: { imageUrl?: string | null; id?: number | null }, size = 400): string {
+/**
+ * Doctor portrait — prefers DB imageUrl. When missing, falls back to Pravatar
+ * (real-looking stock portrait, deterministic by slug, ~70-photo pool) so the
+ * same doctor always renders the same image and adjacent doctor profiles look
+ * visually distinct.
+ */
+export function doctorPortrait(
+  d: { imageUrl?: string | null; id?: number | null; slug?: string | null },
+  size = 600,
+): string {
   if (d.imageUrl) {
-    // Normalize legacy http://commons.wikimedia URLs to https
     if (d.imageUrl.startsWith("http://commons.wikimedia")) {
       return "https" + d.imageUrl.slice(4);
     }
     return d.imageUrl;
   }
-  const id = pickStable(DOCTOR_PORTRAIT_POOL, d.id ?? 0);
-  return unsplash(id, size, size);
+  // Pravatar takes any string seed and resolves to one of ~70 portrait photos.
+  // Fall back to id when slug is unavailable.
+  const seed = d.slug ?? String(d.id ?? "anonymous");
+  return `https://i.pravatar.cc/${size}?u=${encodeURIComponent(seed)}`;
 }
 
 // Specialty banner pool — keyed by specialty slug. Used on specialty,
