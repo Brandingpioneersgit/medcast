@@ -11,6 +11,7 @@ import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, itemListJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { ChevronRight } from "lucide-react";
+import { doctorPortrait } from "@/lib/images";
 
 export const prerender = false;
 
@@ -75,11 +76,11 @@ const hasNext = rows.length === 24;
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={page > 1} />
-    {itemLd && <script type="application/ld+json" set:html={JSON.stringify(itemLd)} />}
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    {itemLd && <script type="application/ld+json" is:inline set:html={JSON.stringify(itemLd)} />}
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -103,7 +104,17 @@ const hasNext = rows.length === 24;
     <section style="padding: 32px 0 88px;">
       <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
         {rows.length === 0 ? (
-          <p class="serif" style="color: var(--color-ink-muted);">No doctors found.</p>
+          <div class="paper text-center py-20" style="color: var(--color-ink-muted);">
+            <p class="serif text-lg mb-3">No doctors on this page.</p>
+            <p class="text-sm mb-5">Browse by specialty for a more focused view.</p>
+            <a
+              href={localizedPath(locale, "/surgeons")}
+              class="inline-flex items-center gap-2 font-semibold"
+              style="background: var(--color-ink); color: var(--color-bg); padding: 10px 20px; border-radius: 9999px; font-size: 13px;"
+            >
+              Browse by specialty →
+            </a>
+          </div>
         ) : (
           <ul class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {rows.map((d) => {
@@ -116,21 +127,15 @@ const hasNext = rows.length === 24;
                     style="padding: 0;"
                   >
                     <div class="w-full overflow-hidden" style="aspect-ratio: 4/5; background: linear-gradient(135deg, #0A5D54 0%, #0D7C70 60%, #1C2A25 100%);">
-                      {d.imageUrl ? (
-                        <img
-                          src={d.imageUrl}
-                          alt={d.name}
-                          width="320"
-                          height="400"
-                          loading="lazy"
-                          decoding="async"
-                          class="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div class="flex h-full w-full items-center justify-center">
-                          <span class="display" style="color: rgba(246,241,230,.8); font-size: 56px; letter-spacing: -0.03em;">{monogram(d.name)}</span>
-                        </div>
-                      )}
+                      <img
+                        src={doctorPortrait({ imageUrl: d.imageUrl, id: d.id }, 400)}
+                        alt={d.name}
+                        width="320"
+                        height="400"
+                        loading="lazy"
+                        decoding="async"
+                        class="h-full w-full object-cover"
+                      />
                     </div>
                     <div class="p-5 flex flex-col flex-1">
                       {d.title && (

@@ -4,6 +4,7 @@ import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import Price from "@/components/Price.astro";
+import { formatUsd } from "@/lib/currency";
 import { getDoctorBySlug } from "@/lib/queries";
 import {
   getContent,
@@ -17,7 +18,9 @@ import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { doctorJsonLd, breadcrumbJsonLd, localeUrl, SITE_URL, withProvenance } from "@/lib/seo";
 import LastUpdated from "@/components/LastUpdated.astro";
 import ContactDoctor from "@/components/ContactDoctor.tsx";
+import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
 import { whatsappFor } from "@/lib/whatsapp";
+import { doctorPortrait } from "@/lib/images";
 import {
   Award,
   ChevronRight,
@@ -42,30 +45,31 @@ if (!doctorRaw) return new Response(`Not found: ${slug}`, { status: 404 });
 const tc = getTranslator(locale, "common");
 const td = getTranslator(locale, "doctor");
 
-const doctorMap = await getContent("doctor", doctorRaw.id, locale);
+const specialtyIds = (doctorRaw.specialties ?? []).map((ds) => ds.specialty.id);
+
+const [doctorMap, hospitalTMap, specialtyMap, relatedDoctors] = await Promise.all([
+  getContent("doctor", doctorRaw.id, locale),
+  doctorRaw.hospital
+    ? getContent("hospital", doctorRaw.hospital.id, locale)
+    : Promise.resolve({} as Record<string, string>),
+  getContentBatch("specialty", specialtyIds, locale),
+  relatedToDoctor(doctorRaw.id, 6, locale).catch(() => []),
+]);
+
 const doctor = applyTranslated(doctorRaw, doctorMap, [
   "name",
   "title",
   "bio",
   "qualifications",
 ]);
-
-const hospitalTMap = doctorRaw.hospital
-  ? await getContent("hospital", doctorRaw.hospital.id, locale)
-  : {};
 const hospital = doctorRaw.hospital
   ? applyTranslated(doctorRaw.hospital, hospitalTMap, ["name"])
   : null;
-
-const specialtyIds = (doctorRaw.specialties ?? []).map((ds) => ds.specialty.id);
-const specialtyMap = await getContentBatch("specialty", specialtyIds, locale);
 const docSpecialties = (doctorRaw.specialties ?? []).map((ds) => ({
   ...ds,
   specialty: applyTranslated(ds.specialty, specialtyMap[ds.specialty.id] ?? {}, ["name"]),
 }));
-
 const expertise = doctorRaw.expertise ?? [];
-const relatedDoctors = await relatedToDoctor(doctorRaw.id, 6, locale).catch(() => []);
 
 function parseLanguages(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw.filter((x): x is string => typeof x === "string");
@@ -184,11 +188,11 @@ Astro.response.headers.set(
       image={doctor.imageUrl ?? undefined}
       noindex={untranslated}
     />
-    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(jsonLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <nav aria-label="Breadcrumb" class="border-b border-border bg-bg">
@@ -207,21 +211,16 @@ Astro.response.headers.set(
         <div class="grid gap-10 lg:grid-cols-[0.8fr,1.5fr,1fr] lg:gap-[40px] items-start">
           {/* Portrait */}
           <div class="paper-flat relative overflow-hidden" style="aspect-ratio: 4/5; border-radius: var(--radius-lg);">
-            {doctor.imageUrl ? (
-              <img src={doctor.imageUrl} alt={fullName} width="480" height="600" loading="eager" fetchpriority="high" decoding="async" class="absolute inset-0 h-full w-full object-cover" />
-            ) : (
-              <div
-                class="absolute inset-0 flex items-center justify-center"
-                style="background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 50%, var(--color-ink-2) 100%);"
-              >
-                <div
-                  class="display"
-                  style="font-size: 84px; line-height: 1; color: var(--color-bg); font-weight: 500; letter-spacing: -0.03em; font-style: italic;"
-                >
-                  {(doctor.name ?? "").replace(/^Dr\.?\s*/, "").split(/\s+/).map((w: string) => w[0]).slice(0, 2).join("")}
-                </div>
-              </div>
-            )}
+            <img
+              src={doctorPortrait({ imageUrl: doctor.imageUrl, id: doctor.id }, 600)}
+              alt={fullName}
+              width="480"
+              height="600"
+              loading="eager"
+              fetchpriority="high"
+              decoding="async"
+              class="absolute inset-0 h-full w-full object-cover"
+            />
           </div>
 
           {/* Info */}
@@ -277,7 +276,7 @@ Astro.response.headers.set(
                 doctor.experienceYears != null && { l: "Years practising", v: `${doctor.experienceYears}` },
                 doctor.patientsTreated != null && { l: "Patients treated", v: doctor.patientsTreated > 1000 ? `${Math.floor(doctor.patientsTreated / 1000)}k+` : doctor.patientsTreated.toLocaleString() },
                 doctor.rating && Number(doctor.rating) > 0 && { l: "Rating", v: `${Number(doctor.rating).toFixed(1)}/5` },
-                doctor.consultationFeeUsd != null && { l: "Consultation", v: `$${doctor.consultationFeeUsd}` },
+                doctor.consultationFeeUsd != null && { l: "Consultation", v: await formatUsd(Astro.cookies, Number(doctor.consultationFeeUsd)) },
               ].filter(Boolean).map((s: any, i: number) => (
                 <div style={`padding-inline: 18px; ${i > 0 ? "border-inline-start: 1px solid var(--color-border);" : ""}`}>
                   <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">{s.l}</div>
@@ -556,6 +555,18 @@ Astro.response.headers.set(
         </div>
       </section>
     )}
+
+    {/* EEAT signals — methodology + reviewer attribution */}
+    <MethodologyBlock
+      lastReviewed={doctor.updatedAt}
+      curationNote={`This profile of ${doctor.name} is built from primary credentialling sources — the relevant national medical council registry, the surgeon's institutional bio, and peer-reviewed publication record (where available). Patient testimonials are independently verified against booking records before publication.`}
+      dataSources={[
+        "National medical council registries",
+        "Hospital institutional records",
+        "Peer-reviewed publication record (PubMed, Google Scholar)",
+        "Society membership directories (specialty-specific)",
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>

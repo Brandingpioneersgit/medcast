@@ -7,8 +7,11 @@ import LastUpdated from "@/components/LastUpdated.astro";
 import PhotoBlock from "@/components/PhotoBlock.astro";
 import Price from "@/components/Price.astro";
 import { getSpecialtyPageData, listFaqsFor, getReviewerFor } from "@/lib/queries";
+import { formatUsd } from "@/lib/currency";
 import ReviewedBy from "@/components/ReviewedBy.astro";
-import { hospitalCover, specialtyBanner } from "@/lib/images";
+import SpecialtyDepth from "@/components/content/SpecialtyDepth.astro";
+import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
+import { hospitalCover, specialtyBanner, doctorPortrait } from "@/lib/images";
 import {
   getContent,
   getContentBatch,
@@ -35,18 +38,20 @@ const { specialty: specialtyRaw, agg, topHospitals, countryBreakdown, topDoctors
 
 const tc = getTranslator(locale, "common");
 
-const specialtyMap = await getContent("specialty", specialtyRaw.id, locale);
-const specialty = applyTranslated(specialtyRaw, specialtyMap, ["name", "description"]);
-
 const treatmentIds = (specialtyRaw.treatments ?? []).map((t) => t.id);
-const treatmentMap = await getContentBatch("treatment", treatmentIds, locale);
+
+const [specialtyMap, treatmentMap, faqRows, reviewer] = await Promise.all([
+  getContent("specialty", specialtyRaw.id, locale),
+  getContentBatch("treatment", treatmentIds, locale),
+  listFaqsFor("specialty", specialtyRaw.id),
+  getReviewerFor("specialty", specialtyRaw.id),
+]);
+
+const specialty = applyTranslated(specialtyRaw, specialtyMap, ["name", "description"]);
 const specialtyTreatments = (specialtyRaw.treatments ?? []).map((t) =>
   applyTranslated(t, treatmentMap[t.id] ?? {}, ["name"]),
 );
-
-const faqRows = await listFaqsFor("specialty", specialtyRaw.id);
 const faqSchema = faqRows.length > 0 ? faqJsonLd(faqRows) : null;
-const reviewer = await getReviewerFor("specialty", specialtyRaw.id);
 
 const descriptionParas = (specialty.description ?? "")
   .split(/\n\s*\n/)
@@ -68,13 +73,13 @@ function monogram(name: string) {
   return name.replace(/^Dr\.?\s*/i, "").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? "").join("");
 }
 
+const aggFromFormatted = agg.from_usd ? await formatUsd(Astro.cookies, agg.from_usd) : null;
+
 const stats = [
   { l: "Hospitals", v: agg.hospitals.toLocaleString() },
   { l: "Treatments", v: specialtyTreatments.length.toString() },
   { l: "Destinations", v: agg.countries.toString() },
-  agg.from_usd
-    ? { l: "From", v: `$${(agg.from_usd / 1000).toFixed(1)}k` }
-    : null,
+  aggFromFormatted ? { l: "From", v: aggFromFormatted } : null,
 ].filter(Boolean) as Array<{ l: string; v: string }>;
 
 const seoTitle = specialty.name;
@@ -117,14 +122,14 @@ Astro.response.headers.set(
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
-    <script type="application/ld+json" set:html={JSON.stringify(collectionLd)} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(collectionLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
     {faqSchema && (
-      <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+      <script type="application/ld+json" is:inline set:html={JSON.stringify(faqSchema)} />
     )}
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -404,13 +409,13 @@ Astro.response.headers.set(
                   class="group flex flex-col items-start"
                 >
                   <div class="w-full overflow-hidden rounded-[var(--radius-lg)]" style="aspect-ratio: 4/5; background: linear-gradient(135deg, #0A5D54 0%, #0D7C70 60%, #1C2A25 100%);">
-                    {d.image_url ? (
-                      <img src={d.image_url} alt={d.name} class="h-full w-full object-cover" loading="lazy" />
-                    ) : (
-                      <div class="flex h-full w-full items-center justify-center">
-                        <span class="display" style="color: rgba(246,241,230,.8); font-size: 42px; letter-spacing: -0.02em;">{monogram(d.name)}</span>
-                      </div>
-                    )}
+                    <img
+                      src={doctorPortrait({ imageUrl: d.image_url, id: d.id }, 400)}
+                      alt={d.name}
+                      class="h-full w-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                    />
                   </div>
                   <div class="mt-3 serif" style="font-size: 15px; line-height: 1.3; color: var(--color-ink);">
                     {d.name}
@@ -539,6 +544,27 @@ Astro.response.headers.set(
         </div>
       </div>
     </section>
+
+    {/* Specialty depth — sub-specialties, outcome measures, credible signals */}
+    <SpecialtyDepth
+      specialtyName={specialty.name}
+      specialtySlug={specialtyRaw.slug}
+    />
+
+    {/* EEAT signals */}
+    <MethodologyBlock
+      reviewerName={reviewer?.fullName ?? null}
+      reviewerCredentials={reviewer?.credentials ?? null}
+      reviewerSlug={reviewer?.slug ?? null}
+      lastReviewed={reviewer?.reviewedAt ?? specialtyRaw.updatedAt}
+      curationNote={`This ${specialty.name.toLowerCase()} hub draws on ${agg.hospitals?.toLocaleString() ?? "our network of"} accredited hospitals running active ${specialty.name.toLowerCase()} programs across ${agg.countries ?? "multiple"} destinations. Surgeon listings are filtered for sub-specialty fellowship credentialling, not just board certification in the parent field.`}
+      dataSources={[
+        "JCI accreditation registry",
+        "National medical council subspecialty registries",
+        "Peer-reviewed publication record",
+        `${specialty.name} society guidelines (most recent edition)`,
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>

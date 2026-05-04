@@ -18,26 +18,99 @@ function pickStable<T>(pool: readonly T[], id: number): T {
   return pool[i];
 }
 
-// Hospital cover fallbacks keyed by destination country
-const HOSPITAL_FALLBACK_BY_COUNTRY: Record<string, string> = {
-  india: "photo-1519494026892-80bbd2d6fd0d",
-  thailand: "photo-1586773860418-d37222d8fce3",
-  turkey: "photo-1538108149393-fbbd81895907",
-  germany: "photo-1576091160399-112ba8d25d1d",
-  "south-korea": "photo-1551190822-a9333d879b1f",
-  malaysia: "photo-1580281657521-b0d2a73f71fb",
-  singapore: "photo-1516549655169-df83a0774514",
-  "united-arab-emirates": "photo-1504813184591-01572f98c85f",
-  uae: "photo-1504813184591-01572f98c85f",
-  "saudi-arabia": "photo-1504813184591-01572f98c85f",
+// Hospital cover fallback pools keyed by destination country.
+// Multiple photos per country so the same destination doesn't render
+// 4,000 identical placeholders. Picked deterministically by hospital id.
+const HOSPITAL_FALLBACK_POOL: Record<string, readonly string[]> = {
+  india: [
+    "photo-1519494026892-80bbd2d6fd0d",
+    "photo-1538108149393-fbbd81895907",
+    "photo-1586773860418-d37222d8fce3",
+    "photo-1576091160399-112ba8d25d1d",
+    "photo-1551076805-e1869033e561",
+    "photo-1631815588090-d4bfec5b1ccb",
+  ],
+  thailand: [
+    "photo-1586773860418-d37222d8fce3",
+    "photo-1519494026892-80bbd2d6fd0d",
+    "photo-1538108149393-fbbd81895907",
+    "photo-1631815588090-d4bfec5b1ccb",
+    "photo-1666214280557-f1b5022eb634",
+  ],
+  turkey: [
+    "photo-1538108149393-fbbd81895907",
+    "photo-1519494026892-80bbd2d6fd0d",
+    "photo-1576091160399-112ba8d25d1d",
+    "photo-1586773860418-d37222d8fce3",
+    "photo-1551076805-e1869033e561",
+  ],
+  germany: [
+    "photo-1576091160399-112ba8d25d1d",
+    "photo-1538108149393-fbbd81895907",
+    "photo-1519494026892-80bbd2d6fd0d",
+    "photo-1586773860418-d37222d8fce3",
+    "photo-1631815588090-d4bfec5b1ccb",
+  ],
+  "south-korea": [
+    "photo-1551190822-a9333d879b1f",
+    "photo-1576091160399-112ba8d25d1d",
+    "photo-1538108149393-fbbd81895907",
+    "photo-1519494026892-80bbd2d6fd0d",
+    "photo-1631815588090-d4bfec5b1ccb",
+  ],
+  malaysia: [
+    "photo-1580281657521-b0d2a73f71fb",
+    "photo-1586773860418-d37222d8fce3",
+    "photo-1519494026892-80bbd2d6fd0d",
+    "photo-1551076805-e1869033e561",
+  ],
+  singapore: [
+    "photo-1516549655169-df83a0774514",
+    "photo-1576091160399-112ba8d25d1d",
+    "photo-1519494026892-80bbd2d6fd0d",
+    "photo-1538108149393-fbbd81895907",
+  ],
+  "united-arab-emirates": [
+    "photo-1504813184591-01572f98c85f",
+    "photo-1538108149393-fbbd81895907",
+    "photo-1576091160399-112ba8d25d1d",
+    "photo-1519494026892-80bbd2d6fd0d",
+  ],
+  uae: [
+    "photo-1504813184591-01572f98c85f",
+    "photo-1538108149393-fbbd81895907",
+    "photo-1576091160399-112ba8d25d1d",
+    "photo-1519494026892-80bbd2d6fd0d",
+  ],
+  "saudi-arabia": [
+    "photo-1504813184591-01572f98c85f",
+    "photo-1538108149393-fbbd81895907",
+    "photo-1576091160399-112ba8d25d1d",
+    "photo-1519494026892-80bbd2d6fd0d",
+  ],
 };
-const HOSPITAL_DEFAULT = "photo-1519494026892-80bbd2d6fd0d";
+const HOSPITAL_DEFAULT_POOL: readonly string[] = [
+  "photo-1519494026892-80bbd2d6fd0d",
+  "photo-1538108149393-fbbd81895907",
+  "photo-1576091160399-112ba8d25d1d",
+];
 
-export function hospitalCover(h: { coverImageUrl?: string | null; countrySlug?: string | null }): string {
-  if (h.coverImageUrl) return h.coverImageUrl;
+export function hospitalCover(h: {
+  coverImageUrl?: string | null;
+  countrySlug?: string | null;
+  id?: number | null;
+}): string {
+  if (h.coverImageUrl) {
+    // Normalize legacy http://commons.wikimedia URLs to https
+    if (h.coverImageUrl.startsWith("http://commons.wikimedia")) {
+      return "https" + h.coverImageUrl.slice(4);
+    }
+    return h.coverImageUrl;
+  }
   const slug = h.countrySlug ?? "";
-  const id = HOSPITAL_FALLBACK_BY_COUNTRY[slug] ?? HOSPITAL_DEFAULT;
-  return unsplash(id);
+  const pool = HOSPITAL_FALLBACK_POOL[slug] ?? HOSPITAL_DEFAULT_POOL;
+  const photoId = pickStable(pool, h.id ?? 0);
+  return unsplash(photoId);
 }
 
 /**
@@ -82,10 +155,24 @@ const DOCTOR_PORTRAIT_POOL: readonly string[] = [
   "photo-1594824476967-48c8b964273f",
   "photo-1584467735815-f778f274e296",
   "photo-1582750433449-648ed127bb54",
+  "photo-1612531386530-97286d97c2d2",
+  "photo-1559839734-2b71ea197ec2",
+  "photo-1638202993928-7267aad84c31",
+  "photo-1666214280391-8b6f6e6acdd1",
+  "photo-1622902046580-2b47f47f5471",
+  "photo-1607990281513-2c110a25bd8c",
+  "photo-1543333995-a78aea2eee50",
+  "photo-1551601651-2a8555f1a136",
 ];
 
 export function doctorPortrait(d: { imageUrl?: string | null; id?: number | null }, size = 400): string {
-  if (d.imageUrl) return d.imageUrl;
+  if (d.imageUrl) {
+    // Normalize legacy http://commons.wikimedia URLs to https
+    if (d.imageUrl.startsWith("http://commons.wikimedia")) {
+      return "https" + d.imageUrl.slice(4);
+    }
+    return d.imageUrl;
+  }
   const id = pickStable(DOCTOR_PORTRAIT_POOL, d.id ?? 0);
   return unsplash(id, size, size);
 }

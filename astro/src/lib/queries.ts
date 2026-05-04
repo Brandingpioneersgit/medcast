@@ -177,6 +177,7 @@ export async function getSpecialtyPageData(slug: string) {
       .catch(() => []),
     db
       .execute<{
+        id: number;
         slug: string;
         name: string;
         title: string | null;
@@ -185,7 +186,7 @@ export async function getSpecialtyPageData(slug: string) {
         experience_years: number | null;
         hospital_name: string;
       }>(sql`
-        SELECT d.slug, d.name, d.title, d.image_url, d.rating::text, d.experience_years,
+        SELECT d.id, d.slug, d.name, d.title, d.image_url, d.rating::text, d.experience_years,
                h.name AS hospital_name
         FROM doctors d
         INNER JOIN hospitals h ON h.id = d.hospital_id AND h.is_active = true
