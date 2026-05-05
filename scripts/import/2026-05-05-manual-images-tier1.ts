@@ -9,7 +9,7 @@
  *
  * Doctors covered: 10 highest-traffic practicing physicians at flagship
  *                  hospitals (Apollo, Medanta, Max, Artemis, Amrita, Sarvodaya).
- * Hospitals covered: 38 international medical-tourism flagships across all 9
+ * Hospitals covered: 51 international medical-tourism flagships across all 9
  *                    destination countries.
  *
  * Idempotent — re-run safe. Use this script to reseed if image_url /
@@ -46,13 +46,21 @@ const HOSPITALS: Array<[string, string]> = [
   ["manipal-hospital-whitefield", "https://cdn.hexahealth.com/Image/b6a9da21-d3c5-4feb-a4ce-b50b4e59c7e7.jpg"],
   ["kokilaben-dhirubhai-ambani-hospital", "https://getwellgo.com/uploads/hospitals/Kokilaben%20Hospital%2C%20Mumbai.png"],
   ["all-india-institute-of-medical-sciences-new-delhi", "https://upload.wikimedia.org/wikipedia/commons/c/cd/AIIMS_-New_Delhi%27s_Ward_Block.jpg"],
+  ["all-india-institute-of-medical-sciences-aiims-jodhpur", "https://upload.wikimedia.org/wikipedia/commons/f/f1/AIIMS_Jodhpur.png"],
   ["mazumdar-shaw-medical-centre", "https://upload.wikimedia.org/wikipedia/commons/d/d4/Mazumdar_Shaw_Medical_Center%2C_Narayana_Health_City%2C_Bangalore.jpg"],
+  ["tata-medical-centre", "https://upload.wikimedia.org/wikipedia/commons/0/0d/Tata_Medical_Centre_in_Kolkata_04.jpg"],
 
   // === THAILAND flagships ===
   ["bumrungrad-hospital", "https://upload.wikimedia.org/wikipedia/commons/5/52/Thailand_Bangkok_Bumrungrad_International_Hospital_entrance-building.jpg"],
   ["bangkok-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/d4/Bangkok_hospital_building01.jpg"],
   ["phyathai-1-hospital", "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Phyatai_1_hospital.jpg/1280px-Phyatai_1_hospital.jpg"],
   ["phyathai-2-hospital", "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Phyatai_1_hospital.jpg/1280px-Phyatai_1_hospital.jpg"],
+  ["siriraj-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/d1/Mahidol_University.jpg"],
+  ["vajira-hospital", "https://upload.wikimedia.org/wikipedia/commons/9/9b/Vajira.jpg"],
+  ["phramongkutklao-hospital", "https://upload.wikimedia.org/wikipedia/commons/7/78/%E0%B9%82%E0%B8%A3%E0%B8%87%E0%B8%9E%E0%B8%A2%E0%B8%B2%E0%B8%9A%E0%B8%B2%E0%B8%A5%E0%B8%9E%E0%B8%A3%E0%B8%B0%E0%B8%A1%E0%B8%87%E0%B8%81%E0%B8%B8%E0%B8%8E%E0%B9%80%E0%B8%81%E0%B8%A5%E0%B9%89%E0%B8%B2.jpg"],
+  ["king-chulalongkorn-memorial-hospital", "https://upload.wikimedia.org/wikipedia/commons/9/94/Dusit_Arun_at_Dusit_Central_Park_%2807-09-2025%29_-_views_-_Chulalongkorn_Hospital.jpg"],
+  ["ramathibodi-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/d6/%E0%B9%82%E0%B8%A3%E0%B8%87%E0%B8%9E%E0%B8%A2%E0%B8%B2%E0%B8%9A%E0%B8%B2%E0%B8%A5%E0%B8%A3%E0%B8%B2%E0%B8%A1%E0%B8%B2%E0%B8%98%E0%B8%B4%E0%B8%9A%E0%B8%94%E0%B8%B5.JPG"],
+  ["maharaj-nakorn-chiang-mai-hospital", "https://upload.wikimedia.org/wikipedia/commons/0/0e/%E0%B9%82%E0%B8%A3%E0%B8%87%E0%B8%9E%E0%B8%A2%E0%B8%B2%E0%B8%9A%E0%B8%B2%E0%B8%A5%E0%B8%A1%E0%B8%AB%E0%B8%B2%E0%B8%A3%E0%B8%B2%E0%B8%8A.jpg"],
 
   // === TURKEY flagships ===
   ["ac-badem-maslak-hospital", "https://acibademinternational.com/wp-content/uploads/2025/09/healthturkiye-image.webp"],
@@ -70,14 +78,19 @@ const HOSPITALS: Array<[string, string]> = [
   ["national-university-hospital", "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/NUH_Main_Building_%282025%29_-_img_01.jpg/1280px-NUH_Main_Building_%282025%29_-_img_01.jpg"],
   ["kk-women-s-and-children-s-hospital", "https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/KKH_Street_View.jpg/1280px-KKH_Street_View.jpg"],
   ["singapore-general-hospital", "https://upload.wikimedia.org/wikipedia/commons/0/00/Singapore_General_Hospital%2C_Nov_05.JPG"],
+  ["singapore-national-eye-centre", "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/SNEC_2.jpg/1280px-SNEC_2.jpg"],
+  ["tan-tock-seng-hospital", "https://upload.wikimedia.org/wikipedia/commons/0/09/Tan_Tock_Seng_Hospital_3%2C_Aug_06.JPG"],
+  ["changi-general-hospital", "https://upload.wikimedia.org/wikipedia/commons/1/18/Changi_General_Hospital%2C_Jun_07.JPG"],
 
   // === SOUTH KOREA ===
   ["asan-medical-center", "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Asan_Medical_Center.jpg/1280px-Asan_Medical_Center.jpg"],
   ["samsung-medical-center", "https://storage.airomedical.com/assets/gallery/06/13/23/9e/12/3249/clb254i0t000l08jtgl505j51-w=1920.avif"],
   ["severance-hospital-seoul-station", "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bb/Sev2018.jpg/1280px-Sev2018.jpg"],
+  ["seoul-national-university-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/d7/Seoulunivhospital.jpg"],
 
   // === MALAYSIA ===
   ["prince-court-medical-centre", "https://princecourt.com/images/default-source/my_pcmc/corporate-information/about/pcmc-general-banner.webp"],
+  ["hospital-kuala-lumpur", "https://upload.wikimedia.org/wikipedia/commons/8/83/Kuala_Lumpur_Hospital.JPG"],
 
   // === GERMANY ===
   ["charite", "https://upload.wikimedia.org/wikipedia/commons/d/d0/2016_Charite_Hospital.jpg"],
