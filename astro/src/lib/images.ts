@@ -157,25 +157,53 @@ export function hospitalInitials(name: string): string {
 }
 
 /**
- * Doctor portrait — prefers DB imageUrl. When missing, falls back to Pravatar
- * (real-looking stock portrait, deterministic by slug, ~70-photo pool) so the
- * same doctor always renders the same image and adjacent doctor profiles look
- * visually distinct.
+ * Doctor portrait pool — curated Unsplash photo IDs, medical/professional
+ * tone. Hashed by id/slug so adjacent doctors don't share a photo. We'd
+ * rather repeat a tonally-correct portrait than ship a casual pravatar
+ * selfie that breaks the editorial palette.
+ */
+const DOCTOR_PORTRAIT_POOL: string[] = [
+  "photo-1612349317150-e413f6a5b16d", // surgeon, neutral bg
+  "photo-1622253692010-333f2da6031d", // doctor in white coat
+  "photo-1559839734-2b71ea197ec2", // physician portrait
+  "photo-1537368910025-700350fe46c7", // doctor headshot
+  "photo-1582750433449-648ed127bb54", // surgeon portrait
+  "photo-1559839914-17aae19cec71", // medical professional
+  "photo-1551601651-2a8555f1a136", // physician with stethoscope
+  "photo-1638202993928-7267aad84c31", // older surgeon
+  "photo-1594824476967-48c8b964273f", // female surgeon
+  "photo-1559757148-5c350d0d3c56", // male physician
+  "photo-1576091160550-2173dba999ef", // female physician
+  "photo-1622902046580-2b18a9ef34a8", // doctor coat
+  "photo-1631815589968-fdb09a223b1e", // medical professional
+  "photo-1666214280165-dc9a3aab4a9f", // doctor portrait
+  "photo-1607990281513-2c110a25bd8c", // physician
+];
+
+function isLowQualityFallback(url: string): boolean {
+  return /^https?:\/\/i\.pravatar\.cc\//.test(url);
+}
+
+/**
+ * Doctor portrait — prefers DB imageUrl unless it's the legacy Pravatar
+ * fallback (random casual face, clashes with the editorial theme), in which
+ * case we substitute a curated medical-professional portrait deterministically.
  */
 export function doctorPortrait(
   d: { imageUrl?: string | null; id?: number | null; slug?: string | null },
   size = 600,
 ): string {
-  if (d.imageUrl) {
+  if (d.imageUrl && !isLowQualityFallback(d.imageUrl)) {
     if (d.imageUrl.startsWith("http://commons.wikimedia")) {
       return "https" + d.imageUrl.slice(4);
     }
     return d.imageUrl;
   }
-  // Pravatar takes any string seed and resolves to one of ~70 portrait photos.
-  // Fall back to id when slug is unavailable.
-  const seed = d.slug ?? String(d.id ?? "anonymous");
-  return `https://i.pravatar.cc/${size}?u=${encodeURIComponent(seed)}`;
+  const seed = `${d.id ?? 0}-${d.slug ?? "anon"}`;
+  const photoId = DOCTOR_PORTRAIT_POOL[fnv1a(seed) % DOCTOR_PORTRAIT_POOL.length];
+  // Tighter crop + slightly desaturated via Unsplash params so all portraits
+  // sit in the same tonal range as the rest of the photography on site.
+  return `https://images.unsplash.com/${photoId}?auto=format&fit=crop&w=${size}&q=70&sat=-12`;
 }
 
 // Specialty banner pool — keyed by specialty slug. Used on specialty,
