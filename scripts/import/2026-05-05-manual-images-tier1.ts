@@ -9,7 +9,7 @@
  *
  * Doctors covered: 10 highest-traffic practicing physicians at flagship
  *                  hospitals (Apollo, Medanta, Max, Artemis, Amrita, Sarvodaya).
- * Hospitals covered: 36 international medical-tourism flagships across all 9
+ * Hospitals covered: 38 international medical-tourism flagships across all 9
  *                    destination countries.
  *
  * Idempotent — re-run safe. Use this script to reseed if image_url /
@@ -46,6 +46,7 @@ const HOSPITALS: Array<[string, string]> = [
   ["manipal-hospital-whitefield", "https://cdn.hexahealth.com/Image/b6a9da21-d3c5-4feb-a4ce-b50b4e59c7e7.jpg"],
   ["kokilaben-dhirubhai-ambani-hospital", "https://getwellgo.com/uploads/hospitals/Kokilaben%20Hospital%2C%20Mumbai.png"],
   ["all-india-institute-of-medical-sciences-new-delhi", "https://upload.wikimedia.org/wikipedia/commons/c/cd/AIIMS_-New_Delhi%27s_Ward_Block.jpg"],
+  ["mazumdar-shaw-medical-centre", "https://upload.wikimedia.org/wikipedia/commons/d/d4/Mazumdar_Shaw_Medical_Center%2C_Narayana_Health_City%2C_Bangalore.jpg"],
 
   // === THAILAND flagships ===
   ["bumrungrad-hospital", "https://upload.wikimedia.org/wikipedia/commons/5/52/Thailand_Bangkok_Bumrungrad_International_Hospital_entrance-building.jpg"],
@@ -58,6 +59,7 @@ const HOSPITALS: Array<[string, string]> = [
   ["ac-badem-international-hospital", "https://www.internationalhospital.com.tr/images/gallery/1.png"],
   ["memorial-sisli-hospital", "https://storage.airomedical.com/assets/gallery/3b/bf/dd/e8/84/1454/cl4el4wbv00070hs6fhtt55ot-w=1920.avif"],
   ["memorial-sisli-hastanesi", "https://storage.airomedical.com/assets/gallery/3b/bf/dd/e8/84/1454/cl4el4wbv00070hs6fhtt55ot-w=1920.avif"],
+  ["liv-hospital-ulus", "https://storage.airomedical.com/assets/gallery/32/b3/ee/02/72/3149/claxq3gc1005d09mrcl6hg1r6-w=1920.avif"],
 
   // === UAE ===
   ["cleveland-clinic-abu-dhabi", "https://upload.wikimedia.org/wikipedia/commons/4/46/ClevelandClinicAbuDhabi1.jpg"],
