@@ -9,7 +9,7 @@
  *
  * Doctors covered: 10 highest-traffic practicing physicians at flagship
  *                  hospitals (Apollo, Medanta, Max, Artemis, Amrita, Sarvodaya).
- * Hospitals covered: 51 international medical-tourism flagships across all 9
+ * Hospitals covered: 62 international medical-tourism flagships across all 9
  *                    destination countries.
  *
  * Idempotent — re-run safe. Use this script to reseed if image_url /
@@ -49,6 +49,14 @@ const HOSPITALS: Array<[string, string]> = [
   ["all-india-institute-of-medical-sciences-aiims-jodhpur", "https://upload.wikimedia.org/wikipedia/commons/f/f1/AIIMS_Jodhpur.png"],
   ["mazumdar-shaw-medical-centre", "https://upload.wikimedia.org/wikipedia/commons/d/d4/Mazumdar_Shaw_Medical_Center%2C_Narayana_Health_City%2C_Bangalore.jpg"],
   ["tata-medical-centre", "https://upload.wikimedia.org/wikipedia/commons/0/0d/Tata_Medical_Centre_in_Kolkata_04.jpg"],
+  ["bombay-hospital", "https://upload.wikimedia.org/wikipedia/commons/e/ef/Bombay_Hospital%2C_Marine_Lines%2C_Mumbai.jpg"],
+  ["lokmanya-tilak-municipal-general-hospital", "https://upload.wikimedia.org/wikipedia/commons/6/65/LTMMC_past.jpg"],
+  ["ruby-hall-clinic", "https://upload.wikimedia.org/wikipedia/commons/3/3c/Ruby_Hall_Clinic.JPG"],
+  ["sankara-nethralaya", "https://upload.wikimedia.org/wikipedia/commons/0/0f/Shankara_Nethraalaya_Chennai.jpg"],
+  ["aravind-eye-hospital", "https://upload.wikimedia.org/wikipedia/commons/6/64/Aravind_eye_hospital_madurai1.JPG"],
+  ["l-v-prasad-eye-institute", "https://upload.wikimedia.org/wikipedia/commons/a/a2/L._V._Prasad_Eye_Institute%2C_Banjara_Hills%2C_Hyderabad%2C_Telangana%2C_India.jpg"],
+  ["christian-medical-college-and-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/d1/CMC_Hospital_building.jpg"],
+  ["christian-medical-college-hospital", "https://upload.wikimedia.org/wikipedia/commons/3/3b/CMCH_Vellore.JPG"],
 
   // === THAILAND flagships ===
   ["bumrungrad-hospital", "https://upload.wikimedia.org/wikipedia/commons/5/52/Thailand_Bangkok_Bumrungrad_International_Hospital_entrance-building.jpg"],
@@ -61,6 +69,7 @@ const HOSPITALS: Array<[string, string]> = [
   ["king-chulalongkorn-memorial-hospital", "https://upload.wikimedia.org/wikipedia/commons/9/94/Dusit_Arun_at_Dusit_Central_Park_%2807-09-2025%29_-_views_-_Chulalongkorn_Hospital.jpg"],
   ["ramathibodi-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/d6/%E0%B9%82%E0%B8%A3%E0%B8%87%E0%B8%9E%E0%B8%A2%E0%B8%B2%E0%B8%9A%E0%B8%B2%E0%B8%A5%E0%B8%A3%E0%B8%B2%E0%B8%A1%E0%B8%B2%E0%B8%98%E0%B8%B4%E0%B8%9A%E0%B8%94%E0%B8%B5.JPG"],
   ["maharaj-nakorn-chiang-mai-hospital", "https://upload.wikimedia.org/wikipedia/commons/0/0e/%E0%B9%82%E0%B8%A3%E0%B8%87%E0%B8%9E%E0%B8%A2%E0%B8%B2%E0%B8%9A%E0%B8%B2%E0%B8%A5%E0%B8%A1%E0%B8%AB%E0%B8%B2%E0%B8%A3%E0%B8%B2%E0%B8%8A.jpg"],
+  ["bangkok-christian-hospital", "https://upload.wikimedia.org/wikipedia/commons/9/90/%E0%B9%82%E0%B8%A3%E0%B8%87%E0%B8%9E%E0%B8%A2%E0%B8%B2%E0%B8%9A%E0%B8%B2%E0%B8%A5%E0%B8%81%E0%B8%A3%E0%B8%B8%E0%B8%87%E0%B9%80%E0%B8%97%E0%B8%9E%E0%B8%84%E0%B8%A3%E0%B8%B4%E0%B8%AA%E0%B9%80%E0%B8%95%E0%B8%B5%E0%B8%A2%E0%B8%99_Bangkok_Christian_Hospital_2021_Si_Lom_Bangrak_01.jpg"],
 
   // === TURKEY flagships ===
   ["ac-badem-maslak-hospital", "https://acibademinternational.com/wp-content/uploads/2025/09/healthturkiye-image.webp"],
@@ -87,6 +96,7 @@ const HOSPITALS: Array<[string, string]> = [
   ["samsung-medical-center", "https://storage.airomedical.com/assets/gallery/06/13/23/9e/12/3249/clb254i0t000l08jtgl505j51-w=1920.avif"],
   ["severance-hospital-seoul-station", "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bb/Sev2018.jpg/1280px-Sev2018.jpg"],
   ["seoul-national-university-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/d7/Seoulunivhospital.jpg"],
+  ["korea-university-anam-hospital", "https://upload.wikimedia.org/wikipedia/commons/0/07/%EA%B3%A0%EB%A0%A4%EB%8C%80%ED%95%99%EA%B5%90_%EC%95%88%EC%95%94%EB%B3%91%EC%9B%90.jpg"],
 
   // === MALAYSIA ===
   ["prince-court-medical-centre", "https://princecourt.com/images/default-source/my_pcmc/corporate-information/about/pcmc-general-banner.webp"],
@@ -95,6 +105,7 @@ const HOSPITALS: Array<[string, string]> = [
   // === GERMANY ===
   ["charite", "https://upload.wikimedia.org/wikipedia/commons/d/d0/2016_Charite_Hospital.jpg"],
   ["klinikum-rechts-der-isar", "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Klinikum_rechts_der_Isar_Muenchen.jpg/1280px-Klinikum_rechts_der_Isar_Muenchen.jpg"],
+  ["university-medical-center-hamburg-eppendorf", "https://upload.wikimedia.org/wikipedia/commons/4/41/Universit%C3%A4tsklinikum_Hamburg-Eppendorf_Main_Entrance_2024.jpg"],
 ];
 
 async function main() {
