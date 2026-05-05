@@ -9,7 +9,7 @@
  *
  * Doctors covered: 10 highest-traffic practicing physicians at flagship
  *                  hospitals (Apollo, Medanta, Max, Artemis, Amrita, Sarvodaya).
- * Hospitals covered: 99 international medical-tourism flagships across all 9
+ * Hospitals covered: 110 international medical-tourism flagships across all 9
  *                    destination countries.
  *
  * Idempotent — re-run safe. Use this script to reseed if image_url /
@@ -83,6 +83,11 @@ const HOSPITALS: Array<[string, string]> = [
   ["r-g-kar-medical-college-hospital", "https://upload.wikimedia.org/wikipedia/commons/3/37/R._G._Kar_Medical_College_%26_Hospital_during_Covid-19_01.jpg"],
   ["national-institute-of-mental-health-and-neuro-sciences", "https://upload.wikimedia.org/wikipedia/commons/d/dd/NIMHANS_campus%2C_Bengaluru.jpg"],
   ["national-institute-of-mental-health-and-neurosciences", "https://upload.wikimedia.org/wikipedia/commons/d/dd/NIMHANS_campus%2C_Bengaluru.jpg"],
+  ["wenlock-district-hospital", "https://upload.wikimedia.org/wikipedia/commons/1/13/Wenlock_Hospital_Mangalore_India_20170524_113134.jpg"],
+  ["government-general-hospital-nizamabad", "https://upload.wikimedia.org/wikipedia/commons/f/fc/Nizamabad_Medical_College.jpg"],
+  ["mohan-kumaramangalam-medical-college", "https://upload.wikimedia.org/wikipedia/commons/8/81/Gmkmc-college_entrance.jpg"],
+  ["vydehi-institute-of-medical-sciences-and-research-centre", "https://upload.wikimedia.org/wikipedia/commons/2/2d/Vydehi_institute_of_medical_sciences_and_research_centre.png"],
+  ["cama-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/d0/Cama_Hospital.jpg"],
 
   // === THAILAND flagships ===
   ["bumrungrad-hospital", "https://upload.wikimedia.org/wikipedia/commons/5/52/Thailand_Bangkok_Bumrungrad_International_Hospital_entrance-building.jpg"],
@@ -128,6 +133,12 @@ const HOSPITALS: Array<[string, string]> = [
   // === MALAYSIA ===
   ["prince-court-medical-centre", "https://princecourt.com/images/default-source/my_pcmc/corporate-information/about/pcmc-general-banner.webp"],
   ["hospital-kuala-lumpur", "https://upload.wikimedia.org/wikipedia/commons/8/83/Kuala_Lumpur_Hospital.JPG"],
+  ["tengku-ampuan-rahimah-hospital", "https://upload.wikimedia.org/wikipedia/commons/6/6b/Klang_TAR_hospital_main_building.jpg"],
+  ["sultanah-aminah-hospital", "https://upload.wikimedia.org/wikipedia/commons/7/76/Sultanah_Aminah_Hospital.JPG"],
+  ["universiti-malaya-medical-centre", "https://upload.wikimedia.org/wikipedia/commons/9/99/Pusat_Perubatan_Universiti_Malaya.jpg"],
+  ["sungai-buloh-hospital", "https://upload.wikimedia.org/wikipedia/commons/b/be/Sungai_Buloh_Hospital_main_block.jpg"],
+  ["hospital-tengku-ampuan-afzan", "https://upload.wikimedia.org/wikipedia/commons/6/6f/Tengku_Ampuan_Afzan_Hospital.JPG"],
+  ["sultan-haji-ahmad-shah-hospital", "https://upload.wikimedia.org/wikipedia/commons/6/60/Hoshas_Temerloh.jpg"],
 
   // === GERMANY ===
   ["charite", "https://upload.wikimedia.org/wikipedia/commons/d/d0/2016_Charite_Hospital.jpg"],
