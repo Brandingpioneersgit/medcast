@@ -55,7 +55,8 @@ These are the closest to "manually translate everything important" interpretatio
 | **2.16** | Hospitals 5–34 (top 30 by review count beyond featured 4) × 7 × 3 fields | 630 | pending |
 | **2.20** | All 61 blog posts × 7 × 2 (title + excerpt only — skip body) | 854 | pending |
 | **2.21** | Treatment full descriptions × 7 — adds cosmetic/bariatric/gi/neuro categories covering 29 mid-tier treatments | 203 | ✅ DONE |
-| **2.21+** | Remaining treatment descriptions × 7 (~61 treatments still need: cardiac long-tail, dental, fertility, ENT, ophtho, transplant, ortho long-tail, gynae, urology, hair) | ~427 | pending |
+| **2.23** | Treatment descriptions × 7 — adds 8 specialty templates (ENT, urology, gyne, ophtho, transplant, dental, fertility, neuro-extras) covering 27 treatments | 189 | ✅ DONE |
+| **2.23+** | Remaining treatment descriptions × 7 (~34 treatments left: cardiac long-tail 9, oncology 12, ortho long-tail 11, gi extras 2) — these all use Wave 2.6 categories | ~238 | pending |
 | **2.22** | Condition full descriptions × 7 — adds eye/ent/neuro categories covering 30 high-priority conditions | 210 | ✅ DONE |
 | **2.22+** | Remaining condition descriptions × 7 (~45 conditions still need: oncology long-tail, urology/kidney, fertility extras, hematology, endocrine, dental, hair, pediatric specifics) | ~315 | pending |
 
