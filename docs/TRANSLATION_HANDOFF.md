@@ -126,9 +126,10 @@ Run with: `node --env-file=.env.local --import tsx scripts/wave2-N-X.ts` from re
 | 2.21 | 29 mid-tier treatments × 7 × 1 (full description) — adds 4 new procedure categories: cosmetic, bariatric, gi, neuro. 3-paragraph structure (lede / journey / cost+closer). | 203 | manual-wave2.21 | ✅ |
 | 2.22 | 30 high-priority conditions × 7 × 1 (full description) — adds 3 new condition categories: eye, ent, neuro (plus extras for cardiac, ortho, gi). 3-paragraph (lede+severity / pathway / destination). | 210 | manual-wave2.22 | ✅ |
 | 2.23 | 27 mid-tier treatments × 7 × 1 (full description) — adds 8 specialty templates: ENT, urology, gyne, ophtho, transplant, dental, fertility, neuro-extras (incl. liver+kidney transplant which W2.6 missed). | 189 | manual-wave2.23 | ✅ |
+| 2.24 | final 34 treatment descriptions × 7 — closes the gap. Cardiac long-tail (9), oncology (12), ortho long-tail (11), GI extras (2). **All 110 treatments now have full descriptions in 7 locales.** | 238 | manual-wave2.24 | ✅ |
 
-**Cumulative project: 8,728 hand-translated strings.**
-**This session (2.18b → 2.23): 3,416 strings.**
+**Cumulative project: 8,966 hand-translated strings.**
+**This session (2.18b → 2.24): 3,654 strings.**
 
 ---
 
