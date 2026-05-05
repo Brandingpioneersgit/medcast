@@ -1,0 +1,311 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
+import { getTranslator } from "@/lib/messages";
+import { isLocale, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/incident-report", 308);
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+const path = "/incident-report";
+const url = localeUrl(locale, path);
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Incident Report", url },
+]);
+
+const incidentTypes = [
+  { value: "surgical_complication", label: "Surgical complication" },
+  { value: "medication_error", label: "Medication error" },
+  { value: "diagnostic_delay", label: "Diagnostic delay or misdiagnosis" },
+  { value: "care_quality", label: "Care quality concern" },
+  { value: "infection", label: "Hospital-acquired infection" },
+  { value: "billing_issue", label: "Billing dispute" },
+  { value: "other", label: "Other concern" },
+];
+
+const severities = [
+  { value: "mild", label: "Mild — minor effect, resolved" },
+  { value: "moderate", label: "Moderate — ongoing impact" },
+  { value: "severe", label: "Severe — significant harm" },
+  { value: "life_threatening", label: "Life-threatening" },
+];
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta
+      title="Share Your Experience — Incident Report"
+      description="Help us improve care quality. All reports are reviewed by our medical team. Submit anonymously."
+      path={path}
+      locale={locale}
+      noindex={true}
+    />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main id="main" class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto max-w-[1440px] px-7 md:px-10 py-4">
+        <nav class="mono text-[12px] flex items-center gap-2 flex-wrap" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={new URL(Astro.request.url).origin + (locale === "en" ? "/" : `/${locale}/`)} class="hover:text-ink">{tc("home")}</a>
+          <span aria-hidden="true" class="text-[var(--color-border-strong)]">/</span>
+          <span style="color: var(--color-ink);">Incident Report</span>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Submitted state -->
+    <div id="submitted-state" class="hidden min-h-[60vh] flex items-center justify-center px-4 py-16">
+      <div class="paper rounded-2xl p-8 max-w-md w-full text-center">
+        <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style="background: var(--color-accent-soft); color: var(--color-accent);">
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <h1 class="display text-2xl" style="font-weight: 400;">Report received</h1>
+        <p class="mt-3 text-[var(--color-ink-subtle)] text-sm">
+          Thank you. Your report has been submitted and will be reviewed by our medical team.
+          We take all concerns seriously and will follow up as appropriate.
+        </p>
+        <div class="mt-6 flex items-start gap-3 p-4 rounded-xl" style="background: var(--color-surface);">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 shrink-0" style="color: var(--color-ink-subtle);"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <p class="text-xs" style="color: var(--color-ink-subtle);">
+            Reports may be submitted anonymously. Your information is used only for follow-up
+            and is never shared with third parties without consent.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Form state -->
+    <div id="form-state" class="py-12 px-4">
+      <div class="max-w-xl mx-auto">
+        <div class="text-center mb-8">
+          <div class="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3" style="background: var(--color-coral); color: white;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <h1 class="display" style="font-size: clamp(1.8rem, 4vw, 2.5rem); font-weight: 400;">
+            Share your experience
+          </h1>
+          <p class="mt-2" style="color: var(--color-ink-subtle);">
+            Help us improve care quality. All reports are reviewed by our medical team.
+          </p>
+        </div>
+
+        <form id="incident-form" class="paper p-6 space-y-5">
+          <div>
+            <label class="block text-sm font-medium mb-2" style="color: var(--color-ink);">What happened?</label>
+            <div class="grid grid-cols-2 gap-2" id="incident-types">
+              {incidentTypes.map((t) => (
+                <button
+                  type="button"
+                  data-value={t.value}
+                  class="incident-type-btn px-4 py-2.5 rounded-xl text-sm text-left transition-colors border"
+                  style="border-color: var(--color-border);"
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2" style="color: var(--color-ink);">Severity</label>
+            <div class="grid grid-cols-2 gap-2" id="severities">
+              {severities.map((s) => (
+                <button
+                  type="button"
+                  data-value={s.value}
+                  class="severity-btn px-4 py-2.5 rounded-xl text-sm text-left transition-colors border"
+                  style="border-color: var(--color-border);"
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2" style="color: var(--color-ink);">Describe what happened</label>
+            <textarea
+              id="description"
+              placeholder="Please describe what occurred, when it happened, and the impact..."
+              rows={5}
+              required
+              class="w-full px-4 py-3 text-sm border rounded-xl resize-none"
+              style="border-color: var(--color-border);"
+            ></textarea>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2" style="color: var(--color-ink);">When did this occur? (optional)</label>
+            <input
+              type="datetime-local"
+              id="occurred-at"
+              class="w-full px-4 py-2.5 text-sm border rounded-xl"
+              style="border-color: var(--color-border);"
+            />
+          </div>
+
+          <div>
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" id="anonymous" checked class="w-4 h-4" />
+              <span class="text-sm" style="color: var(--color-ink);">Submit anonymously</span>
+            </label>
+            <input
+              type="email"
+              id="reporter-email"
+              placeholder="Your email for follow-up (optional)"
+              class="hidden mt-2 w-full px-4 py-2.5 text-sm border rounded-xl"
+              style="border-color: var(--color-border);"
+            />
+          </div>
+
+          <button
+            type="submit"
+            id="submit-btn"
+            disabled
+            class="w-full py-3 rounded-xl text-sm font-medium disabled:opacity-50"
+            style="background: var(--color-coral); color: white;"
+          >
+            Submit Report
+          </button>
+
+          <p
+            id="submit-error"
+            role="alert"
+            class="hidden text-sm text-center"
+            style="color: var(--color-coral);"
+          >
+            Something went wrong. Please try again or contact us directly.
+          </p>
+
+          <div class="flex items-start gap-3 p-4 rounded-xl" style="background: var(--color-surface);">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 shrink-0" style="color: var(--color-ink-subtle);"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <p class="text-xs" style="color: var(--color-ink-subtle);">
+              This form is for feedback and quality improvement — not emergency medical care.
+              For urgent medical concerns, please contact your local emergency services.
+            </p>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow="Behind this page"
+      heading="How we handle reports + reviews"
+      lede="Every incident is logged, deduplicated, and reviewed by our medical panel. The pages below explain the process and the people behind it."
+      items={[
+        { eyebrow: "Process", label: "Editorial + corrections policy", href: "/editorial-policy", hint: "Sourcing, AI use, corrections SLA, who reviews what." },
+        { eyebrow: "Reviewers", label: "Medical board", href: "/medical-board", hint: "The clinicians who review specialty + condition pages." },
+        { eyebrow: "Trust", label: "Security disclosure policy", href: "/security", hint: "How we accept reports from researchers." },
+        { eyebrow: "Quality", label: "Accreditation registry", href: "/accreditation", hint: "JCI, NABH, ISO and 10 other registries we cross-check." },
+        { eyebrow: "About us", label: "Who we are", href: "/about", hint: "Coordinator-not-clinician scope, team, contacts." },
+        { eyebrow: "Legal", label: "Privacy policy", href: "/privacy-policy", hint: "What we collect, how long we keep it, your GDPR rights." },
+        { eyebrow: "Legal", label: "Terms of service", href: "/terms", hint: "Limits of liability, dispute resolution." },
+        { eyebrow: "Contact", label: "Reach a coordinator", href: "/contact", hint: "If your concern needs a real-time response." },
+      ]}
+    />
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>
+
+<script>
+  const form = document.getElementById("incident-form") as HTMLFormElement;
+  const formState = document.getElementById("form-state")!;
+  const submittedState = document.getElementById("submitted-state")!;
+  const submitBtn = document.getElementById("submit-btn") as HTMLButtonElement;
+  const descInput = document.getElementById("description") as HTMLTextAreaElement;
+  const anonCheckbox = document.getElementById("anonymous") as HTMLInputElement;
+  const emailInput = document.getElementById("reporter-email") as HTMLInputElement;
+
+  let incidentType = "";
+  let severity = "";
+
+  function updateBtns(selector: string, value: string, activeColor: string) {
+    document.querySelectorAll<HTMLButtonElement>(selector).forEach((btn) => {
+      const isActive = btn.dataset.value === value;
+      btn.style.background = isActive ? activeColor : "";
+      btn.style.color = isActive ? "white" : "";
+      btn.style.borderColor = isActive ? activeColor : "";
+    });
+  }
+
+  function checkValid() {
+    submitBtn.disabled = !incidentType || !severity || !descInput.value.trim();
+  }
+
+  document.querySelectorAll<HTMLButtonElement>(".incident-type-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      incidentType = btn.dataset.value!;
+      updateBtns(".incident-type-btn", incidentType, "var(--color-accent)");
+      checkValid();
+    });
+  });
+
+  document.querySelectorAll<HTMLButtonElement>(".severity-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      severity = btn.dataset.value!;
+      updateBtns(".severity-btn", severity, "var(--color-accent)");
+      checkValid();
+    });
+  });
+
+  descInput.addEventListener("input", checkValid);
+
+  anonCheckbox.addEventListener("change", () => {
+    emailInput.classList.toggle("hidden", anonCheckbox.checked);
+  });
+
+  const errorEl = document.getElementById("submit-error")!;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    errorEl.classList.add("hidden");
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Submitting...";
+
+    try {
+      const res = await fetch("/api/v1/incidents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          incidentType,
+          severity,
+          description: descInput.value.trim(),
+          occurredAt: (document.getElementById("occurred-at") as HTMLInputElement).value || null,
+          isAnonymous: anonCheckbox.checked,
+          reporterEmail: anonCheckbox.checked ? null : emailInput.value.trim() || null,
+        }),
+      });
+
+      if (!res.ok) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Submit Report";
+        errorEl.classList.remove("hidden");
+        return;
+      }
+
+      formState.classList.add("hidden");
+      submittedState.classList.remove("hidden");
+    } catch {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Submit Report";
+      errorEl.classList.remove("hidden");
+    }
+  });
+</script>

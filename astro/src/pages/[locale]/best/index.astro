@@ -1,0 +1,223 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
+import { db } from "@/lib/db";
+import { sql } from "drizzle-orm";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { getTranslator } from "@/lib/messages";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/best", 308);
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+// Find all specialty × country pairs that have at least one active hospital
+const rows = Array.from(
+  (await db.execute(sql`
+    SELECT DISTINCT s.slug as specialty_slug, s.name as specialty_name,
+           c.slug as country_slug, c.name as country_name,
+           COUNT(h.id) as hospital_count
+    FROM specialties s
+    CROSS JOIN countries c
+    INNER JOIN hospital_specialties hs ON hs.specialty_id = s.id
+    INNER JOIN hospitals h ON h.id = hs.hospital_id
+    INNER JOIN cities ci ON ci.id = h.city_id
+    WHERE ci.country_id = c.id
+      AND c.is_destination = true
+      AND h.is_active = true
+    GROUP BY s.id, s.slug, s.name, c.id, c.slug, c.name
+    HAVING COUNT(h.id) >= 2
+    ORDER BY c.name, s.name
+  `)) as Iterable<{ specialty_slug: string; specialty_name: string; country_slug: string; country_name: string; hospital_count: number }>,
+);
+
+const FLAG: Record<string, string> = {
+  india: "🇮🇳", turkey: "🇹🇷", thailand: "🇹🇭", uae: "🇦🇪",
+  germany: "🇩🇪", singapore: "🇸🇬", "south-korea": "🇰🇷",
+  malaysia: "🇲🇾", "saudi-arabia": "🇸🇦", "costa-rica": "🇨🇷",
+  "czech-republic": "🇨🇿", hungary: "🇭🇺", poland: "🇵🇱",
+};
+
+// Translate
+const items = rows.map((r) => {
+  const slug = `${r.specialty_slug}-in-${r.country_slug}`;
+  const flag = FLAG[r.country_name.toLowerCase().replace(/ /g, "-")] ?? "🌐";
+  return { slug, name: r.specialty_name, country: r.country_name, count: Number(r.hospital_count), flag };
+});
+
+const path = "/best";
+const url = localeUrl(locale, path);
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Best hospitals", url },
+]);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=86400, stale-while-revalidate=604800",
+);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta
+      title="Best Hospitals by Specialty & Destination"
+      description={`Ranked hospital lists for top medical destinations — cardiac surgery in India, orthopedics in Thailand, fertility in Turkey, and more.`}
+      path={path}
+      locale={locale}
+    />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+    <SiteHeader locale={locale} />
+
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto max-w-[1440px] px-7 md:px-10 py-4">
+        <nav class="mono text-[12px] flex items-center gap-2" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span aria-hidden="true" class="text-[var(--color-border-strong)]">/</span>
+          <span style="color: var(--color-ink);">Best hospitals</span>
+        </nav>
+      </div>
+    </div>
+
+    {/* Hero */}
+    <section style="padding: 72px 28px;">
+      <div class="mx-auto max-w-[1120px]">
+        <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
+          {new Date().getFullYear()} rankings
+        </div>
+        <h1 class="display mt-3" style="font-size: clamp(2.5rem, 5.5vw, 3.75rem); line-height: 1; letter-spacing: -0.03em; font-weight: 400;">
+          Best hospitals,<br />
+          <span style="font-style: italic;">ranked by destination</span>
+        </h1>
+        <p class="serif mt-5" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted); max-width: 600px;">
+          {items.length} specialty × destination combinations, ranked by center-of-excellence status, patient ratings, and verified review volume.
+        </p>
+      </div>
+    </section>
+
+    {/* Grid */}
+    <section style="padding: 0 28px 80px;">
+      <div class="mx-auto max-w-[1120px]">
+        <div class="mb-6">
+          <input
+            id="bestFilter"
+            type="search"
+            placeholder="Filter by country or specialty…"
+            class="w-full"
+            style="padding: 12px 16px; border: 1px solid var(--color-border); border-radius: 9999px; background: var(--color-paper); color: var(--color-ink); font-size: 14px;"
+          />
+        </div>
+        <div id="bestGrid" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((item) => (
+            <a
+              href={localizedPath(locale, `/best/${item.slug}`)}
+              class="paper group flex flex-col gap-3 p-6 hover:border-[var(--color-accent)] transition-colors best-card"
+              style="border: 1px solid var(--color-border-soft);"
+              data-haystack={`${item.name} ${item.country}`.toLowerCase()}
+            >
+              <div class="flex items-start justify-between gap-2">
+                <span class="text-2xl">{item.flag}</span>
+                <span class="mono text-[11px]" style="color: var(--color-ink-subtle);">
+                  {item.count} hospitals
+                </span>
+              </div>
+              <div>
+                <div class="serif font-medium" style="font-size: 18px; line-height: 1.25; letter-spacing: -0.01em;">
+                  {item.name}
+                </div>
+                <div class="mono text-[12px] mt-1" style="color: var(--color-ink-muted);">
+                  {item.country}
+                </div>
+              </div>
+              <div class="mt-auto pt-2 flex items-center gap-1 text-[13px] font-medium" style="color: var(--color-accent);">
+                View ranking
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mirror-x">
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </div>
+            </a>
+          ))}
+        </div>
+        <p id="bestEmpty" class="serif mt-8 text-center" style="display: none; color: var(--color-ink-muted);">
+          No matches. Try another country or specialty.
+        </p>
+      </div>
+    </section>
+
+    <script is:inline>
+      (function () {
+        const input = document.getElementById("bestFilter");
+        const grid = document.getElementById("bestGrid");
+        const empty = document.getElementById("bestEmpty");
+        if (!input || !grid || !empty) return;
+        const cards = Array.from(grid.querySelectorAll(".best-card"));
+        input.addEventListener("input", () => {
+          const q = String(input.value || "").trim().toLowerCase();
+          let visible = 0;
+          for (const card of cards) {
+            const haystack = card.getAttribute("data-haystack") ?? "";
+            const match = !q || haystack.includes(q);
+            card.style.display = match ? "" : "none";
+            if (match) visible++;
+          }
+          empty.style.display = visible === 0 ? "" : "none";
+        });
+      })();
+    </script>
+
+    <HowItWorks
+      heading='How we rank these lists'
+      italicWord='rank'
+      eyebrow='Methodology'
+      steps={[
+        { title: 'Center-of-Excellence designation', description: 'Hospitals with departments flagged as Centers of Excellence rank highest in their specialty + country combination.' },
+        { title: 'Featured + verified status', description: 'Featured hospitals (long-term partner programs with verified outcome data) rank above non-featured.' },
+        { title: 'Rating + review count', description: 'Higher rating × higher review volume contributes to ranking. Single 5-star ratings without volume are weighted lower.' },
+        { title: 'Bed capacity for complex cases', description: 'For complex procedures (cardiac, transplant, oncology), institutional scale matters. 300+ bed hospitals weighted higher.' },
+        { title: 'Quarterly re-evaluation', description: 'Rankings refresh quarterly. Hospital additions, accreditation changes, and partner-program updates flow through.' },
+      ]},
+      outroNote='Rankings are heuristics for narrowing your options, not a substitute for case-specific evaluation. The right hospital for your case depends on the specific procedure and surgeon.'
+    />
+
+    <WhatToExpect
+      heading='How to use these lists'
+      italicWord='these lists'
+      items={[
+        { label: 'Narrow to 3-5 candidates', description: 'From the ranked list, narrow to 3-5 candidates that match your specific case complexity and budget.' },
+        { label: 'Drill into each candidate', description: "Read each candidate hospital's program profile, surgeon team, accreditation status, and patient testimonials." },
+        { label: 'Request itemized quotes', description: 'Get itemized quotes from your top 2-3 candidates. Compare on equal scope.' },
+        { label: 'Verify outcomes for your case', description: "For complex cases, request the surgeon's annual case volume on your specific procedure. Institutional volume is a baseline; surgeon volume is the predictor." },
+      ]}
+    />
+    <ExploreGrid
+      locale={locale}
+      eyebrow="Beyond the best-of lists"
+      heading="Other ways to evaluate a hospital"
+      lede="Best-of rankings are a starting point, not a verdict. The pages below give you the underlying signals — accreditations, surgeon volume, real costs."
+      items={[
+        { eyebrow: "Browse", label: "All hospitals", href: "/hospitals", hint: "9,254 hospitals, sortable by rating, reviews, size." },
+        { eyebrow: "Compare", label: "Compare hospitals side-by-side", href: "/compare/hospitals", hint: "Up to 4 hospitals on every metric we track." },
+        { eyebrow: "Quality", label: "Accreditation registry", href: "/accreditation", hint: "JCI, NABH, ISO and 10 others — verifiable in public registries." },
+        { eyebrow: "Browse", label: "Surgeons by specialty", href: "/surgeons", hint: "15 specialties, ranked by surgeon volume." },
+        { eyebrow: "Compare", label: "Compare countries", href: "/compare/countries", hint: "Cost, language coverage, recovery climate." },
+        { eyebrow: "Cost", label: "Pricing matrix", href: "/pricing-index", hint: "All 88 treatments × 9 destinations." },
+        { eyebrow: "Trust", label: "Free second opinion", href: "/second-opinion", hint: "Before you commit to any of these." },
+        { eyebrow: "Action", label: "Get a free quote", href: "/quote", hint: "We send 3 hospital options + cost in 48h." },
+      ]}
+    />
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

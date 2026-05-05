@@ -3,6 +3,7 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, SITE_NAME, SITE_URL } from "@/lib/seo";
@@ -539,6 +540,23 @@ Astro.response.headers.set(
         </div>
       </div>
     </section>
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow="Self-serve, if you'd rather skip the form"
+      heading="Or jump straight to what you need"
+      lede="If your question matches one of the flows below, the pre-built path is faster than waiting for a coordinator."
+      items={[
+        { eyebrow: "Quote", label: "Get a free quote", href: "/quote", hint: "5-minute form — 3 hospital options + cost in 48h." },
+        { eyebrow: "Cost", label: "Cost calculator", href: "/calculator", hint: "Live procedure × country pricing band." },
+        { eyebrow: "Match", label: "Match Me quiz", href: "/match-me", hint: "Concern + budget → recommended path." },
+        { eyebrow: "Trust", label: "Free second opinion", href: "/second-opinion", hint: "Independent review of an existing surgical plan." },
+        { eyebrow: "Find", label: "Find a specialist", href: "/find-specialist", hint: "Specialty + condition → matched surgeon." },
+        { eyebrow: "Track", label: "Patient portal", href: "/portal", hint: "Track an active case by code." },
+        { eyebrow: "Q&A", label: "Patient Q&A", href: "/qa", hint: "30 answered questions across 12 categories." },
+        { eyebrow: "Reference", label: "Glossary of terms", href: "/glossary", hint: "JCI, CABG, ERAS, Vorkasse — 34 medical-travel terms." },
+      ]}
+    />
 
     <SiteFooter locale={locale} />
 

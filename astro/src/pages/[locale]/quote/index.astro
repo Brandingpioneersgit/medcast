@@ -3,6 +3,7 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 import EntityListingHero from "@/components/EntityListingHero.astro";
 import { db } from "@/lib/db";
 import { treatments, specialties, countries } from "../../../../../src/lib/db/schema";
@@ -11,6 +12,8 @@ import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, SITE_NAME, SITE_URL } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { ChevronRight } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
 
 export const prerender = false;
 
@@ -90,11 +93,11 @@ const whyStats = [
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={tq("seoTitle")} description={tq("seoDescription")} path={path} locale={locale} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    <script type="application/ld+json" set:html={JSON.stringify(contactPageLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(contactPageLd)} />
   </Fragment>
 
-  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -276,6 +279,48 @@ const whyStats = [
         </ul>
       </div>
     </section>
+
+    <HowItWorks
+      heading='How quote routing works'
+      italicWord='quote routing works'
+      eyebrow='The process'
+      steps={[
+        { title: 'Submit the form', description: 'Specialty + procedure + destination preference + contact. The more clinical detail, the more accurate the routing.' },
+        { title: 'Senior coordinator review (24 hours)', description: 'Confirms case fit, identifies 2-4 partner programs that match, validates surgeon volume for your specific procedure.' },
+        { title: 'Hospital outreach (48 hours)', description: 'We approach the matched programs with your case summary. Clinical fit + capacity + timeline confirmed before quoting.' },
+        { title: 'Itemized quotes returned', description: 'Each program returns line-item quote: surgeon fee, anesthesia, OR time, hospital stay, implants, post-op care, follow-up.' },
+        { title: 'Comparison + recommendation', description: 'We present the quotes side-by-side with our specific recommendation and rationale. You compare and decide.' },
+      ]},
+      outroNote='Free for the patient. Hospitals pay our coordination fee (5-15% of invoice) only after you proceed with treatment.'
+    />
+
+    <WhatToExpect
+      heading="What's in a real itemized quote"
+      italicWord='real itemized quote'
+      items={[
+        { label: 'Surgeon + anesthesia fees', description: 'Broken out by named surgeon and anesthesia provider type (MD vs CRNA).' },
+        { label: 'OR time + hospital stay', description: 'Per-day rate × days; intermediate care + ICU rates if needed.' },
+        { label: 'Implants and devices', description: 'Brand and model specified. Generic vs branded clearly stated.' },
+        { label: 'Pre-op + post-op care', description: 'Workup, imaging, labs, follow-up clinic visits, telemedicine continuity.' },
+        { label: 'Exclusions', description: 'Travel, accommodation, meals, contingency for complications. Total trip cost = quote + 30-50%.' },
+      ]}
+    />
+    <ExploreGrid
+      locale={locale}
+      eyebrow="While you're filling this out"
+      heading="Useful pages alongside your quote"
+      lede="Some patients prefer to browse before submitting a form. The pages below answer the questions that come up most while shaping a quote."
+      items={[
+        { eyebrow: "Cost", label: "Cost calculator", href: "/calculator", hint: "Live procedure × country pricing band." },
+        { eyebrow: "Cost", label: "Pricing matrix", href: "/pricing-index", hint: "All 88 treatments × 9 destinations." },
+        { eyebrow: "Match", label: "Match Me quiz", href: "/match-me", hint: "Concern + budget → recommended path." },
+        { eyebrow: "Compare", label: "Compare hospitals", href: "/compare/hospitals", hint: "Side-by-side rating, cost, accreditations." },
+        { eyebrow: "Compare", label: "Compare countries", href: "/compare/countries", hint: "Cost band, language, top specialties." },
+        { eyebrow: "Trust", label: "Free second opinion", href: "/second-opinion", hint: "Independent review of an existing surgical plan." },
+        { eyebrow: "Print", label: "Quote-as-PDF plan", href: "/quote-plan", hint: "Take-home plan you can share with family or doctors." },
+        { eyebrow: "Insurance", label: "Insurance + cashless coverage", href: "/insurance", hint: "Whether your policy works at our partner hospitals." },
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>

@@ -3,8 +3,9 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
-import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { breadcrumbJsonLd, localeUrl, SITE_NAME, SITE_URL } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { ChevronRight } from "lucide-react";
 
@@ -31,6 +32,27 @@ const crumbs = breadcrumbJsonLd([
   { name: "Patient portal", url: localeUrl(locale, path) },
 ]);
 
+const contactPageLd = {
+  "@context": "https://schema.org",
+  "@type": "ContactPage",
+  name: seoTitle,
+  description: seoDescription,
+  url: localeUrl(locale, path),
+  mainEntity: {
+    "@type": "Organization",
+    name: SITE_NAME,
+    url: SITE_URL,
+    contactPoint: [
+      {
+        "@type": "ContactPoint",
+        contactType: "customer support",
+        email: "hello@medcasts.com",
+        availableLanguage: ["en", "ar", "ru", "fr", "pt", "bn", "tr", "hi"],
+      },
+    ],
+  },
+};
+
 if (redirectUrl) return Astro.redirect(redirectUrl, 303);
 
 Astro.response.headers.set("Cache-Control", "private, no-store");
@@ -39,10 +61,11 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(contactPageLd)} />
   </Fragment>
 
-  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} />
 
     <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
@@ -91,6 +114,23 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
         </div>
       </div>
     </section>
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow="No code yet?"
+      heading="Start a case or learn how the portal works"
+      lede="The portal tracks active cases by code. If you don't have one, the entry points below get you started."
+      items={[
+        { eyebrow: "Quote", label: "Get a free quote", href: "/quote", hint: "5-minute form — we send 3 hospital options + cost." },
+        { eyebrow: "Match", label: "Match Me quiz", href: "/match-me", hint: "Concern + budget → recommended path." },
+        { eyebrow: "Find", label: "Find a specialist", href: "/find-specialist", hint: "Specialty + condition → matched surgeon." },
+        { eyebrow: "Trust", label: "Free second opinion", href: "/second-opinion", hint: "Independent review of an existing surgical plan." },
+        { eyebrow: "Process", label: "How our case managers work", href: "/services", hint: "Quote, second opinion, visa, follow-up — what we deliver." },
+        { eyebrow: "Refer", label: "Refer someone", href: "/referral", hint: "Doctor, family, or past patient — start a referral." },
+        { eyebrow: "Talk", label: "Talk to a coordinator", href: "/contact", hint: "Email, phone, or WhatsApp." },
+        { eyebrow: "Q&A", label: "Patient Q&A", href: "/qa", hint: "30 answered questions across 12 categories." },
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>

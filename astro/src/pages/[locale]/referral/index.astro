@@ -3,10 +3,12 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, SITE_NAME, SITE_URL } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { ChevronRight } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
 
 export const prerender = false;
 
@@ -50,11 +52,11 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={tr("seoTitle")} description={tr("seoDescription")} path={path} locale={locale} noindex={locale !== "en"} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    <script type="application/ld+json" set:html={JSON.stringify(contactPageLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(contactPageLd)} />
   </Fragment>
 
-  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} />
 
     <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
@@ -138,6 +140,37 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
         </form>
       </div>
     </section>
+
+    <HowItWorks
+      heading="How a referral works"
+      italicWord="works"
+      steps={[
+        { title: "Submit referral", description: "Provide your contact (referrer) and the patient's contact + clinical situation. The patient's consent to be contacted is essential." },
+        { title: "We reach out", description: "Within 24 hours, a senior coordinator contacts the patient. We explain the process, answer initial questions, and confirm whether they want to proceed." },
+        { title: "Case workup", description: "If the patient proceeds, we collect their records and route the case to 2-3 specialists matching their condition. Same process as direct inquiries." },
+        { title: "Quote presentation", description: "Patient receives 2-4 program options with itemized quotes, surgeon-volume data, and our specific recommendation." },
+        { title: "Decision support", description: "Patient decides at their pace. We don't push; we support. If they need a second opinion or want to compare more programs, we help arrange." },
+        { title: "Coordination", description: "If the patient proceeds, we handle visa, accommodation, and travel logistics. You (the referrer) receive optional updates as the case progresses, with patient consent." },
+      ]}
+      outroNote="No referral fees, no kickbacks. We're paid by hospitals (5-15% coordination fee) only after the patient proceeds. Doctors and family members refer because the case is right for international care, not for their own benefit."
+    />
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow="What happens next"
+      heading="Help your referral land well"
+      lede="The pages below cover what happens after you refer someone — what we deliver, who reviews their case, and where they can track progress."
+      items={[
+        { eyebrow: "Process", label: "How our case managers work", href: "/services", hint: "Quote matching, second opinions, visa coordination, follow-up." },
+        { eyebrow: "Quote", label: "Get a free quote", href: "/quote", hint: "Patient can fill this directly — no commitment." },
+        { eyebrow: "Trust", label: "Free second opinion", href: "/second-opinion", hint: "Independent review of an existing surgical plan (48h)." },
+        { eyebrow: "Match", label: "Match Me quiz", href: "/match-me", hint: "3-step concern → destination → budget." },
+        { eyebrow: "Browse", label: "Top destinations", href: "/countries", hint: "9 countries, ranked by what they're best at." },
+        { eyebrow: "Browse", label: "All specialties", href: "/specialties", hint: "Cardiac, oncology, ortho, transplant — pick by clinical area." },
+        { eyebrow: "Track", label: "Patient portal", href: "/portal", hint: "Tracks the case from inquiry to discharge." },
+        { eyebrow: "About", label: "Who we are", href: "/about", hint: "Coordinator-not-clinician scope; how we get paid." },
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>

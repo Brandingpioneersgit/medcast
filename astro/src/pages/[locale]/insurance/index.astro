@@ -3,11 +3,14 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 import EntityListingHero from "@/components/EntityListingHero.astro";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, faqJsonLd } from "@/lib/seo";
 import { ChevronRight, Check } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
 
 export const prerender = false;
 
@@ -58,16 +61,16 @@ const stats = [
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta
-      title="International Health Insurance — Cashless + Reimbursement Support"
+      title="International Insurance — Cashless + Claims"
       description="Cigna, Bupa, Allianz, AXA, Aetna, BCBS — 20+ international insurers processed. Pre-auth handled, claim-ready paperwork, single claims manager per case."
       path={path}
       locale={locale}
     />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    <script type="application/ld+json" set:html={JSON.stringify(faqJsonLd(faqs))} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(faqJsonLd(faqs))} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -223,6 +226,49 @@ const stats = [
         </div>
       </div>
     </section>
+
+    <HowItWorks
+      heading="How insurance for medical travel actually works"
+      italicWord="actually works"
+      eyebrow="Insurance navigation"
+      steps={[
+        { title: "Verify your existing coverage", description: "Most domestic insurance excludes elective international procedures. Some international policies (Cigna Global, Allianz Care, AXA, Bupa Global) reimburse at JCI hospitals. Confirm pre-authorization requirements." },
+        { title: "Pre-authorization (if applicable)", description: "If your insurer covers any portion, pre-auth is typically required. We handle the documentation: clinical justification, hospital quotes, expected outcome data." },
+        { title: "Direct-billing vs reimbursement", description: "Cashless direct-billing arrangements exist with select Gulf insurers. Most international cases are reimbursement: you pay, then submit for partial recovery." },
+        { title: "Documentation for claims", description: "Itemized invoices with diagnosis (ICD-10) and procedure (CPT) codes, discharge summary, operative note, pathology. Translation may be required." },
+        { title: "Travel insurance separately", description: "Standard travel insurance covers emergency medical events during your trip — not the planned procedure. Worth carrying for unrelated emergencies (which can happen)." },
+      ]}
+      outroNote="Don't plan international travel based primarily on insurance reimbursement. The cost savings vs domestic care are usually large enough that the trip makes sense without insurance — any reimbursement is a bonus."
+    />
+
+    <WhatToExpect
+      heading="The realistic insurance landscape"
+      italicWord="realistic landscape"
+      items={[
+        { label: "US patients", description: "Most insurance excludes elective international. Some self-funded employer plans have explicit international benefits (notably WalMart, Lowe's). HSA/FSA funds work for qualified expenses. Tax deduction available above 7.5% AGI threshold." },
+        { label: "UK patients", description: "NHS doesn't cover elective international. Private UK insurance typically excludes — some policies have global cover with strict pre-auth." },
+        { label: "EU patients", description: "Cross-Border Healthcare Directive provides reimbursement at home-country rates within EU. Outside-EU travel (Turkey, India) typically not covered." },
+        { label: "Gulf patients", description: "Strong direct-billing arrangements with select Gulf insurers (Daman, Oman Insurance, Bupa Arabia). Cashless service common at major hospitals." },
+        { label: "What insurance never covers", description: "Cosmetic-only procedures, fertility (sometimes excluded), travel costs, accommodation. Verify exclusions before relying on coverage." },
+      ]}
+    />
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow="What insurance won't always cover"
+      heading="Plan around what's reimbursable"
+      lede="The pages below help you estimate out-of-pocket cost where insurance falls short — by procedure, by destination, or by hospital."
+      items={[
+        { eyebrow: "Cost", label: "Cost calculator", href: "/calculator", hint: "Procedure × country → live USD/EUR price band." },
+        { eyebrow: "Cost", label: "Pricing matrix", href: "/pricing-index", hint: "All 88 treatments × 9 destinations." },
+        { eyebrow: "Compare", label: "Compare countries", href: "/compare/countries", hint: "Cost band, language coverage, top specialties." },
+        { eyebrow: "Compare", label: "Compare hospitals", href: "/compare/hospitals", hint: "Side-by-side cost, accreditations, rating." },
+        { eyebrow: "Visa", label: "Medical visa playbooks", href: "/countries", hint: "Insurance + visa rules per destination." },
+        { eyebrow: "Action", label: "Get a free quote", href: "/quote", hint: "We send 3 hospital options + cost in 48h." },
+        { eyebrow: "Trust", label: "Free second opinion", href: "/second-opinion", hint: "Independent review before paying out of pocket." },
+        { eyebrow: "B2B", label: "Hospital partnerships", href: "/for-hospitals", hint: "How we work with insurers + hospitals." },
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>

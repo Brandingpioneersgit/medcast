@@ -3,6 +3,7 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { getTranslator } from "@/lib/messages";
 
@@ -13,6 +14,8 @@ if (!isLocale(rawLocale)) return Astro.redirect("/en/emergency-triage", 308);
 const locale = rawLocale as Locale;
 
 const tc = getTranslator(locale, "common");
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
 ---
 
 <BaseLayout locale={locale}>
@@ -26,7 +29,7 @@ const tc = getTranslator(locale, "common");
     />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -133,6 +136,23 @@ const tc = getTranslator(locale, "common");
         </div>
       </div>
     </section>
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow="When you have time"
+      heading="Plan ahead, before the next emergency"
+      lede="If your situation isn't immediate, the pages below help you set up faster access if a crisis recurs."
+      items={[
+        { eyebrow: "24/7 desk", label: "Air ambulance + emergency", href: "/emergency", hint: "How our medical-evac coordination works." },
+        { eyebrow: "Insurance", label: "Coverage on the road", href: "/insurance", hint: "What international policies cover for emergencies abroad." },
+        { eyebrow: "Specialty", label: "Cardiac surgeons", href: "/surgeons/cardiac-surgery", hint: "For chest-pain or post-MI recurrence." },
+        { eyebrow: "Specialty", label: "Neurosurgeons", href: "/surgeons/neurosurgery", hint: "For stroke or post-trauma escalation." },
+        { eyebrow: "Specialty", label: "Oncology", href: "/specialty/oncology", hint: "For oncology-related deteriorations." },
+        { eyebrow: "Patient portal", label: "Track an active case", href: "/portal", hint: "Look up where your case sits in the pipeline." },
+        { eyebrow: "Quote", label: "Start a treatment plan", href: "/quote", hint: "If you need surgery soon but the situation is stable." },
+        { eyebrow: "Talk to us", label: "Reach a coordinator", href: "/contact", hint: "Email, phone, or WhatsApp — pick what works." },
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>

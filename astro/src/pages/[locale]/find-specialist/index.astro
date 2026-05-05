@@ -3,6 +3,7 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 import { db } from "@/lib/db";
 import {
   specialties as specialtiesTbl,
@@ -14,6 +15,8 @@ import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, SITE_NAME, SITE_URL } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { ChevronRight } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
 
 export const prerender = false;
 
@@ -70,11 +73,11 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={locale !== "en"} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    <script type="application/ld+json" set:html={JSON.stringify(contactPageLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(contactPageLd)} />
   </Fragment>
 
-  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} />
 
     <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
@@ -99,76 +102,151 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
           action={localizedPath(locale, "/contact")}
           method="get"
           class="paper mt-10"
-          style="padding: 32px; box-shadow: var(--shadow-md);"
+          style="padding: 0; box-shadow: var(--shadow-md); overflow: hidden;"
         >
           <input type="hidden" name="topic" value="specialist-match" />
 
-          <div class="grid gap-4 md:grid-cols-2">
-            <label class="block">
-              <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Specialty</span>
-              <select name="specialty" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;">
-                <option value="">— Any / recommend for me —</option>
-                {specialties.map((s) => (<option value={s.slug}>{s.name}</option>))}
-              </select>
+          {/* Section 1 — clinical */}
+          <fieldset class="border-0 m-0" style="padding: 28px 32px;">
+            <legend class="contents">
+              <div class="mono uppercase tnum" style="font-size: 10px; letter-spacing: 0.16em; color: var(--color-accent);">
+                01 · What you need
+              </div>
+              <div class="serif mt-1" style="font-size: 18px; line-height: 1.3; color: var(--color-ink); font-weight: 500;">
+                The condition or specialty you're seeking care for
+              </div>
+            </legend>
+            <div class="grid gap-4 md:grid-cols-2 mt-5">
+              <label class="block">
+                <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Specialty</span>
+                <select name="specialty" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;">
+                  <option value="">— Any / recommend for me —</option>
+                  {specialties.map((s) => (<option value={s.slug}>{s.name}</option>))}
+                </select>
+              </label>
+              <label class="block">
+                <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Condition <span style="color: var(--color-ink-subtle); text-transform: none; letter-spacing: 0.02em;">(optional)</span></span>
+                <select name="condition" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;">
+                  <option value="">— Skip if unsure —</option>
+                  {conditions.map((c) => (<option value={c.slug}>{c.name}</option>))}
+                </select>
+              </label>
+            </div>
+            <label class="block mt-4">
+              <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Details <span style="color: var(--color-ink-subtle); text-transform: none; letter-spacing: 0.02em;">(age, prior treatment, specific concerns)</span></span>
+              <textarea name="description" rows="4" placeholder="e.g. 58yo, 3-vessel CAD on angiogram, diabetic, ejection fraction 40%. Home cardiologist recommended CABG." class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
             </label>
-            <label class="block">
-              <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Condition (optional)</span>
-              <select name="condition" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;">
-                <option value="">— Skip if unsure —</option>
-                {conditions.map((c) => (<option value={c.slug}>{c.name}</option>))}
-              </select>
-            </label>
-          </div>
+          </fieldset>
 
-          <div class="grid gap-4 md:grid-cols-2 mt-4">
-            <label class="block">
-              <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Preferred destination</span>
-              <select name="country" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;">
-                <option value="">Anywhere — optimise for fit</option>
-                {countries.map((c) => (<option value={c.slug}>{c.name}</option>))}
-              </select>
-            </label>
-            <label class="block">
-              <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Preferred language</span>
-              <select name="language" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;">
-                <option value="">English (default)</option>
-                <option value="ar">العربية</option>
-                <option value="ru">Русский</option>
-                <option value="fr">Français</option>
-                <option value="pt">Português</option>
-                <option value="bn">বাংলা</option>
-                <option value="tr">Türkçe</option>
-                <option value="hi">हिन्दी</option>
-              </select>
-            </label>
-          </div>
+          {/* Section 2 — preferences */}
+          <fieldset class="border-0 m-0" style="padding: 28px 32px; background: var(--color-paper); border-top: 1px dashed var(--color-border);">
+            <legend class="contents">
+              <div class="mono uppercase tnum" style="font-size: 10px; letter-spacing: 0.16em; color: var(--color-accent);">
+                02 · Where & how <span style="color: var(--color-ink-subtle); text-transform: none; letter-spacing: 0.02em;">(optional)</span>
+              </div>
+              <div class="serif mt-1" style="font-size: 18px; line-height: 1.3; color: var(--color-ink); font-weight: 500;">
+                Destination and language preferences
+              </div>
+            </legend>
+            <div class="grid gap-4 md:grid-cols-2 mt-5">
+              <label class="block">
+                <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Preferred destination</span>
+                <select name="country" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14px;">
+                  <option value="">Anywhere — optimise for fit</option>
+                  {countries.map((c) => (<option value={c.slug}>{c.name}</option>))}
+                </select>
+              </label>
+              <label class="block">
+                <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Preferred language</span>
+                <select name="language" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14px;">
+                  <option value="">English (default)</option>
+                  <option value="ar">العربية</option>
+                  <option value="ru">Русский</option>
+                  <option value="fr">Français</option>
+                  <option value="pt">Português</option>
+                  <option value="bn">বাংলা</option>
+                  <option value="tr">Türkçe</option>
+                  <option value="hi">हिन्दी</option>
+                </select>
+              </label>
+            </div>
+          </fieldset>
 
-          <label class="block mt-4">
-            <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Details (age, prior treatment, specific concerns)</span>
-            <textarea name="description" rows="4" placeholder="e.g. 58yo, 3-vessel CAD on angiogram, diabetic, ejection fraction 40%. Home cardiologist recommended CABG." class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
-          </label>
+          {/* Section 3 — contact */}
+          <fieldset class="border-0 m-0" style="padding: 28px 32px; border-top: 1px dashed var(--color-border);">
+            <legend class="contents">
+              <div class="mono uppercase tnum" style="font-size: 10px; letter-spacing: 0.16em; color: var(--color-accent);">
+                03 · How we reach you
+              </div>
+              <div class="serif mt-1" style="font-size: 18px; line-height: 1.3; color: var(--color-ink); font-weight: 500;">
+                Name and a number we can WhatsApp
+              </div>
+            </legend>
+            <div class="grid gap-4 md:grid-cols-2 mt-5">
+              <label class="block">
+                <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Your name</span>
+                <input name="name" required placeholder="Full name" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;" />
+              </label>
+              <label class="block">
+                <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">WhatsApp / phone</span>
+                <input name="phone" required placeholder="+91 98765 43210" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;" />
+              </label>
+            </div>
 
-          <div class="grid gap-4 md:grid-cols-2 mt-4">
-            <label class="block">
-              <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Your name</span>
-              <input name="name" required placeholder="Full name" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;" />
-            </label>
-            <label class="block">
-              <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">WhatsApp / phone</span>
-              <input name="phone" required placeholder="+91 98765 43210" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;" />
-            </label>
-          </div>
+            <button type="submit" class="inline-flex items-center justify-center gap-2 w-full mt-6 font-semibold" style="background: var(--color-ink); color: var(--color-bg); padding: 14px 22px; font-size: 15px; border-radius: 9999px;">
+              Shortlist 3 specialists <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+            </button>
 
-          <button type="submit" class="inline-flex items-center justify-center gap-2 w-full mt-6 font-semibold" style="background: var(--color-ink); color: var(--color-bg); padding: 14px 22px; font-size: 15px; border-radius: 9999px;">
-            Shortlist 3 specialists <ChevronRight className="h-3.5 w-3.5 mirror-x" />
-          </button>
-
-          <p class="mono mt-4 text-center" style="font-size: 11px; color: var(--color-ink-subtle);">
-            Free · no obligation · case manager replies in ~9 min (business hours)
-          </p>
+            <p class="mono mt-4 text-center" style="font-size: 11px; color: var(--color-ink-subtle);">
+              Free · no obligation · case manager replies in ~9 min (business hours)
+            </p>
+          </fieldset>
         </form>
       </div>
     </section>
+
+    <HowItWorks
+      heading="How specialist matching works"
+      italicWord="works"
+      steps={[
+        { title: "Tell us your case", description: "Submit the form: specialty, condition, language preference, country, contact details. The more clinical detail you share (recent imaging, prior treatments tried, current medications), the better we can match." },
+        { title: "Case review", description: "A senior coordinator reviews your case within 24 hours, identifies 3-5 potential specialists across our network, and validates surgeon volume and outcome data on your specific procedure." },
+        { title: "Specialist outreach", description: "We approach the top candidates. Some take new international cases; some are at capacity. We confirm availability before presenting options to you." },
+        { title: "Presentation", description: "You receive 2-4 specialist options with: surgeon background, annual case volume on your procedure, expected timeline, indicative cost range, and our specific recommendation." },
+        { title: "Direct consultation", description: "You schedule a video consultation with the surgeon(s) you want to evaluate. No commitment yet; this is for you to decide if the surgeon and program fit." },
+        { title: "Decision support", description: "If you want a second opinion, we help arrange one. If you have questions about logistics, visa, or recovery, we work through them. No pressure to commit." },
+      ]}
+      outroNote="No upfront fees. Specialist matching is free; we're paid by hospitals only after you choose to proceed with treatment."
+    />
+
+    <WhatToExpect
+      heading="What good specialist matching looks like"
+      italicWord="looks like"
+      items={[
+        { label: "Multiple options, not one", description: "A reputable matching service presents 2-4 candidates with rationale, not a single 'we recommend Dr. X' without alternatives." },
+        { label: "Surgeon-specific data", description: "Annual case volume on your specific procedure — not just institutional volume — is the metric that matters most." },
+        { label: "Direct surgeon access", description: "Pre-treatment video consultation directly with the surgeon, not just sales/coordinators. You should hear their voice and ask hard questions." },
+        { label: "Honest about gaps", description: "If your case is rare and most programs don't see enough volume, the matching service should say so — and propose specialists who do." },
+        { label: "No pressure tactics", description: "Reputable services give you time to compare, second-opinion, and decide. Pressure to commit quickly is a quality signal." },
+      ]}
+    />
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow="Other ways to find the right surgeon"
+      heading="Or browse our network directly"
+      lede="If you'd rather skip the form, the entry points below let you compare specialists, get a free second opinion, or estimate cost up front."
+      items={[
+        { eyebrow: "Browse", label: "Surgeons by specialty", href: "/surgeons", hint: "15 specialties, 9 destinations, ranked by case volume." },
+        { eyebrow: "Browse", label: "All specialties", href: "/specialties", hint: "Cardiac, oncology, ortho — pick by clinical area." },
+        { eyebrow: "Compare", label: "Compare doctors side-by-side", href: "/compare/doctors", hint: "Years, patients treated, languages, fee." },
+        { eyebrow: "Quote", label: "Get a free quote", href: "/quote", hint: "5-minute form — we send 3 surgeon options + cost." },
+        { eyebrow: "Match", label: "Match Me quiz", href: "/match-me", hint: "3-step concern → destination → budget → shortlist." },
+        { eyebrow: "Trust", label: "Free second opinion", href: "/second-opinion", hint: "Independent review of your existing surgical plan." },
+        { eyebrow: "Process", label: "How it works", href: "/services", hint: "What our case managers do — and don't do." },
+        { eyebrow: "Talk", label: "Talk to a coordinator", href: "/contact", hint: "Real person, no forms." },
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>

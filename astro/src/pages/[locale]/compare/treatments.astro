@@ -3,13 +3,17 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 import EntityListingHero from "@/components/EntityListingHero.astro";
 import PriceRange from "@/components/PriceRange.astro";
 import { compareTreatments } from "@/lib/queries";
+import { formatUsd } from "@/lib/currency";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
 import { ChevronRight } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
 
 export const prerender = false;
 
@@ -44,13 +48,20 @@ const avgSuccess = withSuccess.length > 0
   ? withSuccess.reduce((s, r) => s + Number(r.success_rate_percent), 0) / withSuccess.length
   : null;
 
+const lowestFromFormatted = lowestFrom ? await formatUsd(Astro.cookies, lowestFrom) : null;
+
 const stats = [
   { l: "Procedures", v: rows.length.toString() },
   { l: "Specialties", v: specialtyCount.toString() },
-  lowestFrom ? { l: "From", v: `$${(lowestFrom / 1000).toFixed(1)}k` } : null,
+  lowestFromFormatted ? { l: "From", v: lowestFromFormatted } : null,
   avgSuccess ? { l: "Avg success", v: `${avgSuccess.toFixed(0)}%` } : null,
 ].filter(Boolean) as Array<{ l: string; v: string }>;
 
+// Success-rate color thresholds — calibrated against the surgical-travel
+// procedure mix represented in the catalog: median CABG/TAVR/TKR success
+// runs ~92–98% at high-volume programs, mid-tier elective surgical ~75–90%,
+// complex oncology / late-stage transplant trail < 75%. Bands chosen to
+// communicate "expected for the procedure category" at a glance.
 function successTone(pct: number | null): string {
   if (pct == null) return "color: var(--color-ink-subtle);";
   if (pct >= 90) return "color: var(--color-accent);";
@@ -67,10 +78,10 @@ function successTone(pct: number | null): string {
       path={path}
       locale={locale}
     />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -93,86 +104,126 @@ function successTone(pct: number | null): string {
 
     <section style="padding: 32px 0 88px;">
       <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
-        <div class="paper overflow-x-auto" style="padding: 0;">
-          <table class="w-full" style="border-collapse: collapse;">
-            <thead>
-              <tr style="border-bottom: 1px solid var(--color-ink);">
-                <th class="text-start mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Treatment</th>
-                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Specialty</th>
-                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Price range</th>
-                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Stay</th>
-                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Recovery</th>
-                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Success</th>
-                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Hospitals</th>
-                <th style="padding: 16px 20px;"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr
-                  class="group"
-                  style={`${i > 0 ? "border-top: 1px dashed var(--color-border);" : ""}`}
-                >
-                  <td style="padding: 16px 20px;">
-                    <a
-                      href={localizedPath(locale, `/treatment/${r.slug}`)}
-                      class="serif group-hover:text-accent transition-colors"
-                      style="font-size: 16px; letter-spacing: -0.005em; color: var(--color-ink);"
-                    >
+        <ul class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));">
+          {rows.map((r, i) => (
+            <li>
+              <a
+                href={localizedPath(locale, `/treatment/${r.slug}`)}
+                class="paper group block transition hover:-translate-y-0.5"
+                style="padding: 22px 22px 18px;"
+              >
+                {/* Top row: index + name + arrow */}
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0 flex-1">
+                    <div class="mono uppercase tnum" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                      {String(i + 1).padStart(2, "0")} · {r.specialty ?? "Other"}
+                    </div>
+                    <div class="serif mt-1.5 group-hover:text-accent transition-colors" style="font-size: 19px; letter-spacing: -0.005em; line-height: 1.25; color: var(--color-ink); font-weight: 500;">
                       {r.name}
-                    </a>
-                  </td>
-                  <td class="mono uppercase whitespace-nowrap" style="font-size: 10.5px; letter-spacing: 0.1em; color: var(--color-ink-muted); padding: 16px 20px;">
-                    {r.specialty ?? "—"}
-                  </td>
-                  <td class="whitespace-nowrap" style="padding: 16px 20px;">
-                    {r.lo ? (
-                      <span class="display tnum" style="font-size: 15px; color: var(--color-ink);">
-                        <PriceRange min={r.lo} max={r.hi} />
-                      </span>
-                    ) : (
-                      <span style="color: var(--color-ink-subtle);">—</span>
-                    )}
-                  </td>
-                  <td class="tnum whitespace-nowrap" style="font-size: 13.5px; color: var(--color-ink-muted); padding: 16px 20px;">
-                    {r.hospital_stay_days ? `${r.hospital_stay_days}d` : "—"}
-                  </td>
-                  <td class="tnum whitespace-nowrap" style="font-size: 13.5px; color: var(--color-ink-muted); padding: 16px 20px;">
-                    {r.recovery_days ? `${r.recovery_days}d` : "—"}
-                  </td>
-                  <td class="whitespace-nowrap" style="padding: 16px 20px;">
-                    {r.success_rate_percent != null ? (
-                      <span class="display tnum" style={`font-size: 14px; ${successTone(Number(r.success_rate_percent))}`}>
-                        {Number(r.success_rate_percent).toFixed(0)}%
-                      </span>
-                    ) : (
-                      <span style="color: var(--color-ink-subtle);">—</span>
-                    )}
-                  </td>
-                  <td class="tnum whitespace-nowrap" style="font-size: 13.5px; color: var(--color-ink-muted); padding: 16px 20px;">
-                    {r.hospital_count.toLocaleString()}
-                  </td>
-                  <td style="padding: 16px 20px; text-align: end;">
-                    <a
-                      href={localizedPath(locale, `/treatment/${r.slug}`)}
-                      class="inline-flex items-center gap-1 mono uppercase"
-                      style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);"
-                    >
-                      Open
-                      <ChevronRight className="h-3 w-3 mirror-x" />
-                    </a>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 mirror-x mt-2.5 shrink-0 text-[var(--color-ink-subtle)] group-hover:text-[var(--color-accent)] transition-colors" />
+                </div>
 
-        <p class="mt-4 mono uppercase" style="font-size: 10.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                {/* Price range — most-prominent metric */}
+                <div class="mt-4 pt-4" style="border-top: 1px dashed var(--color-border);">
+                  <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                    Package range
+                  </div>
+                  <div class="display tnum mt-1" style="font-size: 22px; line-height: 1; letter-spacing: -0.015em; color: var(--color-ink);">
+                    {r.lo ? (
+                      <PriceRange min={r.lo} max={r.hi} />
+                    ) : (
+                      <span style="color: var(--color-ink-subtle); font-size: 17px;">Not yet priced</span>
+                    )}
+                  </div>
+                  {r.hospital_count > 0 && (
+                    <div class="mono mt-1" style="font-size: 10.5px; color: var(--color-ink-subtle);">
+                      Across {r.hospital_count.toLocaleString()} hospital{r.hospital_count === 1 ? "" : "s"}
+                    </div>
+                  )}
+                </div>
+
+                {/* 3-stat ribbon: stay, recovery, success */}
+                <div class="mt-4 grid grid-cols-3 gap-3">
+                  <div>
+                    <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
+                      Stay
+                    </div>
+                    <div class="tnum mt-0.5" style="font-size: 15px; color: var(--color-ink);">
+                      {r.hospital_stay_days != null ? `${r.hospital_stay_days}d` : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
+                      Recovery
+                    </div>
+                    <div class="tnum mt-0.5" style="font-size: 15px; color: var(--color-ink);">
+                      {r.recovery_days ? `${r.recovery_days}d` : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
+                      Success
+                    </div>
+                    <div class="tnum mt-0.5" style={`font-size: 15px; ${r.success_rate_percent != null ? successTone(Number(r.success_rate_percent)) : "color: var(--color-ink-subtle);"}`}>
+                      {r.success_rate_percent != null ? `${Number(r.success_rate_percent).toFixed(0)}%` : "—"}
+                    </div>
+                  </div>
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
+
+        <p class="mt-6 mono uppercase" style="font-size: 10.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
           USD · Aggregated from partner hospital quote sheets · Excludes flights + hotel
         </p>
       </div>
     </section>
+
+    <HowItWorks
+      heading="How to compare procedures"
+      italicWord="procedures"
+      eyebrow="Treatment comparison"
+      steps={[
+        { title: "Compare apples-to-apples", description: "Same procedure name across programs, same implant brand where relevant, same scope of inclusion (PT, follow-up, ICU). Itemized quotes enable real comparison." },
+        { title: "Look beyond price", description: "Cheapest quote often excludes things (extended PT, follow-up imaging, premium implants). Normalize scope before comparing prices." },
+        { title: "Account for total trip cost", description: "Procedure cost is typically 60-75% of total trip cost. Add flights, accommodation, meals, travel insurance, contingency." },
+        { title: "Compare on volume + outcomes", description: "Surgeon's annual volume on the specific procedure is the strongest outcome predictor. Two programs at the same price can have very different outcome data." },
+      ]}
+    />
+
+    <WhatToExpect
+      heading="The 7 line items that matter"
+      italicWord="matter"
+      items={[
+        { label: "Surgeon fee", description: "Senior surgeons cost 20-40% more than junior. Pay for the surgeon, not the brand." },
+        { label: "Implant or device", description: "Brand and model affect both cost and durability. Generic ≠ branded for many implants. Get specifics." },
+        { label: "Hospital stay", description: "Per-day rate × days. Extended stays add up; clarify per-diem rate for if recovery extends." },
+        { label: "Anesthesia", description: "Anesthesiologist (MD) vs CRNA. For complex cases, MD oversight matters." },
+        { label: "ICU step-down", description: "Per-day rate if needed. For complex procedures, factor probability of ICU stay." },
+        { label: "Inpatient PT + follow-up", description: "Most packages include 2-5 days. Outpatient PT (4-12 weeks) typically extra." },
+        { label: "Implant warranty + revision policy", description: "What happens if surgical failure or implant defect? In writing before booking." },
+      ]}
+    />
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow="Refine the comparison"
+      heading="Other ways to compare"
+      lede="Comparing procedures alone won't tell you everything. The pages below pull in destination, surgeon, and cost dimensions."
+      items={[
+        { eyebrow: "Compare", label: "Compare hospitals", href: "/compare/hospitals", hint: "Side-by-side on rating, accreditations, cost." },
+        { eyebrow: "Compare", label: "Compare doctors", href: "/compare/doctors", hint: "Years, patients treated, languages, fee." },
+        { eyebrow: "Compare", label: "Compare countries", href: "/compare/countries", hint: "Cost band, surgeon density, top specialties." },
+        { eyebrow: "Cost", label: "Cost calculator", href: "/calculator", hint: "Procedure × country × budget → 3 hospital shortlist." },
+        { eyebrow: "Cost", label: "Pricing matrix", href: "/pricing-index", hint: "All 88 treatments × 9 destinations." },
+        { eyebrow: "Browse", label: "All treatments", href: "/treatments", hint: "Filter by specialty, recovery, cost band." },
+        { eyebrow: "Browse", label: "All specialties", href: "/specialties", hint: "Cardiac, oncology, ortho, transplant, more." },
+        { eyebrow: "Match", label: "Match Me quiz", href: "/match-me", hint: "Concern + budget → recommended path in 60s." },
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>

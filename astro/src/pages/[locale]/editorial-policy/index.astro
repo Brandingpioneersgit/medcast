@@ -3,11 +3,14 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 import EntityListingHero from "@/components/EntityListingHero.astro";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
 import { ChevronRight } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
 
 export const prerender = false;
 
@@ -74,16 +77,16 @@ const TOC = [
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta
-      title="Editorial Policy — How we research, review, and update medical content"
+      title="Editorial Policy — How We Source & Review"
       description="How MedCasts researches, reviews, cites, and updates the medical information on this site. Written for patients who need to know whether to trust what they read."
       path={path}
       locale={locale}
     />
-    <script type="application/ld+json" set:html={JSON.stringify(aboutLd)} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(aboutLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -240,6 +243,50 @@ const TOC = [
         scroll-margin-top: 120px;
       }
     </style>
+
+    <HowItWorks
+      heading='How we curate hospital and surgeon information'
+      italicWord='curate'
+      eyebrow='Our editorial process'
+      steps={[
+        { title: 'Source verification', description: 'Hospital and surgeon credentials verified against primary sources: national medical councils, accreditation registries, peer-reviewed publications.' },
+        { title: 'Outcome data sourcing', description: 'Mortality, complication, and revision rates sourced from hospital-published annual reports or peer-reviewed publications. Marketing claims excluded.' },
+        { title: 'Pricing methodology', description: 'Cost ranges from itemized quote sheets that partner hospitals issue to international patients. Not from advertising rates.' },
+        { title: 'Multi-source validation', description: 'Major claims cross-referenced across 2+ independent sources where possible. Discrepancies investigated.' },
+        { title: 'Periodic review', description: 'All content reviewed quarterly. Hospital and surgeon profiles refreshed when credentials change. Outcome data updated annually.' },
+        { title: 'Corrections protocol', description: 'Errors corrected within 72 hours of credible reporting. Correction history maintained on each updated page.' },
+      ]},
+      outroNote='Our editorial team has clinical-claim review oversight from named physicians on first-line clinical content. Coordination claims are reviewed by the editorial desk.'
+    />
+
+    <WhatToExpect
+      heading='Our content principles'
+      italicWord='principles'
+      items={[
+        { label: 'Honesty over polish', description: "We don't whitewash. If a destination's lower-tier programs are uneven, we say so. If a procedure is over-recommended, we frame the alternative." },
+        { label: 'Specifics over generalities', description: "Every claim is checkable. Numbers, sources, dates. No 'world-class' or 'leading' without specific data." },
+        { label: 'Patient-side framing', description: 'We write for patients, not for hospitals. The same fact framed for a patient is different from the same fact framed for a hospital.' },
+        { label: 'Disclosure of incentives', description: "We disclose how we're paid (hospital coordination fees, 5-15%). We don't accept money to feature programs." },
+        { label: 'Cited sources', description: "When we make a claim that can be linked, we link. When we make a claim that's our judgment, we say so." },
+        { label: 'Open to corrections', description: "Send us evidence; we'll update. Corrections@medcasts.com goes to the editor." },
+      ]}
+    />
+    <ExploreGrid
+      locale={locale}
+      eyebrow="Trust + transparency"
+      heading="Other policies + reviewers"
+      lede="The pages below cover the rest of how MedCasts is run — who reviews, what we collect, and how we accept reports."
+      items={[
+        { eyebrow: "Reviewers", label: "Medical board", href: "/medical-board", hint: "The clinicians who sign off on specialty + condition pages." },
+        { eyebrow: "Quality", label: "Accreditation registry", href: "/accreditation", hint: "JCI, NABH, ISO and 10 others — verifiable in public registries." },
+        { eyebrow: "Trust", label: "Security disclosure", href: "/security", hint: "How we accept reports from researchers." },
+        { eyebrow: "Action", label: "Report a safety incident", href: "/incident-report", hint: "Anonymous channel for clinical concerns." },
+        { eyebrow: "Legal", label: "Privacy policy", href: "/privacy-policy", hint: "What we collect, retention, GDPR rights." },
+        { eyebrow: "Legal", label: "Terms of service", href: "/terms", hint: "Coordinator scope, refunds, dispute resolution." },
+        { eyebrow: "About", label: "Who we are", href: "/about", hint: "Coordinator-not-clinician scope; how we get paid." },
+        { eyebrow: "Reference", label: "Glossary of terms", href: "/glossary", hint: "Definitions for the language used across the site." },
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>

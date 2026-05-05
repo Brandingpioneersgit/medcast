@@ -3,10 +3,13 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, faqJsonLd } from "@/lib/seo";
-import { Upload, Lock, ChevronRight } from "lucide-react";
+import { Upload, Lock, ChevronRight, Award, ShieldCheck, ScrollText } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
 
 export const prerender = false;
 
@@ -50,9 +53,9 @@ const STEPS = [
 ];
 
 const PROMISES = [
-  { eyebrow: tso("promise01eyebrow"), title: tso("promise01title"), body: tso("promise01body") },
-  { eyebrow: tso("promise02eyebrow"), title: tso("promise02title"), body: tso("promise02body") },
-  { eyebrow: tso("promise03eyebebrow"), title: tso("promise03title"), body: tso("promise03body") },
+  { eyebrow: tso("promise01eyebrow"), title: tso("promise01title"), body: tso("promise01body"), icon: Award },
+  { eyebrow: tso("promise02eyebrow"), title: tso("promise02title"), body: tso("promise02body"), icon: ShieldCheck },
+  { eyebrow: tso("promise03eyebebrow"), title: tso("promise03title"), body: tso("promise03body"), icon: ScrollText },
 ];
 ---
 
@@ -65,11 +68,11 @@ const PROMISES = [
       locale={locale}
       noindex={locale !== "en"}
     />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    <script type="application/ld+json" set:html={JSON.stringify(faqJsonLd(faqs))} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(faqJsonLd(faqs))} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -195,19 +198,29 @@ const PROMISES = [
           </h2>
         </div>
         <ul class="grid grid-cols-1 gap-5 md:grid-cols-3">
-          {PROMISES.map((p) => (
-            <li class="paper" style="padding: 26px 28px;">
-              <div class="display tnum" style="font-size: 40px; line-height: 0.95; color: var(--color-accent); letter-spacing: -0.02em;">
-                {p.eyebrow}
-              </div>
-              <div class="serif mt-3" style="font-size: 19px; line-height: 1.25; letter-spacing: -0.005em; color: var(--color-ink);">
-                {p.title}
-              </div>
-              <p class="mt-2 serif" style="font-size: 14.5px; line-height: 1.55; color: var(--color-ink-muted);">
-                {p.body}
-              </p>
-            </li>
-          ))}
+          {PROMISES.map((p) => {
+            const Icon = p.icon;
+            return (
+              <li class="paper relative" style="padding: 28px;">
+                <div
+                  class="flex items-center justify-center"
+                  style="width: 44px; height: 44px; border-radius: 12px; background: var(--color-accent-mist, var(--color-accent-soft)); color: var(--color-accent);"
+                  aria-hidden="true"
+                >
+                  <Icon strokeWidth={1.6} className="h-[22px] w-[22px]" />
+                </div>
+                <div class="display tnum mt-5" style="font-size: 40px; line-height: 0.95; color: var(--color-accent); letter-spacing: -0.02em;">
+                  {p.eyebrow}
+                </div>
+                <div class="serif mt-3" style="font-size: 19px; line-height: 1.25; letter-spacing: -0.005em; color: var(--color-ink);">
+                  {p.title}
+                </div>
+                <p class="mt-2 serif" style="font-size: 14.5px; line-height: 1.55; color: var(--color-ink-muted);">
+                  {p.body}
+                </p>
+              </li>
+            );
+          })}
         </ul>
       </div>
     </section>
@@ -269,6 +282,50 @@ const PROMISES = [
         </div>
       </div>
     </section>
+
+    <HowItWorks
+      heading="How a second opinion actually works"
+      italicWord="actually works"
+      eyebrow="The process"
+      steps={[
+        { title: "Upload your records", description: "Imaging on disc (DICOM), pathology reports, recent labs, treatment summary, and the recommendation you're seeking a second opinion on. Most patients use our secure portal; some send DVDs by post." },
+        { title: "Case-manager review", description: "Within 24 hours, a senior coordinator confirms the records are complete and identifies the right specialty for review. Missing pieces are requested before routing." },
+        { title: "Specialist routing", description: "We route to a specialist with high volume in your specific case type. For tumor cases, the routing is to a tumor-board reviewer. For surgical cases, to a senior surgeon in that sub-specialty." },
+        { title: "Multidisciplinary review (where indicated)", description: "Complex oncology, transplant, and complex cardiac cases get multidisciplinary review. Your case is discussed in a structured forum with multiple specialists." },
+        { title: "Written opinion delivered", description: "5-10 days from records receipt. The opinion is in writing — agreement with original recommendation or specific alternative with rationale. Includes references to evidence base where relevant." },
+        { title: "Discussion + next steps", description: "Video call with the reviewing specialist if you want to discuss. No obligation to proceed with us; the written opinion is yours to take to your home physician." },
+      ]}
+      outroNote="Free for the patient. Hospitals pay our coordination fee only if you proceed with treatment through us — second opinion costs nothing whether you do or don't."
+    />
+
+    <WhatToExpect
+      heading="When a second opinion changes the plan"
+      italicWord="changes the plan"
+      items={[
+        { label: "Cancer staging review", description: "Pathology re-review changes diagnosis or grade in 5-10% of cases. Imaging re-read by sub-specialty radiologist sometimes shifts stage." },
+        { label: "Surgical vs medical management", description: "For borderline cases (early prostate cancer, stable angina, asymptomatic findings), opinions can differ. Active surveillance vs immediate surgery is a common shift." },
+        { label: "Specific operation choice", description: "Repair vs replacement (mitral valve), partial vs total (joint), open vs minimally invasive — different surgeons recommend differently. Second opinion helps clarify." },
+        { label: "Treatment intent", description: "Curative vs palliative, single-modality vs multi-modal. Different specialists frame the goal differently. Worth understanding the framing." },
+        { label: "Timing", description: "Some recommendations push toward immediate intervention; alternatives may suggest watchful waiting first. The right answer depends on specific case factors." },
+      ]}
+    />
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow="If you decide to act on the opinion"
+      heading="Where the second opinion can take you next"
+      lede="A second opinion isn't the end of the journey. The pages below cover the practical paths if it confirms — or contradicts — your existing plan."
+      items={[
+        { eyebrow: "Match", label: "Match Me quiz", href: "/match-me", hint: "Concern + budget → recommended path in 60s." },
+        { eyebrow: "Find", label: "Find a specialist", href: "/find-specialist", hint: "Specialty + condition → matched surgeon." },
+        { eyebrow: "Quote", label: "Get a treatment quote", href: "/quote", hint: "5-minute form — 3 hospital options + cost." },
+        { eyebrow: "Compare", label: "Compare doctors", href: "/compare/doctors", hint: "Years, patients treated, languages, fee." },
+        { eyebrow: "Compare", label: "Compare hospitals", href: "/compare/hospitals", hint: "Side-by-side rating, accreditations, cost." },
+        { eyebrow: "Cost", label: "Cost calculator", href: "/calculator", hint: "Live procedure × country pricing band." },
+        { eyebrow: "Process", label: "Editorial + corrections policy", href: "/editorial-policy", hint: "Why we recommend against surgery 28% of the time." },
+        { eyebrow: "Reviewers", label: "Medical board", href: "/medical-board", hint: "Reviewers behind specialty pages." },
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>

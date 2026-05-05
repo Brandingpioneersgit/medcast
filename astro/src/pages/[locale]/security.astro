@@ -3,6 +3,7 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 
 export const prerender = false;
@@ -99,6 +100,23 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
         </div>
       </div>
     </section>
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow="Trust + transparency"
+      heading="Related policies"
+      lede="MedCasts publishes its review process, conflict-of-interest stance, and data handling rules openly. The pages below are the load-bearing ones."
+      items={[
+        { eyebrow: "Editorial", label: "Editorial + corrections policy", href: "/editorial-policy", hint: "Sourcing, AI use, corrections SLA, who reviews what." },
+        { eyebrow: "Trust", label: "Medical board", href: "/medical-board", hint: "The reviewers behind specialty + condition pages." },
+        { eyebrow: "Legal", label: "Privacy policy", href: "/privacy-policy", hint: "What we collect, how long we keep it, your GDPR rights." },
+        { eyebrow: "Legal", label: "Terms of service", href: "/terms", hint: "How payment, refunds, and dispute resolution work." },
+        { eyebrow: "Quality", label: "Accreditation registry", href: "/accreditation", hint: "JCI, NABH, ISO and 10 other registries we cross-check." },
+        { eyebrow: "Action", label: "Report a safety incident", href: "/incident-report", hint: "Anonymous channel for clinical concerns." },
+        { eyebrow: "About", label: "Who we are", href: "/about", hint: "Coordinator-not-clinician scope, team, contacts." },
+        { eyebrow: "Contact", label: "Talk to a coordinator", href: "/contact", hint: "Get a real person on email, phone, or WhatsApp." },
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>

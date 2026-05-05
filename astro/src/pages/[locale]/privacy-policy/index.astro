@@ -3,9 +3,24 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
+import {
+  Database,
+  Workflow,
+  ShieldOff,
+  Eye,
+  KeyRound,
+  Clock,
+  Globe2,
+  Lock,
+  Baby,
+  Mail,
+  RefreshCw,
+  ChevronRight,
+} from "lucide-react";
 
 export const prerender = false;
 
@@ -30,15 +45,150 @@ Astro.response.headers.set(
 );
 
 const LAST_UPDATED = "April 2026";
+
+type Section = {
+  id: string;
+  icon: any;
+  title: string;
+  intro?: string;
+  bullets?: string[];
+  paras?: string[];
+  tone?: "default" | "warn" | "accent";
+};
+
+const sections: Section[] = [
+  {
+    id: "what-we-collect",
+    icon: Database,
+    title: "What we collect",
+    intro: "When you request a quote, second opinion, or speak with a case manager, we collect:",
+    bullets: [
+      "**Identity:** name, country of residence, date of birth when relevant to clinical matching.",
+      "**Contact:** email, phone, WhatsApp, preferred language.",
+      "**Clinical:** medical reports, imaging, diagnoses, current medications — only what you explicitly share with us.",
+      "**Usage:** pages viewed, approximate location from IP, device type. Never tied to named individuals unless you log in.",
+    ],
+  },
+  {
+    id: "what-we-do",
+    icon: Workflow,
+    title: "What we do with it",
+    bullets: [
+      "Route your case to 1–3 matching hospitals and coordinate itemized quotes.",
+      "Facilitate communication between you, the hospital's international desk, and your case manager.",
+      "Send transactional updates about your case (quote, visa, travel).",
+      "Improve the service: anonymized usage patterns, never individual browsing histories.",
+    ],
+  },
+  {
+    id: "what-we-never-do",
+    icon: ShieldOff,
+    title: "What we never do",
+    tone: "warn",
+    bullets: [
+      "Sell your data. Not to insurers, pharma, or marketers.",
+      "Share your clinical records outside hospitals you've explicitly authorised.",
+      "Run targeted advertising based on medical history.",
+      "Store financial data — all payments go through regulated processors (Stripe, PayTabs, bank wires) with no card details stored on our servers.",
+    ],
+  },
+  {
+    id: "who-sees",
+    icon: Eye,
+    title: "Who sees your data",
+    bullets: [
+      "**You and your case manager** — always.",
+      "**Hospital international desks** you've been matched to — only the specific hospitals, only the records you've authorised.",
+      "**Medical panel for second opinions** — your case, de-identified where possible, shared with the specific panel member reviewing it.",
+      "**Service providers:** our hosting (Supabase, Cloudflare), email (Resend), upload (Cloudflare R2), SMS/WhatsApp gateway. Each is bound by data-processing agreements.",
+    ],
+    paras: [
+      "We publish a list of sub-processors on request. Email privacy@medcasts.com.",
+    ],
+  },
+  {
+    id: "rights",
+    icon: KeyRound,
+    title: "Your rights (GDPR, UK GDPR, and beyond)",
+    tone: "accent",
+    bullets: [
+      "**Access:** ask for a copy of everything we hold about you.",
+      "**Correct:** fix inaccuracies.",
+      "**Delete:** we delete all identifiable records within 30 days of request, except where legal retention applies (billing records, minimum 7 years in most jurisdictions).",
+      "**Portability:** export your clinical uploads in original format at any time.",
+      "**Withdraw consent:** at any time, for any purpose. Stops active processing; past actions (already-sent quotes) stand.",
+    ],
+    paras: [
+      "To exercise any of these: email privacy@medcasts.com from the email address on file. We respond within 5 working days.",
+    ],
+  },
+  {
+    id: "retention",
+    icon: Clock,
+    title: "Retention",
+    bullets: [
+      "**Active case data:** retained while your case is open and 12 months after last contact.",
+      "**Medical records you uploaded:** deleted from our systems within 90 days of case closure unless you request extended retention.",
+      "**Transactional records (quotes, invoices):** 7 years, required by most tax authorities.",
+      "**Anonymized analytics:** indefinite, but never re-identifiable.",
+    ],
+  },
+  {
+    id: "transfers",
+    icon: Globe2,
+    title: "International transfers",
+    paras: [
+      "Your clinical data may transit to hospitals outside your home country — that's the nature of medical travel. Standard Contractual Clauses (SCCs) apply to EU and UK data subjects; adequacy frameworks apply where available. You always see and approve which hospitals receive your records before we send anything.",
+    ],
+  },
+  {
+    id: "security",
+    icon: Lock,
+    title: "Security",
+    paras: [
+      "Encryption in transit (TLS 1.3) and at rest (AES-256 at the storage layer). Upload vault is on Cloudflare R2 with pre-signed URLs expiring in 7 days. Case managers access via SSO with 2FA. We run quarterly penetration tests and disclose breaches to affected users within 72 hours, per GDPR Article 33.",
+    ],
+  },
+  {
+    id: "children",
+    icon: Baby,
+    title: "Children",
+    paras: [
+      `Where you're arranging medical travel for a minor, we require explicit documentation of parental responsibility. We don't hold direct accounts for under-18s.`,
+    ],
+  },
+  {
+    id: "contact",
+    icon: Mail,
+    title: "Contact",
+    bullets: [
+      "**Data Protection Officer:** privacy@medcasts.com",
+      "**EU/UK representative:** via the same address; response in-language for 8 locales.",
+      "**Regulatory contact:** if we don't resolve your concern, you can file with your national data-protection authority.",
+    ],
+  },
+  {
+    id: "changes",
+    icon: RefreshCw,
+    title: "Changes to this policy",
+    paras: [
+      `We'll update this page when material changes happen and notify active case clients by email. The date at the top of this page reflects the current version.`,
+    ],
+  },
+];
+
+function renderInline(s: string): string {
+  return s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+}
 ---
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} />
 
     <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
@@ -49,10 +199,10 @@ const LAST_UPDATED = "April 2026";
       </nav>
     </div>
 
-    <section style="padding: 56px 28px;">
-      <div class="mx-auto" style="max-width: 780px;">
+    <section style="padding: 64px 28px 32px;">
+      <div class="mx-auto w-full max-w-[1120px]">
         <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
-          Legal
+          Legal · Last updated {LAST_UPDATED}
         </div>
         <h1
           class="display display-tight mt-3"
@@ -60,97 +210,175 @@ const LAST_UPDATED = "April 2026";
         >
           Privacy <span class="italic-display">policy</span>
         </h1>
-        <p class="serif mt-5" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">
-          How we collect, use, and protect your personal and medical information. Plain-language version below; GDPR terms in the appendix.
+        <p class="serif mt-5" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted); max-width: 720px;">
+          How we collect, use, and protect your personal and medical information. Plain-language version below.
         </p>
-        <div class="mono mt-4" style="font-size: 12px; color: var(--color-ink-subtle);">
-          Last updated: {LAST_UPDATED} · <a href={localizedPath(locale, "/editorial-policy")} class="underline">Editorial policy</a>
-        </div>
 
-        <div class="prose-editorial mt-10" style="max-width: none;">
-          <h2>1. What we collect</h2>
-          <p>When you request a quote, second opinion, or speak with a case manager, we collect:</p>
-          <ul>
-            <li><strong>Identity:</strong> name, country of residence, date of birth when relevant to clinical matching.</li>
-            <li><strong>Contact:</strong> email, phone, WhatsApp, preferred language.</li>
-            <li><strong>Clinical:</strong> medical reports, imaging, diagnoses, current medications — only what you explicitly share with us.</li>
-            <li><strong>Usage:</strong> pages viewed, approximate location from IP, device type. Never tied to named individuals unless you log in.</li>
-          </ul>
-
-          <h2>2. What we do with it</h2>
-          <ul>
-            <li>Route your case to 1–3 matching hospitals and coordinate itemized quotes.</li>
-            <li>Facilitate communication between you, the hospital's international desk, and your case manager.</li>
-            <li>Send transactional updates about your case (quote, visa, travel).</li>
-            <li>Improve the service: anonymized usage patterns, never individual browsing histories.</li>
-          </ul>
-
-          <h2>3. What we never do</h2>
-          <ul>
-            <li>Sell your data. Not to insurers, pharma, or marketers.</li>
-            <li>Share your clinical records outside hospitals you've explicitly authorised.</li>
-            <li>Run targeted advertising based on medical history.</li>
-            <li>Store financial data — all payments go through regulated processors (Stripe, PayTabs, bank wires) with no card details stored on our servers.</li>
-          </ul>
-
-          <h2>4. Who sees your data</h2>
-          <ul>
-            <li><strong>You and your case manager</strong> — always.</li>
-            <li><strong>Hospital international desks</strong> you've been matched to — only the specific hospitals, only the records you've authorised.</li>
-            <li><strong>Medical panel for second opinions</strong> — your case, de-identified where possible, shared with the specific panel member reviewing it.</li>
-            <li><strong>Service providers:</strong> our hosting (Supabase, Cloudflare), email (Resend), upload (Cloudflare R2), SMS/WhatsApp gateway. Each is bound by data-processing agreements.</li>
-          </ul>
-          <p>We publish a list of sub-processors on request. Email <a href="mailto:privacy@medcasts.com">privacy@medcasts.com</a>.</p>
-
-          <h2>5. Your rights (GDPR, UK GDPR, and beyond)</h2>
-          <ul>
-            <li><strong>Access:</strong> ask for a copy of everything we hold about you.</li>
-            <li><strong>Correct:</strong> fix inaccuracies.</li>
-            <li><strong>Delete:</strong> we delete all identifiable records within 30 days of request, except where legal retention applies (billing records, minimum 7 years in most jurisdictions).</li>
-            <li><strong>Portability:</strong> export your clinical uploads in original format at any time.</li>
-            <li><strong>Withdraw consent:</strong> at any time, for any purpose. Stops active processing; past actions (already-sent quotes) stand.</li>
-          </ul>
-          <p>To exercise any of these: email <a href="mailto:privacy@medcasts.com">privacy@medcasts.com</a> from the email address on file. We respond within 5 working days.</p>
-
-          <h2>6. Retention</h2>
-          <ul>
-            <li><strong>Active case data:</strong> retained while your case is open and 12 months after last contact.</li>
-            <li><strong>Medical records you uploaded:</strong> deleted from our systems within 90 days of case closure unless you request extended retention.</li>
-            <li><strong>Transactional records (quotes, invoices):</strong> 7 years, required by most tax authorities.</li>
-            <li><strong>Anonymized analytics:</strong> indefinite, but never re-identifiable.</li>
-          </ul>
-
-          <h2>7. International transfers</h2>
-          <p>Your clinical data may transit to hospitals outside your home country — that's the nature of medical travel. Standard Contractual Clauses (SCCs) apply to EU and UK data subjects; adequacy frameworks apply where available. You always see and approve which hospitals receive your records before we send anything.</p>
-
-          <h2>8. Security</h2>
-          <p>Encryption in transit (TLS 1.3) and at rest (AES-256 at the storage layer). Upload vault is on Cloudflare R2 with pre-signed URLs expiring in 7 days. Case managers access via SSO with 2FA. We run quarterly penetration tests and disclose breaches to affected users within 72 hours, per GDPR Article 33.</p>
-
-          <h2>9. Children</h2>
-          <p>Where you're arranging medical travel for a minor, we require explicit documentation of parental responsibility. We don't hold direct accounts for under-18s.</p>
-
-          <h2>10. Contact</h2>
-          <p>Data Protection Officer: <a href="mailto:privacy@medcasts.com">privacy@medcasts.com</a></p>
-          <p>EU/UK representative: via the same address; response in-language for 8 locales.</p>
-          <p>Regulatory contact: if we don't resolve your concern, you can file with your national data-protection authority.</p>
-
-          <h2>11. Changes to this policy</h2>
-          <p>We'll update this page when material changes happen and notify active case clients by email. The date at the top of this page reflects the current version.</p>
-        </div>
-
-        <div
-          class="mt-12 p-6"
-          style="background: var(--color-accent-mist); border: 1px solid var(--color-accent-soft); border-radius: var(--radius-lg);"
-        >
-          <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent); text-transform: uppercase;">
-            Questions?
+        <div class="mt-8 grid gap-4 md:grid-cols-3">
+          <div class="paper flex items-start gap-3" style="padding: 18px 20px;">
+            <span class="shrink-0 mt-0.5" style="color: var(--color-coral, #E85A4F);"><ShieldOff className="h-5 w-5" /></span>
+            <div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Promise 01</div>
+              <div class="serif mt-1" style="font-size: 14.5px; line-height: 1.4; color: var(--color-ink);">We never sell your data.</div>
+            </div>
           </div>
-          <p class="serif mt-2" style="font-size: 17px; line-height: 1.5; color: var(--color-ink);">
-            We answer privacy questions in plain language within 5 working days. Email <a href="mailto:privacy@medcasts.com" class="underline">privacy@medcasts.com</a> or talk to your case manager.
-          </p>
+          <div class="paper flex items-start gap-3" style="padding: 18px 20px;">
+            <span class="shrink-0 mt-0.5" style="color: var(--color-accent);"><Lock className="h-5 w-5" /></span>
+            <div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Promise 02</div>
+              <div class="serif mt-1" style="font-size: 14.5px; line-height: 1.4; color: var(--color-ink);">TLS 1.3 in transit, AES-256 at rest.</div>
+            </div>
+          </div>
+          <div class="paper flex items-start gap-3" style="padding: 18px 20px;">
+            <span class="shrink-0 mt-0.5" style="color: var(--color-accent);"><KeyRound className="h-5 w-5" /></span>
+            <div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Promise 03</div>
+              <div class="serif mt-1" style="font-size: 14.5px; line-height: 1.4; color: var(--color-ink);">Delete on request, 5-day SLA.</div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
+
+    <section style="padding: 24px 28px 88px;">
+      <div class="mx-auto w-full max-w-[1120px] grid gap-12 lg:grid-cols-[1fr,0.28fr]">
+        <div class="min-w-0 space-y-5">
+          {sections.map((s, i) => {
+            const Icon = s.icon;
+            const num = String(i + 1).padStart(2, "0");
+            const tone = s.tone ?? "default";
+            const accentColor =
+              tone === "warn"
+                ? "var(--color-coral, #E85A4F)"
+                : "var(--color-accent)";
+            const accentBg =
+              tone === "warn"
+                ? "var(--color-coral-soft, rgba(232,90,79,0.10))"
+                : "var(--color-accent-mist, var(--color-accent-soft))";
+            const cardBg = tone === "accent" ? "var(--color-accent-mist, var(--color-accent-soft))" : "var(--color-paper)";
+            return (
+              <article
+                id={s.id}
+                class="paper"
+                style={`padding: 32px 36px; scroll-margin-top: 120px; background: ${cardBg};`}
+              >
+                <div class="flex items-start gap-5">
+                  <div
+                    class="flex items-center justify-center shrink-0"
+                    style={`width: 48px; height: 48px; border-radius: 12px; background: ${accentBg}; color: ${accentColor};`}
+                    aria-hidden="true"
+                  >
+                    <Icon className="h-[22px] w-[22px]" />
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <div class="mono tnum" style="font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">
+                      Section {num}
+                    </div>
+                    <h2
+                      class="display mt-1.5"
+                      style="font-size: clamp(1.4rem, 2.4vw, 1.75rem); line-height: 1.15; letter-spacing: -0.015em; font-weight: 400;"
+                    >
+                      {s.title}
+                    </h2>
+                  </div>
+                </div>
+
+                <div class="mt-5 space-y-4 serif" style="font-size: 16px; line-height: 1.65; color: var(--color-ink-muted);">
+                  {s.intro && <p>{s.intro}</p>}
+                  {s.bullets && (
+                    <ul class="space-y-3 mt-2">
+                      {s.bullets.map((b) => (
+                        <li class="flex gap-3" style="font-size: 15.5px; line-height: 1.55;">
+                          <span style={`color: ${accentColor}; flex-shrink: 0; font-weight: 600;`} aria-hidden="true">→</span>
+                          <span set:html={renderInline(b)} />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {s.paras?.map((p) => <p>{p}</p>)}
+                </div>
+              </article>
+            );
+          })}
+
+          <div
+            class="mt-6 flex items-start gap-4"
+            style="padding: 20px 24px; border: 1px dashed var(--color-border); border-radius: var(--radius-lg);"
+          >
+            <span class="shrink-0 mt-0.5" style="color: var(--color-accent);"><Mail className="h-5 w-5" /></span>
+            <div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
+                Privacy questions?
+              </div>
+              <p class="mt-2 serif" style="font-size: 15.5px; line-height: 1.5; color: var(--color-ink-muted);">
+                We answer in plain language within 5 working days. Email <a href="mailto:privacy@medcasts.com" style="color: var(--color-ink);" class="underline">privacy@medcasts.com</a> or talk to your case manager.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <aside class="hidden lg:block">
+          <div class="lg:sticky lg:top-28 lg:self-start space-y-6">
+            <nav
+              aria-label="On this page"
+              style="padding: 18px 0; border-top: 1px solid var(--color-ink);"
+            >
+              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                On this page
+              </div>
+              <ol class="mt-3 space-y-2 tnum">
+                {sections.map((s, i) => (
+                  <li class="flex gap-2.5">
+                    <span class="mono" style="font-size: 11px; color: var(--color-ink-subtle);">{String(i + 1).padStart(2, "0")}</span>
+                    <a
+                      href={`#${s.id}`}
+                      class="serif hover:text-accent transition-colors"
+                      style="font-size: 13.5px; line-height: 1.4; color: var(--color-ink);"
+                    >
+                      {s.title}
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            </nav>
+
+            <a
+              href={localizedPath(locale, "/terms")}
+              class="paper group block transition hover:-translate-y-0.5"
+              style="padding: 18px 20px;"
+            >
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
+                Terms of service
+              </div>
+              <div class="serif mt-2" style="font-size: 16px; line-height: 1.3; color: var(--color-ink);">
+                The honest <span class="italic-display">boundaries.</span>
+              </div>
+              <div class="mt-3 mono uppercase inline-flex items-center gap-1 group-hover:text-accent transition-colors" style="font-size: 10.5px; letter-spacing: 0.14em; color: var(--color-ink-muted);">
+                Read terms
+                <ChevronRight className="h-3 w-3 mirror-x" />
+              </div>
+            </a>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow="Adjacent policies"
+      heading="Other things to know about how we operate"
+      lede="Privacy is one slice of the trust layer. The pages below cover the rest — terms, editorial process, security, and how we accept reports."
+      items={[
+        { eyebrow: "Legal", label: "Terms of service", href: "/terms", hint: "Coordinator scope, payment, refunds, dispute resolution." },
+        { eyebrow: "Process", label: "Editorial + corrections policy", href: "/editorial-policy", hint: "Sourcing, AI use, corrections SLA." },
+        { eyebrow: "Trust", label: "Security disclosure", href: "/security", hint: "How we accept reports from researchers." },
+        { eyebrow: "Action", label: "Report a safety incident", href: "/incident-report", hint: "Anonymous channel for clinical concerns." },
+        { eyebrow: "Reviewers", label: "Medical board", href: "/medical-board", hint: "Clinicians behind specialty + condition pages." },
+        { eyebrow: "Quality", label: "Accreditation registry", href: "/accreditation", hint: "JCI, NABH, ISO and 10 others." },
+        { eyebrow: "About", label: "Who we are", href: "/about", hint: "Coordinator-not-clinician scope." },
+        { eyebrow: "Contact", label: "Contact us", href: "/contact", hint: "Data subject access requests + corrections." },
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>

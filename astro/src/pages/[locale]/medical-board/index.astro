@@ -3,9 +3,12 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 import { listActiveReviewers } from "@/lib/queries";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, SITE_URL, SITE_NAME } from "@/lib/seo";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
 
 export const prerender = false;
 
@@ -47,11 +50,11 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={title} description={description} path={path} locale={locale} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    <script type="application/ld+json" set:html={JSON.stringify(panelLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(panelLd)} />
   </Fragment>
 
-  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} />
 
     <section style="border-bottom: 1px solid var(--color-border); padding: 64px 28px;">
@@ -177,6 +180,48 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
         </div>
       </div>
     </section>
+
+    <HowItWorks
+      heading='How our medical board reviews work'
+      italicWord='reviews work'
+      eyebrow='Medical oversight'
+      steps={[
+        { title: 'Specialty recruitment', description: 'Board members are practicing specialists in their field — cardiologists, oncologists, orthopedic surgeons, transplant physicians, reproductive endocrinologists.' },
+        { title: 'Editorial review', description: 'First-line clinical claims on entity pages reviewed by relevant board specialty before publication.' },
+        { title: 'Case-level oversight', description: "Complex cases referred for board review when standard pathways don't fit. Board provides written recommendations." },
+        { title: 'Continuous quality', description: 'Board meets quarterly to review content updates, partner program quality, and patient feedback patterns.' },
+        { title: 'Conflict management', description: 'Board members disclose any partner-program affiliations. Conflicts excluded from relevant case reviews.' },
+      ]}
+    />
+
+    <WhatToExpect
+      heading='Who reviews what'
+      italicWord='who reviews what'
+      items={[
+        { label: 'Cardiology', description: 'Consulting cardiologist reviews CABG, valve, TAVR, ablation, and PCI content.' },
+        { label: 'Oncology', description: 'Consulting medical oncologist reviews cancer treatment, regimen, and second-opinion content.' },
+        { label: 'Orthopedic surgery', description: 'Consulting orthopedic surgeon reviews joint replacement, spine, and sports medicine content.' },
+        { label: 'Transplantation', description: 'Consulting transplant hepatologist reviews liver, kidney, and bone marrow transplant content.' },
+        { label: 'Reproductive medicine', description: 'Consulting reproductive endocrinologist reviews IVF, fertility, and donor cycle content.' },
+        { label: 'Editorial desk', description: 'Reviews all coordination, logistics, pricing, and travel claims.' },
+      ]}
+    />
+    <ExploreGrid
+      locale={locale}
+      eyebrow="What this panel reviews"
+      heading="The pages our reviewers sign off on"
+      lede="The reviewers above don't pick hospitals — they review the language we use to describe procedures, conditions, and recovery. The pages below are the ones that carry their byline."
+      items={[
+        { eyebrow: "Browse", label: "All specialties", href: "/specialties", hint: "Cardiac, oncology, ortho, transplant, more." },
+        { eyebrow: "Browse", label: "All conditions", href: "/conditions", hint: "79 conditions cross-linked to specialties + treatments." },
+        { eyebrow: "Browse", label: "All treatments", href: "/treatments", hint: "88 procedures with recovery + cost data." },
+        { eyebrow: "Process", label: "Editorial + corrections policy", href: "/editorial-policy", hint: "How content gets reviewed + updated." },
+        { eyebrow: "Trust", label: "Free second opinion", href: "/second-opinion", hint: "Where this panel actually engages with your case." },
+        { eyebrow: "Action", label: "Report a safety incident", href: "/incident-report", hint: "Anonymous channel — reviewed within 5 business days." },
+        { eyebrow: "About", label: "Who we are", href: "/about", hint: "Coordinator-not-clinician scope." },
+        { eyebrow: "Reference", label: "Glossary of terms", href: "/glossary", hint: "Definitions used across reviewed pages." },
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>

@@ -3,11 +3,14 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 import EntityListingHero from "@/components/EntityListingHero.astro";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
 import { ChevronRight } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
 
 export const prerender = false;
 
@@ -58,8 +61,8 @@ const STEPS = [
       path={path}
       locale={locale}
     />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    <script type="application/ld+json" set:html={JSON.stringify({
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify({
       "@context": "https://schema.org",
       "@type": "ContactPage",
       name: `${tc("medcasts")} 24/7 Emergency Desk`,
@@ -95,7 +98,7 @@ const STEPS = [
     })} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -312,6 +315,48 @@ const STEPS = [
         </div>
       </div>
     </section>
+
+    <HowItWorks
+      heading="How an emergency desk actually works"
+      italicWord="actually works"
+      eyebrow="The protocol"
+      steps={[
+        { title: "First contact (under 2 minutes)", description: "Call or message reaches a senior physician on call, not a call centre. We confirm your situation, location, and immediate clinical concern." },
+        { title: "Stabilization advice (immediate)", description: "While we coordinate, you get specific guidance — call local 999/911, what to tell ER, what records to bring. We don't replace local emergency care; we coordinate around it." },
+        { title: "Local hospital coordination (under 2 hours)", description: "We identify the nearest accredited facility for your specific condition, confirm bed availability, and coordinate physician-to-physician handoff." },
+        { title: "Repatriation evaluation (4-12 hours)", description: "If repatriation is appropriate, we begin air ambulance evaluation. Lear-jet evacuation under 4 hours from major hubs (Delhi, Istanbul, Bangkok, Dubai, Singapore)." },
+        { title: "Continuous coordination", description: "Single point of contact through stabilization, transfer, admission, and family communication. You're not navigating multiple systems alone." },
+      ]}
+      outroNote="Emergency care while traveling abroad is usually handled by local systems. Our role is coordination, language support, family liaison, and (when needed) repatriation — not replacing acute care."
+    />
+
+    <WhatToExpect
+      heading="What we cover and what we don't"
+      italicWord="what we don't"
+      items={[
+        { label: "We cover", description: "Coordination, language support, family liaison, hospital identification and warm-handoff, records transfer, repatriation logistics, insurance liaison, embassy notification." },
+        { label: "We don't cover", description: "We are coordinators, not clinicians. We don't diagnose, prescribe, or perform care directly. Local emergency systems do that; we coordinate around them." },
+        { label: "Cost reality", description: "Air ambulance evacuation runs $50,000–250,000+ depending on distance and complexity. Travel insurance with strong evacuation coverage is essential — confirm policy limits before traveling." },
+        { label: "Eligibility", description: "Available 24/7 to anyone, regardless of whether you came to medical care through MedCasts. Free for active patients during their treatment trip; otherwise paid coordination service." },
+      ]}
+    />
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow="When the situation isn't immediate"
+      heading="Plan ahead, before the next emergency"
+      lede="If you have time to prepare, the pages below help you set up faster access if a crisis recurs."
+      items={[
+        { eyebrow: "Triage", label: "Symptom-based triage", href: "/emergency-triage", hint: "Quick check on whether you need to call 24/7 desk." },
+        { eyebrow: "Specialty", label: "Cardiac surgeons", href: "/surgeons/cardiac-surgery", hint: "For chest-pain or post-MI recurrence." },
+        { eyebrow: "Specialty", label: "Neurosurgeons", href: "/surgeons/neurosurgery", hint: "For stroke or post-trauma escalation." },
+        { eyebrow: "Specialty", label: "Oncology", href: "/specialty/oncology", hint: "For oncology-related deteriorations." },
+        { eyebrow: "Insurance", label: "Coverage on the road", href: "/insurance", hint: "What international policies cover for emergencies." },
+        { eyebrow: "Quote", label: "Plan a treatment", href: "/quote", hint: "If your case is urgent but stable enough to plan." },
+        { eyebrow: "Trust", label: "Free second opinion", href: "/second-opinion", hint: "Independent review of an existing surgical plan." },
+        { eyebrow: "Track", label: "Patient portal", href: "/portal", hint: "Track an active case by code." },
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>

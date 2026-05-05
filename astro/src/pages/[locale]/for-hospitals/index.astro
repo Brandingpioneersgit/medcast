@@ -3,11 +3,14 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 import EntityListingHero from "@/components/EntityListingHero.astro";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
 import { ChevronRight, Check } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
 
 export const prerender = false;
 
@@ -69,10 +72,10 @@ const QUALIFIES = [
       path={path}
       locale={locale}
     />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -204,6 +207,51 @@ const QUALIFIES = [
         </div>
       </div>
     </section>
+
+    <HowItWorks
+      heading="How partner hospitals work with us"
+      italicWord="work with us"
+      eyebrow="Partnership process"
+      steps={[
+        { title: "Initial conversation", description: "International department lead at the hospital connects with our partnerships team. We share our patient demographics, case volumes, and quality criteria." },
+        { title: "Quality validation", description: "We verify accreditation status, surgeon credentials, outcomes data publication, and pricing structure. Hospitals not meeting baseline standards aren't onboarded." },
+        { title: "Pricing transparency commitment", description: "Partner hospitals commit to itemized quote sheets — line-item breakdown of surgeon fee, anesthesia, implant, hospital stay, etc. Package marketing isn't enough." },
+        { title: "Coordination integration", description: "We integrate with the hospital's international-patient department for case routing, quote turnaround, and post-op coordination. Single point of contact at the hospital." },
+        { title: "Patient referral", description: "We refer cases that match your specific specialty depth and patient mix. We don't fire-hose; we match." },
+        { title: "Coordination fee on completion", description: "5-15% of hospital invoice paid by the hospital after the patient completes treatment. Free for the patient. No upfront fees from hospitals; success-aligned." },
+      ]}
+      outroNote="We work with hospitals across 9 destinations. Partnership terms are written and renewable. Patient referral volume scales with quality and outcomes — not marketing spend."
+    />
+
+    <WhatToExpect
+      heading="What we look for in partner hospitals"
+      italicWord="partner hospitals"
+      items={[
+        { label: "Accreditation depth", description: "JCI is baseline. Country-specific (NABH, HA, KOIHA, MSQH) preferred. Multiple accreditations from independent bodies are stronger." },
+        { label: "Sub-specialty volume", description: "Annual case volume on specific procedures, not just hospital totals. Programs with sub-specialty teams (mitral valve, hepatobiliary, pediatric cardiac) are prioritized." },
+        { label: "Outcomes transparency", description: "30-day mortality, revision rates, complication profiles published or shareable. Hospitals that don't publish these aren't ready for international referral." },
+        { label: "International patient infrastructure", description: "Multilingual coordinators, dedicated international wings, post-discharge telemedicine, complications protocols. Real infrastructure, not just translation." },
+        { label: "Pricing transparency", description: "Itemized quotes with all line items. Real pricing that holds, not bait-and-switch." },
+        { label: "Communication quality", description: "Quote turnaround within 48 hours. Direct surgeon access for video consults. Honest case selection — willing to decline cases that don't fit." },
+      ]}
+    />
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow="See how we work"
+      heading="What we publish + how we evaluate"
+      lede="Before partnering, prospective hospitals usually want to know how we describe facilities, what we link out to, and how we handle pricing."
+      items={[
+        { eyebrow: "Process", label: "Editorial + corrections policy", href: "/editorial-policy", hint: "How we source, review, and update hospital pages." },
+        { eyebrow: "Reviewers", label: "Medical board", href: "/medical-board", hint: "Clinical reviewers behind each specialty hub." },
+        { eyebrow: "Quality", label: "Accreditation registry", href: "/accreditation", hint: "Which credentials we surface + verify." },
+        { eyebrow: "Listings", label: "All hospitals", href: "/hospitals", hint: "9,254 facilities — the network you'd join." },
+        { eyebrow: "Listings", label: "Top destinations", href: "/countries", hint: "9 countries we actively place patients into." },
+        { eyebrow: "Cost", label: "Pricing matrix", href: "/pricing-index", hint: "How we benchmark cost across hospitals." },
+        { eyebrow: "About", label: "Who we are", href: "/about", hint: "Coordinator-not-clinician scope; how we get paid." },
+        { eyebrow: "Talk", label: "Talk to partnerships", href: "/contact", hint: "We respond within 1 business day." },
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>
