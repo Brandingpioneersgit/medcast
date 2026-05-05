@@ -139,6 +139,7 @@ function titleFromArticleUrl(articleUrl: string): string {
 
 async function main() {
   const sql = postgres(DATABASE_URL, { max: 4, prepare: false });
+  await sql.unsafe("SET statement_timeout = 0");
 
   const destCountries = await sql`
     SELECT id, name, slug, iso_code FROM countries WHERE is_destination = true ORDER BY id

@@ -124,7 +124,10 @@ async function fetchAllForCountry(iso: string, cap: number, pageSize = 1000): Pr
 }
 
 async function main() {
-  const client = postgres(DATABASE_URL);
+  const client = postgres(DATABASE_URL, { prepare: false });
+  // Supabase pooler enforces a 2min statement timeout by default. Bulk inserts
+  // exceed this on slow links, so disable for the import session.
+  await client.unsafe("SET statement_timeout = 0");
   const db = drizzle(client, { schema });
 
   const destCountries = await db
