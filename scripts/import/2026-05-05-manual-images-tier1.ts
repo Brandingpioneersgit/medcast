@@ -9,7 +9,7 @@
  *
  * Doctors covered: 10 highest-traffic practicing physicians at flagship
  *                  hospitals (Apollo, Medanta, Max, Artemis, Amrita, Sarvodaya).
- * Hospitals covered: 62 international medical-tourism flagships across all 9
+ * Hospitals covered: 99 international medical-tourism flagships across all 9
  *                    destination countries.
  *
  * Idempotent — re-run safe. Use this script to reseed if image_url /
@@ -57,6 +57,32 @@ const HOSPITALS: Array<[string, string]> = [
   ["l-v-prasad-eye-institute", "https://upload.wikimedia.org/wikipedia/commons/a/a2/L._V._Prasad_Eye_Institute%2C_Banjara_Hills%2C_Hyderabad%2C_Telangana%2C_India.jpg"],
   ["christian-medical-college-and-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/d1/CMC_Hospital_building.jpg"],
   ["christian-medical-college-hospital", "https://upload.wikimedia.org/wikipedia/commons/3/3b/CMCH_Vellore.JPG"],
+  ["aiims-bhubaneswar", "https://upload.wikimedia.org/wikipedia/commons/a/ad/AIIMS_Bhubaneswar%2C_Odisha.jpg"],
+  ["all-india-institute-of-medical-sciences-aiims-raipur", "https://upload.wikimedia.org/wikipedia/commons/1/12/AIIMS_Raipur_Medical_College.jpg"],
+  ["all-india-institute-of-medical-sciences-rishikesh", "https://upload.wikimedia.org/wikipedia/commons/0/07/AIIMS_Rishikesh.jpg"],
+  ["all-india-institute-of-medical-sciences-guwahati", "https://upload.wikimedia.org/wikipedia/commons/2/2e/All_India_Institute_of_Medical_Sciences%2C_Guwahati.jpg"],
+  ["all-india-institute-of-medical-sciences-gorakhpur", "https://upload.wikimedia.org/wikipedia/commons/1/15/AIIMS_Gorakhpur_In_Nutshell.jpg"],
+  ["all-india-institute-of-medical-sciences-raebareli", "https://upload.wikimedia.org/wikipedia/commons/5/5a/AIIMS_RBL_Medical_College.jpg"],
+  ["jawaharlal-institute-of-postgraduate-medical-education-and-research", "https://upload.wikimedia.org/wikipedia/commons/a/a8/Jipmer.jpg"],
+  ["jawaharlal-institute-of-post-graduate-medical-education-and-research", "https://upload.wikimedia.org/wikipedia/commons/a/a8/Jipmer.jpg"],
+  ["nizam-s-institute-of-medical-sciences", "https://upload.wikimedia.org/wikipedia/commons/1/1e/NIMS.jpg"],
+  ["balabhai-nanavati-hospital", "https://upload.wikimedia.org/wikipedia/commons/1/11/Nanavati_Super_Speciality_Hospital%2C_Mumbai%2C_Maharashtra%2C_India.jpg"],
+  ["saifee-hospital", "https://upload.wikimedia.org/wikipedia/commons/6/62/Mumbai_03-2016_21_Saifee_Hospital.jpg"],
+  ["government-medical-college-thiruvananthapuram", "https://upload.wikimedia.org/wikipedia/commons/d/d7/Medical_college_Gate_Thiruvananthapuram.jpg"],
+  ["regional-cancer-centre-thiruvananthapuram", "https://upload.wikimedia.org/wikipedia/commons/4/44/Regional_Cancer_Centre%2C_Trivandrum.jpg"],
+  ["adyar-cancer-institute", "https://upload.wikimedia.org/wikipedia/commons/f/f3/Adyar_Cancer_Institute.jpg"],
+  ["sir-sunderlal-hospital", "https://upload.wikimedia.org/wikipedia/en/a/ac/Sir_sundar_lal_hospital.jpg"],
+  ["coimbatore-medical-college-hospital", "https://upload.wikimedia.org/wikipedia/commons/8/8f/Coimbatore_Medical_College_Hospital_India_201.jpg"],
+  ["rajiv-gandhi-government-general-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/d4/Rajiv_gandhi_government_Hospital.jpg"],
+  ["b-j-medical-college-hospital", "https://upload.wikimedia.org/wikipedia/commons/1/16/B_J_Medical_College%2C_Pune.jpg"],
+  ["goa-medical-college-hospital", "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/GMC_building_in_Goa%2C_India.tif/lossy-page1-1280px-GMC_building_in_Goa%2C_India.tif.jpg"],
+  ["osmania-general-hospital", "https://upload.wikimedia.org/wikipedia/commons/7/7c/Osmania_hospital.JPG"],
+  ["nil-ratan-sircar-medical-college-and-hospital", "https://upload.wikimedia.org/wikipedia/commons/1/11/Eagle_View_of_Academic_Building_NRS_Medical_College.jpg"],
+  ["medical-college-and-hospital-kolkata", "https://upload.wikimedia.org/wikipedia/commons/d/d4/Main_building_of_Calcutta_Medical_College_and_Hospital_03.jpg"],
+  ["r-g-kar-medical-college-and-hospital", "https://upload.wikimedia.org/wikipedia/commons/3/37/R._G._Kar_Medical_College_%26_Hospital_during_Covid-19_01.jpg"],
+  ["r-g-kar-medical-college-hospital", "https://upload.wikimedia.org/wikipedia/commons/3/37/R._G._Kar_Medical_College_%26_Hospital_during_Covid-19_01.jpg"],
+  ["national-institute-of-mental-health-and-neuro-sciences", "https://upload.wikimedia.org/wikipedia/commons/d/dd/NIMHANS_campus%2C_Bengaluru.jpg"],
+  ["national-institute-of-mental-health-and-neurosciences", "https://upload.wikimedia.org/wikipedia/commons/d/dd/NIMHANS_campus%2C_Bengaluru.jpg"],
 
   // === THAILAND flagships ===
   ["bumrungrad-hospital", "https://upload.wikimedia.org/wikipedia/commons/5/52/Thailand_Bangkok_Bumrungrad_International_Hospital_entrance-building.jpg"],
@@ -97,6 +123,7 @@ const HOSPITALS: Array<[string, string]> = [
   ["severance-hospital-seoul-station", "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bb/Sev2018.jpg/1280px-Sev2018.jpg"],
   ["seoul-national-university-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/d7/Seoulunivhospital.jpg"],
   ["korea-university-anam-hospital", "https://upload.wikimedia.org/wikipedia/commons/0/07/%EA%B3%A0%EB%A0%A4%EB%8C%80%ED%95%99%EA%B5%90_%EC%95%88%EC%95%94%EB%B3%91%EC%9B%90.jpg"],
+  ["kyung-hee-university-hospital", "https://upload.wikimedia.org/wikipedia/commons/3/31/%EA%B2%BD%ED%9D%AC%EC%9D%98%EB%A3%8C%EC%9B%90_%EC%99%B8%EA%B4%80.jpeg"],
 
   // === MALAYSIA ===
   ["prince-court-medical-centre", "https://princecourt.com/images/default-source/my_pcmc/corporate-information/about/pcmc-general-banner.webp"],
@@ -106,6 +133,16 @@ const HOSPITALS: Array<[string, string]> = [
   ["charite", "https://upload.wikimedia.org/wikipedia/commons/d/d0/2016_Charite_Hospital.jpg"],
   ["klinikum-rechts-der-isar", "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Klinikum_rechts_der_Isar_Muenchen.jpg/1280px-Klinikum_rechts_der_Isar_Muenchen.jpg"],
   ["university-medical-center-hamburg-eppendorf", "https://upload.wikimedia.org/wikipedia/commons/4/41/Universit%C3%A4tsklinikum_Hamburg-Eppendorf_Main_Entrance_2024.jpg"],
+  ["hannover-medical-school", "https://upload.wikimedia.org/wikipedia/commons/1/1c/MHH_Hanover_Eingang.jpg"],
+  ["heidelberg-university-eye-clinic", "https://upload.wikimedia.org/wikipedia/commons/2/25/Neue_Chirurgische_Klinik_Heidelberg.jpg"],
+  ["klinikum-aachen", "https://upload.wikimedia.org/wikipedia/commons/f/f3/Universit%C3%A4tsklinikum_Aachen_2023_Front.jpg"],
+  ["uniklinik-rwth-aachen", "https://upload.wikimedia.org/wikipedia/commons/f/f3/Universit%C3%A4tsklinikum_Aachen_2023_Front.jpg"],
+  ["university-hospital-bonn", "https://upload.wikimedia.org/wikipedia/commons/f/f8/Gesamtansicht_UKB.jpg"],
+  ["universitatsklinikum-bonn", "https://upload.wikimedia.org/wikipedia/commons/f/f8/Gesamtansicht_UKB.jpg"],
+  ["medical-center-university-of-freiburg", "https://upload.wikimedia.org/wikipedia/commons/4/40/UniKlinik_%28Freiburg%29_4.jpg"],
+  ["universitatsklinikum-dusseldorf", "https://upload.wikimedia.org/wikipedia/commons/d/d7/WKK-Hauptgebaeude_2017.jpg"],
+  ["university-hospital-of-dusseldorf", "https://upload.wikimedia.org/wikipedia/commons/d/d7/WKK-Hauptgebaeude_2017.jpg"],
+  ["krankenhaus-am-urban", "https://upload.wikimedia.org/wikipedia/commons/c/cf/Urban-Krankenhaus_%28Berlin-Kreuzberg%29.JPG"],
 ];
 
 async function main() {
