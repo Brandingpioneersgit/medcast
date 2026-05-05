@@ -9,7 +9,7 @@
  *
  * Doctors covered: 10 highest-traffic practicing physicians at flagship
  *                  hospitals (Apollo, Medanta, Max, Artemis, Amrita, Sarvodaya).
- * Hospitals covered: 146 international medical-tourism flagships across all 9
+ * Hospitals covered: 157 international medical-tourism flagships across all 9
  *                    destination countries.
  *
  * Idempotent — re-run safe. Use this script to reseed if image_url /
@@ -124,6 +124,17 @@ const HOSPITALS: Array<[string, string]> = [
   ["ac-badem-altunizade-hastanesi", "https://upload.wikimedia.org/wikipedia/commons/5/51/Ac%C4%B1bademHospitalAltunizade_%281%29.jpg"],
   ["bezmialem-foundation-university-faculty-of-medicine-hospital", "https://upload.wikimedia.org/wikipedia/commons/9/93/BezmialemUniversityHospital_%283%29.jpg"],
   ["bal-kl-greek-hospital", "https://upload.wikimedia.org/wikipedia/commons/8/8e/Balikli_Rum_Hastanesi_2010-10-09_02.jpg"],
+  ["hacettepe-university-hospital", "https://upload.wikimedia.org/wikipedia/commons/7/73/Hacettepe_University%2C_Ankara%2C_Turkey.jpg"],
+  ["hacettepe-adult-hospital", "https://upload.wikimedia.org/wikipedia/commons/7/73/Hacettepe_University%2C_Ankara%2C_Turkey.jpg"],
+  ["hacettepe-oncology-hospital", "https://upload.wikimedia.org/wikipedia/commons/7/73/Hacettepe_University%2C_Ankara%2C_Turkey.jpg"],
+  ["hacettepe-university-children-s-hospital", "https://upload.wikimedia.org/wikipedia/commons/7/73/Hacettepe_University%2C_Ankara%2C_Turkey.jpg"],
+  ["hacettepe-universitesi-hastanesi", "https://upload.wikimedia.org/wikipedia/commons/7/73/Hacettepe_University%2C_Ankara%2C_Turkey.jpg"],
+  ["marmara-university-faculty-of-medicine", "https://upload.wikimedia.org/wikipedia/commons/f/f0/Istanbul%2C_Marmara_University_-_panoramio.jpg"],
+  ["marmara-university-prof-dr-asaf-ataseven-hospital", "https://upload.wikimedia.org/wikipedia/commons/f/f0/Istanbul%2C_Marmara_University_-_panoramio.jpg"],
+  ["ankara-university-cebeci-hospital", "https://upload.wikimedia.org/wikipedia/commons/5/52/Ankara_%C3%9Cniversitesi_11.jpg"],
+  ["gazi-universitesi-hastanesi", "https://upload.wikimedia.org/wikipedia/commons/4/42/GaziUn%C4%B1versitesi.jpg"],
+  ["ege-university-hospital", "https://upload.wikimedia.org/wikipedia/commons/3/3d/Ege_%C3%9Cniversitesi_tekstil1.jpg"],
+  ["selcuk-university-faculty-of-medicine", "https://upload.wikimedia.org/wikipedia/commons/5/5f/T%C4%B1p_Fak%C3%BCltesi_Durak_-_Sel%C3%A7uk_%C3%9Cniversitesi.jpg"],
 
   // === UAE ===
   ["cleveland-clinic-abu-dhabi", "https://upload.wikimedia.org/wikipedia/commons/4/46/ClevelandClinicAbuDhabi1.jpg"],
