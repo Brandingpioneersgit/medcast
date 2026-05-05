@@ -4,6 +4,8 @@ import {
   specialties as specialtiesTbl,
   treatments as treatmentsTbl,
   countries as countriesTbl,
+  hospitals as hospitalsTbl,
+  cities as citiesTbl,
 } from "../../../src/lib/db/schema";
 import { asc, eq, sql } from "drizzle-orm";
 import { localizedPath, type Locale } from "@/lib/i18n";
@@ -16,10 +18,11 @@ interface Props {
 const { locale } = Astro.props;
 const isRTL = locale === "ar";
 
+type FooterRow = { slug: string; name: string; count?: number };
 type FooterData = {
-  specialties: Array<{ slug: string; name: string }>;
-  treatments: Array<{ slug: string; name: string }>;
-  countries: Array<{ slug: string; name: string }>;
+  specialties: FooterRow[];
+  treatments: FooterRow[];
+  countries: Array<FooterRow & { count: number }>;
 };
 
 const EMPTY: FooterData = { specialties: [], treatments: [], countries: [] };
@@ -27,25 +30,29 @@ let data: FooterData = EMPTY;
 
 try {
   const [specRows, treatRows, countryRows] = await Promise.all([
-    db.execute<{ slug: string; name: string }>(sql`
+    db.execute<FooterRow>(sql`
       SELECT sp.slug, sp.name
       FROM specialties sp
       WHERE sp.is_active = true
       ORDER BY sp.sort_order ASC NULLS LAST, sp.name ASC
-      LIMIT 6
+      LIMIT 8
     `),
     db
       .select({ slug: treatmentsTbl.slug, name: treatmentsTbl.name })
       .from(treatmentsTbl)
       .where(eq(treatmentsTbl.isActive, true))
       .orderBy(asc(treatmentsTbl.name))
-      .limit(6),
-    db
-      .select({ slug: countriesTbl.slug, name: countriesTbl.name })
-      .from(countriesTbl)
-      .where(eq(countriesTbl.isDestination, true))
-      .orderBy(asc(countriesTbl.name))
-      .limit(6),
+      .limit(8),
+    db.execute<FooterRow & { count: number }>(sql`
+      SELECT co.slug, co.name,
+             COUNT(DISTINCT h.id)::int as count
+      FROM countries co
+      LEFT JOIN cities ci ON ci.country_id = co.id
+      LEFT JOIN hospitals h ON h.city_id = ci.id AND h.is_active = true
+      WHERE co.is_destination = true
+      GROUP BY co.id
+      ORDER BY count DESC
+    `),
   ]);
   data = {
     specialties: Array.from(specRows),
@@ -56,38 +63,143 @@ try {
   data = EMPTY;
 }
 
-const companyLinks: Array<{ href: string; label: string }> = [
-  { href: "/about", label: "About" },
-  { href: "/for-hospitals", label: "For Hospitals" },
-  { href: "/medical-board", label: "Medical Review Panel" },
-  { href: "/pricing-index", label: "Price Index (data)" },
-  { href: "/blog", label: "Editorial" },
-  { href: "/accreditation", label: "Accreditations" },
-  { href: "/glossary", label: "Glossary" },
-  { href: "/contact", label: "Contact" },
-  { href: "/emergency", label: "Emergency" },
+// Static sections — every reachable utility page surfaced here.
+const careLinks = [
+  { href: "/treatments", label: isRTL ? "كل العلاجات" : "All treatments" },
+  { href: "/specialties", label: isRTL ? "التخصصات" : "Specialties" },
+  { href: "/conditions", label: isRTL ? "الحالات" : "Conditions" },
+  { href: "/hospitals", label: isRTL ? "كل المستشفيات" : "All hospitals" },
+  { href: "/doctors", label: isRTL ? "كل الأطباء" : "All doctors" },
+  { href: "/surgeons", label: isRTL ? "أطباء بحسب التخصص" : "Surgeons by specialty" },
+  { href: "/best", label: isRTL ? "الأفضل في..." : "Best of (specialty × country)" },
+  { href: "/countries", label: isRTL ? "كل الوجهات" : "All destinations" },
+];
+
+const toolsLinks = [
+  { href: "/calculator", label: isRTL ? "حاسبة التكلفة" : "Cost calculator" },
+  { href: "/match-me", label: isRTL ? "ابحث عن المناسب" : "Match me quiz" },
+  { href: "/quote", label: isRTL ? "اطلب عرض سعر" : "Quote builder" },
+  { href: "/quote-plan", label: isRTL ? "اطبع خطتي" : "Print my plan (PDF)" },
+  { href: "/find-specialist", label: isRTL ? "ابحث عن أخصائي" : "Find a specialist" },
+  { href: "/compare/hospitals", label: isRTL ? "قارن المستشفيات" : "Compare hospitals" },
+  { href: "/compare/doctors", label: isRTL ? "قارن الأطباء" : "Compare doctors" },
+  { href: "/compare/treatments", label: isRTL ? "قارن العلاجات" : "Compare treatments" },
+  { href: "/compare/countries", label: isRTL ? "قارن الدول" : "Compare countries" },
+  { href: "/pricing-index", label: isRTL ? "مؤشر الأسعار" : "Price index (data)" },
+];
+
+const patientLinks = [
+  { href: "/second-opinion", label: isRTL ? "رأي ثانٍ مجاني" : "Free 2nd opinion" },
+  { href: "/services", label: isRTL ? "الخدمات" : "Services" },
+  { href: "/qa", label: isRTL ? "أسئلة وأجوبة" : "Q&A" },
+  { href: "/glossary", label: isRTL ? "المصطلحات" : "Glossary" },
+  { href: "/insurance", label: isRTL ? "التأمين" : "Insurance" },
+  { href: "/portal", label: isRTL ? "تتبع حالتي" : "Patient portal · track case" },
+  { href: "/referral", label: isRTL ? "أحل مريضاً" : "Refer a patient" },
+  { href: "/emergency", label: isRTL ? "طوارئ ٢٤/٧" : "Emergency · 24/7" },
+  { href: "/incident-report", label: isRTL ? "بلاغ حادثة" : "Report an incident" },
+];
+
+const companyLinks = [
+  { href: "/about", label: isRTL ? "عن MedCasts" : "About MedCasts" },
+  { href: "/medical-board", label: isRTL ? "اللجنة الطبية" : "Medical review board" },
+  { href: "/editorial-policy", label: isRTL ? "سياسة التحرير" : "Editorial policy" },
+  { href: "/accreditation", label: isRTL ? "الاعتمادات" : "Accreditations" },
+  { href: "/for-hospitals", label: isRTL ? "للمستشفيات" : "For hospitals (B2B)" },
+  { href: "/blog", label: isRTL ? "المدونة" : "Editorial blog" },
+  { href: "/contact", label: isRTL ? "اتصل بنا" : "Contact us" },
 ];
 
 const trustBadges = ["JCI Partner", "ISO 27001", "GDPR", "HIPAA"];
 const year = new Date().getFullYear();
+
+type Column = { heading: string; links: Array<{ href: string; label: string; count?: number }> };
+
+const columns: Column[] = [
+  {
+    heading: isRTL ? "العلاج" : "Care",
+    links: careLinks,
+  },
+  {
+    heading: isRTL ? "الأدوات" : "Tools",
+    links: toolsLinks,
+  },
+  {
+    heading: isRTL ? "للمرضى" : "Patients",
+    links: patientLinks,
+  },
+  {
+    heading: isRTL ? "الوجهات" : "Destinations",
+    links: data.countries.map((c) => ({
+      href: `/country/${c.slug}`,
+      label: c.name,
+      count: c.count,
+    })),
+  },
+  {
+    heading: isRTL ? "الشركة" : "Company",
+    links: companyLinks,
+  },
+];
 ---
 
 <footer
   class="mt-auto"
   style="background: var(--color-ink); color: var(--color-bg);"
 >
-  <div class="mx-auto max-w-[1440px] px-7" style="padding-top: 64px; padding-bottom: 32px;">
-    <nav aria-label="Footer links" class="footer-grid grid gap-10 md:gap-16">
-      {/* Brand column */}
-      <div class="col-span-2 md:col-span-1">
+  {/* Top promo strip — drives to the conversion tools that aren't otherwise above-the-fold */}
+  <div style="background: rgba(246,241,230,0.04); border-bottom: 1px solid rgba(246,241,230,0.08);">
+    <div class="mx-auto max-w-[1440px] px-7 py-6 flex flex-wrap items-center justify-between gap-5">
+      <div class="flex items-center gap-4 flex-wrap">
+        <div class="serif" style="font-size: 18px; line-height: 1.3;">
+          {isRTL ? "ابدأ عملياً" : "Start practically"}
+        </div>
+        <div style="height: 16px; width: 1px; background: rgba(246,241,230,0.2);" class="hidden sm:block" />
+        <div class="flex flex-wrap gap-2">
+          <a href={localizedPath(locale, "/calculator")} class="footer-pill">
+            {isRTL ? "احسب تكلفة" : "Cost calculator"}
+          </a>
+          <a href={localizedPath(locale, "/match-me")} class="footer-pill">
+            {isRTL ? "ابحث عن المناسب" : "Match-me quiz"}
+          </a>
+          <a href={localizedPath(locale, "/second-opinion")} class="footer-pill">
+            {isRTL ? "رأي ثانٍ" : "Free 2nd opinion"}
+          </a>
+          <a href={localizedPath(locale, "/quote")} class="footer-pill">
+            {isRTL ? "اطلب عرض سعر" : "Quote builder"}
+          </a>
+          <a href={localizedPath(locale, "/portal")} class="footer-pill">
+            {isRTL ? "تتبع حالتي" : "Track case"}
+          </a>
+        </div>
+      </div>
+      <a
+        href={localizedPath(locale, "/contact")}
+        class="inline-flex items-center gap-1.5 font-medium"
+        style="background: var(--color-bg); color: var(--color-ink); padding: 9px 16px; font-size: 13.5px; border-radius: 9999px;"
+      >
+        {isRTL ? "اتصل بمنسق" : "Talk to a coordinator"} →
+      </a>
+    </div>
+  </div>
+
+  <div class="mx-auto max-w-[1440px] px-7" style="padding-top: 56px; padding-bottom: 24px;">
+    <div class="footer-top grid gap-10 md:gap-12">
+      {/* Brand */}
+      <div class="footer-brand">
         <McLogo size={34} color="var(--color-bg)" />
         <p
           class="serif"
-          style="font-size: 17px; line-height: 1.4; margin-top: 20px; opacity: 0.75; max-width: 280px;"
+          style="font-size: 17px; line-height: 1.4; margin-top: 18px; opacity: 0.78; max-width: 280px;"
         >
           {isRTL ? "بوصلتك في العلاج الطبي العالمي." : "Your compass for global medical care."}
         </p>
-        <div class="mt-5 flex flex-wrap gap-2">
+        <p style="font-size: 12.5px; line-height: 1.5; margin-top: 14px; opacity: 0.55; max-width: 280px;">
+          {isRTL
+            ? "نحن منسقون، لسنا أطباء. الحجوزات بدون وسطاء، مع لجنة طبية مستقلة."
+            : "We're coordinators, not clinicians. No middleman markup. Independent medical panel."}
+        </p>
+        <div class="mt-4 flex flex-wrap gap-2">
           {trustBadges.map((b) => (
             <span
               class="inline-flex items-center"
@@ -99,110 +211,96 @@ const year = new Date().getFullYear();
         </div>
       </div>
 
-      {/* Specialties */}
-      <div>
-        <div
-          class="mono"
-          style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.5; margin-bottom: 16px;"
-        >
-          {isRTL ? "التخصصات" : "Specialties"}
+      {/* Columns */}
+      {columns.map((col) => (
+        <div class="footer-col">
+          <div
+            class="mono"
+            style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.5; margin-bottom: 14px;"
+          >
+            {col.heading}
+          </div>
+          <ul class="flex flex-col gap-2">
+            {col.links.map((l) => (
+              <li>
+                <a
+                  href={localizedPath(locale, l.href)}
+                  style="font-size: 13.5px; opacity: 0.85; transition: opacity 120ms;"
+                  class="hover:opacity-100"
+                >
+                  {l.label}
+                  {typeof l.count === "number" && (
+                    <span class="mono tnum" style="font-size: 10px; opacity: 0.5; margin-inline-start: 6px;">
+                      {l.count.toLocaleString()}
+                    </span>
+                  )}
+                </a>
+              </li>
+            ))}
+          </ul>
         </div>
-        <ul class="flex flex-col gap-2.5">
-          {data.specialties.map((s) => (
-            <li>
-              <a
-                href={localizedPath(locale, `/specialty/${s.slug}`)}
-                style="font-size: 13.5px; opacity: 0.85; transition: opacity 120ms;"
-                class="hover:opacity-100"
-              >
-                {s.name}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </div>
+      ))}
+    </div>
 
-      {/* Treatments */}
-      <div>
-        <div
-          class="mono"
-          style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.5; margin-bottom: 16px;"
-        >
-          {isRTL ? "العلاجات" : "Treatments"}
+    {/* SEO row — top specialties + top treatments as honest indexable links */}
+    {(data.specialties.length > 0 || data.treatments.length > 0) && (
+      <div class="footer-seo" style="margin-top: 48px; padding-top: 28px; border-top: 1px solid rgba(246,241,230,0.12);">
+        <div class="grid gap-8" style="grid-template-columns: 1fr;">
+          {data.specialties.length > 0 && (
+            <div>
+              <span class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.5; margin-inline-end: 8px;">
+                {isRTL ? "تخصصات شائعة" : "Top specialties"}
+              </span>
+              {data.specialties.map((s, i) => (
+                <>
+                  {i > 0 && <span style="opacity: 0.3; margin: 0 8px;">·</span>}
+                  <a
+                    href={localizedPath(locale, `/specialty/${s.slug}`)}
+                    style="font-size: 13px; opacity: 0.78;"
+                    class="hover:opacity-100"
+                  >
+                    {s.name}
+                  </a>
+                </>
+              ))}
+            </div>
+          )}
+          {data.treatments.length > 0 && (
+            <div>
+              <span class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.5; margin-inline-end: 8px;">
+                {isRTL ? "علاجات شائعة" : "Popular treatments"}
+              </span>
+              {data.treatments.map((t, i) => (
+                <>
+                  {i > 0 && <span style="opacity: 0.3; margin: 0 8px;">·</span>}
+                  <a
+                    href={localizedPath(locale, `/treatment/${t.slug}`)}
+                    style="font-size: 13px; opacity: 0.78;"
+                    class="hover:opacity-100"
+                  >
+                    {t.name}
+                  </a>
+                </>
+              ))}
+            </div>
+          )}
         </div>
-        <ul class="flex flex-col gap-2.5">
-          {data.treatments.map((t) => (
-            <li>
-              <a
-                href={localizedPath(locale, `/treatment/${t.slug}`)}
-                style="font-size: 13.5px; opacity: 0.85;"
-                class="hover:opacity-100 line-clamp-1"
-              >
-                {t.name}
-              </a>
-            </li>
-          ))}
-        </ul>
       </div>
+    )}
 
-      {/* Destinations */}
-      <div>
-        <div
-          class="mono"
-          style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.5; margin-bottom: 16px;"
-        >
-          {isRTL ? "الوجهات" : "Destinations"}
-        </div>
-        <ul class="flex flex-col gap-2.5">
-          {data.countries.map((c) => (
-            <li>
-              <a
-                href={localizedPath(locale, `/country/${c.slug}`)}
-                style="font-size: 13.5px; opacity: 0.85;"
-                class="hover:opacity-100"
-              >
-                {c.name}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Company */}
-      <div>
-        <div
-          class="mono"
-          style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.5; margin-bottom: 16px;"
-        >
-          {isRTL ? "الشركة" : "Company"}
-        </div>
-        <ul class="flex flex-col gap-2.5">
-          {companyLinks.map((l) => (
-            <li>
-              <a
-                href={localizedPath(locale, l.href)}
-                style="font-size: 13.5px; opacity: 0.85;"
-                class="hover:opacity-100"
-              >
-                {l.label}
-              </a>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </nav>
-
-    <div style="margin-top: 56px; margin-bottom: 20px; height: 1px; background: rgba(246,241,230,0.12);" />
+    <div style="margin-top: 40px; height: 1px; background: rgba(246,241,230,0.12);" />
     <div
       class="flex flex-col md:flex-row md:items-center md:justify-between gap-3"
-      style="font-size: 12px; opacity: 0.6;"
+      style="font-size: 12px; opacity: 0.6; padding-top: 20px;"
     >
       <div>© {year} MedCasts · Patient-first medical travel · Not a substitute for medical advice.</div>
       <div class="flex flex-wrap gap-5">
         <a href={localizedPath(locale, "/privacy-policy")}>Privacy</a>
         <a href={localizedPath(locale, "/terms")}>Terms</a>
-        <a href={localizedPath(locale, "/editorial-policy")}>Medical Board</a>
-        <a href={localizedPath(locale, "/sitemap.xml")}>Sitemap</a>
+        <a href={localizedPath(locale, "/editorial-policy")}>Editorial</a>
+        <a href={localizedPath(locale, "/medical-board")}>Medical Board</a>
+        <a href={localizedPath(locale, "/sitemap-browse")}>Site map</a>
+        <a href="/sitemap.xml">XML sitemap</a>
       </div>
     </div>
   </div>
@@ -210,17 +308,31 @@ const year = new Date().getFullYear();
 </footer>
 
 <style>
-  .footer-grid {
+  .footer-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 9999px;
+    border: 1px solid rgba(246,241,230,0.22);
+    color: var(--color-bg);
+    font-size: 12.5px;
+    transition: background 120ms, border-color 120ms;
+  }
+  .footer-pill:hover {
+    background: rgba(246,241,230,0.08);
+    border-color: rgba(246,241,230,0.45);
+  }
+
+  .footer-top {
     grid-template-columns: repeat(2, 1fr);
   }
+  .footer-brand { grid-column: 1 / -1; }
   @media (min-width: 640px) {
-    .footer-grid {
-      grid-template-columns: repeat(3, 1fr);
-    }
+    .footer-top { grid-template-columns: repeat(3, 1fr); }
+    .footer-brand { grid-column: 1 / -1; }
   }
   @media (min-width: 960px) {
-    .footer-grid {
-      grid-template-columns: 1.2fr 1fr 1fr 1fr 1fr;
-    }
+    .footer-top { grid-template-columns: 1.4fr repeat(5, 1fr); }
+    .footer-brand { grid-column: auto; }
   }
 </style>

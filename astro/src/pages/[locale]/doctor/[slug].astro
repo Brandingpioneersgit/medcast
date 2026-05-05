@@ -6,6 +6,7 @@ import SiteFooter from "@/components/SiteFooter.astro";
 import Price from "@/components/Price.astro";
 import { formatUsd } from "@/lib/currency";
 import { getDoctorBySlug } from "@/lib/queries";
+import { sql as rawSql } from "@/lib/db";
 import {
   getContent,
   getContentBatch,
@@ -19,6 +20,8 @@ import { doctorJsonLd, breadcrumbJsonLd, localeUrl, SITE_URL, withProvenance } f
 import LastUpdated from "@/components/LastUpdated.astro";
 import ContactDoctor from "@/components/ContactDoctor.tsx";
 import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
+import MobileQuoteBar from "@/components/MobileQuoteBar.astro";
+import EngagementFab from "@/components/EngagementFab.astro";
 import { whatsappFor } from "@/lib/whatsapp";
 import { doctorPortrait } from "@/lib/images";
 import {
@@ -71,6 +74,16 @@ const docSpecialties = (doctorRaw.specialties ?? []).map((ds) => ({
 }));
 const expertise = doctorRaw.expertise ?? [];
 
+// Pull specialty content_sections — primary specialty drives "questions to ask"
+const primarySpecialtyId = doctorRaw.specialties?.[0]?.specialty?.id ?? null;
+let primarySpecSections: any = null;
+let primarySpecName: string | null = null;
+if (primarySpecialtyId) {
+  const r = await rawSql`SELECT content_sections, slug FROM specialties WHERE id = ${primarySpecialtyId} LIMIT 1`;
+  primarySpecSections = r[0]?.content_sections ?? null;
+  primarySpecName = docSpecialties[0]?.specialty?.name ?? null;
+}
+
 function parseLanguages(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw.filter((x): x is string => typeof x === "string");
   if (typeof raw === "string") {
@@ -99,6 +112,44 @@ const whatsappUrl = whatsappFor({
 const nameHasTitle = /^(dr\.?|prof\.?|mr\.?|ms\.?|mrs\.?)\s/i.test(doctor.name);
 const titlePrefix = nameHasTitle ? "" : (doctor.title ?? "Dr.");
 const fullName = titlePrefix ? `${titlePrefix} ${doctor.name}` : doctor.name;
+
+// Parse `qualifications` into discrete credential pills, tagged by kind.
+type Cred = { label: string; tone: "primary" | "muted"; kind: string };
+const creds: Cred[] = [];
+{
+  const rawQuals = (doctor.qualifications ?? "").trim();
+  if (rawQuals) {
+    const seen = new Set<string>();
+    const parts = rawQuals
+      .split(/[,;·•|/]| · /)
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0 && p.length <= 80);
+    for (const p of parts) {
+      const norm = p.toLowerCase().replace(/\s+/g, " ");
+      if (seen.has(norm)) continue;
+      seen.add(norm);
+      const isFellow = /\bfellow|fellowship|frcs|facs|facc|fasn|fascrs|fnasc|frcp|frcr|fcps\b/i.test(p);
+      const isBoard = /\bboard|diplomate|board[-\s]?certif|abms|specialist registration\b/i.test(p);
+      const isCore = isFellow || isBoard || /\b(md|mbbs|do|phd|dnb|ms|mch|md\.|mbbs\.)\b/i.test(p);
+      creds.push({
+        label: p,
+        tone: isCore ? "primary" : "muted",
+        kind: isFellow ? "Fellowship" : isBoard ? "Board" : isCore ? "Degree" : "Member",
+      });
+    }
+  }
+}
+const cleanDocName = doctor.name.replace(/^Dr\.?\s*/i, "");
+const pubmedQuery = encodeURIComponent(`${cleanDocName}[Author]`);
+const currentYear = new Date().getFullYear();
+const pubmedUrl = `https://pubmed.ncbi.nlm.nih.gov/?term=${pubmedQuery}&filter=years.${currentYear - 10}-${currentYear}`;
+const scholarUrl = `https://scholar.google.com/scholar?q=${encodeURIComponent(`"${cleanDocName}"`)}+${encodeURIComponent(docSpecialties[0]?.specialty.name ?? "")}`;
+const orcidUrl = `https://orcid.org/orcid-search/search?searchQuery=${encodeURIComponent(cleanDocName)}`;
+const researchLinks = [
+  { label: "PubMed", sub: "Peer-reviewed (last 10y)", url: pubmedUrl },
+  { label: "Google Scholar", sub: "Citations + co-authors", url: scholarUrl },
+  { label: "ORCID", sub: "Researcher ID lookup", url: orcidUrl },
+];
 
 const seoTitle = hospital ? `${fullName} — ${hospital.name}` : fullName;
 const seoDescription = `${doctor.name}${doctor.qualifications ? `, ${doctor.qualifications}` : ""}${hospital ? ` at ${hospital.name}` : ""}. ${doctor.experienceYears ? `${doctor.experienceYears}+ years experience. ` : ""}Book an appointment.`;
@@ -171,6 +222,7 @@ const timelineEntries: TimelineEntry[] = (() => {
 })();
 
 const untranslated = isUntranslated(locale, doctorMap);
+const isThin = !doctor.bio || doctor.bio.trim().length < 120;
 
 Astro.response.headers.set(
   "Cache-Control",
@@ -186,7 +238,7 @@ Astro.response.headers.set(
       path={path}
       locale={locale}
       image={doctor.imageUrl ?? undefined}
-      noindex={untranslated}
+      noindex={untranslated || isThin}
     />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(jsonLd)} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
@@ -209,8 +261,11 @@ Astro.response.headers.set(
     <section style="padding: 48px 28px; background: var(--color-paper); border-bottom: 1px solid var(--color-border);">
       <div class="mx-auto max-w-[1440px]">
         <div class="grid gap-10 lg:grid-cols-[0.8fr,1.5fr,1fr] lg:gap-[40px] items-start">
-          {/* Portrait */}
-          <div class="paper-flat relative overflow-hidden" style="aspect-ratio: 4/5; border-radius: var(--radius-lg);">
+          {/* Portrait — capped width on small screens so the 4/5 aspect doesn't blow up */}
+          <div
+            class="mc-doctor-portrait paper-flat relative overflow-hidden mx-auto lg:mx-0 w-full"
+            style="aspect-ratio: 4/5; border-radius: var(--radius-lg);"
+          >
             <img
               src={doctorPortrait({ imageUrl: doctor.imageUrl, id: doctor.id }, 600)}
               alt={fullName}
@@ -220,6 +275,14 @@ Astro.response.headers.set(
               fetchpriority="high"
               decoding="async"
               class="absolute inset-0 h-full w-full object-cover"
+            />
+            {/* tonal warm-tint to keep portraits in the parchment palette */}
+            <div
+              aria-hidden="true"
+              class="absolute inset-0 pointer-events-none"
+              style="background:
+                linear-gradient(180deg, rgba(246,241,230,0.06) 0%, rgba(246,241,230,0) 30%),
+                linear-gradient(180deg, rgba(14,23,19,0) 65%, rgba(14,23,19,0.20) 100%);"
             />
           </div>
 
@@ -253,7 +316,7 @@ Astro.response.headers.set(
               <div class="flex items-center gap-3 mt-3.5">
                 <span class="inline-flex items-center gap-0.5" aria-label={`${doctor.rating} of 5`}>
                   {[0,1,2,3,4].map((i) => (
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill={i < Math.round(Number(doctor.rating)) ? "var(--color-saffron)" : "none"} stroke="var(--color-saffron)" stroke-width="1.2">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill={i < Math.round(Number(doctor.rating)) ? "var(--color-saffron)" : "none"} stroke="var(--color-saffron)" stroke-width="1.6">
                       <path d="M8 1.5l2.12 4.3 4.74.69-3.43 3.35.81 4.72L8 12.31l-4.24 2.23.81-4.72L1.14 6.47l4.74-.69L8 1.5z" />
                     </svg>
                   ))}
@@ -420,6 +483,75 @@ Astro.response.headers.set(
             </div>
           )}
 
+          {/* Credentials & research */}
+          {creds.length > 0 && (
+            <div class="mt-10">
+              <p class="mono uppercase mb-3" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
+                Credentials & research
+              </p>
+              <h2 class="display mb-5" style="font-size: 26px; letter-spacing: -0.015em;">
+                Verifiable
+                <span style="font-style: italic; font-weight: 300;"> training</span>
+              </h2>
+              <div class="grid gap-6 lg:grid-cols-[1.3fr,1fr]">
+                <div>
+                  <p class="mono uppercase mb-3" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                    Qualifications
+                  </p>
+                  <ul class="flex flex-wrap gap-2">
+                    {creds.map((c) => (
+                      <li
+                        class="inline-flex items-center gap-1.5"
+                        style={c.tone === "primary"
+                          ? "padding: 6px 12px; border-radius: 9999px; background: var(--color-accent-soft); color: var(--color-accent-strong, var(--color-accent)); font-size: 12px; line-height: 1.3;"
+                          : "padding: 6px 12px; border-radius: 9999px; border: 1px solid var(--color-border); color: var(--color-ink-muted); font-size: 12px; line-height: 1.3;"}
+                      >
+                        <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true">
+                          <path d="M3 8l3 3 7-7" />
+                        </svg>
+                        <span>{c.label}</span>
+                        <span class="mono uppercase" style="font-size: 8.5px; letter-spacing: 0.1em; opacity: 0.55; padding-inline-start: 4px;">{c.kind}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p class="mt-3 mono uppercase" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                    Cross-checked against national medical-council registers · re-verified annually
+                  </p>
+                </div>
+                <div class="paper" style="padding: 18px 20px;">
+                  <p class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
+                    Publications & profile
+                  </p>
+                  <div class="serif mt-2" style="font-size: 16px; line-height: 1.3; font-weight: 500;">
+                    Look up {doctor.name.split(" ").slice(0, 2).join(" ")}'s research independently
+                  </div>
+                  <p class="serif mt-2" style="font-size: 13.5px; line-height: 1.55; color: var(--color-ink-muted);">
+                    We don't pay surgeons to feature here, so we link out to neutral indexes you can verify yourself.
+                  </p>
+                  <ul class="mt-3.5 space-y-1.5">
+                    {researchLinks.map((l) => (
+                      <li>
+                        <a
+                          href={l.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="flex items-center justify-between gap-3 group"
+                          style="padding: 8px 12px; border-radius: 9999px; border: 1px solid var(--color-border);"
+                        >
+                          <span class="min-w-0">
+                            <span class="serif" style="font-size: 13.5px; font-weight: 500; color: var(--color-ink);">{l.label}</span>
+                            <span class="mono uppercase ms-2" style="font-size: 9px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">{l.sub}</span>
+                          </span>
+                          <span class="mono uppercase shrink-0 group-hover:text-accent transition-colors" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">Open ↗</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Linked specialty-hub tags (if >8, expose more here) */}
           {docSpecialties.length > 8 && (
             <div class="mt-10">
@@ -556,8 +688,72 @@ Astro.response.headers.set(
       </section>
     )}
 
+    {/* Specialty-keyed evaluation framework */}
+    {primarySpecSections && primarySpecName && (
+      <section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+          <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+            Evaluating this surgeon
+          </div>
+          <h2 class="display mb-7" style="font-size: 28px; letter-spacing: -0.02em;">
+            How to evaluate a <span style="font-style: italic;">{primarySpecName.toLowerCase()}</span> specialist
+          </h2>
+
+          {primarySpecSections.surgeonVolumeThresholds && primarySpecSections.surgeonVolumeThresholds.length > 0 && (
+            <div class="mb-10">
+              <h3 class="display mb-4" style="font-size: 22px;">Volume benchmarks for this specialty</h3>
+              <div class="paper overflow-hidden" style="padding: 0;">
+                {primarySpecSections.surgeonVolumeThresholds.map((t: any, i: number) => (
+                  <div
+                    class="grid items-start gap-4 p-5"
+                    style={`grid-template-columns: 220px 1fr; ${i > 0 ? "border-top: 1px solid var(--color-border-soft);" : ""}`}
+                  >
+                    <span class="mono uppercase" style="font-size: 12px; letter-spacing: 0.08em; color: var(--color-accent);">{t.range}</span>
+                    <span style="font-size: 15px; line-height: 1.5;">{t.quality}</span>
+                  </div>
+                ))}
+              </div>
+              <p class="mt-3 mono" style="font-size: 12px; color: var(--color-ink-subtle); line-height: 1.5;">
+                Ask {doctor.name.split(" ").slice(-1)[0]}'s practice for their personal annual case volume on the specific procedure you need — institutional volume varies widely from individual surgeon volume.
+              </p>
+            </div>
+          )}
+
+          {primarySpecSections.questionsForProgram && primarySpecSections.questionsForProgram.length > 0 && (
+            <div class="mb-10">
+              <h3 class="display mb-4" style="font-size: 22px;">Questions to ask in your consultation</h3>
+              <ol class="space-y-3">
+                {primarySpecSections.questionsForProgram.map((q: string, i: number) => (
+                  <li class="flex gap-4 items-start paper" style="padding: 16px 22px;">
+                    <span class="display tnum" style="font-size: 26px; line-height: 1; opacity: 0.35; min-width: 36px;">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <p style="font-size: 15.5px; line-height: 1.5;">{q}</p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {primarySpecSections.programQualitySignals && primarySpecSections.programQualitySignals.length > 0 && (
+            <div>
+              <h3 class="display mb-4" style="font-size: 22px;">What to look for in a {primarySpecName.toLowerCase()} program</h3>
+              <ul class="space-y-3">
+                {primarySpecSections.programQualitySignals.map((s: string) => (
+                  <li class="flex gap-3 items-start" style="font-size: 15.5px; line-height: 1.55;">
+                    <span style="color: var(--color-accent);">→</span>
+                    <span>{s}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </section>
+    )}
+
     {/* EEAT signals — methodology + reviewer attribution */}
-    <MethodologyBlock
+    <MethodologyBlock locale={locale}
       lastReviewed={doctor.updatedAt}
       curationNote={`This profile of ${doctor.name} is built from primary credentialling sources — the relevant national medical council registry, the surgeon's institutional bio, and peer-reviewed publication record (where available). Patient testimonials are independently verified against booking records before publication.`}
       dataSources={[
@@ -569,5 +765,20 @@ Astro.response.headers.set(
     />
 
     <SiteFooter locale={locale} />
+    <EngagementFab locale={locale} />
+    <MobileQuoteBar
+      locale={locale}
+      label={doctor.name}
+      sublabel={[hospital?.name, docSpecialties[0]?.specialty.name].filter(Boolean).join(" · ") || "Free 2nd opinion"}
+      whatsapp={{
+        page: "doctor",
+        slug,
+        doctorName: doctor.name,
+        hospitalName: hospital?.name ?? undefined,
+        specialtyName: docSpecialties[0]?.specialty.name,
+        cityName: cityName ?? undefined,
+        countryName: countryName ?? undefined,
+      }}
+    />
   </main>
 </BaseLayout>

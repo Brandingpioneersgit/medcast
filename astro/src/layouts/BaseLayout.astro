@@ -3,6 +3,7 @@ import "../styles/global.css";
 import { isRtl, defaultLocale, type Locale } from "@/lib/i18n";
 import { organizationJsonLd, webSiteJsonLd } from "@/lib/seo";
 import CommandPalette from "@/components/CommandPalette.astro";
+import ConsentBanner from "@/components/ConsentBanner.astro";
 
 interface Props {
   locale?: Locale;
@@ -16,6 +17,17 @@ const dir = isRtl(locale) ? "rtl" : "ltr";
 const hasHeadSlot = Astro.slots.has("head");
 const orgLd = organizationJsonLd();
 const siteLd = webSiteJsonLd();
+
+// Search / analytics IDs come from env so they don't leak into git and can be
+// disabled in dev. All three are independently optional.
+const GSC_VERIFICATION = import.meta.env.PUBLIC_GSC_VERIFICATION as string | undefined;
+const GA_MEASUREMENT_ID = import.meta.env.PUBLIC_GA_MEASUREMENT_ID as string | undefined;
+const GTM_ID = import.meta.env.PUBLIC_GTM_ID as string | undefined;
+
+// GDPR: only fire analytics tags after explicit "all" consent. The footer
+// claims GDPR compliance — gating is required to honor that.
+const consent = Astro.cookies.get("mc-consent")?.value;
+const analyticsAllowed = consent === "all";
 ---
 
 <!doctype html>
@@ -24,8 +36,42 @@ const siteLd = webSiteJsonLd();
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="format-detection" content="telephone=no" />
+    {GSC_VERIFICATION && <meta name="google-site-verification" content={GSC_VERIFICATION} />}
+
+    {/* Favicons / app icons — SVG covers modern browsers; apple-touch-icon for iOS home-screen. */}
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/icons/icon-192.svg" sizes="192x192" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.svg" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#0A5D54" />
+    <meta name="apple-mobile-web-app-title" content="MedCasts" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="msapplication-TileColor" content="#0A5D54" />
+
     <link rel="preconnect" href="https://images.unsplash.com" crossorigin />
+    {/* DNS prefetch — cheap (no TLS handshake), saves ~50ms when these
+        domains are eventually contacted. Pre-resolves even before consent
+        is granted; that's fine — DNS lookups don't carry user data. */}
+    <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+    <link rel="dns-prefetch" href="https://www.google-analytics.com" />
+    <link rel="dns-prefetch" href="https://o4506404123.ingest.sentry.io" />
+    <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+    {/* Google Tag Manager — only fired after explicit consent (GDPR). */}
+    {GTM_ID && analyticsAllowed && (
+      <>
+        <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />
+        <script is:inline set:html={`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${GTM_ID}');`} />
+      </>
+    )}
+    {/* Google Analytics 4 — gated on the same consent. If GA is inside the
+        GTM container, leave PUBLIC_GA_MEASUREMENT_ID empty to avoid double-fire. */}
+    {GA_MEASUREMENT_ID && analyticsAllowed && (
+      <>
+        <script is:inline async src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`} />
+        <script is:inline set:html={`window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${GA_MEASUREMENT_ID}');`} />
+      </>
+    )}
     {/* Fonts are self-hosted in /public/fonts — @font-face declared in global.css.
         Preloading the two most critical woff2 (Fraunces display + Inter body) gives
         the browser a head start, so text paints before parsing external CSS. */}
@@ -43,7 +89,37 @@ const siteLd = webSiteJsonLd();
     )}
   </head>
   <body>
+    {/* Skip-to-content link — first focusable element on every page so keyboard
+        users can jump past the header nav to the main content. Visually hidden
+        until focused. Pages should mark their primary <main> element with
+        id="main" to be the target. */}
+    <a href="#main" class="mc-skip-link">Skip to main content</a>
+    {/* Google Tag Manager (noscript fallback) — also gated on consent. */}
+    {GTM_ID && analyticsAllowed && (
+      <noscript>
+        <iframe
+          src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
+          height="0"
+          width="0"
+          style="display:none;visibility:hidden"
+          title="Google Tag Manager"
+        />
+      </noscript>
+    )}
     <slot />
     <CommandPalette locale={locale} />
+    <ConsentBanner locale={locale} />
+    {/* Service worker — prod only. Registers /sw.js for SWR HTML, cache-first
+        static assets, and Unsplash cover-image caching. Skips on dev so HMR
+        isn't intercepted. */}
+    {import.meta.env.PROD && (
+      <script is:inline>
+        {`if ("serviceWorker" in navigator) {
+          window.addEventListener("load", function () {
+            navigator.serviceWorker.register("/sw.js").catch(function () {});
+          });
+        }`}
+      </script>
+    )}
   </body>
 </html>

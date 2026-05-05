@@ -4,11 +4,35 @@ import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import { db } from "@/lib/db";
+import Price from "@/components/Price.astro";
+import { formatUsd } from "@/lib/currency";
+import WhyCountrySection from "@/components/content/WhyCountrySection.astro";
+import TravelLogisticsSection from "@/components/content/TravelLogisticsSection.astro";
+import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
+import { getTreatmentSections, getCountrySections } from "@/lib/content-sections";
 import {
   hospitals, hospitalTreatments, treatments, specialties, cities, countries,
+  testimonials as testimonialsTbl,
 } from "../../../../../../src/lib/db/schema";
-import { getTestimonialsForTreatment } from "@/lib/queries";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
+type TestimonialRow = { id: number; rating: number; isVerified: boolean | null; title: string | null; story: string; patientName: string | null; patientCountry: string | null; patientAge: number | null };
+async function getTestimonialsForTreatment(treatmentId: number, limit: number): Promise<TestimonialRow[]> {
+  return db
+    .select({
+      id: testimonialsTbl.id,
+      rating: testimonialsTbl.rating,
+      isVerified: testimonialsTbl.isVerified,
+      title: testimonialsTbl.title,
+      story: testimonialsTbl.story,
+      patientName: testimonialsTbl.patientName,
+      patientCountry: testimonialsTbl.patientCountry,
+      patientAge: testimonialsTbl.patientAge,
+    })
+    .from(testimonialsTbl)
+    .where(and(eq(testimonialsTbl.treatmentId, treatmentId), eq(testimonialsTbl.isActive, true)))
+    .orderBy(desc(testimonialsTbl.isFeatured), desc(testimonialsTbl.createdAt))
+    .limit(limit);
+}
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import {
   getContent,
@@ -38,7 +62,22 @@ const treatmentRow = await db.query.treatments.findFirst({
 if (!treatmentRow) return new Response(`Not found: ${slug}`, { status: 404 });
 
 const countryRow = await db.query.countries.findFirst({ where: eq(countries.slug, countrySlug) });
-if (!countryRow) return new Response(`Not found: ${countrySlug}`, { status: 404 });
+if (!countryRow) {
+  // Param may be a city slug (e.g. /treatment/cabg-heart-bypass/new-delhi).
+  // 301 to the city's country page so city-shaped URLs (sitemap-treatments-cities,
+  // city/[slug] cross-links) still resolve to useful content. Country is canonical.
+  const cityFallback = await db.query.cities.findFirst({
+    where: eq(cities.slug, countrySlug),
+    with: { country: true },
+  });
+  if (cityFallback?.country?.slug) {
+    return Astro.redirect(
+      `/${locale}/treatment/${slug}/${cityFallback.country.slug}?city=${countrySlug}`,
+      301,
+    );
+  }
+  return new Response(`Not found: ${countrySlug}`, { status: 404 });
+}
 
 // Hospital pricing for this treatment × country
 const pricingRows = await db
@@ -72,6 +111,14 @@ const pricingRows = await db
 // Translations
 const treatmentMap = await getContent("treatment", treatmentRow.id, locale);
 const treatment = applyTranslated(treatmentRow, treatmentMap, ["name", "description"]);
+
+// Deep content sections (treatment-side + country-side)
+const [treatmentContentRow, countryContentRow] = await Promise.all([
+  getTreatmentSections(treatmentRow.id),
+  getCountrySections(countryRow.id),
+]);
+const tcSections = treatmentContentRow?.content_sections ?? null;
+const ccSections = countryContentRow?.content_sections ?? null;
 const specialty = treatmentRow.specialty
   ? applyTranslated(treatmentRow.specialty, await getContent("specialty", treatmentRow.specialty.id, locale), ["name"])
   : null;
@@ -189,12 +236,12 @@ Astro.response.headers.set(
       canonicalPath={`/treatment/${slug}`}
       noindex={untranslated || hospitalPricing.length === 0}
     />
-    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(jsonLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(faqSchema)} />
   </Fragment>
 
-  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} active="treatments" />
 
     {/* Breadcrumb */}
@@ -244,8 +291,8 @@ Astro.response.headers.set(
               style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); border-top: 1px solid var(--color-ink); border-bottom: 1px solid var(--color-border);"
             >
               {[
-                lowestPrice && { l: "Starting price", v: `$${Math.round(lowestPrice).toLocaleString()}` },
-                avgPrice && { l: "Average", v: `$${avgPrice.toLocaleString()}` },
+                lowestPrice && { l: "Starting price", v: await formatUsd(Astro.cookies, lowestPrice) },
+                avgPrice && { l: "Average", v: await formatUsd(Astro.cookies, avgPrice) },
                 { l: "Hospitals listed", v: hospitalPricing.length.toString() },
                 treatmentRow.hospitalStayDays && { l: "Hospital stay", v: `${treatmentRow.hospitalStayDays} days` },
                 usPrice && savingsPct && { l: "Save vs US", v: `~${savingsPct}%` },
@@ -272,8 +319,8 @@ Astro.response.headers.set(
               </div>
               {lowestPrice && highestPrice > 0 && (
                 <div class="flex items-baseline gap-2 mt-3">
-                  <span class="display tnum" style="font-size: 32px; line-height: 1;">${Math.round(lowestPrice / 1000).toFixed(1)}k</span>
-                  <span class="tnum" style="font-size: 13px; color: var(--color-ink-subtle);">— ${Math.round(highestPrice).toLocaleString()}</span>
+                  <span class="display tnum" style="font-size: 32px; line-height: 1;"><Price usd={lowestPrice} /></span>
+                  <span class="tnum" style="font-size: 13px; color: var(--color-ink-subtle);">— <Price usd={highestPrice} /></span>
                 </div>
               )}
               <form action={localizedPath(locale, `/contact`)} method="get" class="mt-4">
@@ -307,6 +354,48 @@ Astro.response.headers.set(
         </div>
       </div>
     </section>
+
+    {/* Savings band — only when US reference + destination price both known */}
+    {usPrice && lowestPrice && savingsPct && savingsPct >= 20 && (
+      <section style="padding: 28px 28px;">
+        <div class="mx-auto max-w-[80rem]">
+          <div
+            class="paper grid items-center"
+            style="padding: 24px 28px; grid-template-columns: 1fr; gap: 20px; border-inline-start: 4px solid var(--color-accent); background: linear-gradient(110deg, var(--color-accent-soft) 0%, var(--color-paper) 65%);"
+          >
+            <div class="grid gap-6 md:grid-cols-[auto,1fr,auto] md:items-center">
+              <div>
+                <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent-strong, var(--color-accent));">
+                  Cost comparison
+                </div>
+                <div class="display tnum mt-1" style="font-size: 36px; line-height: 1; letter-spacing: -0.025em; color: var(--color-accent-strong, var(--color-accent));">
+                  ~{savingsPct}%
+                </div>
+                <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle); margin-top: 2px;">
+                  less than US pricing
+                </div>
+              </div>
+              <div>
+                <p class="serif" style="font-size: 16px; line-height: 1.5; color: var(--color-ink);">
+                  Typical {treatment.name} in the United States runs around <strong class="tnum">${Math.round(usPrice).toLocaleString()}</strong>. From {countryRow.name}'s top-rated hospitals it starts at <strong class="tnum">${Math.round(lowestPrice).toLocaleString()}</strong> all-in — surgeon, anesthesia, ward stay, and standard consumables.
+                </p>
+                <p class="mono uppercase mt-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                  Savings ≠ outcome guarantee · {countryRow.name} pairs lower base cost with high-volume programs
+                </p>
+              </div>
+              <a
+                href={localizedPath(locale, `/contact?treatment=${slug}&country=${countrySlug}`)}
+                class="inline-flex items-center justify-center gap-1.5 font-semibold whitespace-nowrap"
+                style="background: var(--color-ink); color: var(--color-bg); padding: 12px 20px; border-radius: 9999px; font-size: 13.5px;"
+              >
+                See itemized quotes
+                <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+    )}
 
     {/* Ranked hospitals */}
     {hospitalPricing.length > 0 && (
@@ -352,7 +441,7 @@ Astro.response.headers.set(
                 <div>
                   <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">From</div>
                   <div class="display tnum mt-0.5" style="font-size: 19px;">
-                    {hp.costMinUsd ? `$${Number(hp.costMinUsd).toLocaleString()}` : "—"}
+                    {hp.costMinUsd ? <Price usd={Number(hp.costMinUsd)} /> : "—"}
                   </div>
                 </div>
                 <div>
@@ -420,6 +509,154 @@ Astro.response.headers.set(
       </div>
     </section>
 
+    {/* Why this destination — location-specific expert content */}
+    <WhyCountrySection
+      countryName={countryRow.name}
+      countrySlug={countryRow.slug}
+      treatmentName={treatment.name}
+      hospitalCount={hospitalPricing.length}
+      specialtyName={specialty?.name ?? null}
+    />
+
+    {/* Travel + recovery logistics */}
+    <TravelLogisticsSection
+      countryName={countryRow.name}
+      countrySlug={countryRow.slug}
+      recoveryDays={treatmentRow.recoveryDays}
+      treatmentName={treatment.name}
+    />
+
+    {/* Combined treatment × country deep content */}
+    {tcSections && (
+      <>
+        {tcSections.preparation && tcSections.preparation.length > 0 && (
+          <section style="padding: 64px 28px; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+            <div class="mx-auto max-w-[1120px]">
+              <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+                <div>
+                  <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                    Preparation
+                  </div>
+                  <h2 class="display mt-3" style="font-size: 26px; letter-spacing: -0.015em;">
+                    Before you fly to {countryRow.name}
+                  </h2>
+                </div>
+                <ol class="space-y-3">
+                  {tcSections.preparation.map((step: string, i: number) => (
+                    <li class="flex gap-4" style="font-size: 15.5px; line-height: 1.55;">
+                      <span class="display tnum" style="font-size: 24px; line-height: 1; opacity: 0.4; min-width: 32px;">{String(i + 1).padStart(2, "0")}</span>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {tcSections.recoveryTimeline && tcSections.recoveryTimeline.length > 0 && (
+          <section style="padding: 64px 28px; border-top: 1px solid var(--color-border-soft);">
+            <div class="mx-auto max-w-[1120px]">
+              <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Recovery
+              </div>
+              <h2 class="display mb-7" style="font-size: 26px; letter-spacing: -0.02em;">
+                Recovery in {countryRow.name} <span style="font-style: italic;">week-by-week</span>
+              </h2>
+              <ol class="space-y-0">
+                {tcSections.recoveryTimeline.map((step: any, i: number) => (
+                  <li
+                    class="grid items-start gap-4 md:gap-6 py-4"
+                    style={`grid-template-columns: 140px 1fr; ${i > 0 ? "border-top: 1px solid var(--color-border-soft);" : ""}`}
+                  >
+                    <span class="mono uppercase" style="font-size: 11px; letter-spacing: 0.1em; color: var(--color-accent); padding-top: 3px;">
+                      {step.week}
+                    </span>
+                    <span style="font-size: 15px; line-height: 1.55;">{step.milestone}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </section>
+        )}
+
+        {tcSections.questionsToAsk && tcSections.questionsToAsk.length > 0 && (
+          <section style="padding: 64px 28px; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+            <div class="mx-auto max-w-[1120px]">
+              <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Questions
+              </div>
+              <h2 class="display mb-7" style="font-size: 26px; letter-spacing: -0.02em;">
+                What to <span style="font-style: italic;">ask the surgeon</span>
+              </h2>
+              <ol class="space-y-3">
+                {tcSections.questionsToAsk.map((q: string, i: number) => (
+                  <li class="flex gap-4 items-start paper" style="padding: 16px 22px;">
+                    <span class="display tnum" style="font-size: 26px; line-height: 1; opacity: 0.35; min-width: 36px;">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <p style="font-size: 15.5px; line-height: 1.5;">{q}</p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </section>
+        )}
+
+        {tcSections.redFlags && tcSections.redFlags.length > 0 && (
+          <section style="padding: 64px 28px; border-top: 1px solid var(--color-border-soft);">
+            <div class="mx-auto max-w-[1120px]">
+              <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-coral, #E85A4F);">
+                Watch out for
+              </div>
+              <h2 class="display mb-7" style="font-size: 26px; letter-spacing: -0.02em;">
+                Red flags in <span style="font-style: italic;">quotes and clinics</span>
+              </h2>
+              <ul class="space-y-3">
+                {tcSections.redFlags.map((rf: string) => (
+                  <li
+                    class="flex gap-4 items-start"
+                    style="padding: 14px 18px; border: 1px solid var(--color-border-soft); border-inline-start: 3px solid var(--color-coral, #E85A4F); background: var(--color-paper);"
+                  >
+                    <span style="color: var(--color-coral, #E85A4F); font-weight: 700;">!</span>
+                    <span style="font-size: 15px; line-height: 1.5;">{rf}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
+      </>
+    )}
+
+    {ccSections?.bestMonthsToTravel && (
+      <section style="padding: 56px 28px; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+        <div class="mx-auto max-w-[1120px]">
+          <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+            <div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Travel timing
+              </div>
+              <h2 class="display mt-3" style="font-size: 24px; letter-spacing: -0.015em;">
+                When to travel to {countryRow.name}
+              </h2>
+            </div>
+            <div class="paper" style="padding: 24px;">
+              {ccSections.bestMonthsToTravel.peak && (
+                <p class="mb-2" style="font-size: 15px;"><strong>Peak window:</strong> {ccSections.bestMonthsToTravel.peak.join(", ")}</p>
+              )}
+              {ccSections.bestMonthsToTravel.avoid && ccSections.bestMonthsToTravel.avoid.length > 0 && (
+                <p class="mb-2" style="font-size: 15px;"><strong>Avoid:</strong> {ccSections.bestMonthsToTravel.avoid.join(", ")}</p>
+              )}
+              {ccSections.bestMonthsToTravel.notes && (
+                <p style="font-size: 14.5px; line-height: 1.6; color: var(--color-ink-muted);">{ccSections.bestMonthsToTravel.notes}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+    )}
+
     {/* FAQ */}
     <section style="padding: 64px 28px; border-top: 1px solid var(--color-border);">
       <div class="mx-auto max-w-[1120px]">
@@ -445,6 +682,19 @@ Astro.response.headers.set(
       </div>
     </section>
 
+    {/* EEAT block — methodology + reviewer attribution */}
+    <MethodologyBlock locale={locale}
+      lastReviewed={treatmentRow.updatedAt}
+      curationNote={`This page draws on ${hospitalPricing.length} accredited hospitals' itemised quotes for ${treatment.name.toLowerCase()} in ${countryRow.name}, refreshed quarterly. The clinical descriptions are reviewed against current ${specialty?.name ?? "specialty"} guidelines before publication.`}
+      dataSources={[
+        "Hospital itemised quote sheets",
+        "JCI accreditation registry",
+        ...(countryRow.slug === "india" ? ["NABH licence register"] : []),
+        "National medical council registries",
+        "Peer-reviewed surgeon publication record",
+      ]}
+    />
+
     {/* Patient case studies */}
     {testimonials.length > 0 && (
       <section style="padding: 64px 28px; border-top: 1px solid var(--color-border);">
@@ -461,8 +711,8 @@ Astro.response.headers.set(
             {testimonials.map((t) => (
               <div class="paper" style="padding: 24px 26px;">
                 <div class="flex items-center gap-1.5 mb-3">
-                  {Array.from({ length: t.rating }, (_, i) => (
-                    <span key={i} style="color: var(--color-saffron); font-size: 14px;">&#9733;</span>
+                  {Array.from({ length: t.rating }, () => (
+                    <span style="color: var(--color-saffron); font-size: 14px;">&#9733;</span>
                   ))}
                   {t.isVerified && (
                     <span class="mono ml-auto" style="font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-subtle);">Verified</span>

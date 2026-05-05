@@ -4,7 +4,10 @@ import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import PhotoBlock from "@/components/PhotoBlock.astro";
-import { db } from "@/lib/db";
+import Price from "@/components/Price.astro";
+import WhyCountrySection from "@/components/content/WhyCountrySection.astro";
+import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
+import { db, sql as rawSql } from "@/lib/db";
 import {
   specialties as specialtiesTbl,
   countries as countriesTbl,
@@ -90,6 +93,14 @@ const hospitals = Array.from(
 
 if (hospitals.length === 0) return new Response("Not found", { status: 404 });
 
+// Pull deep specialty + country sections
+const [specSectionRow, countrySectionRow] = await Promise.all([
+  rawSql`SELECT content_sections FROM specialties WHERE id = ${specialty.id} LIMIT 1`,
+  rawSql`SELECT content_sections FROM countries WHERE id = ${country.id} LIMIT 1`,
+]);
+const specSections: any = specSectionRow[0]?.content_sections ?? null;
+const countrySections: any = countrySectionRow[0]?.content_sections ?? null;
+
 // Translate
 const specialtyMap = await getContent("specialty", specialty.id, locale);
 const specialtyT = applyTranslated(specialty, specialtyMap, ["name"]);
@@ -133,11 +144,11 @@ Astro.response.headers.set(
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    <script type="application/ld+json" set:html={JSON.stringify(itemLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(itemLd)} />
   </Fragment>
 
-  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} />
 
     <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
@@ -166,7 +177,7 @@ Astro.response.headers.set(
           Ranked by center-of-excellence status, patient rating, and review volume. Hospitals with transparent pricing and international patient desks; {hospitals.length} make the list this year.
         </p>
         <div class="mono mt-4" style="font-size: 11px; color: var(--color-ink-subtle);">
-          Methodology: <a href={localizedPath(locale, "/editorial-policy")} class="underline">editorial-policy</a> · Updated: {new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+          Methodology: <a href={`${localizedPath(locale, "/editorial-policy")}#authors`} class="underline">how we rank</a> · <a href={`${localizedPath(locale, "/editorial-policy")}#pricing`} class="underline">pricing</a> · Updated: {new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" })}
         </div>
       </div>
     </section>
@@ -175,112 +186,253 @@ Astro.response.headers.set(
     <section style="padding: 24px 28px 72px; border-top: 1px solid var(--color-border);">
       <div class="mx-auto max-w-[1120px]">
         <ol class="space-y-6">
-          {hospitalsT.map((h, i) => (
-            <li
-              class="paper overflow-hidden grid"
-              style="padding: 0; grid-template-columns: 220px 1fr auto; gap: 24px; align-items: stretch;"
-            >
-              <div class="relative" style="min-height: 180px;">
-                <PhotoBlock
-                  aspect="auto"
-                  imgUrl={hospitalCover({ coverImageUrl: h.coverImageUrl, countrySlug: country.slug })}
-                  label={h.name}
-                  rounded={false}
-                  class="h-full"
-                />
-                <div
-                  class="display tnum absolute"
-                  style="top: 10px; inset-inline-start: 10px; width: 40px; height: 40px; border-radius: 50%; background: var(--color-ink); color: var(--color-bg); display: flex; align-items: center; justify-content: center; font-size: 16px; line-height: 1;"
-                >
-                  {String(i + 1).padStart(2, "0")}
-                </div>
-              </div>
-
-              <div style="padding: 22px 0;">
-                <div class="flex items-center gap-2 flex-wrap" style="font-size: 11.5px; color: var(--color-ink-subtle);">
-                  {h.isCoe && (
-                    <span
-                      class="mono uppercase"
-                      style="padding: 2px 7px; border-radius: 9999px; background: var(--color-saffron-soft); color: #8A5E12; font-size: 9.5px; letter-spacing: 0.08em; font-weight: 600;"
+          {hospitalsT.map((h, i) => {
+            const rank = i + 1;
+            // Top 3 get medal styling. CoE designation is the strongest signal,
+            // then high rating + volume. We compose a short "why ranked here"
+            // line so every card carries a visible justification.
+            const isMedal = rank < 4;
+            const medalTone = rank === 1
+              ? { ring: "color-mix(in srgb, var(--color-saffron) 55%, transparent)", chip: "var(--color-saffron)", chipBg: "var(--color-saffron-soft, #FBE9C7)", text: "Gold" }
+              : rank === 2
+              ? { ring: "color-mix(in srgb, var(--color-ink-subtle) 35%, transparent)", chip: "var(--color-ink-2)", chipBg: "color-mix(in srgb, var(--color-ink) 8%, var(--color-paper))", text: "Silver" }
+              : { ring: "color-mix(in srgb, var(--color-coral) 38%, transparent)", chip: "var(--color-coral)", chipBg: "var(--color-coral-soft, #F9DCD7)", text: "Bronze" };
+            const ratingNum = h.rating ? Number(h.rating) : 0;
+            // Pick the strongest reason this hospital ranks where it does.
+            const whyRanked: string = (() => {
+              if (h.isCoe && ratingNum >= 4.5) return `Center of Excellence in ${specialtyT.name.toLowerCase()} · ${ratingNum.toFixed(1)} rating across ${(h.reviewCount ?? 0).toLocaleString()} reviews`;
+              if (h.isCoe) return `Designated Center of Excellence with dedicated program volume in ${specialtyT.name.toLowerCase()}`;
+              if (ratingNum >= 4.6 && (h.reviewCount ?? 0) > 200) return `Top patient-rated in this country (${ratingNum.toFixed(1)}/5 across ${(h.reviewCount ?? 0).toLocaleString()} reviews)`;
+              if ((h.reviewCount ?? 0) > 500) return `One of the highest-volume international-patient programs in ${country.name}`;
+              if (h.bedCapacity && h.bedCapacity > 500) return `Large multi-specialty centre (${h.bedCapacity.toLocaleString()}+ beds) — broad consultative depth`;
+              if (h.establishedYear && h.establishedYear < 1990) return `Established ${h.establishedYear} — long institutional track record`;
+              return `Verified accreditation, transparent pricing, dedicated international patient desk`;
+            })();
+            return (
+              <li
+                class="paper mc-best-row"
+                style={`padding: 0; ${isMedal ? `box-shadow: 0 0 0 2px ${medalTone.ring}, 0 1px 0 rgba(14,23,19,0.04), 0 1px 2px rgba(14,23,19,0.06);` : ""}`}
+              >
+                <div class="mc-best-grid">
+                  <div class="relative mc-best-photo">
+                    <PhotoBlock
+                      aspect="auto"
+                      imgUrl={hospitalCover({ coverImageUrl: h.coverImageUrl, countrySlug: country.slug })}
+                      label={h.name}
+                      rounded={false}
+                      class="h-full"
+                    />
+                    <div
+                      class="display tnum absolute mc-rank-medal"
+                      style={`top: 12px; inset-inline-start: 12px; ${isMedal
+                        ? `background: ${medalTone.chip}; color: #FFF; box-shadow: 0 4px 12px color-mix(in srgb, ${medalTone.chip} 38%, transparent);`
+                        : "background: var(--color-ink); color: var(--color-bg);"}`}
                     >
-                      Center of excellence
-                    </span>
-                  )}
-                  <span>{h.cityName}, {country.name}</span>
-                </div>
-                <a
-                  href={localizedPath(locale, `/hospital/${h.slug}`)}
-                  class="serif block mt-1.5 hover:text-accent"
-                  style="font-size: 24px; font-weight: 500; letter-spacing: -0.015em; line-height: 1.2;"
-                >
-                  {h.name}
-                </a>
-                {h.description && (
-                  <p class="mt-2.5" style="font-size: 14px; line-height: 1.55; color: var(--color-ink-muted); max-width: 620px;" class:line-clamp-2>
-                    {h.description.split(/\n\s*\n/)[0].slice(0, 220)}{h.description.length > 220 ? "…" : ""}
-                  </p>
-                )}
-                <div class="flex items-center gap-4 flex-wrap mt-4" style="font-size: 12.5px; color: var(--color-ink-muted);">
-                  {h.rating && Number(h.rating) > 0 && (
-                    <span class="inline-flex items-center gap-1">
-                      <span style="color: var(--color-saffron);">★</span>
-                      <span class="tnum">{Number(h.rating).toFixed(1)}</span>
-                      {h.reviewCount && h.reviewCount > 0 && (
-                        <span class="tnum" style="color: var(--color-ink-subtle);">· {h.reviewCount.toLocaleString()} reviews</span>
-                      )}
-                    </span>
-                  )}
-                  {h.bedCapacity && (
-                    <span class="tnum">{h.bedCapacity.toLocaleString()} beds</span>
-                  )}
-                  {h.establishedYear && (
-                    <span>Est. {h.establishedYear}</span>
-                  )}
-                </div>
-              </div>
-
-              <div class="flex flex-col justify-between" style="padding: 22px;">
-                {h.fromUsd ? (
-                  <div>
-                    <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">
-                      From
+                      {String(rank).padStart(2, "0")}
                     </div>
-                    <div class="display tnum" style="font-size: 22px; line-height: 1;">
-                      ${Math.round(h.fromUsd).toLocaleString()}
+                    {isMedal && (
+                      <span
+                        class="absolute mono uppercase"
+                        style={`top: 12px; inset-inline-end: 12px; padding: 4px 10px; border-radius: 9999px; background: ${medalTone.chipBg}; color: ${medalTone.chip}; font-size: 9.5px; letter-spacing: 0.12em; font-weight: 600; backdrop-filter: blur(6px);`}
+                      >
+                        {medalTone.text}
+                      </span>
+                    )}
+                  </div>
+
+                  <div class="mc-best-body">
+                    <div class="flex items-center gap-2 flex-wrap" style="font-size: 11.5px; color: var(--color-ink-subtle);">
+                      {h.isCoe && (
+                        <span
+                          class="mono uppercase"
+                          style="padding: 2px 7px; border-radius: 9999px; background: var(--color-saffron-soft); color: #8A5E12; font-size: 9.5px; letter-spacing: 0.08em; font-weight: 600;"
+                        >
+                          Center of excellence
+                        </span>
+                      )}
+                      <span>{flag} {h.cityName}, {country.name}</span>
+                    </div>
+                    <a
+                      href={localizedPath(locale, `/hospital/${h.slug}`)}
+                      class="serif block mt-1.5 hover:text-accent"
+                      style="font-size: 24px; font-weight: 500; letter-spacing: -0.015em; line-height: 1.2;"
+                    >
+                      {h.name}
+                    </a>
+                    <p
+                      class="mt-2 inline-flex items-start gap-2"
+                      style="font-size: 12.5px; line-height: 1.45; color: var(--color-accent-strong, var(--color-accent));"
+                    >
+                      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true" style="margin-top: 4px; flex-shrink: 0;">
+                        <path d="M3 8l3 3 7-7" />
+                      </svg>
+                      <span><strong style="font-weight: 600;">Why #{rank}:</strong> {whyRanked}</span>
+                    </p>
+                    {h.description && (
+                      <p class="mt-3 line-clamp-2" style="font-size: 14px; line-height: 1.55; color: var(--color-ink-muted); max-width: 620px;">
+                        {h.description.split(/\n\s*\n/)[0].slice(0, 220)}{h.description.length > 220 ? "…" : ""}
+                      </p>
+                    )}
+                    <div class="flex items-center gap-4 flex-wrap mt-4" style="font-size: 12.5px; color: var(--color-ink-muted);">
+                      {h.rating && ratingNum > 0 && (
+                        <span class="inline-flex items-center gap-1">
+                          <span style="color: var(--color-saffron);">★</span>
+                          <span class="tnum">{ratingNum.toFixed(1)}</span>
+                          {h.reviewCount && h.reviewCount > 0 && (
+                            <span class="tnum" style="color: var(--color-ink-subtle);">· {h.reviewCount.toLocaleString()} reviews</span>
+                          )}
+                        </span>
+                      )}
+                      {h.bedCapacity && <span class="tnum">{h.bedCapacity.toLocaleString()} beds</span>}
+                      {h.establishedYear && <span>Est. {h.establishedYear}</span>}
                     </div>
                   </div>
-                ) : <div />}
-                <a
-                  href={localizedPath(locale, `/hospital/${h.slug}`)}
-                  class="inline-flex items-center gap-1 font-semibold mt-4"
-                  style="background: var(--color-accent); color: #FFF; padding: 9px 14px; font-size: 12.5px; border-radius: 9999px; white-space: nowrap;"
-                >
-                  View hospital
-                  <ChevronRight className="h-3 w-3 mirror-x" />
-                </a>
-              </div>
-            </li>
-          ))}
+
+                  <div class="mc-best-cta">
+                    {h.fromUsd ? (
+                      <div>
+                        <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                          From
+                        </div>
+                        <div class="display tnum" style="font-size: 24px; line-height: 1; letter-spacing: -0.025em; margin-top: 4px;">
+                          <Price usd={h.fromUsd} />
+                        </div>
+                        <div class="mono" style="font-size: 10px; color: var(--color-ink-subtle); margin-top: 4px;">
+                          all-in · case-specific
+                        </div>
+                      </div>
+                    ) : <div />}
+                    <div class="flex flex-col gap-2 mt-4">
+                      <a
+                        href={localizedPath(locale, `/hospital/${h.slug}`)}
+                        class="inline-flex items-center justify-center gap-1 font-semibold"
+                        style="background: var(--color-ink); color: var(--color-bg); padding: 10px 16px; font-size: 13px; border-radius: 9999px; white-space: nowrap;"
+                      >
+                        View hospital
+                        <ChevronRight className="h-3 w-3 mirror-x" />
+                      </a>
+                      <a
+                        href={localizedPath(locale, `/contact?hospital=${h.slug}&specialty=${specialty.slug}`)}
+                        class="inline-flex items-center justify-center gap-1"
+                        style="background: transparent; color: var(--color-ink); padding: 8px 14px; font-size: 12px; border-radius: 9999px; border: 1px solid var(--color-border); white-space: nowrap;"
+                      >
+                        Get quote
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
         </ol>
       </div>
+
+      <style>
+        /* Best-list grid: photo / body / CTA stack on desktop, full-stack on mobile */
+        .mc-best-grid {
+          display: grid;
+          grid-template-columns: 220px 1fr 200px;
+          gap: 0;
+          align-items: stretch;
+        }
+        .mc-best-photo { min-height: 200px; overflow: hidden; }
+        .mc-best-body { padding: 22px 24px; min-width: 0; }
+        .mc-best-cta {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          padding: 22px;
+          border-inline-start: 1px solid var(--color-border-soft);
+        }
+        @media (max-width: 768px) {
+          .mc-best-grid { grid-template-columns: 1fr; }
+          .mc-best-photo { min-height: 200px; aspect-ratio: 16 / 9; }
+          .mc-best-body { padding: 20px 18px 8px; }
+          .mc-best-cta {
+            border-inline-start: 0;
+            border-top: 1px dashed var(--color-border);
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 18px 20px;
+          }
+          .mc-best-cta > div:last-child {
+            flex-direction: row !important;
+            margin-top: 0 !important;
+          }
+        }
+        .mc-rank-medal {
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 16px;
+          line-height: 1;
+        }
+      </style>
     </section>
 
-    {/* Context */}
-    <section style="padding: 48px 28px; border-top: 1px solid var(--color-border); background: var(--color-paper);">
-      <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-2">
-        <div>
-          <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent); text-transform: uppercase;">How this list is ranked</div>
-          <h2 class="display mt-3" style="font-size: 26px; letter-spacing: -0.02em;">Signal, not noise</h2>
-          <p class="serif mt-4" style="font-size: 15.5px; line-height: 1.6; color: var(--color-ink-muted);">
-            Center-of-excellence designations (where the hospital has dedicated program volume in {specialtyT.name}) rank first. Patient ratings and review counts break ties. We verify accreditation status quarterly and re-rank when material facts change — no payment alters position.
-          </p>
+    {/* Methodology — full transparency */}
+    <section style="padding: 64px 28px; border-top: 1px solid var(--color-border); background: var(--color-paper);">
+      <div class="mx-auto max-w-[1120px]">
+        <div class="grid gap-10 lg:grid-cols-[0.45fr,1fr]">
+          <div>
+            <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">Methodology</div>
+            <h2 class="display mt-3" style="font-size: 30px; line-height: 1.05; letter-spacing: -0.02em;">
+              How {hospitals.length} hospitals
+              <span style="font-style: italic; font-weight: 300;"> earned a place</span>
+            </h2>
+            <p class="serif mt-4" style="font-size: 15.5px; line-height: 1.6; color: var(--color-ink-muted);">
+              We re-evaluate this ranking quarterly using public registries, peer-reviewed publication record, and hospital-issued outcome data. Position is independent of advertising spend — no listing on this page is paid.
+            </p>
+            <ul class="mt-5 grid gap-1.5 text-sm" style="color: var(--color-ink-muted);">
+              <li class="flex gap-2"><span style="color: var(--color-accent);">→</span> Re-checked: every quarter, ad-hoc on material change</li>
+              <li class="flex gap-2"><span style="color: var(--color-accent);">→</span> Last refresh: {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" })}</li>
+              <li class="flex gap-2"><span style="color: var(--color-accent);">→</span> Conflicts: zero pay-for-placement; coord fee paid by hospital after admission</li>
+            </ul>
+          </div>
+
+          <div>
+            <p class="mono uppercase mb-4" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Weighted criteria</p>
+            <ol class="space-y-3">
+              {[
+                { w: 40, label: "Center-of-Excellence designation", body: `Whether the hospital has formal program-level depth in ${specialtyT.name.toLowerCase()} — dedicated faculty, fellowship training, ≥150 cases/yr, audited outcomes. Single biggest signal.` },
+                { w: 25, label: "Verified accreditation", body: "JCI / NABH / KTQ / equivalent — active, current cycle, license verified against the issuing body's public registry within the last 90 days." },
+                { w: 20, label: "Patient rating × review volume", body: "Composite of rating (1–5) weighted by sample size. A 4.9 across 30 reviews ranks below a 4.6 across 800 — large samples are harder to game." },
+                { w: 10, label: "Surgeon publication record", body: "Senior surgeons in the program with peer-reviewed citations in the last 10 years (PubMed). Proxy for academic accountability." },
+                { w: 5, label: "Pricing transparency + intl-patient infrastructure", body: "Itemized quote on file, dedicated international-patient desk, language coverage in tier-1 hospitals, follow-up protocol post-departure." },
+              ].map((c) => (
+                <li class="paper" style="padding: 16px 18px; display: grid; grid-template-columns: 56px 1fr; gap: 14px; align-items: start;">
+                  <div class="display tnum" style="font-size: 26px; line-height: 1; color: var(--color-accent); letter-spacing: -0.025em;">
+                    {c.w}<span style="font-size: 13px; opacity: 0.6;">%</span>
+                  </div>
+                  <div>
+                    <div class="serif" style="font-size: 15px; line-height: 1.3; font-weight: 500; color: var(--color-ink);">{c.label}</div>
+                    <p class="serif mt-1" style="font-size: 13.5px; line-height: 1.55; color: var(--color-ink-muted);">{c.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
         </div>
-        <div>
-          <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-coral); text-transform: uppercase;">What this list isn't</div>
-          <h2 class="display mt-3" style="font-size: 26px; letter-spacing: -0.02em;">Rating ≠ outcome</h2>
-          <p class="serif mt-4" style="font-size: 15.5px; line-height: 1.6; color: var(--color-ink-muted);">
-            Hospital rankings are a qualifying filter, not a prediction of your outcome. Within any listed hospital, outcomes vary by surgeon volume, ICU protocol, and program depth for your specific procedure. Always ask for surgeon-level data before committing.
-          </p>
+
+        <div class="mt-12 grid gap-8 md:grid-cols-2">
+          <div class="paper" style="padding: 22px 24px; border-inline-start: 3px solid var(--color-coral);">
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-coral);">What this list isn't</div>
+            <h3 class="display mt-2" style="font-size: 21px; letter-spacing: -0.015em;">Rating ≠ outcome</h3>
+            <p class="serif mt-2" style="font-size: 14px; line-height: 1.55; color: var(--color-ink-muted);">
+              A hospital ranking is a <em>qualifying filter</em>, not a prediction of your outcome. Within any listed hospital, your outcome is shaped by your specific surgeon's volume, the program's protocol for your indication, and your own clinical baseline. Always ask for surgeon-level data — case volume per year, conversion rate, infection rate — before committing.
+            </p>
+          </div>
+          <div class="paper" style="padding: 22px 24px; border-inline-start: 3px solid var(--color-accent);">
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">When we re-rank</div>
+            <h3 class="display mt-2" style="font-size: 21px; letter-spacing: -0.015em;">Triggered, not scheduled</h3>
+            <p class="serif mt-2" style="font-size: 14px; line-height: 1.55; color: var(--color-ink-muted);">
+              The list shifts when an accreditation lapses, a Center-of-Excellence designation changes hands, a hospital opens a new flagship program, or our patient-coordinator network observes systematically different outcomes. We don't move ranks for marketing pushes or PR cycles.
+            </p>
+          </div>
         </div>
       </div>
     </section>
@@ -318,6 +470,128 @@ Astro.response.headers.set(
         </div>
       </div>
     </section>
+
+    {/* Why this country for this specialty */}
+    <WhyCountrySection
+      countryName={country.name}
+      countrySlug={country.slug}
+      treatmentName={specialtyT.name}
+      hospitalCount={hospitals.length}
+      specialtyName={specialty.name}
+    />
+
+    {/* Specialty-specific quality signals from specialty content_sections */}
+    {specSections?.programQualitySignals && specSections.programQualitySignals.length > 0 && (
+      <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+          <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+            <div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                How to use this list
+              </div>
+              <h2 class="display mt-3" style="font-size: 26px; letter-spacing: -0.015em;">
+                What to <span style="font-style: italic;">look for</span>
+              </h2>
+            </div>
+            <ul class="space-y-3">
+              {specSections.programQualitySignals.map((s: string) => (
+                <li class="flex gap-3 items-start" style="font-size: 15.5px; line-height: 1.55;">
+                  <span style="color: var(--color-accent);">→</span>
+                  <span>{s}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+    )}
+
+    {specSections?.surgeonVolumeThresholds && specSections.surgeonVolumeThresholds.length > 0 && (
+      <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft);">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+          <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+            Volume benchmarks
+          </div>
+          <h2 class="display mb-7" style="font-size: 26px; letter-spacing: -0.02em;">
+            Surgeon volume <span style="font-style: italic;">benchmarks</span>
+          </h2>
+          <div class="paper overflow-hidden" style="padding: 0;">
+            {specSections.surgeonVolumeThresholds.map((t: any, i: number) => (
+              <div
+                class="grid items-start gap-4 p-5"
+                style={`grid-template-columns: 220px 1fr; ${i > 0 ? "border-top: 1px solid var(--color-border-soft);" : ""}`}
+              >
+                <span class="mono uppercase" style="font-size: 12px; letter-spacing: 0.08em; color: var(--color-accent);">{t.range}</span>
+                <span style="font-size: 15px; line-height: 1.5;">{t.quality}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+
+    {countrySections?.bestMonthsToTravel && (
+      <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+          <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+            <div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Travel timing
+              </div>
+              <h2 class="display mt-3" style="font-size: 24px; letter-spacing: -0.015em;">
+                When to travel to {country.name}
+              </h2>
+            </div>
+            <div class="paper" style="padding: 22px;">
+              {countrySections.bestMonthsToTravel.peak && (
+                <p class="mb-2" style="font-size: 14.5px;"><strong>Peak window:</strong> {countrySections.bestMonthsToTravel.peak.join(", ")}</p>
+              )}
+              {countrySections.bestMonthsToTravel.avoid && countrySections.bestMonthsToTravel.avoid.length > 0 && (
+                <p class="mb-2" style="font-size: 14.5px;"><strong>Avoid:</strong> {countrySections.bestMonthsToTravel.avoid.join(", ")}</p>
+              )}
+              {countrySections.bestMonthsToTravel.notes && (
+                <p style="font-size: 14px; line-height: 1.6; color: var(--color-ink-muted);">{countrySections.bestMonthsToTravel.notes}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+    )}
+
+    {specSections?.questionsForProgram && specSections.questionsForProgram.length > 0 && (
+      <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft);">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+          <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+            Questions
+          </div>
+          <h2 class="display mb-7" style="font-size: 26px; letter-spacing: -0.02em;">
+            What to <span style="font-style: italic;">ask each program on this list</span>
+          </h2>
+          <ol class="space-y-3">
+            {specSections.questionsForProgram.map((q: string, i: number) => (
+              <li class="flex gap-4 items-start paper" style="padding: 16px 22px;">
+                <span class="display tnum" style="font-size: 24px; line-height: 1; opacity: 0.35; min-width: 36px;">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <p style="font-size: 15.5px; line-height: 1.5;">{q}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+    )}
+
+    {/* EEAT signals */}
+    <MethodologyBlock locale={locale}
+      curationNote={`This ranking of "best ${specialtyT.name.toLowerCase()} in ${country.name}" weights center-of-excellence designations, JCI/national accreditation status, peer-reviewed surgeon publication record, and patient outcome data — not advertising spend. Position is re-evaluated quarterly when new credentialling data lands.`}
+      dataSources={[
+        "JCI accreditation registry",
+        ...(country.slug === "india" ? ["NABH licence register", "AIIMS / PGIMER training records"] : []),
+        "National medical council registries",
+        "Peer-reviewed publication record",
+        "Hospital outcomes annual reports",
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>

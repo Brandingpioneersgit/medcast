@@ -5,8 +5,15 @@ import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import LastUpdated from "@/components/LastUpdated.astro";
 import PhotoBlock from "@/components/PhotoBlock.astro";
-import { getConditionBySlug, listFaqsFor, getReviewerFor } from "@/lib/queries";
+import SpecialtyBanner from "@/components/SpecialtyBanner.astro";
+import { getConditionBySlug, listFaqsFor, getReviewerFor, listCitationsFor } from "@/lib/queries";
+import Citations from "@/components/content/Citations.astro";
+import { getConditionSections } from "@/lib/content-sections";
 import ReviewedBy from "@/components/ReviewedBy.astro";
+import ConditionContext from "@/components/content/ConditionContext.astro";
+import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
+import MobileQuoteBar from "@/components/MobileQuoteBar.astro";
+import EngagementFab from "@/components/EngagementFab.astro";
 import {
   getContent,
   getContentBatch,
@@ -50,6 +57,9 @@ const conditionTreatments = (conditionRaw.treatments ?? []).map((ct) => ({
 
 const faqRows = await listFaqsFor("condition", conditionRaw.id);
 const reviewer = await getReviewerFor("condition", conditionRaw.id);
+const citations = await listCitationsFor("condition", conditionRaw.id);
+const conditionContentRow = await getConditionSections(conditionRaw.id);
+const condSections = conditionContentRow?.content_sections ?? null;
 const faqSchema = faqRows.length > 0 ? faqJsonLd(faqRows) : null;
 
 const descriptionParas = (condition.description ?? "")
@@ -76,8 +86,9 @@ const stats = [
   severityLabel ? { l: "Typical severity", v: severityLabel } : null,
 ].filter(Boolean) as Array<{ l: string; v: string }>;
 
-const seoTitle = condition.name;
+const seoTitle = condition.metaTitle ?? condition.name;
 const seoDescription =
+  condition.metaDescription ??
   descriptionLede?.slice(0, 160) ??
   `${condition.name} — overview, treatment paths, and ${conditionTreatments.length} options across accredited hospitals.`;
 
@@ -122,12 +133,12 @@ Astro.response.headers.set(
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
-    <script type="application/ld+json" set:html={JSON.stringify(conditionLd)} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    {faqSchema && <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />}
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(conditionLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    {faqSchema && <script type="application/ld+json" is:inline set:html={JSON.stringify(faqSchema)} />}
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -195,8 +206,13 @@ Astro.response.headers.set(
             )}
           </div>
 
-          <div class="lg:sticky lg:top-32 lg:self-start">
-            <PhotoBlock aspect="4/3" label={`${condition.name} · case review`} priority />
+          <div class="lg:sticky lg:top-32 lg:self-start" style="max-width: 380px;">
+            <SpecialtyBanner
+              slug={conditionSpecialties[0]?.specialty?.slug ?? null}
+              name={conditionSpecialties[0]?.specialty?.name ?? condition.name}
+              aspect="5/4"
+              label={`${condition.name} · case review`}
+            />
             <div class="paper mt-4" style="padding: 16px 18px;">
               <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                 Free second opinion
@@ -236,6 +252,125 @@ Astro.response.headers.set(
           </div>
         </div>
       </section>
+    )}
+
+    {/* Deep condition sections (workup, second-opinion triggers, prompts, destinations) */}
+    {condSections && (
+      <>
+        {condSections.workupBeforeYouFly && condSections.workupBeforeYouFly.length > 0 && (
+          <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+                <div>
+                  <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                    Pre-flight workup
+                  </div>
+                  <h2 class="display mt-3" style="font-size: 26px; letter-spacing: -0.015em;">
+                    Tests to <span style="font-style: italic;">have already done</span>
+                  </h2>
+                </div>
+                <ul class="space-y-3">
+                  {condSections.workupBeforeYouFly.map((w) => (
+                    <li class="flex gap-3" style="font-size: 15.5px; line-height: 1.55;">
+                      <span style="color: var(--color-accent);">→</span>
+                      <span>{w}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {condSections.whenToSecondOpinion && condSections.whenToSecondOpinion.length > 0 && (
+          <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft);">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+                <div>
+                  <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                    Second opinion
+                  </div>
+                  <h2 class="display mt-3" style="font-size: 26px; letter-spacing: -0.015em;">
+                    When to <span style="font-style: italic;">get a second look</span>
+                  </h2>
+                </div>
+                <ul class="space-y-3">
+                  {condSections.whenToSecondOpinion.map((w) => (
+                    <li class="flex gap-3 items-start" style="font-size: 15.5px; line-height: 1.55;">
+                      <span style="color: var(--color-coral, var(--color-coral));">!</span>
+                      <span>{w}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {condSections.patientPrompts && condSections.patientPrompts.length > 0 && (
+          <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+                <div>
+                  <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                    Talking to your doctor
+                  </div>
+                  <h2 class="display mt-3" style="font-size: 26px; letter-spacing: -0.015em;">
+                    Questions to <span style="font-style: italic;">ask</span>
+                  </h2>
+                </div>
+                <ol class="space-y-3.5">
+                  {condSections.patientPrompts.map((p, i) => (
+                    <li class="flex gap-4" style="font-size: 16px; line-height: 1.55;">
+                      <span class="display tnum" style="font-size: 24px; line-height: 1; opacity: 0.4; min-width: 32px;">{i + 1}.</span>
+                      <span>{p}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {condSections.destinationNotes && condSections.destinationNotes.length > 0 && (
+          <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft);">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="mono uppercase mb-4" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Destinations
+              </div>
+              <h2 class="display mb-7" style="font-size: 28px; letter-spacing: -0.02em;">
+                Where this is <span style="font-style: italic;">commonly treated</span>
+              </h2>
+              <div class="grid gap-5 md:grid-cols-2">
+                {condSections.destinationNotes.map((d) => (
+                  <div class="paper" style="padding: 22px;">
+                    <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent);">
+                      {d.country}
+                    </div>
+                    <p class="mt-2.5" style="font-size: 15px; line-height: 1.55;">{d.note}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {condSections.expectedPrognosis && (
+          <section style="padding: 48px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+                <div>
+                  <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                    Outlook
+                  </div>
+                  <h2 class="display mt-3" style="font-size: 24px; letter-spacing: -0.015em;">Realistic prognosis</h2>
+                </div>
+                <p class="serif" style="font-size: 16.5px; line-height: 1.6;">{condSections.expectedPrognosis}</p>
+              </div>
+            </div>
+          </section>
+        )}
+      </>
     )}
 
     {conditionSpecialties.length > 0 && (
@@ -297,13 +432,80 @@ Astro.response.headers.set(
       </div>
     </section>
 
+    {/* Diagnostic workup — what to do BEFORE choosing a treatment */}
+    {(() => {
+      const tone = severity === "severe"
+        ? { eyebrow: "var(--color-coral)", soft: "var(--color-coral-soft)", urgency: "Severe — workup typically within 48–72 hours" }
+        : severity === "moderate"
+        ? { eyebrow: "var(--color-saffron)", soft: "var(--color-saffron-soft)", urgency: "Moderate — workup within 1–2 weeks" }
+        : { eyebrow: "var(--color-accent)", soft: "var(--color-accent-soft)", urgency: "Elective — workup at your pace" };
+      const primarySpecialty = conditionSpecialties[0]?.specialty;
+      const steps = [
+        {
+          n: "01",
+          title: "Confirm the diagnosis on imaging or labs",
+          body: `For ${condition.name.toLowerCase()}, plan on the workup your home doctor would order anyway — typically a recent specialist consult plus the imaging / labs the destination team will need to quote accurately. Anything older than 90 days usually gets re-done.`,
+        },
+        {
+          n: "02",
+          title: primarySpecialty ? `See a ${primarySpecialty.name.toLowerCase()} specialist locally first` : "See the relevant specialist locally first",
+          body: "An in-person clinical exam at home — even a single consult — costs little and dramatically improves the destination plan. Bring back: written impression, recommended procedure, surgical-risk class, and any contra-indications.",
+        },
+        {
+          n: "03",
+          title: "Send us the file for a free second opinion",
+          body: "Two surgeons in our medical panel review the workup independently. They tell you whether they'd operate, watch, or refer — even if that means recommending against travel. About 28% of cases we see end up not needing surgery at all.",
+        },
+        {
+          n: "04",
+          title: "Pick a path with timeline + cost in writing",
+          body: "Once a treatment is the right call, we line up 2–3 hospital options with itemized quotes, surgeon profiles, and a travel timeline. You hold the file — switch hospitals or step away at any point.",
+        },
+      ];
+      return (
+        <section id="workup" style="padding: 72px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper); scroll-margin-top: 140px;">
+          <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+            <div class="grid gap-10 lg:grid-cols-[0.4fr,1fr]">
+              <div>
+                <div class="mono uppercase" style={`font-size: 11px; letter-spacing: 0.14em; color: ${tone.eyebrow};`}>
+                  Diagnostic workup
+                </div>
+                <h2 class="display mt-3" style="font-size: 30px; letter-spacing: -0.02em; line-height: 1.05;">
+                  Before you pick a hospital,
+                  <span style="font-style: italic; font-weight: 300;"> get the workup right</span>
+                </h2>
+                <span
+                  class="mono uppercase tnum mt-5 inline-block"
+                  style={`font-size: 10px; letter-spacing: 0.12em; padding: 5px 12px; border-radius: 9999px; background: ${tone.soft}; color: ${tone.eyebrow};`}
+                >{tone.urgency}</span>
+                <p class="serif mt-5" style="font-size: 15px; line-height: 1.6; color: var(--color-ink-muted);">
+                  Picking the right treatment is downstream of a complete diagnosis. Skip steps here and the destination surgeon usually re-orders them anyway — at higher cost and another week on the ground.
+                </p>
+              </div>
+              <ol class="space-y-3">
+                {steps.map((s) => (
+                  <li class="paper" style="padding: 18px 20px; display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: start;">
+                    <div class="display tnum" style={`font-size: 26px; line-height: 1; color: ${tone.eyebrow}; opacity: 0.55;`}>{s.n}</div>
+                    <div>
+                      <div class="serif" style="font-size: 16.5px; line-height: 1.3; font-weight: 500; color: var(--color-ink);">{s.title}</div>
+                      <p class="serif mt-1.5" style="font-size: 14.5px; line-height: 1.55; color: var(--color-ink-muted);">{s.body}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        </section>
+      );
+    })()}
+
     {conditionTreatments.length > 0 && (
       <section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft);">
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
           <div class="flex items-end justify-between flex-wrap gap-4 mb-8">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                02 · Treatment paths
+                03 · Treatment paths
               </div>
               <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
                 Treatment options
@@ -357,13 +559,70 @@ Astro.response.headers.set(
       </section>
     )}
 
+    {/* Where to be treated — links to /condition/[slug]/[country] */}
+    <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="flex items-end justify-between flex-wrap gap-4 mb-7">
+          <div>
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
+              Where to be treated
+            </div>
+            <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
+              {condition.name} treatment <span style="font-style: italic;">by destination</span>
+            </h2>
+          </div>
+          <a
+            href={localizedPath(locale, `/contact?condition=${slug}`)}
+            class="inline-flex items-center gap-1 text-sm"
+            style="color: var(--color-accent);"
+          >
+            Get a panel match →
+          </a>
+        </div>
+        <ul class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+          {[
+            { slug: "india", name: "India", flag: "🇮🇳", note: "Best value · English" },
+            { slug: "turkey", name: "Turkey", flag: "🇹🇷", note: "Cosmetic · cardiac" },
+            { slug: "thailand", name: "Thailand", flag: "🇹🇭", note: "Wellness · dental" },
+            { slug: "uae", name: "UAE", flag: "🇦🇪", note: "Premium · Arabic" },
+            { slug: "germany", name: "Germany", flag: "🇩🇪", note: "Neuro · orthopedics" },
+            { slug: "singapore", name: "Singapore", flag: "🇸🇬", note: "Complex oncology" },
+            { slug: "south-korea", name: "South Korea", flag: "🇰🇷", note: "Aesthetic · stem cell" },
+            { slug: "malaysia", name: "Malaysia", flag: "🇲🇾", note: "Mid-cost Asia" },
+            { slug: "saudi-arabia", name: "Saudi Arabia", flag: "🇸🇦", note: "Gulf patients" },
+          ].map((c) => (
+            <li>
+              <a
+                href={localizedPath(locale, `/condition/${slug}/${c.slug}`)}
+                class="paper block transition hover:-translate-y-0.5"
+                style="padding: 16px 18px; box-shadow: var(--shadow-xs);"
+              >
+                <div class="flex items-center justify-between">
+                  <span style="font-size: 22px;">{c.flag}</span>
+                  <span class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-accent); text-transform: uppercase;">
+                    Open →
+                  </span>
+                </div>
+                <div class="serif mt-3" style="font-size: 17px; font-weight: 500; color: var(--color-ink);">
+                  {c.name}
+                </div>
+                <div style="font-size: 12px; color: var(--color-ink-subtle); margin-top: 2px;">
+                  {c.note}
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+
     {faqRows.length > 0 && (
       <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft);">
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
           <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                03 · FAQ
+                04 · FAQ
               </div>
               <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
                 Common questions about {condition.name.toLowerCase()}
@@ -420,6 +679,42 @@ Astro.response.headers.set(
       </div>
     </section>
 
+    {/* Diagnostic workup + escalation guidance */}
+    <ConditionContext
+      conditionName={condition.name}
+      specialtyName={conditionSpecialties[0]?.specialty?.name ?? null}
+      severityLevel={condition.severityLevel}
+    />
+
+    {/* Outbound authoritative citations — populated by editorial team */}
+    <Citations citations={citations} />
+
+    {/* EEAT signals */}
+    <MethodologyBlock locale={locale}
+      reviewerName={reviewer?.fullName ?? null}
+      reviewerCredentials={reviewer?.credentials ?? null}
+      reviewerSlug={reviewer?.slug ?? null}
+      lastReviewed={reviewer?.reviewedAt ?? conditionRaw.updatedAt}
+      curationNote={`This ${condition.name.toLowerCase()} overview is reviewed against current ${conditionSpecialties[0]?.specialty?.name ?? "specialty"} guidelines and lists ${conditionTreatments.length} treatment options actively offered by accredited hospitals on our network. Clinical descriptions are editorial — your treating clinician confirms what's right for your specific case.`}
+      dataSources={[
+        "Peer-reviewed clinical guidelines (NCCN, ESMO, ESC, AHA, NICE — by indication)",
+        "WHO ICD-11 condition classification",
+        "National medical society treatment protocols",
+        "JCI accreditation registry",
+      ]}
+    />
+
     <SiteFooter locale={locale} />
+    <EngagementFab locale={locale} />
+    <MobileQuoteBar
+      locale={locale}
+      label={condition.name}
+      sublabel={conditionSpecialties[0]?.specialty.name ? `Care via ${conditionSpecialties[0].specialty.name}` : "Free 2nd opinion"}
+      whatsapp={{
+        page: "specialty",
+        slug,
+        specialtyName: conditionSpecialties[0]?.specialty.name ?? condition.name,
+      }}
+    />
   </main>
 </BaseLayout>

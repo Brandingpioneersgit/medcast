@@ -6,7 +6,14 @@ import SiteFooter from "@/components/SiteFooter.astro";
 import LastUpdated from "@/components/LastUpdated.astro";
 import Price from "@/components/Price.astro";
 import PriceRange from "@/components/PriceRange.astro";
-import { getTreatmentBySlug, listFaqsFor, getReviewerFor } from "@/lib/queries";
+import WhatsIncludedSection from "@/components/content/WhatsIncludedSection.astro";
+import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
+import MobileQuoteBar from "@/components/MobileQuoteBar.astro";
+import EngagementFab from "@/components/EngagementFab.astro";
+import BeforeAfterStrip from "@/components/BeforeAfterStrip.astro";
+import { sql as rawSql } from "@/lib/db";
+import { getTreatmentBySlug, listFaqsFor, getReviewerFor, listConditionsForTreatment } from "@/lib/queries";
+import { getTreatmentSections } from "@/lib/content-sections";
 import ReviewedBy from "@/components/ReviewedBy.astro";
 import {
   getContent,
@@ -33,7 +40,68 @@ if (!data) return new Response(`Not found: ${slug}`, { status: 404 });
 
 const tc = getTranslator(locale, "common");
 
-const treatmentMap = await getContent("treatment", data.treatment.id, locale);
+const hospitalIds = data.hospitalPricing.map((hp) => hp.hospitalId);
+const specialtyIdRaw = data.treatment.specialty?.id ?? null;
+
+const [
+  treatmentMap,
+  faqRows,
+  reviewer,
+  specialtyMap,
+  hospitalMap,
+  related,
+  contentRow,
+  conditionsTreated,
+] = await Promise.all([
+  getContent("treatment", data.treatment.id, locale),
+  listFaqsFor("treatment", data.treatment.id),
+  getReviewerFor("treatment", data.treatment.id),
+  specialtyIdRaw ? getContent("specialty", specialtyIdRaw, locale) : Promise.resolve({} as Record<string, string>),
+  getContentBatch("hospital", hospitalIds, locale),
+  relatedToTreatment(data.treatment.id, 6, locale).catch(() => []),
+  getTreatmentSections(data.treatment.id),
+  listConditionsForTreatment(data.treatment.id, 8),
+]);
+
+
+// Patient-outcome before/after photos — only visible specialties (cosmetic /
+// hair / dental / bariatric / orthopedic) typically populate these. Component
+// renders nothing when the array is empty.
+type OutcomeRow = {
+  id: number;
+  before_url: string;
+  after_url: string;
+  caption: string | null;
+  weeks_post: number | null;
+  patient_age_band: string | null;
+  patient_country: string | null;
+};
+const outcomeRows = (await rawSql<OutcomeRow[]>`
+  SELECT id, before_url, after_url, caption, weeks_post, patient_age_band, patient_country
+  FROM treatment_outcomes
+  WHERE treatment_id = ${data.treatment.id} AND is_active = TRUE
+  ORDER BY sort_order ASC, id ASC
+  LIMIT 6
+`.catch(() => [] as OutcomeRow[]));
+const outcomes = outcomeRows.map((r) => ({
+  id: r.id,
+  beforeUrl: r.before_url,
+  afterUrl: r.after_url,
+  caption: r.caption,
+  weeksPost: r.weeks_post,
+  patientAgeBand: r.patient_age_band,
+  patientCountry: r.patient_country,
+}));
+
+const sections = contentRow?.content_sections ?? null;
+const dbReviewer = contentRow?.reviewer_name
+  ? {
+      name: contentRow.reviewer_name,
+      role: contentRow.reviewer_role,
+      reviewedAt: contentRow.last_reviewed_at,
+    }
+  : null;
+
 const treatment = applyTranslated(data.treatment, treatmentMap, ["name", "description"]);
 
 // Multi-paragraph descriptions (separated by blank lines) render first
@@ -45,19 +113,10 @@ const descriptionParas = (treatment.description ?? "")
 const descriptionLede = descriptionParas[0] ?? null;
 const descriptionRest = descriptionParas.slice(1);
 
-const faqRows = await listFaqsFor("treatment", data.treatment.id);
-const reviewer = await getReviewerFor("treatment", data.treatment.id);
-
 const specialty = data.treatment.specialty
-  ? applyTranslated(
-      data.treatment.specialty,
-      await getContent("specialty", data.treatment.specialty.id, locale),
-      ["name"],
-    )
+  ? applyTranslated(data.treatment.specialty, specialtyMap, ["name"])
   : null;
 
-const hospitalIds = data.hospitalPricing.map((hp) => hp.hospitalId);
-const hospitalMap = await getContentBatch("hospital", hospitalIds, locale);
 const hospitalPricing = data.hospitalPricing.map((hp) => ({
   ...hp,
   hospitalName: hospitalMap[hp.hospitalId]?.name ?? hp.hospitalName,
@@ -99,8 +158,6 @@ function countryFlag(slug: string): string { return FLAG_MAP[slug] ?? "🌐"; }
 // currently have. Volume and hospital-specific success need separate data.
 const procedureSuccess = data.treatment.successRatePercent ? Number(data.treatment.successRatePercent) : null;
 
-const related = await relatedToTreatment(data.treatment.id, 6, locale).catch(() => []);
-
 const stats = [
   treatment.averageDurationHours
     ? { l: "Procedure time", v: `${treatment.averageDurationHours} hr` }
@@ -125,8 +182,9 @@ function restOfName(s: string) {
   return idx === -1 ? "" : s.slice(idx + 1);
 }
 
-const seoTitle = treatment.name;
+const seoTitle = treatment.metaTitle ?? treatment.name;
 const seoDescription =
+  treatment.metaDescription ??
   treatment.description?.slice(0, 160) ??
   `${treatment.name}${specialty ? ` — ${specialty.name}` : ""}${lowestPrice ? `, from $${Math.round(lowestPrice).toLocaleString()}` : ""}. Compare ${hospitalPricing.length} hospitals.`;
 
@@ -169,14 +227,14 @@ Astro.response.headers.set(
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
-    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(jsonLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
     {faqSchema && (
-      <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+      <script type="application/ld+json" is:inline set:html={JSON.stringify(faqSchema)} />
     )}
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     {/* Breadcrumb */}
@@ -326,46 +384,233 @@ Astro.response.headers.set(
       </section>
     )}
 
+    {/* Deep content sections (candidacy, recovery, questions, red flags) */}
+    {sections && (
+      <>
+        {sections.aboutThisProcedure && sections.aboutThisProcedure.length > 0 && (
+          <section style="padding: 64px 0; background: var(--color-paper);">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+                <div>
+                  <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                    The procedure in detail
+                  </div>
+                  <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
+                    What this procedure <span style="font-style: italic;">actually involves</span>
+                  </h2>
+                </div>
+                <div class="prose-editorial">
+                  {sections.aboutThisProcedure.map((p) => <p>{p}</p>)}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {sections.whoIsACandidate && (
+          <section style="padding: 64px 0;">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="mono uppercase mb-4" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Candidacy
+              </div>
+              <h2 class="display mb-7" style="font-size: 28px; letter-spacing: -0.02em;">
+                Who's a <span style="font-style: italic;">good candidate</span>
+              </h2>
+              <div class="grid gap-8 md:grid-cols-2">
+                <div class="paper" style="padding: 24px;">
+                  <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 12px;">
+                    Qualifiers
+                  </div>
+                  <ul class="space-y-3">
+                    {sections.whoIsACandidate.qualifiers?.map((q) => (
+                      <li class="flex gap-3" style="font-size: 15px; line-height: 1.55;">
+                        <span style="color: var(--color-accent);">→</span>
+                        <span>{q}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div class="paper" style="padding: 24px;">
+                  <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-coral, var(--color-coral)); margin-bottom: 12px;">
+                    Disqualifiers
+                  </div>
+                  <ul class="space-y-3">
+                    {sections.whoIsACandidate.disqualifiers?.map((d) => (
+                      <li class="flex gap-3" style="font-size: 15px; line-height: 1.55;">
+                        <span style="color: var(--color-coral, var(--color-coral));">×</span>
+                        <span>{d}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {sections.preparation && sections.preparation.length > 0 && (
+          <section style="padding: 64px 0; background: var(--color-paper);">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+                <div>
+                  <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                    Preparation
+                  </div>
+                  <h2 class="display mt-3" style="font-size: 28px; letter-spacing: -0.015em;">
+                    Before you <span style="font-style: italic;">fly</span>
+                  </h2>
+                </div>
+                <ol class="space-y-3.5">
+                  {sections.preparation.map((step, i) => (
+                    <li class="flex gap-4" style="font-size: 16px; line-height: 1.55;">
+                      <span class="display tnum" style="font-size: 28px; line-height: 1; opacity: 0.4; min-width: 36px;">{String(i + 1).padStart(2, "0")}</span>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {sections.recoveryTimeline && sections.recoveryTimeline.length > 0 && (
+          <section style="padding: 64px 0;">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="mono uppercase mb-4" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Recovery
+              </div>
+              <h2 class="display mb-7" style="font-size: 28px; letter-spacing: -0.02em;">
+                Realistic <span style="font-style: italic;">recovery timeline</span>
+              </h2>
+              <ol class="space-y-0">
+                {sections.recoveryTimeline.map((step, i) => (
+                  <li
+                    class="grid items-start gap-4 md:gap-6 py-4 md:py-5"
+                    style={`grid-template-columns: 140px 1fr; ${i > 0 ? "border-top: 1px solid var(--color-border-soft);" : ""}`}
+                  >
+                    <span class="mono uppercase" style="font-size: 11px; letter-spacing: 0.1em; color: var(--color-accent); padding-top: 3px;">
+                      {step.week}
+                    </span>
+                    <span style="font-size: 15.5px; line-height: 1.55;">{step.milestone}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </section>
+        )}
+
+        {sections.followup && (
+          <section style="padding: 56px 0; background: var(--color-paper);">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+                <div>
+                  <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                    Follow-up
+                  </div>
+                  <h2 class="display mt-3" style="font-size: 26px; letter-spacing: -0.015em;">After surgery</h2>
+                </div>
+                <p class="serif" style="font-size: 17px; line-height: 1.6;">{sections.followup}</p>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {sections.expectedPrognosis && (
+          <section style="padding: 56px 0;">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+                <div>
+                  <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                    Outcomes
+                  </div>
+                  <h2 class="display mt-3" style="font-size: 26px; letter-spacing: -0.015em;">What success means</h2>
+                </div>
+                <p class="serif" style="font-size: 17px; line-height: 1.6;">{sections.expectedPrognosis}</p>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {sections.questionsToAsk && sections.questionsToAsk.length > 0 && (
+          <section style="padding: 64px 0; background: var(--color-paper);">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="mono uppercase mb-4" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Questions
+              </div>
+              <h2 class="display mb-7" style="font-size: 28px; letter-spacing: -0.02em;">
+                What to <span style="font-style: italic;">ask the surgeon</span>
+              </h2>
+              <ol class="space-y-4">
+                {sections.questionsToAsk.map((q, i) => (
+                  <li
+                    class="paper flex gap-5 items-start"
+                    style="padding: 20px 24px;"
+                  >
+                    <span class="display tnum" style="font-size: 32px; line-height: 1; opacity: 0.35; min-width: 44px;">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <p style="font-size: 16.5px; line-height: 1.5;">{q}</p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </section>
+        )}
+
+        {sections.redFlags && sections.redFlags.length > 0 && (
+          <section style="padding: 64px 0;">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="mono uppercase mb-4" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-coral, var(--color-coral));">
+                Watch out for
+              </div>
+              <h2 class="display mb-7" style="font-size: 28px; letter-spacing: -0.02em;">
+                Red flags in <span style="font-style: italic;">quotes and clinics</span>
+              </h2>
+              <ul class="space-y-3">
+                {sections.redFlags.map((rf) => (
+                  <li class="flex gap-4 items-start" style="padding: 14px 18px; border: 1px solid var(--color-border-soft); border-inline-start: 3px solid var(--color-coral, var(--color-coral)); background: var(--color-paper);">
+                    <span style="color: var(--color-coral, var(--color-coral)); font-weight: 700;">!</span>
+                    <span style="font-size: 15.5px; line-height: 1.5;">{rf}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
+      </>
+    )}
+
     {/* Ranked hospitals */}
     {hospitalPricing.length > 0 && (
       <section style="padding: 72px 0;">
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
           <div class="flex items-end justify-between flex-wrap gap-4 mb-7">
-            <h2 class="display" style="font-size: 32px; letter-spacing: -0.02em;">
-              Top hospitals for {firstWord(treatment.name)}, ranked
-            </h2>
-            <div class="flex gap-2">
-              <span
-                class="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-medium"
-                style="background: var(--color-ink); color: var(--color-bg);"
-              >
-                By value
-              </span>
-              <span
-                class="inline-flex items-center px-3 py-1 rounded-full text-[12px]"
-                style="border: 1px solid var(--color-border); color: var(--color-ink-muted);"
-              >
-                By success rate
-              </span>
-              <span
-                class="inline-flex items-center px-3 py-1 rounded-full text-[12px]"
-                style="border: 1px solid var(--color-border); color: var(--color-ink-muted);"
-              >
-                By volume
-              </span>
+            <div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Top hospitals
+              </div>
+              <h2 class="display mt-2" style="font-size: 32px; letter-spacing: -0.02em;">
+                Where {firstWord(treatment.name)}
+                <span style="font-style: italic;"> is done well</span>
+              </h2>
             </div>
+            <span
+              class="mono uppercase"
+              style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); padding-bottom: 6px;"
+            >
+              Ranked by hospital-reported value · case manager re-ranks per case
+            </span>
           </div>
 
           <div class="paper overflow-hidden" style="padding: 0;">
             {hospitalPricing.map((hp, i) => (
               <div
-                class="grid items-center gap-4 p-5 md:p-6"
-                style={`grid-template-columns: 36px 1.4fr 1fr 0.8fr 0.6fr auto; ${i > 0 ? "border-top: 1px solid var(--color-border-soft);" : ""}`}
+                class={`mc-rank-row p-5 md:p-6${i > 0 ? " mc-rank-row-divider" : ""}`}
               >
-                <div class="display tnum" style="font-size: 22px; color: var(--color-ink-subtle);">
+                <div class="display tnum mc-rank-num" style="font-size: 22px; color: var(--color-ink-subtle);">
                   {String(i + 1).padStart(2, "0")}
                 </div>
-                <div class="min-w-0">
+                <div class="min-w-0 mc-rank-name">
                   <a href={localizedPath(locale, `/hospital/${hp.hospitalSlug}`)}>
                     <div
                       class="serif text-[17px] font-medium hover:text-accent transition-colors truncate"
@@ -379,7 +624,7 @@ Astro.response.headers.set(
                     {hp.cityName}, {hp.countryName}
                   </div>
                 </div>
-                <div>
+                <div class="mc-rank-stat mc-rank-price">
                   <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
                     From
                   </div>
@@ -387,7 +632,7 @@ Astro.response.headers.set(
                     <PriceRange min={hp.costMinUsd} max={hp.costMaxUsd} />
                   </div>
                 </div>
-                <div>
+                <div class="mc-rank-stat">
                   <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
                     Success
                   </div>
@@ -395,20 +640,23 @@ Astro.response.headers.set(
                     {procedureSuccess ? `${procedureSuccess.toFixed(1)}%` : "—"}
                   </div>
                 </div>
-                <div>
+                <div class="mc-rank-stat">
+                  <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
+                    Rating
+                  </div>
                   {hp.hospitalRating && Number(hp.hospitalRating) > 0 ? (
-                    <div class="inline-flex items-center gap-1.5 text-[13px]">
+                    <div class="inline-flex items-center gap-1.5 text-[13px] mt-1">
                       <span style="color: var(--color-saffron);">★</span>
                       <span class="tnum">{Number(hp.hospitalRating).toFixed(1)}</span>
                     </div>
                   ) : (
-                    <span class="text-[13px]" style="color: var(--color-ink-subtle);">—</span>
+                    <span class="text-[13px] mt-1 inline-block" style="color: var(--color-ink-subtle);">—</span>
                   )}
                 </div>
                 <a
                   href={localizedPath(locale, `/hospital/${hp.hospitalSlug}`)}
-                  class="inline-flex items-center gap-1 text-sm font-semibold transition"
-                  style="background: var(--color-ink); color: var(--color-bg); padding: 8px 14px; border-radius: 9999px;"
+                  class="inline-flex items-center justify-center gap-1 text-sm font-semibold transition mc-rank-cta"
+                  style="background: var(--color-ink); color: var(--color-bg); padding: 9px 14px; border-radius: 9999px;"
                 >
                   Quote
                   <ChevronRight className="h-3.5 w-3.5 mirror-x" />
@@ -416,6 +664,209 @@ Astro.response.headers.set(
               </div>
             ))}
           </div>
+
+          <style>
+            .mc-rank-row-divider { border-top: 1px solid var(--color-border-soft); }
+            /* Desktop ≥ 768px: original 6-column row */
+            @media (min-width: 768px) {
+              .mc-rank-row {
+                display: grid;
+                grid-template-columns: 36px 1.4fr 1fr 0.8fr 0.6fr auto;
+                align-items: center;
+                gap: 16px;
+              }
+            }
+            /* Mobile < 768px: card layout — rank + name on top row, stat strip + full-width CTA below */
+            @media (max-width: 767.98px) {
+              .mc-rank-row {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 12px 14px;
+              }
+              .mc-rank-num { flex: 0 0 32px; }
+              .mc-rank-name { flex: 1 1 auto; min-width: 0; }
+              .mc-rank-stat { flex: 0 0 auto; min-width: 88px; }
+              .mc-rank-stat.mc-rank-price { min-width: 130px; }
+              .mc-rank-cta {
+                flex: 1 1 100%;
+                width: 100%;
+              }
+            }
+          </style>
+        </div>
+      </section>
+    )}
+
+    {/* Recovery timeline */}
+    {(treatment.hospitalStayDays || treatment.recoveryDays) && (() => {
+      const stay = treatment.hospitalStayDays ?? 0;
+      const recoveryWeeks = treatment.recoveryDays ?? 0;
+      // Build a 4-phase timeline: hospital · early home · resume light · full activity
+      const phases = [
+        {
+          eyebrow: "Phase 1",
+          title: stay ? `${stay} day${stay === 1 ? "" : "s"} in hospital` : "Hospital stay",
+          body: "Surgical day plus monitored ward recovery. Pain managed by anesthesia team. First post-op imaging or labs typically same day or next morning.",
+          tone: "var(--color-coral-soft)",
+          accent: "var(--color-coral)",
+        },
+        {
+          eyebrow: "Phase 2",
+          title: `Day ${stay + 1}–${stay + 7}: out of hospital, in destination`,
+          body: "Discharged to a serviced apartment or recovery hotel near the hospital. Two follow-up reviews; suture or staple removal where applicable. Most patients walk short distances and self-cater.",
+          tone: "var(--color-saffron-soft)",
+          accent: "var(--color-saffron)",
+        },
+        {
+          eyebrow: "Phase 3",
+          title: recoveryWeeks > 1
+            ? `Week 2–${Math.max(2, Math.ceil(recoveryWeeks / 2))}: cleared to fly home`
+            : "Week 2: cleared to fly home",
+          body: "Surgeon signs off on a fitness-to-fly letter once vitals and wound healing are within range. Compression stockings and a flight-day medication plan provided. We coordinate handover with your home doctor.",
+          tone: "var(--color-accent-soft)",
+          accent: "var(--color-accent)",
+        },
+        {
+          eyebrow: "Phase 4",
+          title: recoveryWeeks > 0
+            ? `Week ${Math.max(2, Math.ceil(recoveryWeeks / 2)) + 1}–${recoveryWeeks}: full recovery`
+            : "Full recovery",
+          body: "Phased return to work, exercise and travel. Tele-follow-ups at 30, 60 and 90 days. Imaging review at 90 days where the protocol calls for it; most patients are signed off in person locally.",
+          tone: "var(--color-ocean-soft, var(--color-accent-soft))",
+          accent: "var(--color-accent-strong)",
+        },
+      ];
+      return (
+        <section id="recovery" style="padding: 72px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper); scroll-margin-top: 140px;">
+          <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+            <div class="flex items-end justify-between flex-wrap gap-6 mb-8">
+              <div>
+                <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">Recovery timeline</div>
+                <h2 class="display mt-2" style="font-size: 32px; letter-spacing: -0.02em;">
+                  What the {recoveryWeeks ? `${recoveryWeeks}-week ` : ""}road back
+                  <span style="font-style: italic;"> looks like</span>
+                </h2>
+                <p class="serif mt-3" style="font-size: 16px; line-height: 1.55; color: var(--color-ink-muted); max-width: 620px;">
+                  A typical timeline based on hospital-issued discharge protocols and the cases we coordinate. Your case manager will confirm exact dates against your surgeon's plan.
+                </p>
+              </div>
+            </div>
+            <ol class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
+              {phases.map((p, i) => (
+                <li class="paper" style={`padding: 20px 20px 22px; border-left: 3px solid ${p.accent};`}>
+                  <div class="flex items-center gap-2 mb-2">
+                    <span
+                      class="mono uppercase tnum"
+                      style={`font-size: 9.5px; letter-spacing: 0.12em; padding: 3px 8px; border-radius: 9999px; background: ${p.tone}; color: ${p.accent};`}
+                    >{p.eyebrow}</span>
+                    <span class="mono tnum" style="font-size: 10px; color: var(--color-ink-subtle);">
+                      {String(i + 1).padStart(2, "0")} / {String(phases.length).padStart(2, "0")}
+                    </span>
+                  </div>
+                  <div class="serif" style="font-size: 16.5px; line-height: 1.3; font-weight: 500;">{p.title}</div>
+                  <p class="serif mt-2" style="font-size: 14px; line-height: 1.55; color: var(--color-ink-muted);">{p.body}</p>
+                </li>
+              ))}
+            </ol>
+            <p class="mono uppercase mt-6" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+              Highly variable by age, comorbidities and surgical approach. We recommend planning a 20% buffer.
+            </p>
+          </div>
+        </section>
+      );
+    })()}
+
+    {/* Inline mid-content lead capture */}
+    <section style="border-top: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8 py-12 md:py-14">
+        <div
+          class="grid items-start gap-6 md:gap-10 md:grid-cols-[1fr,auto]"
+          style="background: var(--color-ink); color: var(--color-bg); padding: 26px 26px 28px; border-radius: var(--radius-lg, 14px);"
+        >
+          <div>
+            <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-saffron);">
+              Ready to plan
+            </div>
+            <h3 class="display mt-2" style="font-size: clamp(1.5rem, 3.4vw, 1.9rem); line-height: 1.1; letter-spacing: -0.02em; font-weight: 400;">
+              Three itemised quotes for {firstWord(treatment.name)},
+              <span style="font-style: italic; font-weight: 300;"> in 48 hours.</span>
+            </h3>
+            <p class="serif mt-3" style="font-size: 15px; line-height: 1.55; opacity: 0.78; max-width: 560px;">
+              A named case manager replies in ~9 minutes. No payment until you're with the surgeon. Walk away any time.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-3 md:flex-col md:items-stretch">
+            <a
+              href={localizedPath(locale, `/contact?treatment=${slug}`)}
+              class="inline-flex items-center justify-center gap-2 font-semibold whitespace-nowrap"
+              style="background: var(--color-bg); color: var(--color-ink); padding: 13px 22px; border-radius: 9999px; font-size: 14.5px;"
+            >
+              Get free quote
+              <ChevronRight className="h-4 w-4 mirror-x" />
+            </a>
+            <a
+              href={localizedPath(locale, "/second-opinion")}
+              class="inline-flex items-center justify-center gap-2 whitespace-nowrap"
+              style="background: transparent; color: var(--color-bg); border: 1px solid rgba(246,241,230,0.3); padding: 13px 22px; border-radius: 9999px; font-size: 14.5px; font-weight: 500;"
+            >
+              Free 2nd opinion
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {/* Contraindications & honest filters */}
+    <section id="contraindications" style="padding: 64px 0; border-top: 1px solid var(--color-border-soft); scroll-margin-top: 140px;">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="grid gap-10 lg:grid-cols-[0.4fr,1fr]">
+          <div>
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-coral);">When this isn't right</div>
+            <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
+              Contraindications
+              <span style="font-style: italic; font-weight: 300;"> & honest filters</span>
+            </h2>
+            <p class="serif mt-4" style="font-size: 15px; line-height: 1.6; color: var(--color-ink-muted);">
+              We turn cases away when traveling for {firstWord(treatment.name).toLowerCase()} doesn't make medical or logistical sense. The most common reasons are below — your case manager screens against these on the first review.
+            </p>
+          </div>
+          <div class="space-y-2.5">
+            {[
+              { q: "Unstable comorbidities", a: "Active heart failure, uncontrolled diabetes (HbA1c > 9), or recent stroke. We'll ask for stabilisation locally before clearing for travel." },
+              { q: "Acute or rapidly progressing disease", a: "Conditions where every week of delay materially worsens outcome. Travel logistics — visa, flights, post-op stay — usually adds 2–4 weeks vs. local care." },
+              { q: "No fitness to fly post-op", a: "Anyone who can't tolerate a 4-hour flight at week 2 (e.g. severe COPD, recent DVT history, certain spine procedures) shouldn't be doing this trip." },
+              { q: "Solo travel without an attendant", a: "For most procedures here we require an adult attendant for the first 14 days. We'll help apply for an attendant visa where the destination requires it." },
+              { q: "Insurance-driven coverage at home", a: "If your insurer fully covers this procedure locally with no waiting list, traveling rarely beats the math. Ask us to compare; we'll say so." },
+              { q: "Outcomes tracker says local volume is fine", a: "If you live near a high-volume centre that does this case 100+ times a year, the volume premium of traveling is small. We'd rather you stay home with that team." },
+            ].map((c) => (
+              <details class="group paper" style="padding: 16px 18px;">
+                <summary class="flex cursor-pointer items-start justify-between gap-6 list-none">
+                  <span class="serif" style="font-size: 15.5px; font-weight: 500; line-height: 1.4;">{c.q}</span>
+                  <span
+                    class="mt-1 shrink-0 transition-transform group-open:rotate-45"
+                    style="color: var(--color-coral); font-size: 18px; line-height: 1;"
+                    aria-hidden="true"
+                  >+</span>
+                </summary>
+                <p class="serif mt-2.5" style="color: var(--color-ink-muted); font-size: 14.5px; line-height: 1.6;">{c.a}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {/* Before/after outcomes — visible specialties only */}
+    {outcomes.length > 0 && (
+      <section style="padding: 32px 0;">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+          <BeforeAfterStrip
+            outcomes={outcomes}
+            treatmentName={treatment.name}
+            specialtySlug={specialty?.slug ?? null}
+            locale={locale}
+          />
         </div>
       </section>
     )}
@@ -515,6 +966,33 @@ Astro.response.headers.set(
       </section>
     )}
 
+    {/* Conditions this treatment is indicated for — bidirectional
+        treatment ↔ condition links strengthen the entity graph (§3.5). */}
+    {conditionsTreated.length > 0 && (
+      <section class="border-t border-border py-12">
+        <div class="mx-auto max-w-7xl px-5 md:px-8">
+          <h2 class="display mb-2" style="font-size: 24px;">Conditions {treatment.name} treats</h2>
+          <p class="mb-6" style="font-size: 14.5px; color: var(--color-ink-muted); max-width: 60ch;">
+            Read how international panels approach diagnosis, evaluation, and care pathways for the conditions this procedure is indicated for.
+          </p>
+          <ul class="flex flex-wrap gap-2">
+            {conditionsTreated.map((c) => (
+              <li>
+                <a
+                  href={localizedPath(locale, `/condition/${c.slug}`)}
+                  class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 transition-colors hover:text-accent"
+                  style="font-size: 13.5px; border: 1px solid var(--color-border); background: var(--color-surface);"
+                >
+                  <span>{c.name}</span>
+                  <ChevronRight className="h-3 w-3 mirror-x opacity-50" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
+
     {/* Related treatments */}
     {related.length > 0 && (
       <section class="border-t border-border py-12">
@@ -537,6 +1015,28 @@ Astro.response.headers.set(
       </section>
     )}
 
+    {/* What's typically included in your quote — trust + expertise content */}
+    <WhatsIncludedSection
+      treatmentName={treatment.name}
+      hospitalStayDays={treatment.hospitalStayDays}
+      recoveryDays={treatment.recoveryDays}
+    />
+
+    {/* EEAT signals — methodology + reviewer attribution */}
+    <MethodologyBlock locale={locale}
+      reviewerName={reviewer?.fullName ?? null}
+      reviewerCredentials={reviewer?.credentials ?? null}
+      reviewerSlug={reviewer?.slug ?? null}
+      lastReviewed={reviewer?.reviewedAt ?? treatment.updatedAt}
+      curationNote={`This ${treatment.name.toLowerCase()} overview compiles itemised pricing from ${hospitalPricing.length} accredited hospitals across our destination network, plus clinical descriptions reviewed against current ${specialty?.name ?? "specialty"} guidelines.`}
+      dataSources={[
+        "Hospital itemised quote sheets",
+        "JCI accreditation registry",
+        "Peer-reviewed clinical guidelines (NCCN, ESMO, ESC, AHA, NICE — by indication)",
+        "National medical council registries",
+      ]}
+    />
+
     <div class="mx-auto max-w-7xl px-6 pb-10">
       <LastUpdated
         updated={treatment.updatedAt}
@@ -545,5 +1045,17 @@ Astro.response.headers.set(
     </div>
 
     <SiteFooter locale={locale} />
+    <EngagementFab locale={locale} />
+    <MobileQuoteBar
+      locale={locale}
+      label={treatment.name}
+      sublabel={lowestPrice ? `From $${Math.round(lowestPrice).toLocaleString()} · ${hospitalPricing.length} hospitals` : `${hospitalPricing.length} hospitals`}
+      whatsapp={{
+        page: "treatment",
+        slug,
+        treatmentName: treatment.name,
+        specialtyName: specialty?.name,
+      }}
+    />
   </main>
 </BaseLayout>

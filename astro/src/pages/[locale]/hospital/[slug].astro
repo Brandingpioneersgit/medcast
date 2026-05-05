@@ -4,8 +4,12 @@ import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import PhotoBlock from "@/components/PhotoBlock.astro";
+import HospitalGallery from "@/components/HospitalGallery.astro";
+import LocationMap from "@/components/Map.astro";
+import HospitalMap from "@/components/HospitalMap.astro";
+import HospitalTour from "@/components/HospitalTour.astro";
 import { getHospitalBySlug, listHospitalOffers } from "@/lib/queries";
-import { db } from "@/lib/db";
+import { db, sql as rawSql } from "@/lib/db";
 import {
   getContent,
   getContentBatch,
@@ -17,6 +21,9 @@ import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { hospitalJsonLd, breadcrumbJsonLd, localeUrl, withProvenance, faqJsonLd } from "@/lib/seo";
 import LastUpdated from "@/components/LastUpdated.astro";
+import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
+import MobileQuoteBar from "@/components/MobileQuoteBar.astro";
+import EngagementFab from "@/components/EngagementFab.astro";
 import { whatsappFor } from "@/lib/whatsapp";
 import { hospitalCover, hospitalLogo, hospitalInitials, doctorPortrait } from "@/lib/images";
 import { sql } from "drizzle-orm";
@@ -43,65 +50,134 @@ if (!hospitalRaw) return new Response(`Not found: ${slug}`, { status: 404 });
 
 const tc = getTranslator(locale, "common");
 
-const hospitalMap = await getContent("hospital", hospitalRaw.id, locale);
-const hospital = applyTranslated(hospitalRaw, hospitalMap, ["name", "description"]);
-
 const specialtyIds = (hospitalRaw.specialties ?? []).map((hs) => hs.specialty.id);
-const specialtyMap = await getContentBatch("specialty", specialtyIds, locale);
-const hospitalSpecialties = (hospitalRaw.specialties ?? []).map((hs) => ({
-  ...hs,
-  specialty: applyTranslated(hs.specialty, specialtyMap[hs.specialty.id] ?? {}, ["name"]),
-}));
-
 const doctorIds = (hospitalRaw.doctors ?? []).map((d) => d.id);
-const doctorMap = await getContentBatch("doctor", doctorIds, locale);
-const hospitalDoctors = (hospitalRaw.doctors ?? []).map((d) =>
-  applyTranslated(d, doctorMap[d.id] ?? {}, ["name", "qualifications"]),
-);
 
-const relatedHospitals = await relatedToHospital(hospitalRaw.id, 6, locale).catch(() => []);
-
-const accreditations = hospitalRaw.hospitalAccreditations ?? [];
-const images = hospitalRaw.images ?? [];
-
-// Price range across this hospital's procedures
 type PriceRow = { min: number | null; max: number | null; procedures: number };
-const priceRes = await db
-  .execute(sql`
+type SpecPrice = { specialty_id: number; min_usd: number; cases: number };
+type Faq = { id: number; question: string; answer: string };
+type Testimonial = {
+  id: number;
+  patient_name: string;
+  patient_country: string | null;
+  patient_age: number | null;
+  rating: number;
+  title: string | null;
+  story: string;
+  treatment_date: string | Date | null;
+  image_url: string | null;
+  treatment_name: string | null;
+};
+
+// Everything below depends only on `hospitalRaw.id` — fan out in parallel.
+const [
+  hospitalMap,
+  specialtyMap,
+  doctorMap,
+  relatedHospitals,
+  priceRes,
+  specialtyPricing,
+  faqRes,
+  offerRows,
+  testimonialRes,
+  newsRes,
+] = await Promise.all([
+  getContent("hospital", hospitalRaw.id, locale),
+  getContentBatch("specialty", specialtyIds, locale),
+  getContentBatch("doctor", doctorIds, locale),
+  relatedToHospital(hospitalRaw.id, 6, locale).catch(() => []),
+  db.execute(sql`
     SELECT MIN(cost_min_usd)::int AS min, MAX(cost_max_usd)::int AS max, COUNT(*)::int AS procedures
     FROM hospital_treatments WHERE hospital_id = ${hospitalRaw.id} AND is_active = true
-  `)
-  .catch(() => [] as unknown[]);
-const prices: PriceRow = (Array.from(priceRes as Iterable<PriceRow>)[0]) ?? { min: null, max: null, procedures: 0 };
-
-// Per-specialty min-price at this hospital
-type SpecPrice = { specialty_id: number; min_usd: number; cases: number };
-const specialtyPricing = await db
-  .execute(sql`
+  `).catch(() => [] as unknown[]),
+  db.execute(sql`
     SELECT t.specialty_id, MIN(ht.cost_min_usd)::int AS min_usd, COUNT(*)::int AS cases
     FROM hospital_treatments ht
     JOIN treatments t ON t.id = ht.treatment_id
     WHERE ht.hospital_id = ${hospitalRaw.id} AND ht.is_active = true
     GROUP BY t.specialty_id
-  `)
-  .catch(() => [] as unknown[]);
-const specialtyPriceMap = new Map<number, { min: number; cases: number }>(
-  (Array.from(specialtyPricing as Iterable<SpecPrice>)).map((r) => [r.specialty_id, { min: r.min_usd, cases: r.cases }]),
-);
-
-// Hospital-scoped FAQs (may be 0 today; schema ready)
-type Faq = { id: number; question: string; answer: string };
-const faqRes = await db
-  .execute(sql`
+  `).catch(() => [] as unknown[]),
+  db.execute(sql`
     SELECT id, question, answer FROM faqs
     WHERE entity_type = 'hospital' AND entity_id = ${hospitalRaw.id} AND is_active = true
     ORDER BY sort_order ASC
-  `)
-  .catch(() => [] as unknown[]);
-const faqs = Array.from(faqRes as Iterable<Faq>);
+  `).catch(() => [] as unknown[]),
+  listHospitalOffers(hospitalRaw.id, 20),
+  db.execute(sql`
+    SELECT t.id, t.patient_name, t.patient_country, t.patient_age, t.rating,
+           t.title, t.story, t.treatment_date, t.image_url,
+           tr.name AS treatment_name
+    FROM testimonials t
+    LEFT JOIN treatments tr ON tr.id = t.treatment_id
+    WHERE t.hospital_id = ${hospitalRaw.id} AND t.is_active = true
+    ORDER BY t.is_featured DESC NULLS LAST, t.treatment_date DESC NULLS LAST
+    LIMIT 4
+  `).catch(() => [] as unknown[]),
+  db.execute(sql`
+    SELECT id, source, headline, url, published_at
+    FROM hospital_news
+    WHERE hospital_id = ${hospitalRaw.id}
+    ORDER BY published_at DESC NULLS LAST
+    LIMIT 3
+  `).catch(() => [] as unknown[]),
+]);
 
-// Top-priced treatments — powers the AggregateOffer schema block.
-const offerRows = await listHospitalOffers(hospitalRaw.id, 20);
+const hospital = applyTranslated(hospitalRaw, hospitalMap, ["name", "description"]);
+
+// Pull deep hospital sections (top-tier hospitals only)
+const hSectionRow = await rawSql`
+  SELECT content_sections FROM hospitals WHERE id = ${hospitalRaw.id} LIMIT 1
+`;
+const hSections: any = hSectionRow[0]?.content_sections ?? null;
+const hospitalSpecialties = (hospitalRaw.specialties ?? []).map((hs) => ({
+  ...hs,
+  specialty: applyTranslated(hs.specialty, specialtyMap[hs.specialty.id] ?? {}, ["name"]),
+}));
+const hospitalDoctors = (hospitalRaw.doctors ?? []).map((d) =>
+  applyTranslated(d, doctorMap[d.id] ?? {}, ["name", "qualifications"]),
+);
+const accreditations = hospitalRaw.hospitalAccreditations ?? [];
+const images = hospitalRaw.images ?? [];
+const prices: PriceRow = (Array.from(priceRes as Iterable<PriceRow>)[0]) ?? { min: null, max: null, procedures: 0 };
+const specialtyPriceMap = new Map<number, { min: number; cases: number }>(
+  (Array.from(specialtyPricing as Iterable<SpecPrice>)).map((r) => [r.specialty_id, { min: r.min_usd, cases: r.cases }]),
+);
+const faqs = Array.from(faqRes as Iterable<Faq>);
+const rawTestimonials = Array.from(testimonialRes as Iterable<Testimonial>);
+const testimonialMap: Record<number, Record<string, string>> = await getContentBatch("testimonial", rawTestimonials.map((t) => t.id), locale).catch(() => ({}));
+const testimonials = rawTestimonials.map((t) => applyTranslated(t, testimonialMap[t.id] ?? {}, ["patient_name", "title", "story"]));
+
+// Recent news mentions — surfaced beside accreditations as a freshness signal.
+type NewsRow = { id: number; source: string; headline: string; url: string; published_at: Date | null };
+const newsItems = Array.from(newsRes as Iterable<NewsRow>);
+
+// Accreditation registry deep-links (verifiable in public registries)
+const ACCRED_REGISTRY: Record<string, { label: string; url: string }> = {
+  jci: { label: "Search the JCI registry", url: "https://www.jointcommissioninternational.org/who-we-are/accredited-organizations/" },
+  nabh: { label: "NABH accredited hospital list", url: "https://nabh.co/AccreditedHospital.aspx" },
+  iso: { label: "ISO certificate verification", url: "https://www.iso.org/certification.html" },
+  ktq: { label: "KTQ certified facility list", url: "https://www.ktq.de/en/ktq-certificate/zertifizierte-einrichtungen.html" },
+  dha: { label: "DHA Sheryan licensed-facility lookup", url: "https://services.dha.gov.ae/sheryan/wps/portal/home/individual-search" },
+  doh: { label: "DOH Abu Dhabi facility register", url: "https://services.doh.gov.ae/" },
+  mohap: { label: "MOHAP facility register", url: "https://mohap.gov.ae/en/services" },
+  koiha: { label: "KOIHA accredited list (Korea)", url: "https://www.koiha.or.kr/" },
+  msqh: { label: "MSQH accreditation list (Malaysia)", url: "https://www.msqh.com.my/" },
+  cbahi: { label: "CBAHI register (Saudi Arabia)", url: "https://portal.cbahi.gov.sa/" },
+  ushas: { label: "USHAŞ-licensed Turkish facilities", url: "https://www.ushas.com.tr/en/" },
+  ha: { label: "HA Thailand register", url: "https://www.ha.or.th/EN" },
+};
+function registryFor(acronym: string | null | undefined, name: string): { label: string; url: string } | null {
+  const key = (acronym ?? "").toLowerCase();
+  if (ACCRED_REGISTRY[key]) return ACCRED_REGISTRY[key];
+  if (/iso/i.test(name)) return ACCRED_REGISTRY.iso;
+  return null;
+}
+function fmtMonthYear(d: Date | string | null | undefined): string | null {
+  if (!d) return null;
+  const dt = typeof d === "string" ? new Date(d) : d;
+  if (isNaN(dt.getTime())) return null;
+  return dt.toLocaleDateString(locale === "ar" ? "ar-SA" : locale, { month: "short", year: "numeric" });
+}
 
 const cityName = hospital.city?.name ?? null;
 const countryName = hospital.city?.country?.name ?? null;
@@ -113,6 +189,39 @@ const FLAG: Record<string, string> = {
   malaysia: "🇲🇾", "saudi-arabia": "🇸🇦",
 };
 const countryFlag = FLAG[countrySlug ?? ""] ?? "🌐";
+
+// Country-capital coords — last-resort map fallback when a hospital and its city
+// both lack coords (e.g. the 1.2k Thailand hospitals that landed in city "Unknown").
+const COUNTRY_CAPITAL: Record<string, [number, number]> = {
+  india: [28.6139, 77.2090],          // New Delhi
+  turkey: [41.0082, 28.9784],         // Istanbul (largest medical-tourism hub, not Ankara)
+  thailand: [13.7563, 100.5018],      // Bangkok
+  uae: [25.2048, 55.2708],            // Dubai
+  germany: [52.5200, 13.4050],        // Berlin
+  singapore: [1.3521, 103.8198],      // Singapore
+  "south-korea": [37.5665, 126.9780], // Seoul
+  malaysia: [3.1390, 101.6869],       // Kuala Lumpur
+  "saudi-arabia": [24.7136, 46.6753], // Riyadh
+};
+
+function n(v: unknown): number | null {
+  if (v == null) return null;
+  const x = typeof v === "string" ? parseFloat(v) : Number(v);
+  return Number.isFinite(x) ? x : null;
+}
+const hLat = n(hospital.latitude);
+const hLng = n(hospital.longitude);
+const cLat = n(hospital.city?.latitude);
+const cLng = n(hospital.city?.longitude);
+const fallback = countrySlug ? COUNTRY_CAPITAL[countrySlug] ?? null : null;
+
+const mapLat = hLat ?? cLat ?? fallback?.[0] ?? null;
+const mapLng = hLng ?? cLng ?? fallback?.[1] ?? null;
+type MapPrecision = "exact" | "city" | "country";
+const mapPrecision: MapPrecision =
+  hLat != null && hLng != null ? "exact"
+  : cLat != null && cLng != null ? "city"
+  : "country";
 
 const title = `${hospital.name}${cityName ? ` — ${cityName}` : ""}`;
 const descText =
@@ -151,6 +260,16 @@ const jsonLd = withProvenance(hospitalJsonLd({
     validFrom: a.validFrom ?? null,
     validUntil: a.validUntil ?? null,
   })),
+  // Wikidata + Wikipedia entity-link signals (populated by
+  // scripts/import/backfill-wikidata-sameas.mts). Skipped when columns
+  // aren't on the row yet — `hospitalJsonLd` ignores undefined entries.
+  sameAs: {
+    website: hospital.website,
+    wikipedia: (hospitalRaw as { wikipediaUrl?: string | null }).wikipediaUrl ?? null,
+    other: (hospitalRaw as unknown as { wikidataId?: string | null }).wikidataId
+      ? [`https://www.wikidata.org/entity/${(hospitalRaw as unknown as { wikidataId: string }).wikidataId}`]
+      : [],
+  },
 }), {
   dateModified: hospitalRaw.updatedAt,
   dateCreated: hospitalRaw.createdAt,
@@ -171,6 +290,7 @@ const crumbs = breadcrumbJsonLd([
 const faqLd = faqs.length > 0 ? faqJsonLd(faqs) : null;
 
 const untranslated = isUntranslated(locale, hospitalMap);
+const isThin = !hospital.description || hospital.description.trim().length < 120;
 
 const descParas = (hospital.description ?? "")
   .split(/\n\s*\n/)
@@ -196,14 +316,14 @@ Astro.response.headers.set(
       path={path}
       locale={locale}
       image={hospital.coverImageUrl ?? undefined}
-      noindex={untranslated}
+      noindex={untranslated || isThin}
     />
-    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    {faqLd && <script type="application/ld+json" set:html={JSON.stringify(faqLd)} />}
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(jsonLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    {faqLd && <script type="application/ld+json" is:inline set:html={JSON.stringify(faqLd)} />}
   </Fragment>
 
-  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} active="hospitals" />
 
     {/* Breadcrumb */}
@@ -324,7 +444,7 @@ Astro.response.headers.set(
                   <span class="inline-flex items-center gap-1.5">
                     <span class="inline-flex items-center gap-0.5" aria-label={`${hospital.rating} of 5`}>
                       {[0,1,2,3,4].map((i) => (
-                        <svg width="13" height="13" viewBox="0 0 16 16" fill={i < Math.round(Number(hospital.rating)) ? "var(--color-saffron)" : "none"} stroke="var(--color-saffron)" stroke-width="1.2">
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill={i < Math.round(Number(hospital.rating)) ? "var(--color-saffron)" : "none"} stroke="var(--color-saffron)" stroke-width="1.6">
                           <path d="M8 1.5l2.12 4.3 4.74.69-3.43 3.35.81 4.72L8 12.31l-4.24 2.23.81-4.72L1.14 6.47l4.74-.69L8 1.5z" />
                         </svg>
                       ))}
@@ -342,15 +462,51 @@ Astro.response.headers.set(
 
             <div class="mt-4"><LastUpdated updated={hospitalRaw.updatedAt} locale={locale} /></div>
 
-            {/* Hero photo — 21:9 */}
-            <PhotoBlock
-              aspect="21/9"
-              imgUrl={hospitalCover({ coverImageUrl: hospital.coverImageUrl, countrySlug })}
-              label={`${hospital.name} · exterior`}
-              alt={`${hospital.name} hospital exterior${cityName ? `, ${cityName}` : ""}`}
-              priority
-              class="paper-flat mt-7"
-            />
+            {/* Recent news mentions — auto-imported via Google News RSS.
+                Adds a freshness signal alongside accreditations. */}
+            {newsItems.length > 0 && (
+              <aside
+                class="mt-6"
+                aria-label="Recent news mentions"
+                style="border-inline-start: 2px solid var(--color-accent); padding-inline-start: 14px;"
+              >
+                <p class="mono uppercase" style="font-size: 10.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                  In the news
+                </p>
+                <ul class="mt-2 space-y-2" style="font-size: 13.5px; line-height: 1.4;">
+                  {newsItems.map((n) => (
+                    <li>
+                      <a
+                        href={n.url}
+                        target="_blank"
+                        rel="noopener nofollow"
+                        class="serif hover:underline"
+                        style="color: var(--color-ink); text-underline-offset: 3px;"
+                      >
+                        {n.headline}
+                      </a>
+                      <span class="mono ms-2" style="font-size: 10.5px; color: var(--color-ink-subtle);">
+                        {n.source}
+                        {n.published_at && (
+                          <> · {new Date(n.published_at).toLocaleDateString(locale, { month: "short", year: "numeric" })}</>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </aside>
+            )}
+
+            {/* Hero gallery — 4-photo strip with lightbox. Cover + 3 thematic supports. */}
+            <div class="mt-7">
+              <HospitalGallery
+                hospital={{ id: hospital.id, slug: hospital.slug, name: hospital.name, coverImageUrl: hospital.coverImageUrl }}
+                countrySlug={countrySlug}
+                topSpecialtySlug={hospitalSpecialties[0]?.specialty?.slug ?? null}
+                cityName={cityName}
+                images={images.map((i: any) => ({ url: i.url, altText: i.altText, category: i.category }))}
+              />
+            </div>
 
             {/* Stat ribbon — 4 up */}
             <div
@@ -491,8 +647,10 @@ Astro.response.headers.set(
           hospitalSpecialties.length > 0 && { h: "#specialties", l: `Specialties · ${hospitalSpecialties.length}` },
           hospitalDoctors.length > 0 && { h: "#doctors", l: `Doctors · ${hospitalDoctors.length}` },
           prices.procedures > 0 && { h: "#pricing", l: "Pricing" },
-          { h: "#contact", l: "Contact" },
+          accreditations.length > 0 && { h: "#accreditation", l: "Accreditation" },
+          testimonials.length > 0 && { h: "#outcomes", l: "Patient stories" },
           faqs.length > 0 && { h: "#faq", l: "FAQ" },
+          { h: "#contact", l: "Contact" },
         ].filter(Boolean).map((t: any) => (
           <a
             href={t.h}
@@ -547,6 +705,29 @@ Astro.response.headers.set(
                 </div>
               </div>
             )}
+
+            {/* Travel snapshot — hospital + airport at a glance */}
+            <h3 id="travel" class="display mt-12" style="font-size: 30px; letter-spacing: -0.02em; scroll-margin-top: 140px;">
+              Getting there
+            </h3>
+            <p class="mt-2" style="font-size: 14.5px; color: var(--color-ink-muted); max-width: 56ch;">
+              The route most international patients use — from the gate at {cityName ?? countryName ?? "the destination"} to the ward.
+            </p>
+            <div class="mt-4">
+              <HospitalMap
+                lat={mapLat}
+                lng={mapLng}
+                precision={mapPrecision}
+                hospitalName={hospital.name}
+                cityName={cityName}
+                countryName={countryName}
+                airportDistanceKm={hospital.airportDistanceKm != null ? Number(hospital.airportDistanceKm) : null}
+                airportName={cityName ? `${cityName} international airport` : null}
+              />
+            </div>
+
+            {/* Walkthrough video — only renders when youtubeTourUrl is set */}
+            <HospitalTour url={(hospital as any).youtubeTourUrl ?? null} hospitalName={hospital.name} />
 
             {/* Specialty pricing cards */}
             {hospitalSpecialties.length > 0 && (
@@ -639,7 +820,15 @@ Astro.response.headers.set(
           <aside>
             <div class="paper" style="padding: 20px;">
               <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Location</div>
-              <div class="map-bg mt-3" style="aspect-ratio: 1 / 1; border-radius: var(--radius-md); border: 1px solid var(--color-border);" />
+              <LocationMap
+                lat={mapLat}
+                lng={mapLng}
+                name={hospital.name}
+                precision={mapPrecision}
+                cityName={cityName}
+                countryName={countryName}
+                class="mt-3"
+              />
               <div class="mt-3" style="font-size: 13.5px; line-height: 1.5;">
                 {hospital.address && <>{hospital.address}<br/></>}
                 {cityName}{countryName && `, ${countryName}`}
@@ -728,6 +917,143 @@ Astro.response.headers.set(
       </section>
     )}
 
+    {accreditations.length > 0 && (
+      <section
+        id="accreditation"
+        style="padding: 56px 28px; border-top: 1px solid var(--color-border); scroll-margin-top: 140px;"
+      >
+        <div class="mx-auto" style="max-width: 1120px;">
+          <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+            <div>
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">Verifiable credentials</div>
+              <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
+                Accreditations
+                <span style="font-style: italic; font-weight: 300;"> on file</span>
+              </h2>
+              <p class="serif mt-4" style="font-size: 15.5px; line-height: 1.55; color: var(--color-ink-muted);">
+                Every credential below is independently verifiable. Click through to the issuing body's public registry to confirm the certificate is current — we re-check ours quarterly.
+              </p>
+            </div>
+            <ul class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+              {accreditations.map((a) => {
+                const reg = registryFor(a.accreditation.acronym, a.accreditation.name);
+                const from = fmtMonthYear(a.validFrom);
+                const until = fmtMonthYear(a.validUntil);
+                return (
+                  <li class="paper" style="padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 10px;">
+                    <div class="flex items-start justify-between gap-3">
+                      <div>
+                        <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">
+                          {a.accreditation.acronym ?? "Accredited"}
+                        </div>
+                        <div class="serif mt-1" style="font-size: 16px; font-weight: 500; line-height: 1.3;">
+                          {a.accreditation.name}
+                        </div>
+                      </div>
+                      <span
+                        class="shrink-0 mono uppercase"
+                        style="font-size: 9.5px; letter-spacing: 0.1em; padding: 3px 8px; border-radius: 9999px; background: var(--color-accent-soft); color: var(--color-accent-strong);"
+                      >Active</span>
+                    </div>
+                    {(from || until) && (
+                      <div class="mono tnum" style="font-size: 11px; color: var(--color-ink-subtle); letter-spacing: 0.04em;">
+                        {from && <>Valid from {from}</>}
+                        {from && until && " · "}
+                        {until && <>through {until}</>}
+                      </div>
+                    )}
+                    <div class="mt-auto flex flex-wrap gap-2" style="border-top: 1px dashed var(--color-border); padding-top: 10px;">
+                      {a.certificateUrl && (
+                        <a
+                          href={a.certificateUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="mono uppercase inline-flex items-center gap-1"
+                          style="font-size: 10px; letter-spacing: 0.1em; color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px;"
+                        >Certificate ↗</a>
+                      )}
+                      {reg && (
+                        <a
+                          href={reg.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="mono uppercase inline-flex items-center gap-1"
+                          style="font-size: 10px; letter-spacing: 0.1em; color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px;"
+                        >{reg.label} ↗</a>
+                      )}
+                      {a.accreditation.website && !reg && (
+                        <a
+                          href={a.accreditation.website}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="mono uppercase inline-flex items-center gap-1"
+                          style="font-size: 10px; letter-spacing: 0.1em; color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px;"
+                        >Issuing body ↗</a>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
+      </section>
+    )}
+
+    {testimonials.length > 0 && (
+      <section
+        id="outcomes"
+        style="padding: 64px 28px; border-top: 1px solid var(--color-border); background: var(--color-paper); scroll-margin-top: 140px;"
+      >
+        <div class="mx-auto" style="max-width: 1120px;">
+          <div class="flex items-end justify-between flex-wrap gap-6 mb-8">
+            <div>
+              <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">Patient stories</div>
+              <h2 class="display mt-2" style="font-size: 32px; letter-spacing: -0.02em;">
+                What past patients
+                <span style="font-style: italic;"> say</span>
+              </h2>
+              <p class="serif mt-3" style="font-size: 16px; line-height: 1.55; color: var(--color-ink-muted); max-width: 620px;">
+                Verified accounts from international patients treated at {hospital.name}. Names and origin countries are kept; clinical detail is shared with the patient's permission.
+              </p>
+            </div>
+          </div>
+          <ul class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+            {testimonials.map((t) => {
+              const when = fmtMonthYear(t.treatment_date);
+              return (
+                <li class="paper" style="padding: 22px; display: flex; flex-direction: column; gap: 12px;">
+                  <div class="flex items-center gap-1" aria-label={`${t.rating} of 5`}>
+                    {[0,1,2,3,4].map((i) => (
+                      <svg width="13" height="13" viewBox="0 0 16 16" fill={i < t.rating ? "var(--color-saffron)" : "none"} stroke="var(--color-saffron)" stroke-width="1.6">
+                        <path d="M8 1.5l2.12 4.3 4.74.69-3.43 3.35.81 4.72L8 12.31l-4.24 2.23.81-4.72L1.14 6.47l4.74-.69L8 1.5z" />
+                      </svg>
+                    ))}
+                  </div>
+                  {t.title && (
+                    <div class="serif" style="font-size: 17px; line-height: 1.3; font-weight: 500;">
+                      "{t.title}"
+                    </div>
+                  )}
+                  <p class="serif" style="font-size: 14.5px; line-height: 1.6; color: var(--color-ink-muted); flex: 1;">
+                    {t.story.length > 240 ? t.story.slice(0, 240).trimEnd() + "…" : t.story}
+                  </p>
+                  <div style="border-top: 1px dashed var(--color-border); padding-top: 10px;">
+                    <div class="serif" style="font-size: 14px; font-weight: 500; color: var(--color-ink);">
+                      {t.patient_name}{t.patient_age ? `, ${t.patient_age}` : ""}
+                    </div>
+                    <div class="mono uppercase mt-0.5" style="font-size: 10px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
+                      {[t.patient_country, t.treatment_name, when].filter(Boolean).join(" · ")}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </section>
+    )}
+
     {faqs.length > 0 && (
       <section
         id="faq"
@@ -768,7 +1094,7 @@ Astro.response.headers.set(
             <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7;">Ready to plan</div>
             <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.05; letter-spacing: -0.025em; font-weight: 400;">
               Get a written plan for {hospital.name}
-              <span style="font-style: italic;"> in 11 minutes.</span>
+              <span style="font-style: italic;"> within a few hours during business hours.</span>
             </h2>
             <p class="serif mt-4" style="font-size: 17px; line-height: 1.55; max-width: 560px; opacity: 0.85;">
               Share your reports. A named case manager sends back an itemized quote, recommended surgeon, and a 5-day travel plan.
@@ -823,6 +1149,111 @@ Astro.response.headers.set(
       </section>
     )}
 
+    {/* Deep hospital sections (top-tier hospitals only) */}
+    {hSections && (
+      <section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+          <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+            Program profile
+          </div>
+          <h2 class="display mb-7" style="font-size: 30px; letter-spacing: -0.02em;">
+            What makes <span style="font-style: italic;">{hospital.name}</span> a destination
+          </h2>
+
+          {hSections.programDifferentiators && hSections.programDifferentiators.length > 0 && (
+            <div class="mb-10">
+              <h3 class="display mb-4" style="font-size: 22px;">Program differentiators</h3>
+              <ul class="space-y-3.5">
+                {hSections.programDifferentiators.map((d: string) => (
+                  <li class="flex gap-3 items-start" style="font-size: 15.5px; line-height: 1.55;">
+                    <span style="color: var(--color-accent); font-weight: 600; min-width: 12px;">→</span>
+                    <span>{d}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {hSections.accreditationContext && hSections.accreditationContext.length > 0 && (
+            <div class="mb-10">
+              <h3 class="display mb-4" style="font-size: 22px;">What the accreditations mean for you</h3>
+              <div class="grid gap-4 md:grid-cols-2">
+                {hSections.accreditationContext.map((a: any) => (
+                  <div class="paper" style="padding: 20px;">
+                    <div class="mono uppercase" style="font-size: 12px; letter-spacing: 0.1em; color: var(--color-accent); margin-bottom: 8px;">
+                      {a.code}
+                    </div>
+                    <p style="font-size: 14px; line-height: 1.5;">{a.meaning}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {hSections.whatPatientsExperience && hSections.whatPatientsExperience.length > 0 && (
+            <div class="mb-10">
+              <h3 class="display mb-4" style="font-size: 22px;">What international patients experience</h3>
+              <ol class="space-y-0">
+                {hSections.whatPatientsExperience.map((step: string, i: number) => (
+                  <li
+                    class="grid items-start gap-5 py-4"
+                    style={`grid-template-columns: 56px 1fr; ${i > 0 ? "border-top: 1px solid var(--color-border-soft);" : ""}`}
+                  >
+                    <span class="display tnum" style="font-size: 28px; line-height: 1; opacity: 0.35;">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <span style="font-size: 15px; line-height: 1.55;">{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {hSections.howToEvaluate && hSections.howToEvaluate.length > 0 && (
+            <div>
+              <h3 class="display mb-4" style="font-size: 22px;">How to evaluate this hospital for your case</h3>
+              <ol class="space-y-3">
+                {hSections.howToEvaluate.map((q: string, i: number) => (
+                  <li class="flex gap-4 items-start paper" style="padding: 16px 22px;">
+                    <span class="display tnum" style="font-size: 24px; line-height: 1; opacity: 0.35; min-width: 36px;">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <p style="font-size: 15.5px; line-height: 1.5;">{q}</p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+        </div>
+      </section>
+    )}
+
+    {/* EEAT signals — methodology + reviewer attribution + last reviewed */}
+    <MethodologyBlock locale={locale}
+      lastReviewed={hospitalRaw.updatedAt}
+      curationNote={`This profile of ${hospital.name} is rebuilt from ${accreditations.length > 0 ? `${accreditations.length} verified accreditation${accreditations.length === 1 ? "" : "s"}, ` : ""}${hospitalDoctors.length > 0 ? `${hospitalDoctors.length} surgeon credential checks, ` : ""}and the hospital's most recently issued international-patient quote sheets. Outcomes claims, where stated, are sourced from peer-reviewed publications or hospital-issued annual reports — never from marketing collateral.`}
+      dataSources={[
+        "JCI accreditation registry",
+        ...(countrySlug === "india" ? ["NABH licence register"] : []),
+        "National medical council registries",
+        "Hospital-issued itemised quote sheets",
+        ...(hospitalRaw.website ? [`${hospital.name} institutional records`] : []),
+      ]}
+    />
+
     <SiteFooter locale={locale} />
+    <EngagementFab locale={locale} />
+    <MobileQuoteBar
+      locale={locale}
+      label={hospital.name}
+      sublabel={prices.min ? `From $${Math.round(prices.min).toLocaleString()} · 9-min reply` : "Reply in ~9 minutes"}
+      whatsapp={{
+        page: "hospital",
+        slug: hospital.slug,
+        hospitalName: hospital.name,
+        cityName: cityName ?? undefined,
+        specialtyName: hospitalSpecialties[0]?.specialty.name,
+      }}
+    />
   </main>
 </BaseLayout>

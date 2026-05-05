@@ -1,0 +1,105 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const locale = (isLocale(rawLocale) ? rawLocale : "en") as Locale;
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta
+      title="Security policy & responsible disclosure"
+      description="How to report a security issue to MedCasts. Scope, timeline, recognition, and what we won't accept."
+      path="/security"
+      locale={locale}
+      translatedLocales={["en"]}
+      noindex={locale !== "en"}
+    />
+  </Fragment>
+
+  <main id="main" style="min-height: 100dvh; background: var(--color-bg);">
+    <SiteHeader locale={locale} />
+
+    <section style="padding: 56px 28px 96px;">
+      <div class="mx-auto" style="max-width: 720px;">
+        <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">Security</p>
+        <h1
+          class="display display-tight mt-3"
+          style="font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.05; font-weight: 400; letter-spacing: -0.03em;"
+        >
+          Security policy &amp; <span class="italic-display">responsible disclosure</span>
+        </h1>
+        <p class="serif mt-5" style="font-size: 17px; line-height: 1.55; color: var(--color-ink-muted);">
+          MedCasts coordinates planned medical travel for international patients — the data we hold (case summaries, IDs, payment intent, treatment plans) is sensitive. If you find a vulnerability, we want to hear from you.
+        </p>
+
+        <div class="prose-editorial mt-12">
+          <h2>How to report</h2>
+          <p>
+            Email <a href="mailto:security@medcasts.com">security@medcasts.com</a> with:
+          </p>
+          <ul>
+            <li>A short summary of the issue + impact</li>
+            <li>Steps to reproduce — minimal payload, no scraping</li>
+            <li>Optional PGP key (we'll set up encrypted reply if requested)</li>
+          </ul>
+          <p>
+            For urgent issues (active exploit), prefix the subject with <code>[CRITICAL]</code> — paged 24/7. Routine reports get a written acknowledgement within 2 business days and an initial assessment within 5.
+          </p>
+
+          <h2>In scope</h2>
+          <ul>
+            <li><code>medcasts.com</code> + all <code>*.medcasts.com</code> subdomains</li>
+            <li>Public APIs at <code>/api/v1/*</code></li>
+            <li>Patient portal token / session security</li>
+            <li>Admin authentication, authorization, session management</li>
+            <li>Stored data exposure (PHI, payment intent, contact details)</li>
+            <li>SSRF, RCE, SQLi, deserialization, auth-bypass</li>
+            <li>Stored XSS / DOM XSS in admin or patient portal</li>
+          </ul>
+
+          <h2>Out of scope</h2>
+          <ul>
+            <li>Self-XSS or social-engineering of MedCasts staff</li>
+            <li>Vulnerabilities in third-party services we use (report to them)</li>
+            <li>Best-practice findings without an exploit chain (missing security headers on a page that ships them everywhere else, etc.)</li>
+            <li>Rate-limit bypasses on read-only public endpoints</li>
+            <li>Outdated software disclosure with no exploit</li>
+            <li>Spam / abuse via the inquiry form (CSRF + rate-limit already gate it)</li>
+          </ul>
+
+          <h2>What we ask</h2>
+          <ul>
+            <li><strong>Don't access patient data.</strong> If you find an exposure, stop, document, and report. We'll reproduce on our side.</li>
+            <li>Don't run automated scanners against production. Test on a fork or against the local dev server (instructions in the <a href="https://github.com/anthropics/claude-code/issues">README</a>).</li>
+            <li>Don't disclose publicly until we've shipped a fix or we've agreed on a coordinated date (default 90 days).</li>
+            <li>One report per issue. Bundling chains is fine.</li>
+          </ul>
+
+          <h2>Recognition</h2>
+          <p>
+            We run a non-monetary acknowledgement program — every confirmed report gets a write-up on this page (with researcher name + report date, opt-in) and a reference letter for portfolio use. We're a small team and don't run a paid bounty program yet; we'll be transparent if that changes.
+          </p>
+
+          <h2>Reference</h2>
+          <ul>
+            <li>Machine-readable contact: <a href="/.well-known/security.txt">/.well-known/security.txt</a></li>
+            <li>Editorial + corrections process: <a href={localizedPath(locale, "/editorial-policy")}>/editorial-policy</a></li>
+            <li>Privacy policy: <a href={localizedPath(locale, "/privacy-policy")}>/privacy-policy</a></li>
+            <li>Health probe (uptime): <a href="/api/health">/api/health</a></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

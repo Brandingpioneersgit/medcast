@@ -8,7 +8,11 @@ import { sql } from "drizzle-orm";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
+import { getContent, getContentBatch, applyTranslated, isUntranslated } from "@/lib/translate";
 import { ChevronRight } from "lucide-react";
+import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
+import { getReviewerFor, listCitationsFor } from "@/lib/queries";
+import Citations from "@/components/content/Citations.astro";
 
 export const prerender = false;
 
@@ -21,6 +25,7 @@ const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
 
 type Row = {
+  id: number;
   slug: string;
   term: string;
   category: string | null;
@@ -31,26 +36,35 @@ type Row = {
 };
 const res = await db
   .execute(sql`
-    SELECT slug, term, category, short_definition, long_definition, related_slugs, updated_at
+    SELECT id, slug, term, category, short_definition, long_definition, related_slugs, updated_at
     FROM glossary_terms WHERE slug = ${termSlug}
   `)
   .catch(() => [] as unknown[]);
-const term = Array.from(res as Iterable<Row>)[0] ?? null;
-if (!term) return new Response(`Not found: ${termSlug}`, { status: 404 });
+const rawTerm = Array.from(res as Iterable<Row>)[0] ?? null;
+if (!rawTerm) return new Response(`Not found: ${termSlug}`, { status: 404 });
+
+const reviewer = await getReviewerFor("glossary", rawTerm.id).catch(() => null);
+const citations = await listCitationsFor("glossary", rawTerm.id);
+const termMap = await getContent("glossary", rawTerm.id, locale).catch(() => ({}));
+const term = applyTranslated(rawTerm, termMap, ["term", "short_definition", "long_definition"]);
+const untranslated = isUntranslated(locale, termMap);
 
 // Related terms
 const relatedSlugs = (term.related_slugs ?? []).filter((s): s is string => typeof s === "string");
-const relatedTerms = relatedSlugs.length > 0
+type RelatedRow = { id: number; slug: string; term: string; short_definition: string };
+const rawRelated = relatedSlugs.length > 0
   ? Array.from(
       (await db
         .execute(sql`
-          SELECT slug, term, short_definition
+          SELECT id, slug, term, short_definition
           FROM glossary_terms
           WHERE slug = ANY(${sql`ARRAY[${sql.join(relatedSlugs.map((s) => sql`${s}`), sql`, `)}]::text[]`})
         `)
-        .catch(() => [] as unknown[])) as Iterable<{ slug: string; term: string; short_definition: string }>,
+        .catch(() => [] as unknown[])) as Iterable<RelatedRow>,
     )
   : [];
+const relatedMap: Record<number, Record<string, string>> = await getContentBatch("glossary", rawRelated.map((r) => r.id), locale).catch(() => ({}));
+const relatedTerms = rawRelated.map((r) => applyTranslated(r, relatedMap[r.id] ?? {}, ["term", "short_definition"]));
 
 const seoTitle = `${term.term} — defined plainly`;
 const seoDescription = term.short_definition.slice(0, 160);
@@ -81,12 +95,12 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    <script type="application/ld+json" set:html={JSON.stringify(defLd)} />
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(defLd)} />
   </Fragment>
 
-  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} />
 
     <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
@@ -116,6 +130,15 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
         >
           {term.term}
         </h1>
+
+        {term.updated_at && (
+          <div class="mono mt-4" style="font-size: 11px; letter-spacing: 0.08em; color: var(--color-ink-subtle); text-transform: uppercase;">
+            Last reviewed{" "}
+            <time datetime={new Date(term.updated_at).toISOString()}>
+              {new Date(term.updated_at).toLocaleDateString(locale === "en" ? "en-US" : locale, { month: "short", year: "numeric" })}
+            </time>
+          </div>
+        )}
 
         <p class="serif mt-6" style="font-size: 21px; line-height: 1.45; color: var(--color-ink); font-weight: 400;">
           {term.short_definition}
@@ -183,6 +206,22 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
         </section>
       </div>
     </section>
+
+    <Citations citations={citations} />
+
+    {/* EEAT signals */}
+    <MethodologyBlock locale={locale}
+      reviewerName={reviewer?.fullName ?? null}
+      reviewerCredentials={reviewer?.credentials ?? null}
+      reviewerSlug={reviewer?.slug ?? null}
+      lastReviewed={reviewer?.reviewedAt ?? rawTerm.updated_at ?? null}
+      curationNote={`Glossary entries are written and edited against current peer-reviewed clinical guidelines and translated into eight languages. Definitions are reviewed when the underlying medical guidance changes — typically annually — and are intentionally generalist rather than diagnostic.`}
+      dataSources={[
+        "Peer-reviewed clinical guidelines (specialty-specific)",
+        "WHO ICD-11 condition + procedure classifications",
+        "National medical society terminology standards",
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>

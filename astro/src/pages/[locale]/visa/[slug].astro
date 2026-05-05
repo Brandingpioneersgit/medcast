@@ -9,7 +9,12 @@ import { eq, sql } from "drizzle-orm";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, faqJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
+import { getContent, applyTranslated, isUntranslated } from "@/lib/translate";
 import { ChevronRight, AlertCircle } from "lucide-react";
+import TravelLogisticsSection from "@/components/content/TravelLogisticsSection.astro";
+import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
 
 export const prerender = false;
 
@@ -25,6 +30,7 @@ const country = await db.query.countries.findFirst({ where: eq(countries.slug, s
 if (!country) return new Response(`Not found: ${slug}`, { status: 404 });
 
 type VisaRow = {
+  id: number;
   visa_required: boolean;
   visa_type: string | null;
   processing_time_days: number | null;
@@ -36,13 +42,25 @@ type VisaRow = {
   tips: string | null;
   embassy_url: string | null;
   updated_at: Date | null;
+  last_verified_at: Date | null;
 };
+// `last_verified_at` is added by scripts/migrations/2026-05-05-visa-last-verified.sql.
+// Until that's applied, the column resolves to NULL and we fall back to updated_at.
 const visaRes = await db.execute(sql`
-  SELECT visa_required, visa_type, processing_time_days, duration_days,
-         extendable, allows_attendants, overview, requirements, tips, embassy_url, updated_at
+  SELECT id, visa_required, visa_type, processing_time_days, duration_days,
+         extendable, allows_attendants, overview, requirements, tips, embassy_url, updated_at,
+         (CASE WHEN EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'visa_info' AND column_name = 'last_verified_at'
+          ) THEN
+            (SELECT last_verified_at FROM visa_info WHERE country_id = ${country.id})
+          ELSE NULL END) AS last_verified_at
   FROM visa_info WHERE country_id = ${country.id}
 `).catch(() => [] as unknown[]);
-const visa: VisaRow | null = Array.from(visaRes as Iterable<VisaRow>)[0] ?? null;
+const rawVisa: VisaRow | null = Array.from(visaRes as Iterable<VisaRow>)[0] ?? null;
+const visaMap = rawVisa ? await getContent("visa_info", rawVisa.id, locale).catch(() => ({})) : {};
+const visa = rawVisa ? applyTranslated(rawVisa, visaMap, ["overview", "requirements", "tips"]) : null;
+const visaUntranslated = isUntranslated(locale, visaMap);
 
 type CountRow = { c: number };
 const hospitalCount = await db
@@ -120,12 +138,12 @@ Astro.response.headers.set(
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={visaUntranslated} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(faqSchema)} />
   </Fragment>
 
-  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} />
 
     {/* Breadcrumb */}
@@ -317,6 +335,22 @@ Astro.response.headers.set(
       </div>
     </section>
 
+    {/* Travel + recovery context for this destination */}
+    <TravelLogisticsSection
+      countryName={country.name}
+      countrySlug={country.slug}
+    />
+
+    {/* EEAT signals — methodology + corrections */}
+    <MethodologyBlock locale={locale}
+      curationNote={`Visa requirements, processing times, and documentary checklists for ${country.name} are verified against the official ministry/embassy portals quarterly. We list documentary categories — not legal advice — and your case manager confirms your specific eligibility before flight booking.`}
+      dataSources={[
+        `${country.name} ministry of foreign affairs`,
+        "Official e-visa / consular portals",
+        "Hospital international patient departments",
+      ]}
+    />
+
     <section style="padding: 72px 28px; border-top: 1px solid var(--color-border); background: var(--color-ink); color: var(--color-bg);">
       <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[1fr,auto] lg:items-end">
         <div>
@@ -348,6 +382,32 @@ Astro.response.headers.set(
         </div>
       </div>
     </section>
+
+    <HowItWorks
+      heading={`How to apply for a medical visa to ${country.name}`}
+      italicWord={country.name}
+      eyebrow="Visa application process"
+      steps={[
+        { title: "Hospital invitation letter", description: "First step. The destination hospital issues a formal invitation letter on its letterhead, addressed to the embassy or consulate. We coordinate this through the partner hospital — typical turnaround 3-5 days." },
+        { title: "Embassy appointment booking", description: `Book an appointment at the ${country.name} embassy or consulate in your country. Some destinations offer eVisa for medical purposes; verify eligibility for your nationality.` },
+        { title: "Document compilation", description: "Standard package: passport (≥6 months validity), photos, hospital invitation, treatment cost estimate, accommodation proof, return flight tickets. Some destinations also require: medical history summary, prior treatment records, financial statements." },
+        { title: "Embassy submission", description: "Submit at the appointment. Visa fees vary by country and processing time. Standard processing typically 5-15 business days; expedited where available 2-5 days." },
+        { title: "Visa receipt + travel", description: "Visa is typically issued for the duration of treatment + buffer (commonly 30-90 days). Attendant visas (1-2 family members) can be applied for in parallel." },
+      ]}
+      outroNote={`We handle the visa coordination as part of our standard service. Documents reviewed for completeness before submission. ${country.name} embassy appointment booking guidance provided.`}
+    />
+
+    <WhatToExpect
+      heading="Common visa application issues"
+      italicWord="application issues"
+      items={[
+        { label: "Insufficient hospital invitation", description: "Some embassies reject invitations that don't specify exact procedure, dates, and cost. Get specific letters, not generic ones." },
+        { label: "Missing financial proof", description: "Embassies often require evidence of ability to pay (bank statements, treatment payment confirmation). Submit clear documentation up front." },
+        { label: "Wrong visa category", description: "Tourist visa for treatment is technically improper at most destinations. Use medical visa specifically — even if processing takes longer." },
+        { label: "Attendant visa overlooked", description: "Don't apply for attendants as separate tourist visas; coordinate with the medical visa application. Both should reference the patient's invitation letter." },
+        { label: "Processing time misjudgment", description: "Plan visa application 6-8 weeks before treatment date. Embassy holiday windows, document re-submission, or interview requests can extend timelines." },
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>

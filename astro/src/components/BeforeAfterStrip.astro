@@ -1,0 +1,152 @@
+---
+// Before/after gallery — only renders when outcomes are present.
+// Uses a CSS clip-path slider driven by <input type="range">.
+// Each card is independent (dragging slider 1 doesn't move slider 2).
+import { specialtyBanner } from "@/lib/images";
+import { localizedPath, defaultLocale, type Locale } from "@/lib/i18n";
+
+interface Outcome {
+  id: number;
+  beforeUrl: string;
+  afterUrl: string;
+  caption: string | null;
+  weeksPost: number | null;
+  patientAgeBand: string | null;
+  patientCountry: string | null;
+}
+
+interface Props {
+  outcomes: Outcome[];
+  treatmentName: string;
+  specialtySlug?: string | null;
+  /** Show methodology link to editorial-policy */
+  showConsent?: boolean;
+  locale?: Locale;
+}
+
+const { outcomes, treatmentName, specialtySlug, showConsent = true, locale = defaultLocale } = Astro.props;
+
+if (!outcomes || outcomes.length === 0) return null;
+---
+
+<section class="mt-12">
+  <div class="flex items-baseline justify-between flex-wrap gap-3">
+    <div>
+      <span class="mono" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); text-transform: uppercase;">
+        Patient outcomes
+      </span>
+      <h3 class="display mt-1.5" style="font-size: 28px; letter-spacing: -0.02em; line-height: 1.1;">
+        Before<span style="font-style: italic; color: var(--color-accent); padding: 0 6px;">·</span>and<span style="font-style: italic; color: var(--color-accent); padding: 0 6px;">·</span>after
+      </h3>
+      <p style="font-size: 14px; color: var(--color-ink-muted); margin-top: 6px; max-width: 56ch;">
+        Real {treatmentName.toLowerCase()} outcomes from our placement network. Drag the handle to compare.
+      </p>
+    </div>
+    {showConsent && (
+      <a
+        href={`${localizedPath(locale, "/editorial-policy")}#patient-photos`}
+        class="mono"
+        style="font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-subtle); text-decoration: underline; text-underline-offset: 4px;"
+      >
+        Consent + anonymization →
+      </a>
+    )}
+  </div>
+
+  <div class="grid mt-5" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px;">
+    {outcomes.map((o, idx) => (
+      <figure
+        class="paper ba-card"
+        data-ba-card={idx}
+        style="padding: 0; overflow: hidden; border-radius: var(--radius-lg);"
+      >
+        <div
+          class="ba-frame"
+          style={`position: relative; aspect-ratio: 4/5; --pos: 50%;`}
+        >
+          {/* After (full background) */}
+          <img
+            src={o.afterUrl}
+            alt={`After ${treatmentName}`}
+            loading="lazy"
+            decoding="async"
+            style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;"
+          />
+          {/* Before (clipped to 0..--pos) */}
+          <div
+            class="ba-before"
+            style="position: absolute; inset: 0; clip-path: inset(0 calc(100% - var(--pos)) 0 0); -webkit-clip-path: inset(0 calc(100% - var(--pos)) 0 0);"
+          >
+            <img
+              src={o.beforeUrl}
+              alt={`Before ${treatmentName}`}
+              loading="lazy"
+              decoding="async"
+              style="width: 100%; height: 100%; object-fit: cover;"
+            />
+          </div>
+          {/* Divider line */}
+          <div
+            aria-hidden="true"
+            style="position: absolute; top: 0; bottom: 0; left: var(--pos); width: 2px; background: rgba(251,248,241,0.95); box-shadow: 0 0 16px rgba(14,23,19,0.45); transform: translateX(-1px); pointer-events: none;"
+          ></div>
+          {/* Handle */}
+          <div
+            aria-hidden="true"
+            style="position: absolute; top: 50%; left: var(--pos); width: 36px; height: 36px; border-radius: 9999px; background: rgba(251,248,241,0.97); border: 2px solid var(--color-accent, #0A5D54); transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; pointer-events: none; box-shadow: 0 4px 14px rgba(14,23,19,0.35);"
+          >
+            <span style="font-size: 14px; color: var(--color-accent, #0A5D54); letter-spacing: -0.05em;">‹›</span>
+          </div>
+          {/* Labels */}
+          <span
+            class="mono"
+            style="position: absolute; top: 12px; inset-inline-start: 12px; padding: 4px 10px; font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(251,248,241,.96); background: rgba(14,23,19,0.55); border-radius: 9999px; backdrop-filter: blur(6px);"
+          >
+            Before
+          </span>
+          <span
+            class="mono"
+            style="position: absolute; top: 12px; inset-inline-end: 12px; padding: 4px 10px; font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(251,248,241,.96); background: rgba(10,93,84,0.78); border-radius: 9999px; backdrop-filter: blur(6px);"
+          >
+            After{o.weeksPost ? ` · ${o.weeksPost}w` : ""}
+          </span>
+          {/* Range driver — full-card hit zone */}
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value="50"
+            aria-label={`Compare before and after for outcome ${idx + 1}`}
+            class="ba-range"
+            data-ba-range
+            style="position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: ew-resize; margin: 0;"
+          />
+        </div>
+        <figcaption style="padding: 12px 14px; font-size: 13px; line-height: 1.45; color: var(--color-ink-muted);">
+          {o.caption ?? `${treatmentName} outcome`}
+          {(o.patientAgeBand || o.patientCountry) && (
+            <span class="mono" style="display: block; margin-top: 4px; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-subtle);">
+              {o.patientAgeBand}{o.patientAgeBand && o.patientCountry ? " · " : ""}{o.patientCountry}
+            </span>
+          )}
+        </figcaption>
+      </figure>
+    ))}
+  </div>
+
+  <p style="font-size: 11.5px; color: var(--color-ink-subtle); margin-top: 14px; max-width: 64ch;">
+    Photos shown with written patient consent. Faces blurred or cropped where requested.
+    Outcomes vary by anatomy, age, and surgeon — these are illustrative, not promises.
+  </p>
+</section>
+
+<script is:inline>
+  document.querySelectorAll("[data-ba-range]").forEach((el) => {
+    const range = el;
+    const frame = range.parentElement;
+    if (!frame) return;
+    const apply = () => frame.style.setProperty("--pos", range.value + "%");
+    range.addEventListener("input", apply);
+    apply();
+  });
+</script>

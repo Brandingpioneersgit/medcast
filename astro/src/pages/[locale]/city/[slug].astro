@@ -5,7 +5,10 @@ import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import LastUpdated from "@/components/LastUpdated.astro";
 import PhotoBlock from "@/components/PhotoBlock.astro";
+import TravelLogisticsSection from "@/components/content/TravelLogisticsSection.astro";
+import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
 import { getCityBySlug } from "@/lib/queries";
+import { sql } from "@/lib/db";
 import {
   getContentBatch,
   applyTranslated,
@@ -36,6 +39,13 @@ const hospitalIds = hospitals.map((h) => h.id);
 const hospitalMap = await getContentBatch("hospital", hospitalIds, locale);
 const hospitalsXl = hospitals.map((h) => applyTranslated(h, hospitalMap[h.id] ?? {}, ["name", "description"]));
 
+// Pull deep city sections (top destinations only)
+const cityRow = await sql`
+  SELECT content_sections, last_reviewed_at, reviewer_name
+  FROM cities WHERE id = ${city.id} LIMIT 1
+`;
+const citySections: any = cityRow[0]?.content_sections ?? null;
+
 const FLAG_MAP: Record<string, string> = {
   india: "🇮🇳", turkey: "🇹🇷", thailand: "🇹🇭", uae: "🇦🇪",
   germany: "🇩🇪", singapore: "🇸🇬", "south-korea": "🇰🇷",
@@ -44,6 +54,42 @@ const FLAG_MAP: Record<string, string> = {
 function countryFlag(s: string | undefined | null): string { return s ? (FLAG_MAP[s] ?? "🌐") : "🌐"; }
 function firstWord(s: string) { const i = s.indexOf(" "); return i === -1 ? s : s.slice(0, i); }
 function restOfName(s: string) { const i = s.indexOf(" "); return i === -1 ? "" : s.slice(i + 1); }
+
+// City-keyed practical facts — airport / language / timezone / currency / climate window.
+type CityFacts = { airport: string; airportName: string; language: string; timezone: string; currency: string; bestSeason: string };
+const CITY_FACTS: Record<string, CityFacts> = {
+  delhi: { airport: "DEL", airportName: "Indira Gandhi Intl", language: "Hindi · English", timezone: "IST · UTC+5:30", currency: "INR ₹", bestSeason: "Oct–Mar (avoid May–Aug heat)" },
+  "new-delhi": { airport: "DEL", airportName: "Indira Gandhi Intl", language: "Hindi · English", timezone: "IST · UTC+5:30", currency: "INR ₹", bestSeason: "Oct–Mar (avoid May–Aug heat)" },
+  gurugram: { airport: "DEL", airportName: "Indira Gandhi Intl · 25 km", language: "Hindi · English", timezone: "IST · UTC+5:30", currency: "INR ₹", bestSeason: "Oct–Mar" },
+  noida: { airport: "DEL", airportName: "Indira Gandhi Intl · 30 km", language: "Hindi · English", timezone: "IST · UTC+5:30", currency: "INR ₹", bestSeason: "Oct–Mar" },
+  mumbai: { airport: "BOM", airportName: "Chhatrapati Shivaji Intl", language: "Marathi · Hindi · English", timezone: "IST · UTC+5:30", currency: "INR ₹", bestSeason: "Nov–Feb (avoid Jun–Sep monsoon)" },
+  bengaluru: { airport: "BLR", airportName: "Kempegowda Intl", language: "Kannada · English · Hindi", timezone: "IST · UTC+5:30", currency: "INR ₹", bestSeason: "Year-round (mild climate)" },
+  bangalore: { airport: "BLR", airportName: "Kempegowda Intl", language: "Kannada · English · Hindi", timezone: "IST · UTC+5:30", currency: "INR ₹", bestSeason: "Year-round (mild climate)" },
+  chennai: { airport: "MAA", airportName: "Chennai Intl", language: "Tamil · English", timezone: "IST · UTC+5:30", currency: "INR ₹", bestSeason: "Nov–Feb (cyclones Oct–Dec)" },
+  hyderabad: { airport: "HYD", airportName: "Rajiv Gandhi Intl", language: "Telugu · English · Hindi", timezone: "IST · UTC+5:30", currency: "INR ₹", bestSeason: "Oct–Mar" },
+  kolkata: { airport: "CCU", airportName: "Netaji Subhas Chandra Bose Intl", language: "Bengali · English · Hindi", timezone: "IST · UTC+5:30", currency: "INR ₹", bestSeason: "Nov–Feb" },
+  istanbul: { airport: "IST", airportName: "Istanbul Airport", language: "Turkish · English (in clinics)", timezone: "TRT · UTC+3", currency: "TRY ₺", bestSeason: "Apr–Jun · Sep–Oct" },
+  ankara: { airport: "ESB", airportName: "Esenboğa Intl", language: "Turkish · English (in clinics)", timezone: "TRT · UTC+3", currency: "TRY ₺", bestSeason: "May–Oct" },
+  antalya: { airport: "AYT", airportName: "Antalya Airport", language: "Turkish · English · Russian", timezone: "TRT · UTC+3", currency: "TRY ₺", bestSeason: "Apr–Jun · Sep–Nov" },
+  bangkok: { airport: "BKK", airportName: "Suvarnabhumi Intl", language: "Thai · English (in hospitals)", timezone: "ICT · UTC+7", currency: "THB ฿", bestSeason: "Nov–Feb (avoid Apr heat)" },
+  phuket: { airport: "HKT", airportName: "Phuket Intl", language: "Thai · English", timezone: "ICT · UTC+7", currency: "THB ฿", bestSeason: "Nov–Apr" },
+  "chiang-mai": { airport: "CNX", airportName: "Chiang Mai Intl", language: "Thai · English", timezone: "ICT · UTC+7", currency: "THB ฿", bestSeason: "Nov–Feb (avoid Mar–Apr smoke)" },
+  dubai: { airport: "DXB", airportName: "Dubai Intl", language: "Arabic · English", timezone: "GST · UTC+4", currency: "AED د.إ", bestSeason: "Nov–Mar (avoid Jun–Aug heat)" },
+  "abu-dhabi": { airport: "AUH", airportName: "Abu Dhabi Intl", language: "Arabic · English", timezone: "GST · UTC+4", currency: "AED د.إ", bestSeason: "Nov–Mar" },
+  berlin: { airport: "BER", airportName: "Berlin Brandenburg", language: "German · English (in hospitals)", timezone: "CET · UTC+1", currency: "EUR €", bestSeason: "May–Sep" },
+  munich: { airport: "MUC", airportName: "Munich Intl", language: "German · English (in hospitals)", timezone: "CET · UTC+1", currency: "EUR €", bestSeason: "May–Sep" },
+  frankfurt: { airport: "FRA", airportName: "Frankfurt Airport", language: "German · English", timezone: "CET · UTC+1", currency: "EUR €", bestSeason: "May–Sep" },
+  hamburg: { airport: "HAM", airportName: "Hamburg Airport", language: "German · English", timezone: "CET · UTC+1", currency: "EUR €", bestSeason: "May–Sep" },
+  singapore: { airport: "SIN", airportName: "Changi Airport", language: "English · Mandarin · Malay · Tamil", timezone: "SGT · UTC+8", currency: "SGD $", bestSeason: "Year-round (tropical, daily rain)" },
+  "singapore-city": { airport: "SIN", airportName: "Changi Airport", language: "English · Mandarin · Malay · Tamil", timezone: "SGT · UTC+8", currency: "SGD $", bestSeason: "Year-round" },
+  seoul: { airport: "ICN", airportName: "Incheon Intl", language: "Korean · English (in clinics)", timezone: "KST · UTC+9", currency: "KRW ₩", bestSeason: "Apr–Jun · Sep–Oct" },
+  busan: { airport: "PUS", airportName: "Gimhae Intl", language: "Korean · English", timezone: "KST · UTC+9", currency: "KRW ₩", bestSeason: "Apr–Jun · Sep–Oct" },
+  "kuala-lumpur": { airport: "KUL", airportName: "KL Intl", language: "Malay · English", timezone: "MYT · UTC+8", currency: "MYR RM", bestSeason: "May–Jul · Dec–Feb" },
+  penang: { airport: "PEN", airportName: "Penang Intl", language: "Malay · English · Mandarin", timezone: "MYT · UTC+8", currency: "MYR RM", bestSeason: "Dec–Apr" },
+  riyadh: { airport: "RUH", airportName: "King Khalid Intl", language: "Arabic · English (in hospitals)", timezone: "AST · UTC+3", currency: "SAR ﷼", bestSeason: "Nov–Mar" },
+  jeddah: { airport: "JED", airportName: "King Abdulaziz Intl", language: "Arabic · English", timezone: "AST · UTC+3", currency: "SAR ﷼", bestSeason: "Nov–Mar" },
+};
+const cityFacts: CityFacts | null = CITY_FACTS[slug] ?? null;
 
 const ratedHospitals = hospitalsXl.filter((h) => h.rating && Number(h.rating) > 0);
 const avgRating = ratedHospitals.length > 0
@@ -140,12 +186,12 @@ Astro.response.headers.set(
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
-    <script type="application/ld+json" set:html={JSON.stringify(placeLd)} />
-    {itemLd && <script type="application/ld+json" set:html={JSON.stringify(itemLd)} />}
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(placeLd)} />
+    {itemLd && <script type="application/ld+json" is:inline set:html={JSON.stringify(itemLd)} />}
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -240,6 +286,49 @@ Astro.response.headers.set(
         </div>
       </div>
     </section>
+
+    {/* City at a glance — practical planning facts */}
+    {cityFacts && (
+      <section style="border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8 py-12">
+          <div class="flex items-end justify-between flex-wrap gap-4 mb-6">
+            <div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
+                City at a glance
+              </div>
+              <h2 class="display mt-2" style="font-size: 26px; line-height: 1.1; letter-spacing: -0.02em;">
+                Practical facts
+                <span style="font-style: italic; font-weight: 300;"> for planning</span>
+              </h2>
+            </div>
+            <span class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+              Verified by editorial · re-checked quarterly
+            </span>
+          </div>
+          <ul
+            class="grid"
+            style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); border-top: 1px solid var(--color-border); border-left: 1px solid var(--color-border);"
+          >
+            {[
+              { l: "Nearest airport", v: cityFacts.airport, sub: cityFacts.airportName },
+              { l: "Languages", v: cityFacts.language.split(" · ")[0], sub: cityFacts.language.includes(" · ") ? cityFacts.language.split(" · ").slice(1).join(" · ") : "Used in tier-1 hospitals" },
+              { l: "Time zone", v: cityFacts.timezone.split(" · ")[0], sub: cityFacts.timezone.split(" · ")[1] ?? "" },
+              { l: "Currency", v: cityFacts.currency, sub: "FX kiosk + ATMs at airport" },
+              { l: "Best season", v: cityFacts.bestSeason.split(" (")[0], sub: cityFacts.bestSeason.match(/\(([^)]+)\)/)?.[1] ?? "Re-check forecast pre-arrival" },
+            ].map((c) => (
+              <li style="padding: 16px 18px 14px; border-right: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); background: var(--color-bg);">
+                <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">{c.l}</div>
+                <div class="serif mt-1.5" style="font-size: 18px; line-height: 1.15; letter-spacing: -0.005em; color: var(--color-ink);">{c.v}</div>
+                {c.sub && <div class="mono mt-1" style="font-size: 10px; color: var(--color-ink-subtle);">{c.sub}</div>}
+              </li>
+            ))}
+          </ul>
+          <p class="serif mt-6" style="font-size: 14px; line-height: 1.55; color: var(--color-ink-muted); max-width: 720px;">
+            Your case manager arranges airport pickup, recovery-friendly accommodation near the hospital, and a local SIM if you need one. Translation services are baked into every quote — no extra fee.
+          </p>
+        </div>
+      </section>
+    )}
 
     {specialtyCounts.length > 0 && (
       <section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft); margin-top: 56px;">
@@ -389,6 +478,131 @@ Astro.response.headers.set(
         </div>
       </section>
     )}
+
+    {/* Travel + recovery context */}
+    {country && (
+      <TravelLogisticsSection
+        countryName={country.name}
+        countrySlug={country.slug}
+      />
+    )}
+
+    {/* Deep city sections */}
+    {citySections && (
+      <section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+          <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+            Practical city guide
+          </div>
+          <h2 class="display mb-10" style="font-size: 32px; letter-spacing: -0.02em;">
+            Practical guide to <span style="font-style: italic;">{city.name}</span>
+          </h2>
+
+          {citySections.cityOverview && Array.isArray(citySections.cityOverview) && (
+            <div class="prose-editorial mb-10" style="max-width: 56rem;">
+              {citySections.cityOverview.map((p: string) => <p>{p}</p>)}
+            </div>
+          )}
+
+          {citySections.hospitalClusters && citySections.hospitalClusters.length > 0 && (
+            <div class="mb-10">
+              <h3 class="display mb-4" style="font-size: 22px;">Hospital clusters by neighborhood</h3>
+              <div class="grid gap-4 md:grid-cols-2">
+                {citySections.hospitalClusters.map((c: any) => (
+                  <div class="paper" style="padding: 20px;">
+                    <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 8px;">
+                      {c.area}
+                    </div>
+                    <p style="font-size: 14.5px; line-height: 1.55;">{c.hospitals}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div class="grid gap-6 md:grid-cols-2 mb-10">
+            {citySections.airportAndTransit && (
+              <div class="paper" style="padding: 22px;">
+                <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
+                  Airport + transit
+                </div>
+                {citySections.airportAndTransit.airport && <p class="mb-1.5" style="font-size: 14.5px;"><strong>Airport:</strong> {citySections.airportAndTransit.airport}</p>}
+                {citySections.airportAndTransit.transitTime && <p class="mb-1.5" style="font-size: 14.5px; line-height: 1.5;">{citySections.airportAndTransit.transitTime}</p>}
+                {citySections.airportAndTransit.notes && <p style="font-size: 13.5px; line-height: 1.5; color: var(--color-ink-muted);">{citySections.airportAndTransit.notes}</p>}
+              </div>
+            )}
+
+            {citySections.climateNotes && (
+              <div class="paper" style="padding: 22px;">
+                <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
+                  Climate
+                </div>
+                <p style="font-size: 14.5px; line-height: 1.55;">{citySections.climateNotes}</p>
+              </div>
+            )}
+          </div>
+
+          {citySections.recoveryFriendlyAreas && citySections.recoveryFriendlyAreas.length > 0 && (
+            <div class="mb-10">
+              <h3 class="display mb-4" style="font-size: 22px;">Where to stay during recovery</h3>
+              <div class="grid gap-4 md:grid-cols-2">
+                {citySections.recoveryFriendlyAreas.map((a: any) => (
+                  <div class="paper" style="padding: 20px;">
+                    <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 8px;">
+                      {a.area}
+                    </div>
+                    <p style="font-size: 14px; line-height: 1.55;">{a.note}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {citySections.thingsToDoConvalescing && citySections.thingsToDoConvalescing.length > 0 && (
+            <div class="mb-10">
+              <h3 class="display mb-4" style="font-size: 22px;">Recovery-friendly activities</h3>
+              <ul class="grid gap-2.5 md:grid-cols-2">
+                {citySections.thingsToDoConvalescing.map((t: string) => (
+                  <li class="flex gap-3" style="font-size: 14.5px; line-height: 1.5;">
+                    <span style="color: var(--color-accent);">→</span>
+                    <span>{t}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {citySections.foodAndAccommodation && (
+            <div class="paper mb-6" style="padding: 22px;">
+              <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
+                Food + accommodation
+              </div>
+              {citySections.foodAndAccommodation.food && <p class="mb-2" style="font-size: 14.5px; line-height: 1.55;"><strong>Food:</strong> {citySections.foodAndAccommodation.food}</p>}
+              {citySections.foodAndAccommodation.accommodation && <p style="font-size: 14.5px; line-height: 1.55;"><strong>Accommodation:</strong> {citySections.foodAndAccommodation.accommodation}</p>}
+            </div>
+          )}
+
+          {citySections.safetyAndPracticals && (
+            <div class="paper" style="padding: 22px;">
+              <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
+                Practical notes
+              </div>
+              <p style="font-size: 14.5px; line-height: 1.55;">{citySections.safetyAndPracticals}</p>
+            </div>
+          )}
+        </div>
+      </section>
+    )}
+
+    {/* EEAT signals */}
+    <MethodologyBlock locale={locale}
+      curationNote={`This ${city.name} medical-tourism overview is rebuilt from the city's currently-active accredited hospitals, surgeon credential checks, and verified flight-connectivity data. Climate and recovery-window guidance is informed by case-manager experience moving patients in and out of ${city.name} year-round.`}
+      dataSources={[
+        ...(country ? [`${country.name} ministry of health`] : []),
+        "JCI accreditation registry",
+        "International airport authority data",
+      ]}
+    />
 
     <section style="background: var(--color-ink); color: var(--color-bg); padding: 72px 0;">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">

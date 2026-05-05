@@ -7,11 +7,15 @@ import LastUpdated from "@/components/LastUpdated.astro";
 import PhotoBlock from "@/components/PhotoBlock.astro";
 import Price from "@/components/Price.astro";
 import { getSpecialtyPageData, listFaqsFor, getReviewerFor } from "@/lib/queries";
+import { getSpecialtySections } from "@/lib/content-sections";
 import { formatUsd } from "@/lib/currency";
 import ReviewedBy from "@/components/ReviewedBy.astro";
 import SpecialtyDepth from "@/components/content/SpecialtyDepth.astro";
 import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
-import { hospitalCover, specialtyBanner, doctorPortrait } from "@/lib/images";
+import MobileQuoteBar from "@/components/MobileQuoteBar.astro";
+import EngagementFab from "@/components/EngagementFab.astro";
+import { hospitalCover, doctorPortrait } from "@/lib/images";
+import SpecialtyBanner from "@/components/SpecialtyBanner.astro";
 import {
   getContent,
   getContentBatch,
@@ -40,12 +44,15 @@ const tc = getTranslator(locale, "common");
 
 const treatmentIds = (specialtyRaw.treatments ?? []).map((t) => t.id);
 
-const [specialtyMap, treatmentMap, faqRows, reviewer] = await Promise.all([
+const [specialtyMap, treatmentMap, faqRows, reviewer, specialtyContentRow] = await Promise.all([
   getContent("specialty", specialtyRaw.id, locale),
   getContentBatch("treatment", treatmentIds, locale),
   listFaqsFor("specialty", specialtyRaw.id),
   getReviewerFor("specialty", specialtyRaw.id),
+  getSpecialtySections(specialtyRaw.id),
 ]);
+
+const specialtySections = specialtyContentRow?.content_sections ?? null;
 
 const specialty = applyTranslated(specialtyRaw, specialtyMap, ["name", "description"]);
 const specialtyTreatments = (specialtyRaw.treatments ?? []).map((t) =>
@@ -74,6 +81,99 @@ function monogram(name: string) {
 }
 
 const aggFromFormatted = agg.from_usd ? await formatUsd(Astro.cookies, agg.from_usd) : null;
+
+// Aggregate outcomes across all treatments under this specialty.
+type RawTx = { successRatePercent?: string | number | null; hospitalStayDays?: number | null; recoveryDays?: number | null };
+function avg(values: number[]): number | null {
+  if (values.length === 0) return null;
+  return values.reduce((a, b) => a + b, 0) / values.length;
+}
+const successRates = (specialtyRaw.treatments ?? [])
+  .map((t: RawTx) => (t.successRatePercent != null ? Number(t.successRatePercent) : null))
+  .filter((v): v is number => typeof v === "number" && Number.isFinite(v) && v > 0);
+const stayDays = (specialtyRaw.treatments ?? [])
+  .map((t: RawTx) => t.hospitalStayDays ?? null)
+  .filter((v): v is number => typeof v === "number" && v > 0);
+const recoveryDays = (specialtyRaw.treatments ?? [])
+  .map((t: RawTx) => t.recoveryDays ?? null)
+  .filter((v): v is number => typeof v === "number" && v > 0);
+const avgSuccess = avg(successRates);
+const avgStay = avg(stayDays);
+const avgRecovery = avg(recoveryDays);
+
+// Society guidelines — current edition dates verified periodically by editorial.
+type Guideline = { name: string; acronym: string; edition: string; url: string };
+const SOCIETY_GUIDELINES: Record<string, Guideline[]> = {
+  "cardiac-surgery": [
+    { name: "American Heart Association / American College of Cardiology", acronym: "AHA / ACC", edition: "2024 guidelines", url: "https://www.acc.org/Guidelines" },
+    { name: "European Society of Cardiology", acronym: "ESC", edition: "2024 guidelines", url: "https://www.escardio.org/Guidelines" },
+  ],
+  "cardiology": [
+    { name: "American Heart Association / American College of Cardiology", acronym: "AHA / ACC", edition: "2024 guidelines", url: "https://www.acc.org/Guidelines" },
+    { name: "European Society of Cardiology", acronym: "ESC", edition: "2024 guidelines", url: "https://www.escardio.org/Guidelines" },
+  ],
+  "oncology": [
+    { name: "European Society for Medical Oncology", acronym: "ESMO", edition: "Clinical Practice Guidelines", url: "https://www.esmo.org/guidelines" },
+    { name: "National Comprehensive Cancer Network", acronym: "NCCN", edition: "Clinical Practice Guidelines", url: "https://www.nccn.org/guidelines/category_1" },
+  ],
+  "orthopedics": [
+    { name: "American Academy of Orthopaedic Surgeons", acronym: "AAOS", edition: "Clinical Practice Guidelines", url: "https://www.aaos.org/quality/quality-programs/clinical-practice-guidelines/" },
+  ],
+  "neurology": [
+    { name: "American Academy of Neurology", acronym: "AAN", edition: "Practice Guidelines", url: "https://www.aan.com/Guidelines/" },
+  ],
+  "neurosurgery": [
+    { name: "Congress of Neurological Surgeons", acronym: "CNS", edition: "Clinical Guidelines", url: "https://www.cns.org/guidelines" },
+  ],
+  "transplant-surgery": [
+    { name: "International Society for Heart and Lung Transplantation", acronym: "ISHLT", edition: "Consensus statements", url: "https://ishlt.org/publications-resources/consensus-statements" },
+    { name: "American Society of Transplantation", acronym: "AST", edition: "Position statements", url: "https://www.myast.org/" },
+  ],
+  "fertility": [
+    { name: "European Society of Human Reproduction and Embryology", acronym: "ESHRE", edition: "Guidelines", url: "https://www.eshre.eu/Guidelines-and-Legal" },
+    { name: "American Society for Reproductive Medicine", acronym: "ASRM", edition: "Practice Documents", url: "https://www.asrm.org/practice-guidance/practice-committee-documents/" },
+  ],
+  "ophthalmology": [
+    { name: "American Academy of Ophthalmology", acronym: "AAO", edition: "Preferred Practice Pattern", url: "https://www.aao.org/guidelines-browse" },
+  ],
+  "ent": [
+    { name: "American Academy of Otolaryngology–Head and Neck Surgery", acronym: "AAO-HNS", edition: "Clinical Practice Guidelines", url: "https://www.entnet.org/quality-practice/quality-products/clinical-practice-guidelines/" },
+  ],
+  "urology": [
+    { name: "European Association of Urology", acronym: "EAU", edition: "Guidelines", url: "https://uroweb.org/guidelines" },
+    { name: "American Urological Association", acronym: "AUA", edition: "Guidelines", url: "https://www.auanet.org/guidelines-and-quality" },
+  ],
+  "gynecology": [
+    { name: "American College of Obstetricians and Gynecologists", acronym: "ACOG", edition: "Clinical Guidance", url: "https://www.acog.org/clinical" },
+  ],
+  "pediatric-care": [
+    { name: "American Academy of Pediatrics", acronym: "AAP", edition: "Clinical Practice Guidelines", url: "https://publications.aap.org/aapbooks/pages/clinical-practice-guidelines" },
+  ],
+  "pediatric-surgery": [
+    { name: "American Pediatric Surgical Association", acronym: "APSA", edition: "Clinical Practice Guidelines", url: "https://www.apsapedsurg.org/" },
+  ],
+  "bariatric-surgery": [
+    { name: "American Society for Metabolic and Bariatric Surgery", acronym: "ASMBS", edition: "Position statements", url: "https://asmbs.org/resources/position-and-consensus-statements" },
+  ],
+  "cosmetic-surgery": [
+    { name: "International Society of Aesthetic Plastic Surgery", acronym: "ISAPS", edition: "Standards of Care", url: "https://www.isaps.org/" },
+    { name: "American Society of Plastic Surgeons", acronym: "ASPS", edition: "Practice Standards", url: "https://www.plasticsurgery.org/" },
+  ],
+  "dental": [
+    { name: "American Dental Association", acronym: "ADA", edition: "Clinical Recommendations", url: "https://www.ada.org/resources/research/science-and-research-institute/evidence-based-dental-research" },
+  ],
+  "dermatology": [
+    { name: "American Academy of Dermatology", acronym: "AAD", edition: "Clinical Guidelines", url: "https://www.aad.org/member/clinical-quality/guidelines" },
+  ],
+};
+const guidelines = SOCIETY_GUIDELINES[slug] ?? [];
+
+type OutcomeCell = { l: string; v: string; sub?: string };
+const outcomeCells: OutcomeCell[] = [];
+if (avgSuccess) outcomeCells.push({ l: "Avg success", v: `${avgSuccess.toFixed(1)}%`, sub: `across ${successRates.length} procedures` });
+if (avgStay) outcomeCells.push({ l: "Hospital stay", v: `${avgStay.toFixed(1)} days`, sub: "median across the specialty" });
+if (avgRecovery) outcomeCells.push({ l: "Recovery", v: `${Math.round(avgRecovery)} wk`, sub: "to full activity" });
+outcomeCells.push({ l: "Hospitals", v: agg.hospitals.toLocaleString(), sub: `in ${agg.countries} destinations` });
 
 const stats = [
   { l: "Hospitals", v: agg.hospitals.toLocaleString() },
@@ -188,12 +288,12 @@ Astro.response.headers.set(
             )}
           </div>
 
-          <div class="lg:sticky lg:top-32 lg:self-start">
-            <PhotoBlock
-              aspect="4/3"
+          <div class="lg:sticky lg:top-32 lg:self-start" style="max-width: 380px;">
+            <SpecialtyBanner
+              slug={specialty.slug}
+              name={specialty.name}
+              aspect="5/4"
               label={`${specialty.name} · accredited care`}
-              imgUrl={specialtyBanner(specialty.slug, 900, 675)}
-              priority
             />
             <div
               class="paper mt-4 flex items-center justify-between"
@@ -236,6 +336,252 @@ Astro.response.headers.set(
             </div>
             <div class="prose-editorial">
               {descriptionRest.map((p) => (<p>{p}</p>))}
+            </div>
+          </div>
+        </div>
+      </section>
+    )}
+
+    {/* Deep specialty sections */}
+    {specialtySections && (
+      <>
+        {specialtySections.subspecialties && specialtySections.subspecialties.length > 0 && (
+          <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft);">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Sub-specialties
+              </div>
+              <h2 class="display mb-7" style="font-size: 28px; letter-spacing: -0.02em;">
+                Within {specialty.name.toLowerCase()}
+              </h2>
+              <div class="grid gap-5 md:grid-cols-2">
+                {specialtySections.subspecialties.map((s: any) => (
+                  <div class="paper" style="padding: 22px;">
+                    <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 8px;">
+                      {s.name}
+                    </div>
+                    <p style="font-size: 14.5px; line-height: 1.55;">{s.note}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {specialtySections.programQualitySignals && specialtySections.programQualitySignals.length > 0 && (
+          <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+                <div>
+                  <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                    Program quality
+                  </div>
+                  <h2 class="display mt-3" style="font-size: 26px; letter-spacing: -0.015em;">
+                    What to <span style="font-style: italic;">look for</span>
+                  </h2>
+                </div>
+                <ul class="space-y-3">
+                  {specialtySections.programQualitySignals.map((sig: string) => (
+                    <li class="flex gap-3 items-start" style="font-size: 15.5px; line-height: 1.55;">
+                      <span style="color: var(--color-accent);">→</span>
+                      <span>{sig}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {specialtySections.surgeonVolumeThresholds && specialtySections.surgeonVolumeThresholds.length > 0 && (
+          <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft);">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Volume thresholds
+              </div>
+              <h2 class="display mb-7" style="font-size: 26px; letter-spacing: -0.02em;">
+                Surgeon volume <span style="font-style: italic;">benchmarks</span>
+              </h2>
+              <div class="paper overflow-hidden" style="padding: 0;">
+                {specialtySections.surgeonVolumeThresholds.map((t: any, i: number) => (
+                  <div
+                    class="grid items-start gap-4 p-5"
+                    style={`grid-template-columns: 220px 1fr; ${i > 0 ? "border-top: 1px solid var(--color-border-soft);" : ""}`}
+                  >
+                    <span class="mono uppercase" style="font-size: 12px; letter-spacing: 0.08em; color: var(--color-accent);">{t.range}</span>
+                    <span style="font-size: 15px; line-height: 1.5;">{t.quality}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {specialtySections.topDestinations && specialtySections.topDestinations.length > 0 && (
+          <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Destinations
+              </div>
+              <h2 class="display mb-7" style="font-size: 28px; letter-spacing: -0.02em;">
+                Where this is <span style="font-style: italic;">commonly done</span>
+              </h2>
+              <div class="grid gap-5 md:grid-cols-2">
+                {specialtySections.topDestinations.map((d: any) => (
+                  <div class="paper" style="padding: 22px;">
+                    <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 8px;">
+                      {d.country}
+                    </div>
+                    <p style="font-size: 14.5px; line-height: 1.55;">{d.note}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {specialtySections.typicalPatientJourney && specialtySections.typicalPatientJourney.length > 0 && (
+          <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft);">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Patient journey
+              </div>
+              <h2 class="display mb-7" style="font-size: 28px; letter-spacing: -0.02em;">
+                The typical <span style="font-style: italic;">care flow</span>
+              </h2>
+              <ol class="space-y-0">
+                {specialtySections.typicalPatientJourney.map((step: any, i: number) => (
+                  <li
+                    class="grid items-start gap-5 py-5"
+                    style={`grid-template-columns: 60px 200px 1fr; ${i > 0 ? "border-top: 1px solid var(--color-border-soft);" : ""}`}
+                  >
+                    <span class="display tnum" style="font-size: 32px; line-height: 1; opacity: 0.35;">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <span class="mono uppercase" style="font-size: 12px; letter-spacing: 0.1em; color: var(--color-accent); padding-top: 5px;">
+                      {step.step}
+                    </span>
+                    <span style="font-size: 15.5px; line-height: 1.55;">{step.description}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </section>
+        )}
+
+        {specialtySections.questionsForProgram && specialtySections.questionsForProgram.length > 0 && (
+          <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Questions
+              </div>
+              <h2 class="display mb-7" style="font-size: 28px; letter-spacing: -0.02em;">
+                What to <span style="font-style: italic;">ask the program</span>
+              </h2>
+              <ol class="space-y-3">
+                {specialtySections.questionsForProgram.map((q: string, i: number) => (
+                  <li class="flex gap-4 items-start paper" style="padding: 16px 22px;">
+                    <span class="display tnum" style="font-size: 26px; line-height: 1; opacity: 0.35; min-width: 36px;">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <p style="font-size: 16px; line-height: 1.5;">{q}</p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </section>
+        )}
+
+        {specialtySections.decisionPrompts && specialtySections.decisionPrompts.length > 0 && (
+          <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft);">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+                <div>
+                  <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                    Decision check
+                  </div>
+                  <h2 class="display mt-3" style="font-size: 24px; letter-spacing: -0.015em;">Is this specialty right for your case?</h2>
+                </div>
+                <ul class="space-y-3">
+                  {specialtySections.decisionPrompts.map((p: string) => (
+                    <li class="flex gap-3 items-start" style="font-size: 15.5px; line-height: 1.55;">
+                      <span style="color: var(--color-accent);">✓</span>
+                      <span>{p}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </section>
+        )}
+      </>
+    )}
+
+    {/* Outcomes dashboard + society guidelines */}
+    {(avgSuccess || avgStay || avgRecovery || guidelines.length > 0) && (
+      <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+          <div class="grid gap-10 lg:grid-cols-[1.2fr,1fr]">
+            <div>
+              <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
+                Outcomes at a glance
+              </div>
+              <h2 class="display mt-2" style="font-size: 30px; line-height: 1.05; letter-spacing: -0.02em;">
+                What patients in {firstWord(specialty.name).toLowerCase()} care
+                <span style="font-style: italic; font-weight: 300;"> typically see</span>
+              </h2>
+              <p class="serif mt-3" style="font-size: 15px; line-height: 1.55; color: var(--color-ink-muted); max-width: 520px;">
+                Averages across the {specialtyTreatments.length} procedures in this specialty. Your case manager will quote outcomes specific to your indication and chosen surgeon.
+              </p>
+              <div
+                class="grid mt-6"
+                style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0; border-top: 1px solid var(--color-border); border-left: 1px solid var(--color-border);"
+              >
+                {outcomeCells.map((c) => (
+                  <div style="padding: 18px 18px 16px; border-right: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border); background: var(--color-bg);">
+                    <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">{c.l}</div>
+                    <div class="display tnum mt-1.5" style="font-size: 28px; line-height: 1; letter-spacing: -0.01em; color: var(--color-ink);">{c.v}</div>
+                    {c.sub && <div class="mono mt-1.5" style="font-size: 10px; color: var(--color-ink-subtle);">{c.sub}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Guidelines we follow
+              </div>
+              <h3 class="display mt-2" style="font-size: 22px; line-height: 1.15; letter-spacing: -0.015em;">
+                Society guidelines
+                {guidelines.length > 0 && <span style="font-style: italic; font-weight: 300;"> · current edition</span>}
+              </h3>
+              {guidelines.length > 0 ? (
+                <ul class="mt-5 space-y-2.5">
+                  {guidelines.map((g) => (
+                    <li class="paper" style="padding: 14px 16px;">
+                      <a
+                        href={g.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="flex items-center justify-between gap-4 group"
+                      >
+                        <div class="min-w-0">
+                          <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">{g.acronym}</div>
+                          <div class="serif mt-1 truncate" style="font-size: 14.5px; font-weight: 500; line-height: 1.3;">{g.name}</div>
+                          <div class="mono uppercase mt-1" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">{g.edition}</div>
+                        </div>
+                        <span class="mono uppercase shrink-0 group-hover:text-accent transition-colors" style="font-size: 10px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">Open ↗</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p class="serif mt-4" style="font-size: 14.5px; line-height: 1.55; color: var(--color-ink-muted);">
+                  Treatment recommendations follow international society consensus where one exists, and the specialist's institutional protocol where it doesn't. We surface the source on every quote.
+                </p>
+              )}
+              <p class="mono uppercase mt-5" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                Editions verified by editorial · re-checked quarterly
+              </p>
             </div>
           </div>
         </div>
@@ -321,7 +667,7 @@ Astro.response.headers.set(
                   <PhotoBlock
                     aspect="16/10"
                     rounded={false}
-                    imgUrl={hospitalCover({ coverImageUrl: h.cover_image_url, countrySlug: h.country_slug })}
+                    imgUrl={hospitalCover({ coverImageUrl: h.cover_image_url, countrySlug: h.country_slug, topSpecialtySlug: specialty.slug, id: h.id, slug: h.slug })}
                     alt={h.name}
                   />
                   <div class="p-5 flex flex-col flex-1">
@@ -552,7 +898,7 @@ Astro.response.headers.set(
     />
 
     {/* EEAT signals */}
-    <MethodologyBlock
+    <MethodologyBlock locale={locale}
       reviewerName={reviewer?.fullName ?? null}
       reviewerCredentials={reviewer?.credentials ?? null}
       reviewerSlug={reviewer?.slug ?? null}
@@ -567,5 +913,16 @@ Astro.response.headers.set(
     />
 
     <SiteFooter locale={locale} />
+    <EngagementFab locale={locale} />
+    <MobileQuoteBar
+      locale={locale}
+      label={specialty.name}
+      sublabel="Match me to a sub-specialist"
+      whatsapp={{
+        page: "specialty",
+        slug,
+        specialtyName: specialty.name,
+      }}
+    />
   </main>
 </BaseLayout>

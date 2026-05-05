@@ -6,7 +6,11 @@ import SiteFooter from "@/components/SiteFooter.astro";
 import LastUpdated from "@/components/LastUpdated.astro";
 import Price from "@/components/Price.astro";
 import PriceRange from "@/components/PriceRange.astro";
+import { formatUsd } from "@/lib/currency";
+import WhatsIncludedSection from "@/components/content/WhatsIncludedSection.astro";
+import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
 import { getCostOfTreatment } from "@/lib/queries";
+import { getTreatmentSections } from "@/lib/content-sections";
 import {
   getContent,
   applyTranslated,
@@ -31,6 +35,9 @@ const tc = getTranslator(locale, "common");
 
 const treatmentMap = await getContent("treatment", data.treatment.id, locale);
 const treatment = applyTranslated(data.treatment, treatmentMap, ["name", "description"]);
+
+const treatmentContentRow = await getTreatmentSections(data.treatment.id);
+const tSections = treatmentContentRow?.content_sections ?? null;
 
 const cheapest = data.byCountry[0];
 const mostExpensive = data.byCountry[data.byCountry.length - 1];
@@ -62,9 +69,12 @@ function restOfName(s: string) { const i = s.indexOf(" "); return i === -1 ? "" 
 
 const currentYear = new Date().getFullYear();
 
+const loFormatted = loPrice ? await formatUsd(Astro.cookies, loPrice) : null;
+const hiFormatted = hiPrice ? await formatUsd(Astro.cookies, hiPrice) : null;
+
 const stats = [
-  loPrice ? { l: "Starts from", v: `$${(loPrice / 1000).toFixed(1)}k` } : null,
-  hiPrice ? { l: "Tops out", v: `$${(hiPrice / 1000).toFixed(1)}k` } : null,
+  loFormatted ? { l: "Starts from", v: loFormatted } : null,
+  hiFormatted ? { l: "Tops out", v: hiFormatted } : null,
   { l: "Destinations", v: data.byCountry.length.toString() },
   { l: "Hospitals priced", v: totalHospitals.toLocaleString() },
 ].filter(Boolean) as Array<{ l: string; v: string }>;
@@ -153,12 +163,12 @@ Astro.response.headers.set(
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
-    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
-    <script type="application/ld+json" set:html={JSON.stringify(faqLd)} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(jsonLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(faqLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -254,7 +264,7 @@ Astro.response.headers.set(
               </a>
             </div>
             <p class="mt-3 mono text-[10px] uppercase tracking-wider text-center" style="color: var(--color-ink-subtle);">
-              Coordinators online · avg reply 9 min
+              Coordinators online · replies during business hours
             </p>
           </aside>
         </div>
@@ -449,6 +459,122 @@ Astro.response.headers.set(
         </div>
       </div>
     </section>
+
+    {/* What's included in your quote */}
+    <WhatsIncludedSection
+      treatmentName={treatment.name}
+      hospitalStayDays={data.treatment.hospitalStayDays}
+      recoveryDays={data.treatment.recoveryDays}
+    />
+
+    {/* Cost-relevant deep content from treatment sections */}
+    {tSections && (
+      <>
+        {tSections.redFlags && tSections.redFlags.length > 0 && (
+          <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft);">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-coral, #E85A4F);">
+                Watch out for
+              </div>
+              <h2 class="display mb-7" style="font-size: 28px; letter-spacing: -0.02em;">
+                Red flags in <span style="font-style: italic;">quotes and clinics</span>
+              </h2>
+              <ul class="space-y-3">
+                {tSections.redFlags.map((rf: string) => (
+                  <li
+                    class="flex gap-4 items-start"
+                    style="padding: 14px 18px; border: 1px solid var(--color-border-soft); border-inline-start: 3px solid var(--color-coral, #E85A4F); background: var(--color-paper);"
+                  >
+                    <span style="color: var(--color-coral, #E85A4F); font-weight: 700;">!</span>
+                    <span style="font-size: 15.5px; line-height: 1.5;">{rf}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
+
+        {tSections.questionsToAsk && tSections.questionsToAsk.length > 0 && (
+          <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Questions
+              </div>
+              <h2 class="display mb-7" style="font-size: 28px; letter-spacing: -0.02em;">
+                What to <span style="font-style: italic;">ask before signing the quote</span>
+              </h2>
+              <ol class="space-y-3">
+                {tSections.questionsToAsk.map((q: string, i: number) => (
+                  <li class="flex gap-4 items-start paper" style="padding: 16px 22px;">
+                    <span class="display tnum" style="font-size: 26px; line-height: 1; opacity: 0.35; min-width: 36px;">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <p style="font-size: 16px; line-height: 1.5;">{q}</p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </section>
+        )}
+
+        {tSections.whoIsACandidate && (
+          <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft);">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Candidacy
+              </div>
+              <h2 class="display mb-7" style="font-size: 26px; letter-spacing: -0.015em;">
+                Are you a <span style="font-style: italic;">good candidate?</span>
+              </h2>
+              <div class="grid gap-6 md:grid-cols-2">
+                {tSections.whoIsACandidate.qualifiers && (
+                  <div class="paper" style="padding: 22px;">
+                    <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
+                      Yes, if
+                    </div>
+                    <ul class="space-y-2.5">
+                      {tSections.whoIsACandidate.qualifiers.map((q: string) => (
+                        <li class="flex gap-2.5" style="font-size: 14.5px; line-height: 1.5;">
+                          <span style="color: var(--color-accent);">→</span>
+                          <span>{q}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {tSections.whoIsACandidate.disqualifiers && (
+                  <div class="paper" style="padding: 22px;">
+                    <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-coral, #E85A4F); margin-bottom: 10px;">
+                      Not yet, if
+                    </div>
+                    <ul class="space-y-2.5">
+                      {tSections.whoIsACandidate.disqualifiers.map((d: string) => (
+                        <li class="flex gap-2.5" style="font-size: 14.5px; line-height: 1.5;">
+                          <span style="color: var(--color-coral, #E85A4F);">×</span>
+                          <span>{d}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+      </>
+    )}
+
+    {/* EEAT signals */}
+    <MethodologyBlock locale={locale}
+      lastReviewed={data.treatment.updatedAt}
+      curationNote={`The cost ranges on this page come from itemised quote sheets that our partner hospitals issue to international patients for ${treatment.name.toLowerCase()} — not from advertising rates. Country comparisons use median pricing across listed hospitals; outliers (single-hospital extremes) are excluded.`}
+      dataSources={[
+        "Hospital itemised quote sheets",
+        "Partner hospital annual price filings",
+        "Currency conversion via European Central Bank reference rates",
+        "JCI accreditation registry",
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>

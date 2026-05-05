@@ -7,8 +7,6 @@ import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, SITE_NAME, SITE_URL } from "@/lib/seo";
 import { Mail, Phone, MessageCircle, ChevronRight } from "lucide-react";
-import { getAvailableCoordinators } from "@/lib/queries";
-
 export const prerender = false;
 
 const rawLocale = Astro.params.locale ?? "en";
@@ -20,7 +18,93 @@ const tc2 = getTranslator(locale, "contactPage");
 const path = "/contact";
 const url = localeUrl(locale, path);
 
-const coordinators = await getAvailableCoordinators(1);
+/**
+ * Intent context — links from across the site land on /contact with
+ * `?type=` or `?topic=`. Each intent rewrites the headline, subtitle,
+ * and tags the inquiry so coordinators see the route the patient came in on.
+ */
+type IntentMeta = {
+  eyebrow: string;
+  headline: string;
+  italic: string;
+  subtitle: string;
+  hideStep2?: boolean;
+  defaultMessage?: string;
+};
+const INTENT_MAP: Record<string, IntentMeta> = {
+  "second-opinion": {
+    eyebrow: "Second opinion",
+    headline: "Get a free",
+    italic: "second opinion",
+    subtitle: "Send your case + recent imaging. A panel-matched specialist replies within 48 hours — no obligation, no upsell. We've recommended against surgery in 28% of cases we've reviewed.",
+  },
+  partnership: {
+    eyebrow: "For hospitals",
+    headline: "Partner with",
+    italic: "MedCasts",
+    subtitle: "Apply to list your hospital, become a referral partner, or connect with our coordinator network. We respond to commercial inquiries within one business day.",
+    hideStep2: true,
+    defaultMessage: "Tell us about your hospital, the specialties you'd like to surface, and any volume targets we should know about.",
+  },
+  insurance: {
+    eyebrow: "Insurance & coverage",
+    headline: "Insurance",
+    italic: "questions",
+    subtitle: "We help patients navigate international coverage — pre-auth, claim documentation, escrow, and direct-billing arrangements with destination hospitals. Tell us your insurer + plan and we'll point you the right way.",
+  },
+  referral: {
+    eyebrow: "Refer a patient",
+    headline: "Refer a",
+    italic: "patient",
+    subtitle: "Refer a friend, family member or patient — we'll coordinate the care end-to-end and credit your account. Use the form below or jump to our dedicated referral flow.",
+  },
+  visa: {
+    eyebrow: "Medical visa",
+    headline: "Visa & travel",
+    italic: "coordination",
+    subtitle: "Tell us your destination, treatment, and travel window — we'll send the medical-visa checklist, embassy timing notes, and our case-manager intro by email within hours.",
+  },
+  travel: {
+    eyebrow: "Travel logistics",
+    headline: "Travel",
+    italic: "support",
+    subtitle: "Flights, airport pickup, attendant accommodation, and post-discharge stays — give us your trip details and we'll line everything up around your medical appointments.",
+  },
+  "portal-help": {
+    eyebrow: "Patient portal",
+    headline: "Portal access",
+    italic: "help",
+    subtitle: "Trouble accessing your case timeline? Send us your tracking code and we'll get you in within minutes.",
+  },
+  "code-recovery": {
+    eyebrow: "Lost tracking code",
+    headline: "Recover your",
+    italic: "tracking code",
+    subtitle: "Lost the 6-character code from your inquiry confirmation email? Tell us the email address you used and we'll look it up.",
+  },
+  explain: {
+    eyebrow: "Glossary help",
+    headline: "Help understanding",
+    italic: "a term",
+    subtitle: "Picked up an unfamiliar term in your discharge note or quote? Send it over with whatever context you have and a clinician on the desk will explain in plain language.",
+  },
+  "specialist-match": {
+    eyebrow: "Specialist match",
+    headline: "Match me to a",
+    italic: "specialist",
+    subtitle: "Tell us your case + preferences and we'll come back with 2–3 matched physicians (with case volumes and language fits) within a few hours during business hours.",
+  },
+};
+
+const reqUrl = new URL(Astro.request.url);
+const intentTypeParam = reqUrl.searchParams.get("type") ?? "";
+const intentTopicParam = reqUrl.searchParams.get("topic") ?? "";
+const intentKey = intentTypeParam || intentTopicParam;
+const intent = intentKey && INTENT_MAP[intentKey] ? INTENT_MAP[intentKey] : null;
+const sentSuccess = reqUrl.searchParams.get("sent") === "1";
+const sentIntent = reqUrl.searchParams.get("intent") ?? "";
+const sentLabel =
+  sentIntent && INTENT_MAP[sentIntent] ? INTENT_MAP[sentIntent].eyebrow.toLowerCase() : "inquiry";
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
@@ -60,7 +144,6 @@ const contactPageLd = {
 };
 
 // Pre-fill values from query string — passed from various CTAs across the site.
-const reqUrl = new URL(Astro.request.url);
 const prefillTreatment = reqUrl.searchParams.get("treatment") ?? "";
 const prefillSpecialty = reqUrl.searchParams.get("specialty") ?? "";
 const prefillCity = reqUrl.searchParams.get("city") ?? "";
@@ -68,6 +151,7 @@ const prefillCountry = reqUrl.searchParams.get("country") ?? "";
 const prefillHospital = reqUrl.searchParams.get("hospital") ?? "";
 const prefillCondition = reqUrl.searchParams.get("condition") ?? "";
 const prefillDoctor = reqUrl.searchParams.get("doctor") ?? "";
+const prefillCode = reqUrl.searchParams.get("code") ?? "";
 
 const prefillContext =
   prefillTreatment ||
@@ -100,11 +184,11 @@ Astro.response.headers.set(
       locale={locale}
       noindex={locale !== "en"}
     />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    <script type="application/ld+json" set:html={JSON.stringify(contactPageLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(contactPageLd)} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -121,8 +205,22 @@ Astro.response.headers.set(
       <div class="mx-auto max-w-[1440px] px-7 md:px-10">
         <p class="mono uppercase flex items-center gap-2" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
           <span class="inline-block w-1.5 h-1.5 rounded-full live-dot" style="background: var(--color-accent);" aria-hidden="true" />
-          {tc2("coordinatorsOnline")}
+          {intent ? intent.eyebrow : tc2("coordinatorsOnline")}
         </p>
+
+        {sentSuccess && (
+          <div class="mt-4 paper" style="padding: 16px 22px; border-color: var(--color-accent); display: flex; gap: 14px; align-items: flex-start;">
+            <span class="serif" style="color: var(--color-accent); font-size: 22px; line-height: 1;" aria-hidden="true">✓</span>
+            <div>
+              <div class="serif" style="font-size: 17px; color: var(--color-ink);">
+                Thanks — your {sentLabel} is in.
+              </div>
+              <p class="mt-1.5 serif" style="font-size: 14px; color: var(--color-ink-muted);">
+                A coordinator will reach out within {intent ? "the next few hours" : "9 minutes during business hours"}. Check your email for confirmation.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div class="grid gap-10 lg:grid-cols-[1.35fr,1fr] lg:gap-14 mt-3">
           <div>
@@ -130,10 +228,14 @@ Astro.response.headers.set(
               class="display display-tight"
               style="font-size: clamp(2.25rem, 5vw, 4.5rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em;"
             >
-              {tc2("headline").replace(tc2("headlineAccent"), `<span class="italic-display">${tc2("headlineAccent")}</span>`)}
+              {intent ? (
+                <Fragment set:html={`${intent.headline} <span class="italic-display">${intent.italic}</span>`} />
+              ) : (
+                <Fragment set:html={tc2("headline").replace(tc2("headlineAccent"), `<span class="italic-display">${tc2("headlineAccent")}</span>`)} />
+              )}
             </h1>
             <p class="serif mt-5 max-w-[44rem]" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">
-              {tc2("subtitle")}
+              {intent ? intent.subtitle : tc2("subtitle")}
             </p>
 
             <form
@@ -144,12 +246,18 @@ Astro.response.headers.set(
               novalidate
               data-contact-form
             >
-              {prefillContext && (
+              {(prefillContext || intent) && (
                 <div class="mb-5 mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent); padding: 10px 14px; border: 1px dashed var(--color-accent); border-radius: 9999px; display: inline-flex; align-items: center; gap: 8px;">
-                  {tc2("preFilledFor")}&nbsp;
-                  <span style="color: var(--color-ink);">{prefillHospital || prefillDoctor || prefillTreatment || prefillSpecialty || prefillCondition || prefillCity || prefillCountry}</span>
+                  {intent ? intent.eyebrow : tc2("preFilledFor")}&nbsp;
+                  <span style="color: var(--color-ink);">
+                    {prefillHospital || prefillDoctor || prefillTreatment || prefillSpecialty || prefillCondition || prefillCity || prefillCountry || intent?.italic}
+                  </span>
                 </div>
               )}
+
+              {intentTypeParam && <input type="hidden" name="type" value={intentTypeParam} />}
+              {intentTopicParam && <input type="hidden" name="topic" value={intentTopicParam} />}
+              {prefillCode && <input type="hidden" name="code" value={prefillCode} />}
 
               <input type="hidden" name="ref" id="referral-code-input" />
 
@@ -214,7 +322,50 @@ Astro.response.headers.set(
               {prefillCondition && <input type="hidden" name="condition" value={prefillCondition} />}
               {prefillDoctor && <input type="hidden" name="doctor" value={prefillDoctor} />}
 
-              <div class="mt-6 flex flex-wrap items-center gap-4">
+              {/* Step 2 — visible but visually softer (optional, not collapsed) */}
+              {!intent?.hideStep2 && (
+              <div class="mt-8 pt-6" style="border-top: 1px dashed var(--color-border);" data-step2>
+                <div class="flex items-center gap-2 mb-5">
+                  <div class="flex items-center justify-center w-6 h-6 rounded-full" style="border: 1px solid var(--color-border); color: var(--color-ink-muted);">
+                    <span class="mono" style="font-size: 11px;">2</span>
+                  </div>
+                  <span class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">{tc2("step2Summary")}</span>
+                  <span class="mono" style="font-size: 10px; letter-spacing: 0.04em; color: var(--color-ink-subtle); text-transform: none; font-style: italic;">— optional, helps us match faster</span>
+                </div>
+                <label class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);" for="treatment">{tc2("treatmentNeeded")}</label>
+                <input
+                  type="text" id="treatment" name="treatment"
+                  value={prefillTreatment}
+                  placeholder={tc2("treatmentPlaceholder")}
+                  class="w-full serif focus:outline-none"
+                  style="background: var(--color-bg); border: 1px solid var(--color-border); padding: 12px 14px; border-radius: 10px; font-size: 15px; color: var(--color-ink);"
+                />
+                <label class="mono uppercase block mt-4 mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);" for="message">{tc2("caseSummary")}</label>
+                <textarea
+                  id="message" name="message" rows="3"
+                  placeholder={intent?.defaultMessage ?? tc2("caseSummaryPlaceholder")}
+                  class="w-full serif focus:outline-none"
+                  style="background: var(--color-bg); border: 1px solid var(--color-border); padding: 12px 14px; border-radius: 10px; font-size: 15px; color: var(--color-ink); font-family: inherit;"
+                ></textarea>
+              </div>
+              )}
+
+              {/* For partnership / commercial intents, render a single message field instead of Step 2 prefab */}
+              {intent?.hideStep2 && (
+                <div class="mt-8">
+                  <label class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);" for="message">
+                    Tell us more
+                  </label>
+                  <textarea
+                    id="message" name="message" rows="4"
+                    placeholder={intent.defaultMessage}
+                    class="w-full serif focus:outline-none"
+                    style="background: var(--color-bg); border: 1px solid var(--color-border); padding: 12px 14px; border-radius: 10px; font-size: 15px; color: var(--color-ink); font-family: inherit;"
+                  ></textarea>
+                </div>
+              )}
+
+              <div class="mt-7 flex flex-wrap items-center gap-4">
                 <button
                   type="submit"
                   data-submit-btn
@@ -229,71 +380,10 @@ Astro.response.headers.set(
                   {tc2("noMarketingNote")}
                 </p>
               </div>
-
-              {/* Step 2 — optional additional details */}
-              <details class="mt-5" data-step2>
-                <summary
-                  class="mono flex items-center gap-2 cursor-pointer"
-                  style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase; padding: 8px 0;"
-                >
-                  <div class="flex items-center justify-center w-5 h-5 rounded-full" style="border: 1px solid var(--color-border);">
-                    <span>2</span>
-                  </div>
-                  {tc2("step2Summary")}
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-inline-start: 4px;" aria-hidden="true"><path d="M2 4l3 3 3-3"/></svg>
-                </summary>
-                <div class="mt-4">
-                  <label class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);" for="treatment">{tc2("treatmentNeeded")}</label>
-                  <input
-                    type="text" id="treatment" name="treatment"
-                    value={prefillTreatment}
-                    placeholder={tc2("treatmentPlaceholder")}
-                    class="w-full serif focus:outline-none"
-                    style="background: var(--color-bg); border: 1px solid var(--color-border); padding: 12px 14px; border-radius: 10px; font-size: 15px; color: var(--color-ink);"
-                  />
-                  <label class="mono uppercase block mt-4 mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);" for="message">{tc2("caseSummary")}</label>
-                  <textarea
-                    id="message" name="message" rows="3"
-                    placeholder={tc2("caseSummaryPlaceholder")}
-                    class="w-full serif focus:outline-none"
-                    style="background: var(--color-bg); border: 1px solid var(--color-border); padding: 12px 14px; border-radius: 10px; font-size: 15px; color: var(--color-ink); font-family: inherit;"
-                  ></textarea>
-                </div>
-              </details>
             </form>
           </div>
 
           <aside class="lg:sticky lg:top-32 lg:self-start space-y-4">
-            {/* Coordinator card */}
-            {(() => {
-              const c = coordinators[0];
-              return c ? (
-                <div class="paper" style="padding: 20px 22px;">
-                  <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                    {tc2("yourCoordinator")}
-                  </div>
-                  <div class="flex items-center gap-3 mt-3">
-                    <div class="flex items-center justify-center rounded-full shrink-0" style={{width: "44px", height: "44px", background: c.avatarColor, color: "#F6F1E6", fontSize: "15px", fontWeight: 600, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center"}}>
-                      {c.avatarInitials}
-                    </div>
-                    <div>
-                      <div class="serif" style="font-size: 15px; color: var(--color-ink);">{c.name}</div>
-                      <div class="mono mt-0.5" style="font-size: 10px; color: var(--color-ink-muted); letter-spacing: 0.06em;">
-                        {tc2("speaks")} {Array.isArray(c.languages) ? c.languages.join(", ") : c.languages}
-                      </div>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-1.5 mt-3">
-                    <span class="inline-block w-1.5 h-1.5 rounded-full" style="background: #22c55e;" aria-hidden="true" />
-                    <span class="mono" style="font-size: 10px; color: #22c55e; letter-spacing: 0.06em;">{tc2("avgReply").replace("{min}", String(c.avgReplyMinutes))}</span>
-                  </div>
-                  <a href={`tel:+918006210000`} class="mono mt-3 block text-center" style="font-size: 11px; letter-spacing: 0.1em; padding: 9px 16px; border: 1px solid var(--color-border); border-radius: 9999px; color: var(--color-ink-muted);">
-                    {tc2("requestCallback")}
-                  </a>
-                </div>
-              ) : null;
-            })()}
-
             {/* What happens next */}
             <div class="paper" style="padding: 24px 26px;">
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
@@ -556,7 +646,7 @@ Astro.response.headers.set(
           if (referralLoggedIn) referralLoggedIn.classList.remove('hidden');
           if (referralSignup) referralSignup.classList.add('hidden');
           if (referralCodeDisplay) referralCodeDisplay.textContent = code;
-          const shareBase = window.location.origin + '/contact?ref=' + encodeURIComponent(code);
+          const shareBase = window.location.origin + '/' + (document.documentElement.lang || 'en') + '/contact?ref=' + encodeURIComponent(code);
           const whatsappLink = document.getElementById('share-whatsapp');
           const shareText = (whatsappLink && whatsappLink.dataset.shareText) ? whatsappLink.dataset.shareText : 'MedCasts';
           if (whatsappLink) whatsappLink.href = 'https://wa.me/?text=' + encodeURIComponent('Check out ' + shareText + ': ' + shareBase);
@@ -604,7 +694,7 @@ Astro.response.headers.set(
         if (copyBtn) {
           copyBtn.addEventListener('click', () => {
             const code = referralCodeDisplay?.textContent || '';
-            const shareUrl = window.location.origin + '/contact?ref=' + encodeURIComponent(code);
+            const shareUrl = window.location.origin + '/' + (document.documentElement.lang || 'en') + '/contact?ref=' + encodeURIComponent(code);
             navigator.clipboard.writeText(shareUrl).then(() => {
               copyBtn.textContent = copyBtn.dataset.i18nCopied || 'Copied!';
               setTimeout(() => { if (copyBtn) copyBtn.textContent = copyBtn.dataset.i18nCopy || 'Copy'; }, 2000);

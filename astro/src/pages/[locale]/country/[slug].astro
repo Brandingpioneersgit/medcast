@@ -6,6 +6,7 @@ import SiteFooter from "@/components/SiteFooter.astro";
 import Price from "@/components/Price.astro";
 import PriceRange from "@/components/PriceRange.astro";
 import { getCountryBySlug, listFaqsFor } from "@/lib/queries";
+import { getCountrySections } from "@/lib/content-sections";
 import {
   getContent,
   getContentBatch,
@@ -14,10 +15,15 @@ import {
 } from "@/lib/translate";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
-import { breadcrumbJsonLd, localeUrl, itemListJsonLd, touristDestinationJsonLd, faqJsonLd } from "@/lib/seo";
+import { breadcrumbJsonLd, localeUrl, itemListJsonLd, touristDestinationJsonLd, faqJsonLd, withProvenance } from "@/lib/seo";
 import { hospitalCover, countryBanner } from "@/lib/images";
+import TripStrip from "@/components/TripStrip.astro";
 import LastUpdated from "@/components/LastUpdated.astro";
 import CompareToggle from "@/components/CompareToggle.astro";
+import TravelLogisticsSection from "@/components/content/TravelLogisticsSection.astro";
+import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
+import MobileQuoteBar from "@/components/MobileQuoteBar.astro";
+import EngagementFab from "@/components/EngagementFab.astro";
 import { ChevronRight, MapPin, Building2, Users, Globe } from "lucide-react";
 
 export const prerender = false;
@@ -36,11 +42,71 @@ const tc = getTranslator(locale, "common");
 const rawData = data;
 const countryMap = await getContent("country", rawData.country.id, locale);
 const country = applyTranslated(rawData.country, countryMap, ["name"]);
+// Wave 2.14 — body sections come from translations table; EN fallback below.
+const introTr = countryMap.intro ?? null;
+const strengthTr = countryMap.strength ?? null;
+const watchOutTr = countryMap.watchOut ?? null;
 const { hospitalCount, doctorCount, cityCount, topHospitals, topTreatments, cityList } = rawData;
 const untranslated = isUntranslated(locale, countryMap);
 
 const faqRows = await listFaqsFor("country", country.id);
 const faqSchema = faqRows.length > 0 ? faqJsonLd(faqRows) : null;
+const countryContentRow = await getCountrySections(country.id);
+const countrySections = countryContentRow?.content_sections ?? null;
+
+// Country-keyed safety + accreditation registry deep-links. Public registers; we
+// re-check ours quarterly. Patients can verify any hospital independently.
+type SafetyLink = { label: string; sub: string; url: string };
+const SAFETY_REGISTRIES: Record<string, SafetyLink[]> = {
+  india: [
+    { label: "JCI accredited hospitals", sub: "Joint Commission International registry", url: "https://www.jointcommissioninternational.org/who-we-are/accredited-organizations/" },
+    { label: "NABH accredited hospital list", sub: "National Accreditation Board for Hospitals", url: "https://nabh.co/AccreditedHospital.aspx" },
+    { label: "National Medical Commission registry", sub: "Verify any treating doctor's license", url: "https://www.nmc.org.in/information-desk/indian-medical-register/" },
+  ],
+  turkey: [
+    { label: "USHAS-licensed facilities", sub: "Turkey's official medical-tourism authority", url: "https://www.ushas.com.tr/en/" },
+    { label: "JCI accredited hospitals", sub: "Joint Commission International registry", url: "https://www.jointcommissioninternational.org/who-we-are/accredited-organizations/" },
+    { label: "Ministry of Health doctor lookup", sub: "Verify physician licensing", url: "https://saglikbakanligi.gov.tr/" },
+  ],
+  thailand: [
+    { label: "HA Thailand accredited list", sub: "The Healthcare Accreditation Institute", url: "https://www.ha.or.th/EN" },
+    { label: "JCI accredited hospitals", sub: "Joint Commission International registry", url: "https://www.jointcommissioninternational.org/who-we-are/accredited-organizations/" },
+    { label: "Thailand Medical Council", sub: "Doctor licensing register", url: "https://www.tmc.or.th/index_en.php" },
+  ],
+  uae: [
+    { label: "DHA Sheryan facility lookup", sub: "Dubai Health Authority licensed providers", url: "https://services.dha.gov.ae/sheryan/wps/portal/home/individual-search" },
+    { label: "DOH Abu Dhabi facility register", sub: "Department of Health Abu Dhabi", url: "https://services.doh.gov.ae/" },
+    { label: "JCI accredited hospitals", sub: "Joint Commission International registry", url: "https://www.jointcommissioninternational.org/who-we-are/accredited-organizations/" },
+  ],
+  germany: [
+    { label: "KTQ certified facilities", sub: "Germany's hospital quality body", url: "https://www.ktq.de/en/ktq-certificate/zertifizierte-einrichtungen.html" },
+    { label: "Bundesarztekammer doctor lookup", sub: "Federal Medical Association", url: "https://www.bundesaerztekammer.de/" },
+    { label: "JCI accredited hospitals", sub: "Joint Commission International registry", url: "https://www.jointcommissioninternational.org/who-we-are/accredited-organizations/" },
+  ],
+  singapore: [
+    { label: "Singapore Medical Council registry", sub: "Verify doctor licensing", url: "https://www.smc.gov.sg/check-a-doctors-registration" },
+    { label: "JCI accredited hospitals", sub: "Joint Commission International registry", url: "https://www.jointcommissioninternational.org/who-we-are/accredited-organizations/" },
+    { label: "MOH licensed facilities", sub: "Ministry of Health Singapore", url: "https://hcidirectory.sg/hcidirectory/" },
+  ],
+  "south-korea": [
+    { label: "KOIHA accredited list", sub: "Korean Institute for Healthcare Accreditation", url: "https://www.koiha.or.kr/" },
+    { label: "JCI accredited hospitals", sub: "Joint Commission International registry", url: "https://www.jointcommissioninternational.org/who-we-are/accredited-organizations/" },
+    { label: "Visit Medical Korea registry", sub: "Government-registered medical-tourism providers", url: "https://english.visitmedicalkorea.com/" },
+  ],
+  malaysia: [
+    { label: "MSQH accreditation list", sub: "Malaysian Society for Quality in Health", url: "https://www.msqh.com.my/" },
+    { label: "Malaysia Medical Council registry", sub: "Verify doctor licensing", url: "https://mmc.gov.my/" },
+    { label: "JCI accredited hospitals", sub: "Joint Commission International registry", url: "https://www.jointcommissioninternational.org/who-we-are/accredited-organizations/" },
+  ],
+  "saudi-arabia": [
+    { label: "CBAHI accreditation register", sub: "Saudi Central Board for Accreditation", url: "https://portal.cbahi.gov.sa/" },
+    { label: "Saudi Commission for Health Specialties", sub: "Doctor licensing register", url: "https://www.scfhs.org.sa/en/" },
+    { label: "JCI accredited hospitals", sub: "Joint Commission International registry", url: "https://www.jointcommissioninternational.org/who-we-are/accredited-organizations/" },
+  ],
+};
+const safetyLinks: SafetyLink[] = SAFETY_REGISTRIES[country.slug] ?? [
+  { label: "JCI accredited hospitals", sub: "Joint Commission International registry", url: "https://www.jointcommissioninternational.org/who-we-are/accredited-organizations/" },
+];
 
 const hospitalIds = topHospitals.map((h) => h.id);
 const hospitalMap = await getContentBatch("hospital", hospitalIds, locale);
@@ -91,7 +157,7 @@ const COUNTRY_INTRO: Record<string, { intro: string; strength: string; watchOut:
     strength: `Strong in: oncology, transplants, paediatric tertiary care, clinical genetics.`,
     watchOut: `Pricing runs 2-3x regional peers. If you're budget-sensitive, use Singapore for the diagnostic workup and travel elsewhere for the procedure itself.`,
   },
-  "united-arab-emirates": {
+  uae: {
     intro: `The UAE — mostly Dubai and Abu Dhabi — has invested hard in tertiary healthcare over the last decade. Cleveland Clinic Abu Dhabi and Mediclinic are the usual referral points for regional patients.`,
     strength: `Strong in: cardiac surgery, fertility (with donor programmes), cosmetic, oncology.`,
     watchOut: `Medical-licensing frameworks differ between emirates (DHA, MOHAP, DOH) — confirm the physician is licensed in the specific emirate where your procedure takes place.`,
@@ -103,7 +169,15 @@ const COUNTRY_INTRO: Record<string, { intro: string; strength: string; watchOut:
   },
 };
 
-const ctx = COUNTRY_INTRO[country.slug];
+// Wave 2.14 — prefer translation rows; fall back to inline EN dict (or undefined).
+const enCtx = COUNTRY_INTRO[country.slug];
+const ctx = (introTr || strengthTr || watchOutTr || enCtx)
+  ? {
+      intro: introTr ?? enCtx?.intro ?? "",
+      strength: strengthTr ?? enCtx?.strength ?? "",
+      watchOut: watchOutTr ?? enCtx?.watchOut ?? "",
+    }
+  : undefined;
 
 const path = `/country/${slug}`;
 const url = localeUrl(locale, path);
@@ -123,16 +197,23 @@ const itemLd = hospitalsXl.length > 0
     )
   : null;
 
-const destinationLd = touristDestinationJsonLd({
-  name: country.name,
-  description: ctx?.intro ?? seoDescription,
-  url,
-  countryCode: country.isoCode ?? null,
-  includesAttraction: hospitalsXl.slice(0, 6).map((h) => ({
-    name: h.name,
-    url: localeUrl(locale, `/hospital/${h.slug}`),
-  })),
-});
+const destinationLd = withProvenance(
+  touristDestinationJsonLd({
+    name: country.name,
+    description: ctx?.intro ?? seoDescription,
+    url,
+    countryCode: country.isoCode ?? null,
+    includesAttraction: hospitalsXl.slice(0, 6).map((h) => ({
+      name: h.name,
+      url: localeUrl(locale, `/hospital/${h.slug}`),
+    })),
+  }),
+  {
+    dateModified: rawData.country.updatedAt,
+    dateCreated: rawData.country.createdAt,
+    reviewer: null,
+  },
+);
 
 Astro.response.headers.set(
   "Cache-Control",
@@ -143,13 +224,13 @@ Astro.response.headers.set(
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
-    <script type="application/ld+json" set:html={JSON.stringify(destinationLd)} />
-    {itemLd && <script type="application/ld+json" set:html={JSON.stringify(itemLd)} />}
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    {faqSchema && <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />}
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(destinationLd)} />
+    {itemLd && <script type="application/ld+json" is:inline set:html={JSON.stringify(itemLd)} />}
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    {faqSchema && <script type="application/ld+json" is:inline set:html={JSON.stringify(faqSchema)} />}
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <nav aria-label="Breadcrumb" class="border-b border-border bg-bg">
@@ -166,7 +247,7 @@ Astro.response.headers.set(
     <section class="relative overflow-hidden" style="height: 360px;">
       <img
         src={countryBanner(country.slug, 1600, 720)}
-        alt=""
+        alt={`${country.name} skyline — medical travel destination`}
         width="1600"
         height="720"
         loading="eager"
@@ -174,7 +255,13 @@ Astro.response.headers.set(
         decoding="async"
         class="absolute inset-0 h-full w-full object-cover"
       />
-      <div class="image-veil-hero absolute inset-0" />
+      <div
+        class="absolute inset-0 pointer-events-none"
+        style="background:
+          linear-gradient(180deg, rgba(14,23,19,0) 30%, rgba(14,23,19,0.45) 75%, rgba(14,23,19,0.78) 100%),
+          linear-gradient(110deg, rgba(10,93,84,0.18) 0%, rgba(10,93,84,0) 55%);"
+        aria-hidden="true"
+      />
       <div class="relative mx-auto max-w-7xl px-6 h-full flex flex-col justify-end pb-10">
         <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/80">
           Destination
@@ -247,6 +334,47 @@ Astro.response.headers.set(
       </a>
     </section>
 
+    {/* Your trip in photos — 5-stage arrival → recovery preview */}
+    <section class="border-t border-border">
+      <TripStrip countrySlug={country.slug} countryName={country.name} />
+    </section>
+
+    {/* Safety & accreditation proof — country-specific verifiable links */}
+    <section class="border-t border-border" style="background: var(--color-paper);">
+      <div class="mx-auto max-w-7xl px-6 py-12 md:py-14">
+        <div class="grid gap-8 lg:grid-cols-[0.45fr,1fr] lg:gap-12 items-start">
+          <div>
+            <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">Safety & accreditation</div>
+            <h2 class="display mt-2" style="font-size: 28px; line-height: 1.05; letter-spacing: -0.02em;">
+              Verify before
+              <span style="font-style: italic; font-weight: 300;"> you commit</span>
+            </h2>
+            <p class="serif mt-3" style="font-size: 15px; line-height: 1.55; color: var(--color-ink-muted);">
+              Every hospital we shortlist in {country.name} is checked against the public registers below. They're free to access — and we encourage patients to verify any quote independently before traveling.
+            </p>
+            <ul class="mt-5 grid gap-1.5 text-sm" style="color: var(--color-ink-muted);">
+              <li class="flex gap-2"><span style="color: var(--color-accent);">→</span> Active accreditation, not lapsed</li>
+              <li class="flex gap-2"><span style="color: var(--color-accent);">→</span> Treating physician's license verified by name + ID</li>
+              <li class="flex gap-2"><span style="color: var(--color-accent);">→</span> Re-checked quarterly · last sweep stamped on every hospital page</li>
+            </ul>
+          </div>
+          <ul class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
+            {safetyLinks.map((l) => (
+              <li class="paper" style="padding: 16px 18px;">
+                <a href={l.url} target="_blank" rel="noopener noreferrer" class="group flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <div class="serif" style="font-size: 14.5px; font-weight: 500; line-height: 1.3; color: var(--color-ink);">{l.label}</div>
+                    <div class="mono uppercase mt-1" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">{l.sub}</div>
+                  </div>
+                  <span class="mono uppercase shrink-0 group-hover:text-accent transition-colors" style="font-size: 10px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">Open ↗</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+
     {/* Top hospitals */}
     {hospitalsXl.length > 0 && (
       <section class="border-t border-border bg-surface-muted py-12">
@@ -306,6 +434,48 @@ Astro.response.headers.set(
         </div>
       </section>
     )}
+
+    {/* Inline mid-content lead capture */}
+    <section class="border-t border-border" style="background: var(--color-paper);">
+      <div class="mx-auto max-w-7xl px-6 py-12 md:py-14">
+        <div class="paper" style="padding: 28px 28px 26px; display: grid; gap: 24px; grid-template-columns: 1fr; align-items: center; border-left: 3px solid var(--color-accent);">
+          <div>
+            <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
+              Free quote · {country.name}
+            </div>
+            <h2 class="display mt-2" style="font-size: clamp(1.6rem, 3.5vw, 2rem); line-height: 1.1; letter-spacing: -0.02em;">
+              Three itemised quotes from {country.name},
+              <span style="font-style: italic; font-weight: 300;"> in 48 hours.</span>
+            </h2>
+            <p class="serif mt-3" style="font-size: 15.5px; line-height: 1.55; color: var(--color-ink-muted); max-width: 560px;">
+              Send a one-line description plus your reports. A named case manager replies in ~9 minutes during working hours and lines up surgeon options before you commit.
+            </p>
+            <ul class="mt-4 grid gap-1.5 text-sm" style="color: var(--color-ink-muted);">
+              <li class="flex items-center gap-2"><span style="color: var(--color-accent);">✓</span> No payment until you're sitting with the surgeon</li>
+              <li class="flex items-center gap-2"><span style="color: var(--color-accent);">✓</span> Visa, attendant + airport pickup arranged</li>
+              <li class="flex items-center gap-2"><span style="color: var(--color-accent);">✓</span> Walk away anytime — your file is your file</li>
+            </ul>
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <a
+              href={localizedPath(locale, `/contact?country=${country.slug}`)}
+              class="inline-flex items-center gap-2 font-semibold"
+              style="background: var(--color-ink); color: var(--color-bg); padding: 13px 22px; border-radius: 9999px; font-size: 14.5px;"
+            >
+              Get free quote
+              <ChevronRight className="h-4 w-4 mirror-x" />
+            </a>
+            <a
+              href={localizedPath(locale, "/second-opinion")}
+              class="inline-flex items-center gap-2"
+              style="background: transparent; color: var(--color-ink); border: 1px solid var(--color-ink); padding: 13px 22px; border-radius: 9999px; font-size: 14.5px; font-weight: 500;"
+            >
+              Free 2nd opinion
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
 
     {/* Surgeons-by-specialty deep links — cross-mesh */}
     {treatmentsXl.length > 0 && (
@@ -469,6 +639,157 @@ Astro.response.headers.set(
       />
     </div>
 
+    {/* Travel + recovery context */}
+    <TravelLogisticsSection
+      countryName={country.name}
+      countrySlug={country.slug}
+    />
+
+    {/* Deep destination logistics from content_sections */}
+    {countrySections && (
+      <section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+          <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+            Practical destination guide
+          </div>
+          <h2 class="display mb-10" style="font-size: 32px; letter-spacing: -0.02em;">
+            Travelling to <span style="font-style: italic;">{country.name}</span> for treatment
+          </h2>
+
+          <div class="grid gap-6 md:grid-cols-2">
+            {countrySections.bestMonthsToTravel && (
+              <div class="paper" style="padding: 24px;">
+                <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
+                  Best months
+                </div>
+                {countrySections.bestMonthsToTravel.peak && (
+                  <p class="mb-2" style="font-size: 15px;"><strong>Peak:</strong> {countrySections.bestMonthsToTravel.peak.join(", ")}</p>
+                )}
+                {countrySections.bestMonthsToTravel.avoid && countrySections.bestMonthsToTravel.avoid.length > 0 && (
+                  <p class="mb-2" style="font-size: 15px;"><strong>Avoid:</strong> {countrySections.bestMonthsToTravel.avoid.join(", ")}</p>
+                )}
+                {countrySections.bestMonthsToTravel.notes && (
+                  <p style="font-size: 14.5px; line-height: 1.55; color: var(--color-ink-muted);">{countrySections.bestMonthsToTravel.notes}</p>
+                )}
+              </div>
+            )}
+
+            {countrySections.paymentLogistics && (
+              <div class="paper" style="padding: 24px;">
+                <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
+                  Payment logistics
+                </div>
+                {countrySections.paymentLogistics.currency && (
+                  <p class="mb-1.5" style="font-size: 14.5px;"><strong>Currency:</strong> {countrySections.paymentLogistics.currency}</p>
+                )}
+                {countrySections.paymentLogistics.exchange && (
+                  <p class="mb-1.5" style="font-size: 14.5px; line-height: 1.5;">{countrySections.paymentLogistics.exchange}</p>
+                )}
+                {countrySections.paymentLogistics.deposits && (
+                  <p class="mb-1.5" style="font-size: 14.5px; line-height: 1.5;"><strong>Deposits:</strong> {countrySections.paymentLogistics.deposits}</p>
+                )}
+                {countrySections.paymentLogistics.notes && (
+                  <p style="font-size: 13.5px; line-height: 1.5; color: var(--color-ink-muted);">{countrySections.paymentLogistics.notes}</p>
+                )}
+              </div>
+            )}
+
+            {countrySections.attendantLogistics && (
+              <div class="paper" style="padding: 24px;">
+                <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
+                  Visa + attendant
+                </div>
+                {countrySections.attendantLogistics.visa && (
+                  <p class="mb-2" style="font-size: 14.5px; line-height: 1.5;"><strong>Visa:</strong> {countrySections.attendantLogistics.visa}</p>
+                )}
+                {countrySections.attendantLogistics.accommodation && (
+                  <p class="mb-2" style="font-size: 14.5px; line-height: 1.5;"><strong>Accommodation:</strong> {countrySections.attendantLogistics.accommodation}</p>
+                )}
+                {countrySections.attendantLogistics.roomingIn && (
+                  <p style="font-size: 14.5px; line-height: 1.5;"><strong>Rooming-in:</strong> {countrySections.attendantLogistics.roomingIn}</p>
+                )}
+              </div>
+            )}
+
+            {countrySections.airportTransit && (
+              <div class="paper" style="padding: 24px;">
+                <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
+                  Airport + transit
+                </div>
+                {countrySections.airportTransit.majorAirports && (
+                  <p class="mb-2" style="font-size: 14.5px; line-height: 1.5;"><strong>Airports:</strong> {countrySections.airportTransit.majorAirports}</p>
+                )}
+                {countrySections.airportTransit.hospitalTransfer && (
+                  <p class="mb-2" style="font-size: 14.5px; line-height: 1.5;">{countrySections.airportTransit.hospitalTransfer}</p>
+                )}
+                {countrySections.airportTransit.averageTransitTime && (
+                  <p style="font-size: 14.5px; line-height: 1.5;"><strong>Transit:</strong> {countrySections.airportTransit.averageTransitTime}</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {countrySections.whatToPack && countrySections.whatToPack.length > 0 && (
+            <div class="mt-8">
+              <h3 class="display mb-4" style="font-size: 22px;">What to pack</h3>
+              <ul class="grid gap-2 md:grid-cols-2">
+                {countrySections.whatToPack.map((item) => (
+                  <li class="flex gap-2.5" style="font-size: 14.5px; line-height: 1.5;">
+                    <span style="color: var(--color-accent);">→</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {countrySections.afterYouFly && (
+            <div class="mt-8 paper" style="padding: 24px;">
+              <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
+                After you fly home
+              </div>
+              {countrySections.afterYouFly.followUp && <p class="mb-2" style="font-size: 14.5px; line-height: 1.55;"><strong>Follow-up:</strong> {countrySections.afterYouFly.followUp}</p>}
+              {countrySections.afterYouFly.medications && <p class="mb-2" style="font-size: 14.5px; line-height: 1.55;"><strong>Medications:</strong> {countrySections.afterYouFly.medications}</p>}
+              {countrySections.afterYouFly.homeCoordination && <p style="font-size: 14.5px; line-height: 1.55;"><strong>Home coordination:</strong> {countrySections.afterYouFly.homeCoordination}</p>}
+            </div>
+          )}
+
+          {countrySections.emergencyInfo && (
+            <div class="mt-6" style="padding: 20px 24px; border: 1px solid var(--color-border-soft); border-inline-start: 3px solid var(--color-coral, var(--color-coral)); background: white;">
+              <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-coral, var(--color-coral)); margin-bottom: 8px;">
+                Emergency info
+              </div>
+              {countrySections.emergencyInfo.nationalEmergency && <p style="font-size: 14.5px;"><strong>National emergency:</strong> {countrySections.emergencyInfo.nationalEmergency}</p>}
+              {countrySections.emergencyInfo.ambulance && <p style="font-size: 14.5px;"><strong>Ambulance:</strong> {countrySections.emergencyInfo.ambulance}</p>}
+              {countrySections.emergencyInfo.keyHospitals && <p class="mt-2" style="font-size: 14px; line-height: 1.5;">{countrySections.emergencyInfo.keyHospitals}</p>}
+            </div>
+          )}
+        </div>
+      </section>
+    )}
+
+    {/* EEAT signals */}
+    <MethodologyBlock locale={locale}
+      curationNote={`This ${country.name} destination overview is rebuilt from our active partner network of accredited hospitals in the country, plus government regulatory data and verified flight-connectivity research. Surgeon credentials, hospital accreditation, and pricing ranges are refreshed quarterly.`}
+      dataSources={[
+        `${country.name} ministry of health licensing register`,
+        "JCI accreditation registry",
+        "International airport authority data",
+        "Hospital itemised quote sheets",
+      ]}
+    />
+
     <SiteFooter locale={locale} />
+    <EngagementFab locale={locale} />
+    <MobileQuoteBar
+      locale={locale}
+      label={`Care in ${country.name}`}
+      sublabel="Hospitals · surgeons · visa help"
+      whatsapp={{
+        page: "country",
+        slug,
+        countryName: country.name,
+      }}
+    />
   </main>
 </BaseLayout>

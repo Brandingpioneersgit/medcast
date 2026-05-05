@@ -5,10 +5,13 @@ import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import { db } from "@/lib/db";
 import { sql } from "drizzle-orm";
+import { lookupReviewerByName } from "@/lib/queries";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
+import { getContent, getContentBatch, applyTranslated, isUntranslated } from "@/lib/translate";
 import { ChevronRight } from "lucide-react";
+import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
 
 export const prerender = false;
 
@@ -21,6 +24,7 @@ const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
 
 type Row = {
+  id: number;
   slug: string;
   question: string;
   answer: string;
@@ -28,28 +32,38 @@ type Row = {
   author: string | null;
   reviewed_by: string | null;
   related_slugs: string[] | null;
+  created_at: Date | null;
   updated_at: Date | null;
 };
 const res = await db
   .execute(sql`
-    SELECT slug, question, answer, category, author, reviewed_by, related_slugs, updated_at
+    SELECT id, slug, question, answer, category, author, reviewed_by, related_slugs, created_at, updated_at
     FROM qa_posts WHERE slug = ${slug}
   `)
   .catch(() => [] as unknown[]);
-const post = Array.from(res as Iterable<Row>)[0] ?? null;
-if (!post) return new Response(`Not found: ${slug}`, { status: 404 });
+const rawPost = Array.from(res as Iterable<Row>)[0] ?? null;
+if (!rawPost) return new Response(`Not found: ${slug}`, { status: 404 });
+
+const postMap = await getContent("qa_post", rawPost.id, locale).catch(() => ({}));
+const post = applyTranslated(rawPost, postMap, ["question", "answer"]);
+const untranslated = isUntranslated(locale, postMap);
 
 const related = (post.related_slugs ?? []).filter((s): s is string => typeof s === "string");
-const relatedRows = related.length > 0
+type RelRow = { id: number; slug: string; question: string };
+const rawRelated = related.length > 0
   ? Array.from(
       (await db
         .execute(sql`
-          SELECT slug, question FROM qa_posts
+          SELECT id, slug, question FROM qa_posts
           WHERE slug = ANY(${sql`ARRAY[${sql.join(related.map((s) => sql`${s}`), sql`, `)}]::text[]`})
         `)
-        .catch(() => [] as unknown[])) as Iterable<{ slug: string; question: string }>,
+        .catch(() => [] as unknown[])) as Iterable<RelRow>,
     )
   : [];
+const relMap: Record<number, Record<string, string>> = await getContentBatch("qa_post", rawRelated.map((r) => r.id), locale).catch(() => ({}));
+const relatedRows = rawRelated.map((r) => applyTranslated(r, relMap[r.id] ?? {}, ["question"]));
+
+const reviewerLink = await lookupReviewerByName(post.reviewed_by);
 
 const seoTitle = post.question;
 const seoDescription = post.answer.slice(0, 160);
@@ -77,9 +91,13 @@ const qaLd = {
       author: post.reviewed_by
         ? { "@type": "Person", name: post.reviewed_by }
         : { "@type": "Organization", name: post.author ?? "MedCasts Editorial" },
-      ...(post.updated_at ? { dateCreated: new Date(post.updated_at).toISOString() } : {}),
+      ...(post.created_at ? { datePublished: new Date(post.created_at).toISOString() } : {}),
+      ...(post.updated_at && post.created_at && new Date(post.updated_at).getTime() > new Date(post.created_at).getTime()
+        ? { dateModified: new Date(post.updated_at).toISOString() }
+        : {}),
     },
   },
+  ...(post.updated_at ? { dateModified: new Date(post.updated_at).toISOString() } : {}),
   url,
 };
 
@@ -90,12 +108,12 @@ const answerParas = post.answer.split(/\n\s*\n/).map((p) => p.trim()).filter(Boo
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    <script type="application/ld+json" set:html={JSON.stringify(qaLd)} />
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(qaLd)} />
   </Fragment>
 
-  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} />
 
     <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
@@ -129,7 +147,19 @@ const answerParas = post.answer.split(/\n\s*\n/).map((p) => p.trim()).filter(Boo
           {post.reviewed_by && (
             <>
               <span>·</span>
-              <span>Reviewed by <strong style="color: var(--color-ink); font-weight: 500;">{post.reviewed_by}</strong></span>
+              <span>
+                Reviewed by{" "}
+                {reviewerLink ? (
+                  <a
+                    href={`${localizedPath(locale, "/medical-board")}#${reviewerLink.slug}`}
+                    style="color: var(--color-ink); font-weight: 500; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--color-border);"
+                  >
+                    {post.reviewed_by}
+                  </a>
+                ) : (
+                  <strong style="color: var(--color-ink); font-weight: 500;">{post.reviewed_by}</strong>
+                )}
+              </span>
             </>
           )}
           {post.updated_at && (
@@ -182,6 +212,16 @@ const answerParas = post.answer.split(/\n\s*\n/).map((p) => p.trim()).filter(Boo
         </section>
       </div>
     </section>
+
+    {/* EEAT signals */}
+    <MethodologyBlock locale={locale}
+      curationNote={`Q&A answers are written by the editorial team and reviewed by the medical panel against current clinical guidelines. Answers are general medical-travel guidance, not personal medical advice — your treating clinician confirms what's right for your case.`}
+      dataSources={[
+        "Peer-reviewed clinical guidelines",
+        "Hospital coordinator case-record aggregates",
+        "Patient survey responses (anonymised, post-treatment)",
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>
