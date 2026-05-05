@@ -9,11 +9,11 @@
  *
  * Doctors covered: 10 highest-traffic practicing physicians at flagship
  *                  hospitals (Apollo, Medanta, Max, Artemis, Amrita, Sarvodaya).
- * Hospitals covered: 23 international medical-tourism flagships across all 9
+ * Hospitals covered: 36 international medical-tourism flagships across all 9
  *                    destination countries.
  *
- * Idempotent — re-run safe. Use this script to reseed if image_url / cover_image_url
- * gets blanked or overwritten by a future bulk import.
+ * Idempotent — re-run safe. Use this script to reseed if image_url /
+ * cover_image_url gets blanked or overwritten by a future bulk import.
  */
 import postgres from "postgres";
 
@@ -29,7 +29,7 @@ const DOCTORS: Array<[string, string]> = [
 ];
 
 const HOSPITALS: Array<[string, string]> = [
-  // India flagships
+  // === INDIA flagships ===
   ["apollo-hospital-delhi", "https://upload.wikimedia.org/wikipedia/commons/d/dc/Apollo_Hospital_Indraprastha.jpg"],
   ["max-hospital-saket", "https://chieftourism.com/wp-content/uploads/2019/11/max-hospital-saket-delhi.jpg"],
   ["artemis-hospital", "https://www.artemishospitals.com/newhtml/images/img/hospital-img.jpg"],
@@ -39,25 +39,45 @@ const HOSPITALS: Array<[string, string]> = [
   ["apollo-gleneagles-hospitals-kolkata", "https://getwellgo.com/uploads/hospitals/Apollo%20Gleneagles%20Hospital%20in%20Kolkata.jpg"],
   ["tata-memorial-cancer-research-hospital", "https://tmc.gov.in/assets/img/slide/TMC.jpg"],
   ["fortis-escorts-heart-institute", "https://medsurgeindia.com/wp-content/uploads/2021/05/fortis_escorts-e1622264796333.jpg"],
+  ["fortis-memorial-research-institute", "https://cdn.hexahealth.com/Image/e3267e8e-e91d-4e3e-9001-3773ed04668b.png"],
   ["king-edward-memorial-hospital", "https://upload.wikimedia.org/wikipedia/commons/f/f1/Cropped_college_building.jpg"],
-  // Thailand flagships
+  ["lilavati-hospital-and-research-centre", "https://upload.wikimedia.org/wikipedia/commons/6/66/Lilavati_Hospital%2C_Bandra.jpg"],
+  ["christian-medical-college-vellore", "https://upload.wikimedia.org/wikipedia/commons/3/3b/CMCH_Vellore.JPG"],
+  ["manipal-hospital-whitefield", "https://cdn.hexahealth.com/Image/b6a9da21-d3c5-4feb-a4ce-b50b4e59c7e7.jpg"],
+  ["kokilaben-dhirubhai-ambani-hospital", "https://getwellgo.com/uploads/hospitals/Kokilaben%20Hospital%2C%20Mumbai.png"],
+  ["all-india-institute-of-medical-sciences-new-delhi", "https://upload.wikimedia.org/wikipedia/commons/c/cd/AIIMS_-New_Delhi%27s_Ward_Block.jpg"],
+
+  // === THAILAND flagships ===
   ["bumrungrad-hospital", "https://upload.wikimedia.org/wikipedia/commons/5/52/Thailand_Bangkok_Bumrungrad_International_Hospital_entrance-building.jpg"],
   ["bangkok-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/d4/Bangkok_hospital_building01.jpg"],
-  // Turkey flagships
+  ["phyathai-1-hospital", "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Phyatai_1_hospital.jpg/1280px-Phyatai_1_hospital.jpg"],
+  ["phyathai-2-hospital", "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Phyatai_1_hospital.jpg/1280px-Phyatai_1_hospital.jpg"],
+
+  // === TURKEY flagships ===
   ["ac-badem-maslak-hospital", "https://acibademinternational.com/wp-content/uploads/2025/09/healthturkiye-image.webp"],
   ["ac-badem-international-hospital", "https://www.internationalhospital.com.tr/images/gallery/1.png"],
   ["memorial-sisli-hospital", "https://storage.airomedical.com/assets/gallery/3b/bf/dd/e8/84/1454/cl4el4wbv00070hs6fhtt55ot-w=1920.avif"],
   ["memorial-sisli-hastanesi", "https://storage.airomedical.com/assets/gallery/3b/bf/dd/e8/84/1454/cl4el4wbv00070hs6fhtt55ot-w=1920.avif"],
-  // UAE
+
+  // === UAE ===
   ["cleveland-clinic-abu-dhabi", "https://upload.wikimedia.org/wikipedia/commons/4/46/ClevelandClinicAbuDhabi1.jpg"],
   ["mediclinic-city-hospital", "https://mediclinic.scene7.com/is/image/mediclinic/Mediclinic-City-Hospital?_ck=1616196462321"],
-  // Singapore
+
+  // === SINGAPORE ===
   ["mount-elizabeth-hospital", "https://upload.wikimedia.org/wikipedia/commons/8/83/Mount_Elizabeth_Medical_Centre_2%2C_Oct_06.JPG"],
-  // Korea
+  ["national-university-hospital", "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/NUH_Main_Building_%282025%29_-_img_01.jpg/1280px-NUH_Main_Building_%282025%29_-_img_01.jpg"],
+  ["kk-women-s-and-children-s-hospital", "https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/KKH_Street_View.jpg/1280px-KKH_Street_View.jpg"],
+  ["singapore-general-hospital", "https://upload.wikimedia.org/wikipedia/commons/0/00/Singapore_General_Hospital%2C_Nov_05.JPG"],
+
+  // === SOUTH KOREA ===
   ["asan-medical-center", "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Asan_Medical_Center.jpg/1280px-Asan_Medical_Center.jpg"],
-  // Malaysia
+  ["samsung-medical-center", "https://storage.airomedical.com/assets/gallery/06/13/23/9e/12/3249/clb254i0t000l08jtgl505j51-w=1920.avif"],
+  ["severance-hospital-seoul-station", "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bb/Sev2018.jpg/1280px-Sev2018.jpg"],
+
+  // === MALAYSIA ===
   ["prince-court-medical-centre", "https://princecourt.com/images/default-source/my_pcmc/corporate-information/about/pcmc-general-banner.webp"],
-  // Germany
+
+  // === GERMANY ===
   ["charite", "https://upload.wikimedia.org/wikipedia/commons/d/d0/2016_Charite_Hospital.jpg"],
   ["klinikum-rechts-der-isar", "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Klinikum_rechts_der_Isar_Muenchen.jpg/1280px-Klinikum_rechts_der_Isar_Muenchen.jpg"],
 ];
@@ -67,7 +87,7 @@ async function main() {
   const sql = postgres(process.env.DATABASE_URL);
 
   let updatedDoctors = 0;
-  let missingDoctors: string[] = [];
+  const missingDoctors: string[] = [];
   for (const [slug, url] of DOCTORS) {
     const r = await sql`
       UPDATE doctors SET image_url = ${url}, updated_at = now()
@@ -81,7 +101,7 @@ async function main() {
   if (missingDoctors.length) console.log(`  missing slugs: ${missingDoctors.join(", ")}`);
 
   let updatedHospitals = 0;
-  let missingHospitals: string[] = [];
+  const missingHospitals: string[] = [];
   for (const [slug, url] of HOSPITALS) {
     const r = await sql`
       UPDATE hospitals SET cover_image_url = ${url}, updated_at = now()
