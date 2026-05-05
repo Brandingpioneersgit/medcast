@@ -9,7 +9,7 @@
  *
  * Doctors covered: 10 highest-traffic practicing physicians at flagship
  *                  hospitals (Apollo, Medanta, Max, Artemis, Amrita, Sarvodaya).
- * Hospitals covered: 136 international medical-tourism flagships across all 9
+ * Hospitals covered: 141 international medical-tourism flagships across all 9
  *                    destination countries.
  *
  * Idempotent — re-run safe. Use this script to reseed if image_url /
@@ -100,6 +100,7 @@ const HOSPITALS: Array<[string, string]> = [
   ["hindu-mission-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/dd/HMHHospital.JPG"],
   ["aster-medcity", "https://upload.wikimedia.org/wikipedia/commons/f/f9/Aster_Medcity_Hospital_Entrance.jpg"],
   ["st-stephen-s-hospital", "https://upload.wikimedia.org/wikipedia/commons/5/51/St_Stpehen%27s_Hospital_Delhi.jpg"],
+  ["asian-heart-institute", "https://upload.wikimedia.org/wikipedia/en/d/d9/AsianHeartInstitute.jpg"],
 
   // === THAILAND flagships ===
   ["bumrungrad-hospital", "https://upload.wikimedia.org/wikipedia/commons/5/52/Thailand_Bangkok_Bumrungrad_International_Hospital_entrance-building.jpg"],
@@ -141,6 +142,9 @@ const HOSPITALS: Array<[string, string]> = [
   ["sengkang-general-community-hospital", "https://upload.wikimedia.org/wikipedia/commons/4/4f/Sengkang_hospital.jpg"],
   ["ng-teng-fong-general-hospital", "https://upload.wikimedia.org/wikipedia/commons/9/9b/Ng_Teng_Fong_General_Hospital_and_Jurong_Community_Hospital.jpg"],
   ["khoo-teck-puat-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/db/Link_bridge_at_KTPH.jpg"],
+  ["national-heart-centre-singapore", "https://upload.wikimedia.org/wikipedia/commons/f/fb/Bowyer_Block%2C_SGH_%28retouched%29.jpg"],
+  ["national-cancer-centre-singapore", "https://upload.wikimedia.org/wikipedia/commons/f/fb/Bowyer_Block%2C_SGH_%28retouched%29.jpg"],
+  ["national-cancer-centre-singapore-proton-therapy-centre", "https://upload.wikimedia.org/wikipedia/commons/f/fb/Bowyer_Block%2C_SGH_%28retouched%29.jpg"],
 
   // === SOUTH KOREA ===
   ["asan-medical-center", "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Asan_Medical_Center.jpg/1280px-Asan_Medical_Center.jpg"],
@@ -182,6 +186,7 @@ const HOSPITALS: Array<[string, string]> = [
   ["universitatsklinikum-dusseldorf", "https://upload.wikimedia.org/wikipedia/commons/d/d7/WKK-Hauptgebaeude_2017.jpg"],
   ["university-hospital-of-dusseldorf", "https://upload.wikimedia.org/wikipedia/commons/d/d7/WKK-Hauptgebaeude_2017.jpg"],
   ["krankenhaus-am-urban", "https://upload.wikimedia.org/wikipedia/commons/c/cf/Urban-Krankenhaus_%28Berlin-Kreuzberg%29.JPG"],
+  ["international-neuroscience-institute", "https://upload.wikimedia.org/wikipedia/commons/8/84/International_Neuroscience_Institute_INI_Hanover_Germany.jpg"],
 ];
 
 async function main() {
