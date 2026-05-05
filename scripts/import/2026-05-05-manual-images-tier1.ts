@@ -9,7 +9,7 @@
  *
  * Doctors covered: 10 highest-traffic practicing physicians at flagship
  *                  hospitals (Apollo, Medanta, Max, Artemis, Amrita, Sarvodaya).
- * Hospitals covered: 135 international medical-tourism flagships across all 9
+ * Hospitals covered: 136 international medical-tourism flagships across all 9
  *                    destination countries.
  *
  * Idempotent — re-run safe. Use this script to reseed if image_url /
@@ -149,6 +149,9 @@ const HOSPITALS: Array<[string, string]> = [
   ["seoul-national-university-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/d7/Seoulunivhospital.jpg"],
   ["korea-university-anam-hospital", "https://upload.wikimedia.org/wikipedia/commons/0/07/%EA%B3%A0%EB%A0%A4%EB%8C%80%ED%95%99%EA%B5%90_%EC%95%88%EC%95%94%EB%B3%91%EC%9B%90.jpg"],
   ["kyung-hee-university-hospital", "https://upload.wikimedia.org/wikipedia/commons/3/31/%EA%B2%BD%ED%9D%AC%EC%9D%98%EB%A3%8C%EC%9B%90_%EC%99%B8%EA%B4%80.jpeg"],
+
+  // === SAUDI ARABIA ===
+  ["king-fahad-medical-city", "https://upload.wikimedia.org/wikipedia/commons/a/aa/KFMC_Main_Hospital.jpg"],
 
   // === MALAYSIA ===
   ["prince-court-medical-centre", "https://princecourt.com/images/default-source/my_pcmc/corporate-information/about/pcmc-general-banner.webp"],
