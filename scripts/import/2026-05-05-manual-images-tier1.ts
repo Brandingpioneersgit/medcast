@@ -9,7 +9,7 @@
  *
  * Doctors covered: 10 highest-traffic practicing physicians at flagship
  *                  hospitals (Apollo, Medanta, Max, Artemis, Amrita, Sarvodaya).
- * Hospitals covered: 130 international medical-tourism flagships across all 9
+ * Hospitals covered: 135 international medical-tourism flagships across all 9
  *                    destination countries.
  *
  * Idempotent — re-run safe. Use this script to reseed if image_url /
@@ -96,6 +96,10 @@ const HOSPITALS: Array<[string, string]> = [
   ["yashoda-super-speciality-hospital-secunderabad", "https://upload.wikimedia.org/wikipedia/commons/9/93/Yashoda_Hospitals_Somajiguda.jpg"],
   ["care-hospitals", "https://upload.wikimedia.org/wikipedia/commons/6/68/Care_Hospital_%2CBanjarahills.jpg"],
   ["care-hospital", "https://upload.wikimedia.org/wikipedia/commons/6/68/Care_Hospital_%2CBanjarahills.jpg"],
+  ["hindu-mission-hospital-chennai", "https://upload.wikimedia.org/wikipedia/commons/d/dd/HMHHospital.JPG"],
+  ["hindu-mission-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/dd/HMHHospital.JPG"],
+  ["aster-medcity", "https://upload.wikimedia.org/wikipedia/commons/f/f9/Aster_Medcity_Hospital_Entrance.jpg"],
+  ["st-stephen-s-hospital", "https://upload.wikimedia.org/wikipedia/commons/5/51/St_Stpehen%27s_Hospital_Delhi.jpg"],
 
   // === THAILAND flagships ===
   ["bumrungrad-hospital", "https://upload.wikimedia.org/wikipedia/commons/5/52/Thailand_Bangkok_Bumrungrad_International_Hospital_entrance-building.jpg"],
@@ -159,6 +163,7 @@ const HOSPITALS: Array<[string, string]> = [
   ["penang-general-hospital", "https://upload.wikimedia.org/wikipedia/commons/e/e8/Penang_General_Hospital_2025.jpg"],
   ["serdang-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/de/Hospital_Sultan_Idris_Shah_Serdang.jpg"],
   ["hospital-sultan-idris-shah-serdang", "https://upload.wikimedia.org/wikipedia/commons/d/de/Hospital_Sultan_Idris_Shah_Serdang.jpg"],
+  ["institut-jantung-negara", "https://upload.wikimedia.org/wikipedia/commons/f/ff/IJN_From_Jalan_Tun_Razak.jpg"],
 
   // === GERMANY ===
   ["charite", "https://upload.wikimedia.org/wikipedia/commons/d/d0/2016_Charite_Hospital.jpg"],
