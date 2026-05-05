@@ -9,7 +9,7 @@
  *
  * Doctors covered: 10 highest-traffic practicing physicians at flagship
  *                  hospitals (Apollo, Medanta, Max, Artemis, Amrita, Sarvodaya).
- * Hospitals covered: 110 international medical-tourism flagships across all 9
+ * Hospitals covered: 116 international medical-tourism flagships across all 9
  *                    destination countries.
  *
  * Idempotent — re-run safe. Use this script to reseed if image_url /
@@ -88,6 +88,7 @@ const HOSPITALS: Array<[string, string]> = [
   ["mohan-kumaramangalam-medical-college", "https://upload.wikimedia.org/wikipedia/commons/8/81/Gmkmc-college_entrance.jpg"],
   ["vydehi-institute-of-medical-sciences-and-research-centre", "https://upload.wikimedia.org/wikipedia/commons/2/2d/Vydehi_institute_of_medical_sciences_and_research_centre.png"],
   ["cama-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/d0/Cama_Hospital.jpg"],
+  ["grant-medical-college-and-sir-jamshedjee-jeejeebhoy-group-of-hospitals", "https://upload.wikimedia.org/wikipedia/commons/a/a7/Grant_medical_college_1860.jpg"],
 
   // === THAILAND flagships ===
   ["bumrungrad-hospital", "https://upload.wikimedia.org/wikipedia/commons/5/52/Thailand_Bangkok_Bumrungrad_International_Hospital_entrance-building.jpg"],
@@ -108,6 +109,9 @@ const HOSPITALS: Array<[string, string]> = [
   ["memorial-sisli-hospital", "https://storage.airomedical.com/assets/gallery/3b/bf/dd/e8/84/1454/cl4el4wbv00070hs6fhtt55ot-w=1920.avif"],
   ["memorial-sisli-hastanesi", "https://storage.airomedical.com/assets/gallery/3b/bf/dd/e8/84/1454/cl4el4wbv00070hs6fhtt55ot-w=1920.avif"],
   ["liv-hospital-ulus", "https://storage.airomedical.com/assets/gallery/32/b3/ee/02/72/3149/claxq3gc1005d09mrcl6hg1r6-w=1920.avif"],
+  ["ac-badem-altunizade-hastanesi", "https://upload.wikimedia.org/wikipedia/commons/5/51/Ac%C4%B1bademHospitalAltunizade_%281%29.jpg"],
+  ["bezmialem-foundation-university-faculty-of-medicine-hospital", "https://upload.wikimedia.org/wikipedia/commons/9/93/BezmialemUniversityHospital_%283%29.jpg"],
+  ["bal-kl-greek-hospital", "https://upload.wikimedia.org/wikipedia/commons/8/8e/Balikli_Rum_Hastanesi_2010-10-09_02.jpg"],
 
   // === UAE ===
   ["cleveland-clinic-abu-dhabi", "https://upload.wikimedia.org/wikipedia/commons/4/46/ClevelandClinicAbuDhabi1.jpg"],
@@ -139,6 +143,8 @@ const HOSPITALS: Array<[string, string]> = [
   ["sungai-buloh-hospital", "https://upload.wikimedia.org/wikipedia/commons/b/be/Sungai_Buloh_Hospital_main_block.jpg"],
   ["hospital-tengku-ampuan-afzan", "https://upload.wikimedia.org/wikipedia/commons/6/6f/Tengku_Ampuan_Afzan_Hospital.JPG"],
   ["sultan-haji-ahmad-shah-hospital", "https://upload.wikimedia.org/wikipedia/commons/6/60/Hoshas_Temerloh.jpg"],
+  ["sarawak-general-hospital", "https://upload.wikimedia.org/wikipedia/commons/b/b5/27_August_2011_Sarawak_General_Hospital.jpg"],
+  ["penang-general-hospital", "https://upload.wikimedia.org/wikipedia/commons/e/e8/Penang_General_Hospital_2025.jpg"],
 
   // === GERMANY ===
   ["charite", "https://upload.wikimedia.org/wikipedia/commons/d/d0/2016_Charite_Hospital.jpg"],
