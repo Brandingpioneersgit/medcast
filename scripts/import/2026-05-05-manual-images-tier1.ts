@@ -9,7 +9,7 @@
  *
  * Doctors covered: 10 highest-traffic practicing physicians at flagship
  *                  hospitals (Apollo, Medanta, Max, Artemis, Amrita, Sarvodaya).
- * Hospitals covered: 116 international medical-tourism flagships across all 9
+ * Hospitals covered: 123 international medical-tourism flagships across all 9
  *                    destination countries.
  *
  * Idempotent — re-run safe. Use this script to reseed if image_url /
@@ -89,6 +89,7 @@ const HOSPITALS: Array<[string, string]> = [
   ["vydehi-institute-of-medical-sciences-and-research-centre", "https://upload.wikimedia.org/wikipedia/commons/2/2d/Vydehi_institute_of_medical_sciences_and_research_centre.png"],
   ["cama-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/d0/Cama_Hospital.jpg"],
   ["grant-medical-college-and-sir-jamshedjee-jeejeebhoy-group-of-hospitals", "https://upload.wikimedia.org/wikipedia/commons/a/a7/Grant_medical_college_1860.jpg"],
+  ["lok-nayak-hospital", "https://upload.wikimedia.org/wikipedia/commons/4/4f/Lok_Nayak_Hospital_in_New_Delhi_06.jpg"],
 
   // === THAILAND flagships ===
   ["bumrungrad-hospital", "https://upload.wikimedia.org/wikipedia/commons/5/52/Thailand_Bangkok_Bumrungrad_International_Hospital_entrance-building.jpg"],
@@ -125,6 +126,10 @@ const HOSPITALS: Array<[string, string]> = [
   ["singapore-national-eye-centre", "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/SNEC_2.jpg/1280px-SNEC_2.jpg"],
   ["tan-tock-seng-hospital", "https://upload.wikimedia.org/wikipedia/commons/0/09/Tan_Tock_Seng_Hospital_3%2C_Aug_06.JPG"],
   ["changi-general-hospital", "https://upload.wikimedia.org/wikipedia/commons/1/18/Changi_General_Hospital%2C_Jun_07.JPG"],
+  ["sengkang-general-hospital", "https://upload.wikimedia.org/wikipedia/commons/4/4f/Sengkang_hospital.jpg"],
+  ["sengkang-general-community-hospital", "https://upload.wikimedia.org/wikipedia/commons/4/4f/Sengkang_hospital.jpg"],
+  ["ng-teng-fong-general-hospital", "https://upload.wikimedia.org/wikipedia/commons/9/9b/Ng_Teng_Fong_General_Hospital_and_Jurong_Community_Hospital.jpg"],
+  ["khoo-teck-puat-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/db/Link_bridge_at_KTPH.jpg"],
 
   // === SOUTH KOREA ===
   ["asan-medical-center", "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Asan_Medical_Center.jpg/1280px-Asan_Medical_Center.jpg"],
@@ -145,6 +150,8 @@ const HOSPITALS: Array<[string, string]> = [
   ["sultan-haji-ahmad-shah-hospital", "https://upload.wikimedia.org/wikipedia/commons/6/60/Hoshas_Temerloh.jpg"],
   ["sarawak-general-hospital", "https://upload.wikimedia.org/wikipedia/commons/b/b5/27_August_2011_Sarawak_General_Hospital.jpg"],
   ["penang-general-hospital", "https://upload.wikimedia.org/wikipedia/commons/e/e8/Penang_General_Hospital_2025.jpg"],
+  ["serdang-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/de/Hospital_Sultan_Idris_Shah_Serdang.jpg"],
+  ["hospital-sultan-idris-shah-serdang", "https://upload.wikimedia.org/wikipedia/commons/d/de/Hospital_Sultan_Idris_Shah_Serdang.jpg"],
 
   // === GERMANY ===
   ["charite", "https://upload.wikimedia.org/wikipedia/commons/d/d0/2016_Charite_Hospital.jpg"],
