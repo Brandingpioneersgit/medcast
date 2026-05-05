@@ -124,9 +124,10 @@ Run with: `node --env-file=.env.local --import tsx scripts/wave2-N-X.ts` from re
 | 2.19a | top 30 of 75 untranslated conditions × 7 × 3 (3-treatment + key 2-treatment + cardiac gateways) | 630 | manual-wave2.19a | ✅ |
 | 2.19b | final 45 conditions × 7 × 3 — **all 95 conditions now have name+metaTitle+metaDescription in 7 locales** | 945 | manual-wave2.19b | ✅ |
 | 2.21 | 29 mid-tier treatments × 7 × 1 (full description) — adds 4 new procedure categories: cosmetic, bariatric, gi, neuro. 3-paragraph structure (lede / journey / cost+closer). | 203 | manual-wave2.21 | ✅ |
+| 2.22 | 30 high-priority conditions × 7 × 1 (full description) — adds 3 new condition categories: eye, ent, neuro (plus extras for cardiac, ortho, gi). 3-paragraph (lede+severity / pathway / destination). | 210 | manual-wave2.22 | ✅ |
 
-**Cumulative project: 8,329 hand-translated strings.**
-**This session (2.18b → 2.21): 3,017 strings.**
+**Cumulative project: 8,539 hand-translated strings.**
+**This session (2.18b → 2.22): 3,227 strings.**
 
 ---
 

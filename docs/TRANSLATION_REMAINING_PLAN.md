@@ -56,7 +56,8 @@ These are the closest to "manually translate everything important" interpretatio
 | **2.20** | All 61 blog posts × 7 × 2 (title + excerpt only — skip body) | 854 | pending |
 | **2.21** | Treatment full descriptions × 7 — adds cosmetic/bariatric/gi/neuro categories covering 29 mid-tier treatments | 203 | ✅ DONE |
 | **2.21+** | Remaining treatment descriptions × 7 (~61 treatments still need: cardiac long-tail, dental, fertility, ENT, ophtho, transplant, ortho long-tail, gynae, urology, hair) | ~427 | pending |
-| **2.22** | Condition full descriptions for conditions 21–95 × 7 (composition pattern; ~75) | 525 | pending |
+| **2.22** | Condition full descriptions × 7 — adds eye/ent/neuro categories covering 30 high-priority conditions | 210 | ✅ DONE |
+| **2.22+** | Remaining condition descriptions × 7 (~45 conditions still need: oncology long-tail, urology/kidney, fertility extras, hematology, endocrine, dental, hair, pediatric specifics) | ~315 | pending |
 
 **Tier 1 remaining (after this session's 2.14/2.17/2.18a): ~7,273 strings ≈ 12–14 focused sessions.**
 
