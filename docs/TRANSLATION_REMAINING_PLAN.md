@@ -58,7 +58,7 @@ These are the closest to "manually translate everything important" interpretatio
 | **2.23** | Treatment descriptions × 7 — adds 8 specialty templates (ENT, urology, gyne, ophtho, transplant, dental, fertility, neuro-extras) covering 27 treatments | 189 | ✅ DONE |
 | **2.24** | Final 34 treatment descriptions × 7 (cardiac long-tail, oncology, ortho long-tail, GI extras) — **all 110 treatments now have full descriptions in 7 locales** | 238 | ✅ DONE |
 | **2.22** | Condition full descriptions × 7 — adds eye/ent/neuro categories covering 30 high-priority conditions | 210 | ✅ DONE |
-| **2.22+** | Remaining condition descriptions × 7 (~45 conditions still need: oncology long-tail, urology/kidney, fertility extras, hematology, endocrine, dental, hair, pediatric specifics) | ~315 | pending |
+| **2.25** | Final 45 condition descriptions × 7 (cardiac, oncology, ortho, gi, urology/end-stage-organ, endocrine, fertility, pediatric, cosmetic) — **all 95 conditions now have full descriptions in 7 locales** | 315 | ✅ DONE |
 
 **Tier 1 remaining (after this session's 2.14/2.17/2.18a): ~7,273 strings ≈ 12–14 focused sessions.**
 
