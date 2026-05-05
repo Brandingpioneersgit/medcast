@@ -9,7 +9,7 @@
  *
  * Doctors covered: 10 highest-traffic practicing physicians at flagship
  *                  hospitals (Apollo, Medanta, Max, Artemis, Amrita, Sarvodaya).
- * Hospitals covered: 123 international medical-tourism flagships across all 9
+ * Hospitals covered: 129 international medical-tourism flagships across all 9
  *                    destination countries.
  *
  * Idempotent — re-run safe. Use this script to reseed if image_url /
@@ -90,6 +90,11 @@ const HOSPITALS: Array<[string, string]> = [
   ["cama-hospital", "https://upload.wikimedia.org/wikipedia/commons/d/d0/Cama_Hospital.jpg"],
   ["grant-medical-college-and-sir-jamshedjee-jeejeebhoy-group-of-hospitals", "https://upload.wikimedia.org/wikipedia/commons/a/a7/Grant_medical_college_1860.jpg"],
   ["lok-nayak-hospital", "https://upload.wikimedia.org/wikipedia/commons/4/4f/Lok_Nayak_Hospital_in_New_Delhi_06.jpg"],
+  ["yashoda-super-speciality-hospital", "https://upload.wikimedia.org/wikipedia/commons/9/93/Yashoda_Hospitals_Somajiguda.jpg"],
+  ["yashoda-super-speciality-hospitals", "https://upload.wikimedia.org/wikipedia/commons/9/93/Yashoda_Hospitals_Somajiguda.jpg"],
+  ["yashoda-super-speciality-hospital-secunderabad", "https://upload.wikimedia.org/wikipedia/commons/9/93/Yashoda_Hospitals_Somajiguda.jpg"],
+  ["care-hospitals", "https://upload.wikimedia.org/wikipedia/commons/6/68/Care_Hospital_%2CBanjarahills.jpg"],
+  ["care-hospital", "https://upload.wikimedia.org/wikipedia/commons/6/68/Care_Hospital_%2CBanjarahills.jpg"],
 
   // === THAILAND flagships ===
   ["bumrungrad-hospital", "https://upload.wikimedia.org/wikipedia/commons/5/52/Thailand_Bangkok_Bumrungrad_International_Hospital_entrance-building.jpg"],
@@ -117,6 +122,7 @@ const HOSPITALS: Array<[string, string]> = [
   // === UAE ===
   ["cleveland-clinic-abu-dhabi", "https://upload.wikimedia.org/wikipedia/commons/4/46/ClevelandClinicAbuDhabi1.jpg"],
   ["mediclinic-city-hospital", "https://mediclinic.scene7.com/is/image/mediclinic/Mediclinic-City-Hospital?_ck=1616196462321"],
+  ["dubai-hospital", "https://upload.wikimedia.org/wikipedia/commons/0/06/Dubai_Hospital.jpg"],
 
   // === SINGAPORE ===
   ["mount-elizabeth-hospital", "https://upload.wikimedia.org/wikipedia/commons/8/83/Mount_Elizabeth_Medical_Centre_2%2C_Oct_06.JPG"],
