@@ -9,7 +9,7 @@
  *
  * Doctors covered: 10 highest-traffic practicing physicians at flagship
  *                  hospitals (Apollo, Medanta, Max, Artemis, Amrita, Sarvodaya).
- * Hospitals covered: 129 international medical-tourism flagships across all 9
+ * Hospitals covered: 130 international medical-tourism flagships across all 9
  *                    destination countries.
  *
  * Idempotent — re-run safe. Use this script to reseed if image_url /
@@ -63,6 +63,7 @@ const HOSPITALS: Array<[string, string]> = [
   ["all-india-institute-of-medical-sciences-guwahati", "https://upload.wikimedia.org/wikipedia/commons/2/2e/All_India_Institute_of_Medical_Sciences%2C_Guwahati.jpg"],
   ["all-india-institute-of-medical-sciences-gorakhpur", "https://upload.wikimedia.org/wikipedia/commons/1/15/AIIMS_Gorakhpur_In_Nutshell.jpg"],
   ["all-india-institute-of-medical-sciences-raebareli", "https://upload.wikimedia.org/wikipedia/commons/5/5a/AIIMS_RBL_Medical_College.jpg"],
+  ["all-india-institute-of-medical-sciences-kalyani", "https://upload.wikimedia.org/wikipedia/commons/3/39/All_India_Institute_of_Medical_Sciences%2C_Kalyani_-_%E0%A6%85%E0%A6%96%E0%A6%BF%E0%A6%B2_%E0%A6%AD%E0%A6%BE%E0%A6%B0%E0%A6%A4%E0%A7%80%E0%A6%AF%E0%A6%BC_%E0%A6%86%E0%A6%AF%E0%A6%BC%E0%A7%81%E0%A6%B0%E0%A7%8D%E0%A6%AC%E0%A6%BF%E0%A6%9C%E0%A7%8D%E0%A6%9E%E0%A6%BE%E0%A6%A8_%E0%A6%B8%E0%A6%82%E0%A6%B8%E0%A7%8D%E0%A6%A5%E0%A6%BE%E0%A6%A8%2C_%E0%A6%95%E0%A6%B2%E0%A7%8D%E0%A6%AF%E0%A6%BE%E0%A6%A3%E0%A7%80_%E0%A7%AC.jpg"],
   ["jawaharlal-institute-of-postgraduate-medical-education-and-research", "https://upload.wikimedia.org/wikipedia/commons/a/a8/Jipmer.jpg"],
   ["jawaharlal-institute-of-post-graduate-medical-education-and-research", "https://upload.wikimedia.org/wikipedia/commons/a/a8/Jipmer.jpg"],
   ["nizam-s-institute-of-medical-sciences", "https://upload.wikimedia.org/wikipedia/commons/1/1e/NIMS.jpg"],
