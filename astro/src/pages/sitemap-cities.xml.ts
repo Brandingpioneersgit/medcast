@@ -4,7 +4,9 @@ import { sql } from "drizzle-orm";
 import { buildLocalizedSitemap, SITEMAP_HEADERS } from "@/lib/sitemap";
 
 export const GET: APIRoute = async () => {
-  // Prune cities without any active hospital — they'd render an empty list page.
+  // Only list city hubs with 2+ active hospitals. Single-hospital hubs are
+  // near-duplicates of that one hospital's page — they carry noindex (see
+  // city/[slug].astro), so they must not appear in the sitemap.
   const rows = await db
     .execute<{ slug: string; updated_at: Date | null }>(sql`
       SELECT ci.slug, MAX(h.updated_at) AS updated_at
@@ -12,6 +14,7 @@ export const GET: APIRoute = async () => {
       JOIN hospitals h ON h.city_id = ci.id
       WHERE h.is_active = true AND ci.slug IS NOT NULL
       GROUP BY ci.slug
+      HAVING COUNT(h.id) >= 2
       ORDER BY ci.slug ASC
       LIMIT 20000
     `)

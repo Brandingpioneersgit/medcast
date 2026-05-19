@@ -1174,7 +1174,7 @@ export async function getCityBySlug(slug: string) {
   });
   if (!city) return null;
 
-  const [hospitalsInCity, specialtyCounts] = await Promise.all([
+  const [hospitalsInCity, specialtyCounts, siblingCities] = await Promise.all([
     db
       .select({
         id: hospitals.id,
@@ -1204,9 +1204,24 @@ export async function getCityBySlug(slug: string) {
       `)
       .then((r) => Array.from(r))
       .catch(() => []),
+    // Other hospital cities in the same country — gives small / single-hospital
+    // city hubs genuine onward navigation toward larger medical centres.
+    db
+      .execute<{ slug: string; name: string; hospital_count: number }>(sql`
+        SELECT ci.slug, ci.name, COUNT(h.id)::int AS hospital_count
+        FROM cities ci
+        JOIN hospitals h ON h.city_id = ci.id AND h.is_active = true
+        WHERE ci.country_id = ${city.countryId} AND ci.id <> ${city.id}
+          AND ci.slug IS NOT NULL
+        GROUP BY ci.slug, ci.name
+        ORDER BY hospital_count DESC, ci.name ASC
+        LIMIT 12
+      `)
+      .then((r) => Array.from(r))
+      .catch(() => []),
   ]);
 
-  return { city, hospitals: hospitalsInCity, specialtyCounts };
+  return { city, hospitals: hospitalsInCity, specialtyCounts, siblingCities };
 }
 
 export async function getCostOfTreatment(slug: string) {

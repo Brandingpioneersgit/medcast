@@ -7,7 +7,8 @@ import LastUpdated from "@/components/LastUpdated.astro";
 import PhotoBlock from "@/components/PhotoBlock.astro";
 import TravelLogisticsSection from "@/components/content/TravelLogisticsSection.astro";
 import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
-import { getCityBySlug } from "@/lib/queries";
+import { getCityBySlug, listLinkableEntities } from "@/lib/queries";
+import { linkifyBlogHtml } from "@/lib/content-linker";
 import { sql } from "@/lib/db";
 import {
   getContentBatch,
@@ -18,6 +19,8 @@ import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, itemListJsonLd, withProvenance } from "@/lib/seo";
 import { ChevronRight } from "lucide-react";
 import { hospitalCover } from "@/lib/images";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 
 export const prerender = false;
 
@@ -32,8 +35,13 @@ if (!data) return new Response(`Not found: ${slug}`, { status: 404 });
 
 const tc = getTranslator(locale, "common");
 
-const { city, hospitals, specialtyCounts } = data;
+const { city, hospitals, specialtyCounts, siblingCities } = data;
 const country = city.country;
+
+// Single-hospital city hubs are near-duplicates of that one hospital's own
+// page — keep them for users + internal navigation, but noindex so they don't
+// register as thin content. 2+ hospital hubs carry real comparative value.
+const isThinCityHub = hospitals.length < 2;
 
 const hospitalIds = hospitals.map((h) => h.id);
 const hospitalMap = await getContentBatch("hospital", hospitalIds, locale);
@@ -45,6 +53,15 @@ const cityRow = await sql`
   FROM cities WHERE id = ${city.id} LIMIT 1
 `;
 const citySections: any = cityRow[0]?.content_sections ?? null;
+
+const linkables = await listLinkableEntities().catch(() => []);
+const cityOverviewHtml = (citySections?.cityOverview && Array.isArray(citySections.cityOverview))
+  ? linkifyBlogHtml(
+      citySections.cityOverview.map((p: string) => `<p>${p.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`).join("\n"),
+      linkables,
+      (p: string) => localizedPath(locale, p),
+    ).html
+  : "";
 
 const FLAG_MAP: Record<string, string> = {
   india: "🇮🇳", turkey: "🇹🇷", thailand: "🇹🇭", uae: "🇦🇪",
@@ -110,8 +127,27 @@ const topHospitals = hospitalsXl
   .slice(0, 6);
 const remainingHospitals = hospitalsXl.length > 6 ? hospitalsXl.slice(6) : [];
 
-const seoTitle = `Hospitals in ${city.name}${country ? `, ${country.name}` : ""}`;
-const seoDescription = `Compare ${hospitals.length} accredited hospitals in ${city.name}${country ? `, ${country.name}` : ""}. Specialist care across ${specialtyCounts.length} medical specialties. Free second opinion and treatment quotes.`.slice(0, 160);
+// Local-SEO title: lead with "Best Hospitals in {City}, {Country} ({year})".
+// "Best" is the highest-volume modifier on city-medical queries; year hints
+// freshness for crawlers that weight recency on YMYL pages.
+const cityYear = new Date().getFullYear();
+const cityCountry = country ? `, ${country.name}` : "";
+const seoTitle = `Best Hospitals in ${city.name}${cityCountry} (${cityYear})`;
+
+// Description leads with the city's strongest specialty (sorted by hospital
+// count) so long-tail queries like "best cardiac hospital in mumbai" can
+// match this row instead of a thin specialty hub.
+const topCitySpecialties = specialtyCounts
+  .slice()
+  .sort((a, b) => Number(b.hospital_count ?? 0) - Number(a.hospital_count ?? 0))
+  .slice(0, 3)
+  .map((s) => s.name)
+  .join(", ");
+const seoDescription = (
+  topCitySpecialties
+    ? `Top ${hospitals.length} accredited hospitals in ${city.name}${cityCountry} for ${topCitySpecialties}. Compare ratings, accreditation, and pricing. Free second opinion + treatment quote.`
+    : `Top ${hospitals.length} accredited hospitals in ${city.name}${cityCountry} across ${specialtyCounts.length} specialties. Compare ratings, accreditation, and pricing. Free quote.`
+).slice(0, 160);
 
 const path = `/city/${slug}`;
 const url = localeUrl(locale, path);
@@ -185,7 +221,7 @@ Astro.response.headers.set(
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={isThinCityHub} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(placeLd)} />
     {itemLd && <script type="application/ld+json" is:inline set:html={JSON.stringify(itemLd)} />}
     <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
@@ -216,7 +252,7 @@ Astro.response.headers.set(
           <span aria-hidden="true" style="font-size: 14px;">{countryFlag(country?.slug)}</span>
           {country?.name ?? "Destination"} · City hub
         </p>
-        <div class="grid gap-10 lg:grid-cols-[1.5fr,1fr] lg:gap-14 mt-3">
+        <div class="grid gap-10 lg:grid-cols-[1.5fr_1fr] lg:gap-14 mt-3">
           <div>
             <h1
               class="display display-tight"
@@ -479,6 +515,55 @@ Astro.response.headers.set(
       </section>
     )}
 
+    {/* Other hospital cities in the same country */}
+    {siblingCities.length > 0 && country && (
+      <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft);">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+          <div class="flex items-end justify-between flex-wrap gap-4 mb-8">
+            <div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                More in {country.name}
+              </div>
+              <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
+                Other hospital cities in <span class="italic-display">{country.name}</span>
+              </h2>
+              <p class="serif mt-3 max-w-[44rem]" style="font-size: 16px; line-height: 1.5; color: var(--color-ink-muted);">
+                {isThinCityHub
+                  ? `${city.name} has one accredited hospital on our network. Many patients also weigh up the larger medical centres elsewhere in ${country.name}.`
+                  : `Compare ${city.name} against the other medical-travel cities in ${country.name}.`}
+              </p>
+            </div>
+            <a
+              href={localizedPath(locale, `/country/${country.slug}`)}
+              class="mono text-[11px] uppercase tracking-wider hover:text-accent"
+              style="color: var(--color-ink-subtle);"
+            >
+              {country.name} hub →
+            </a>
+          </div>
+          <ul class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+            {siblingCities.map((c) => (
+              <li>
+                <a
+                  href={localizedPath(locale, `/city/${c.slug}`)}
+                  class="paper group flex items-center justify-between gap-3 transition hover:-translate-y-0.5"
+                  style="padding: 14px 16px;"
+                >
+                  <span class="serif" style="font-size: 15px; color: var(--color-ink); line-height: 1.25;">{c.name}</span>
+                  <span
+                    class="mono tnum shrink-0"
+                    style="font-size: 11px; color: var(--color-accent); letter-spacing: 0.04em;"
+                  >
+                    {c.hospital_count}
+                  </span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
+
     {/* Travel + recovery context */}
     {country && (
       <TravelLogisticsSection
@@ -498,10 +583,8 @@ Astro.response.headers.set(
             Practical guide to <span style="font-style: italic;">{city.name}</span>
           </h2>
 
-          {citySections.cityOverview && Array.isArray(citySections.cityOverview) && (
-            <div class="prose-editorial mb-10" style="max-width: 56rem;">
-              {citySections.cityOverview.map((p: string) => <p>{p}</p>)}
-            </div>
+          {cityOverviewHtml && (
+            <div class="prose-editorial mb-10" style="max-width: 56rem;" set:html={cityOverviewHtml} />
           )}
 
           {citySections.hospitalClusters && citySections.hospitalClusters.length > 0 && (
@@ -606,7 +689,7 @@ Astro.response.headers.set(
 
     <section style="background: var(--color-ink); color: var(--color-bg); padding: 72px 0;">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-        <div class="grid gap-8 lg:grid-cols-[1.5fr,1fr] items-end">
+        <div class="grid gap-8 lg:grid-cols-[1.5fr_1fr] items-end">
           <div>
             <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
               Travelling to {city.name}
@@ -641,6 +724,29 @@ Astro.response.headers.set(
       </div>
     </section>
 
+    
+    <ExploreGrid
+      locale={locale}
+      eyebrow={`${city.name} medical travel`}
+      heading={`Browse ${city.name} the way that fits your case`}
+      lede={`Same hospitals, different cuts. Pick the lens that matches what you're deciding on — destination, specialty, surgeon, or visa logistics.`}
+      items={[
+        { eyebrow: "Hospitals", label: `All hospitals in ${city.name}`, href: `/hospitals/city/${city.slug}`, hint: `${hospitals.length} programs in ${city.name}, with photos and pricing.` },
+        ...(country?.slug && country?.name ? [{ eyebrow: "Destination", label: `${country.name} hospital hub`, href: `/country/${country.slug}`, hint: `Featured programs and pricing benchmarks across ${country.name}.` }] : []),
+        ...(country?.slug && country?.name ? [{ eyebrow: "Visa", label: `${country.name} medical visa`, href: `/visa/${country.slug}`, hint: "Documents, processing time, embassy guidance." }] : []),
+        ...(specialtyCounts[0] ? [{ eyebrow: "Specialty", label: `${specialtyCounts[0].name} in ${city.name}`, href: `/specialty/${specialtyCounts[0].slug}`, hint: `${specialtyCounts[0].hospital_count} hospitals credentialed for ${specialtyCounts[0].name.toLowerCase()}.` }] : []),
+        ...(specialtyCounts[1] ? [{ eyebrow: "Specialty", label: `${specialtyCounts[1].name} care`, href: `/specialty/${specialtyCounts[1].slug}`, hint: `${specialtyCounts[1].hospital_count} hospitals priced for this specialty.` }] : []),
+        ...(specialtyCounts[2] ? [{ eyebrow: "Specialty", label: `${specialtyCounts[2].name} hub`, href: `/specialty/${specialtyCounts[2].slug}`, hint: `${specialtyCounts[2].hospital_count} programs with relevant credentials.` }] : []),
+        { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Cost ranges, recovery time, and success rates per procedure." },
+        { eyebrow: "Browse", label: "All destinations", href: "/countries", hint: "Compare 9 medical-travel destination countries." },
+        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, and pricing." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+      ]}
+    />
+
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

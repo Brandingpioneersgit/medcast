@@ -1,0 +1,724 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { getTranslator } from "@/lib/messages";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { sql } from "drizzle-orm";
+import { patientHero, regionForCountry, heroImage } from "@/lib/images";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const countrySlug = Astro.params.countrySlug;
+if (!isLocale(rawLocale)) return Astro.redirect("/en/from/united-kingdom", 308);
+if (!countrySlug) return new Response("Not found", { status: 404 });
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+const path = `/from/${countrySlug}`;
+const url = localeUrl(locale, path);
+
+const SOURCE_COUNTRIES: Record<string, {
+  name: string;
+  flagEmoji: string;
+  tagline: string;
+  intro: string;
+  insuranceCompanies: Array<{ name: string; note: string; url?: string }>;
+  packages: Array<{ tier: string; label: string; desc: string; includes: string[] }>;
+  waitStats: Array<{ procedure: string; waitWeeks: number; note: string }>;
+  faqs: Array<{ q: string; a: string }>;
+  insurersCoverOutbound: string[];
+}> = {
+  "united-kingdom": {
+    name: "United Kingdom",
+    flagEmoji: "🇬🇧",
+    tagline: "Skip the NHS queue — fly out in days.",
+    intro: "The NHS is world-class but stretched thin. Elective surgery wait times routinely exceed 18 weeks, and specialist procedures like joint replacement or cardiac bypass can mean 52+ weeks on a list. Medical travel gives you treatment within days, not months.",
+    insuranceCompanies: [
+      { name: "Bupa", note: "Applies to investigations and day-case surgery abroad; pre-authorisation required." },
+      { name: "Aviva", note: "Some policies cover treatment in EU countries under the S2 scheme; private international cover available as add-on." },
+      { name: "Vitality Health", note: "International private medical insurance add-on available; check your plan wording." },
+      { name: "AXA PPP", note: "International cover as an add-on to employer health plans." },
+      { name: "WPA (Western Provident Association)", note: "Specific overseas treatment benefit on selected plans." },
+      { name: "National Friendly", note: "Limited international cover on certain policies." },
+    ],
+    packages: [
+      { tier: "basic", label: "NHS Queue Buster", desc: "For patients on a growing NHS waitlist who want treatment within 2 weeks. Covers the procedure abroad, return transfer, and 1 follow-up consultation.", includes: ["Consultation + surgical procedure", "Hospital stay as needed", "Return airport transfers", "1 post-op video follow-up", "Medical report in English"] },
+      { tier: "standard", label: "Fast Track Plus", desc: "Full-service concierge package including flights, accommodation, translator, and all clinical costs.", includes: ["Everything in Queue Buster", "Return flights (economy)", "4-star hotel near hospital (up to 7 nights)", "In-person care coordinator", "Language interpreter at appointments"] },
+      { tier: "premium", label: "Private Executive", desc: "Private room, consultant of your choice, full travel and accommodation, and ongoing monitoring back in the UK.", includes: ["Everything in Fast Track Plus", "Business class flights", "5-star accommodation", "Named consultant + second opinion", "GPS tracker for medications", "6-month UK follow-up coordination"] },
+    ],
+    waitStats: [
+      { procedure: "Hip replacement", waitWeeks: 52, note: "NHS referral, T&O queue, Aug 2025 data" },
+      { procedure: "Knee replacement", waitWeeks: 46, note: "NHS referral, T&O queue, Aug 2025 data" },
+      { procedure: "Cataract surgery", waitWeeks: 22, note: "Outpatient, NHS Ealing sector" },
+      { procedure: "Coronary bypass", waitWeeks: 18, note: "Cardiac tertiary, NHS BTX audit" },
+      { procedure: "Hernia repair", waitWeeks: 26, note: "General surgery, NHS waiting list" },
+      { procedure: "MRI scan (non-urgent)", waitWeeks: 12, note: "Diagnostic, NHS England" },
+    ],
+    faqs: [
+      { q: "Is it legal to use my NHS waiting time to travel?", a: "Yes. NHS patients are free to seek private treatment in the UK or abroad at any time. Traveling does not affect your NHS place — but if you have the operation abroad and want to return to NHS care afterward, let your GP know." },
+      { q: "Will my NHS GP refer me?", a: "GPs can write a referral letter but are not obliged to recommend a specific overseas hospital. We provide the medical summary they need to write it. You can self-refer." },
+      { q: "What if something goes wrong after I return?", a: "Complications within the UK are handled by the NHS as normal. We provide a full clinical summary in English for your GP and any follow-up NHS team." },
+      { q: "Can I use my private health insurance?", a: "Some UK insurers cover treatment abroad — check your policy wording. We assist with pre-authorisation letters from Bupa, Aviva, Vitality, and WPA." },
+    ],
+    insurersCoverOutbound: ["Bupa", "Aviva", "Vitality Health", "AXA PPP", "WPA", "National Friendly"],
+  },
+  usa: {
+    name: "United States",
+    flagEmoji: "🇺🇸",
+    tagline: "World-class care without the bill.",
+    intro: "US healthcare produces excellent outcomes but at a high cost. Uninsured and underinsured patients often face $50,000–$150,000 for major surgery. Medical travel from the USA lets you access the same calibre of treatment — with JCI-accredited hospitals, US-trained surgeons, and English-speaking staff — at a fraction of the domestic price.",
+    insuranceCompanies: [
+      { name: "Cigna Global", note: "International private medical insurance with outpatient + inpatient coverage across 200+ countries." },
+      { name: "Aetna International", note: "Plans include USA-sourced coverage abroad; evacuation included on premium tiers." },
+      { name: "Blue Cross Blue Shield (Global)", note: "International program for members with overseas coverage add-on." },
+      { name: "GeoBlue", note: "Designed specifically for US citizens traveling or living abroad; no domestic US exclusions." },
+      { name: "IMG (International Medical Group)", note: "Budget-friendly international plans; good for self-employed and expats." },
+      { name: "United Healthcare Global", note: "Global evacuation + inpatient coverage; employer and individual plans." },
+    ],
+    packages: [
+      { tier: "basic", label: "Cash-Pay Bypass", desc: "For uninsured or high-deductible patients needing a major procedure. All clinical costs included, no hidden fees.", includes: ["Procedure + hospital stay", "Surgeon + anaesthetist fees", "Airport transfer (1 return)", "English-speaking coordinator", "Discharge summary + records"] },
+      { tier: "standard", label: "Covered Trip", desc: "If your US insurer covers out-of-network or international care — we handle the pre-authorisation and paperwork so you don't have to.", includes: ["Everything in Cash-Pay Bypass", "Pre-authorisation management", "Itemised invoicing (US insurance format)", "Translator at all consultations", "Medical records formatted for US insurer"] },
+      { tier: "premium", label: "Executive Medical Travel", desc: "First-class travel, private suite, named surgeon, and full expense tracking for employer-provided health benefits.", includes: ["Business class return flights", "5-star hotel (up to 14 nights)", "Named US-board-certified surgeon", "Second opinion from US specialist (included)", "Full HSA / FSA expense documentation", "1-year remote follow-up via secured portal"] },
+    ],
+    waitStats: [
+      { procedure: "Hip replacement (medicaid avg)", waitWeeks: 14, note: "Medicaid-funded, hospital capacity limited" },
+      { procedure: "Spinal fusion", waitWeeks: 12, note: "Elective ortho, urban centre average" },
+      { procedure: "Cardiac catheterisation", waitWeeks: 3, note: "Diagnostic, varies by hospital system" },
+      { procedure: "Knee replacement", waitWeeks: 16, note: "Varies by insurer authorisation queue" },
+      { procedure: "Cataract surgery", waitWeeks: 8, note: "Outpatient, Medicare-funded" },
+    ],
+    faqs: [
+      { q: "Does US insurance cover treatment abroad?", a: "Most domestic US plans (Aetna, Blue Cross, United Healthcare) have international add-ons or out-of-network provisions. GeoBlue and Cigna Global are purpose-built for US citizens living or traveling abroad." },
+      { q: "What about Medicare?", a: "Original Medicare does not cover treatment outside the USA. Some Medicare Advantage plans include emergency international coverage — but not planned procedures." },
+      { q: "Can I use my HSA or FSA?", a: "Yes — IRS rules allow HSA and FSA funds to cover medical expenses abroad, including surgery and travel if it's primarily for and related to medical care. We provide itemised receipts in IRS format." },
+      { q: "How do I get a second opinion?", a: "The Executive Medical Travel package includes a US board-certified second opinion as standard." },
+    ],
+    insurersCoverOutbound: ["Cigna Global", "Aetna International", "Blue Cross Blue Shield Global", "GeoBlue", "IMG", "United Healthcare Global"],
+  },
+  canada: {
+    name: "Canada",
+    flagEmoji: "🇨🇦",
+    tagline: "Treatment in weeks, not years.",
+    intro: "Canada's single-payer system provides excellent care but has significant wait times for non-urgent surgery. Orthopaedic, cardiac, and diagnostic imaging waits commonly run 6–12 months. Medical travel is legal, funded by provincial plans under specific conditions, and increasingly used by Canadians who want to avoid the queue.",
+    insuranceCompanies: [
+      { name: "Manulife", note: "Manulife Global has international health plans; domestic plans have limited out-of-country coverage for emergencies only." },
+      { name: "Sun Life", note: "International health coverage available as rider on group plans; check your employer package." },
+      { name: "Canada Life", note: "International add-on coverage on select group health plans." },
+      { name: "Desjardins Insurance", note: "Travel health plans with international medical coverage for extended stays." },
+      { name: "Green Shield Canada", note: "International coverage on selected group plans for out-of-country treatment." },
+      { name: "IA Financial Group", note: "Supplemental international health plans for members traveling for medical procedures." },
+    ],
+    packages: [
+      { tier: "basic", label: "Provincial Queue Bypass", desc: "Designed for Canadians on provincial waitlists who want treatment within 3–4 weeks. All clinical costs included.", includes: ["Surgical consultation + procedure", "Hospital accommodation", "Airport transfer (1 return)", "English-speaking nurse coordinator", "Clinical summary for your Canadian GP"] },
+      { tier: "standard", label: "Cross-Border Care", desc: "Full package including travel, accommodation, and coordination with your provincial health authority for out-of-country funding claims.", includes: ["Everything in Provincial Queue Bypass", "Return economy flights", "Hotel near hospital (up to 7 nights)", "Provincial out-of-country funding application support", "Interpreter at consultations"] },
+      { tier: "premium", label: "Concierge Cross-Border", desc: "Premium experience with private suite, named specialist, and ongoing follow-up with your Canadian care team.", includes: ["Everything in Cross-Border Care", "Business class flights", "5-star hotel (up to 14 nights)", "Named specialist of choice", "Remote monitoring via Canadian-accessible portal", "6-month GP follow-up coordination in Canada"] },
+    ],
+    waitStats: [
+      { procedure: "Hip replacement", waitWeeks: 42, note: "Orthopaedic, provincial average, CIHI 2024" },
+      { procedure: "Knee replacement", waitWeeks: 38, note: "Orthopaedic, provincial average, CIHI 2024" },
+      { procedure: "MRI scan", waitWeeks: 12, note: "Diagnostic, Ontario avg; varies by province" },
+      { procedure: "Cataract surgery", waitWeeks: 14, note: "Ophthalmology, provincial average" },
+      { procedure: "Cardiac bypass (urgent)", waitWeeks: 4, note: "Urgent-care pathway; non-urgent up to 12 weeks" },
+      { procedure: "Hernia repair", waitWeeks: 20, note: "General surgery, Canada-wide average" },
+    ],
+    faqs: [
+      { q: "Does my provincial health plan cover treatment abroad?", a: "Under the Canada Health Act, provinces may fund out-of-country treatment if it is medically necessary and not available in-province. Ontario, BC, Alberta, and Quebec have established out-of-country funding programmes. We help with the application." },
+      { q: "Can I use my employer health plan?", a: "Many group plans (Manulife, Sun Life, Canada Life) have out-of-country emergency or elective coverage. Check your benefits or ask us to review your plan." },
+      { q: "Is this legal and safe?", a: "Completely legal — thousands of Canadians travel for medical treatment every year. Our partner hospitals are JCI-accredited and have English-speaking staff." },
+      { q: "What if I need follow-up back in Canada?", a: "We provide a complete English discharge summary, imaging on disc, and coordinate with your Canadian GP for any follow-up." },
+    ],
+    insurersCoverOutbound: ["Manulife Global", "Sun Life Financial", "Canada Life", "Desjardins Insurance", "Green Shield Canada"],
+  },
+  australia: {
+    name: "Australia",
+    flagEmoji: "🇦🇺",
+    tagline: "World-class treatment, without the public queue.",
+    intro: "Australia's public Medicare system has excellent outcomes but growing elective surgery wait times — particularly for orthopaedic, ENT, and ophthalmology procedures in public hospitals. Medical travel offers a fast, cost-effective alternative.",
+    insuranceCompanies: [
+      { name: "Bupa Australia", note: "International treatment may be covered on top-tier extras; check your policy for overseas medical travel benefits." },
+      { name: "Medibank", note: "Some policies include travel insurance with medical coverage; dedicated international health products available." },
+      { name: "AHM (a health management)", note: "Limited overseas treatment benefit on selected extras packages." },
+      { name: "nib Health Funds", note: "International travel and medical cover available as add-on; also covers evacuation." },
+      { name: "HCF", note: "Major eye surgery and orthopaedic travel benefits on premium extras." },
+      { name: "Defence Health", note: "International treatment benefit on select plans for members." },
+    ],
+    packages: [
+      { tier: "basic", label: "Medicare Queue Jump", desc: "For Australians on public hospital waitlists who want treatment within 2–3 weeks. Covers the procedure, hospital stay, and one follow-up.", includes: ["Surgical procedure + hospital stay", "Surgeon + anaesthetist fees", "Return airport transfer", "English coordinator", "Clinical report for your Australian GP"] },
+      { tier: "standard", label: "Private Health Fast Track", desc: "Full travel and medical package for Australians using private health insurance to cover their procedure abroad.", includes: ["Everything in Medicare Queue Jump", "Return economy flights", "4-star hotel (up to 7 nights)", "Gap-fee management with your insurer", "Translator at consultations", "Pre-authorisation support for your health fund"] },
+      { tier: "premium", label: "Executive Concierge", desc: "Premium medical travel for those wanting the highest-spec hospital, named surgeon, and full travel management.", includes: ["Everything in Private Health Fast Track", "Business class flights", "5-star hotel (up to 14 nights)", "Named specialist (Australian-qualified where possible)", "Second opinion from Australian specialist (video)", "Ongoing monitoring via secure patient portal"] },
+    ],
+    waitStats: [
+      { procedure: "Hip replacement (public)", waitWeeks: 52, note: "AIHW 2024, orthopaedic, national median" },
+      { procedure: "Knee replacement (public)", waitWeeks: 48, note: "AIHW 2024, orthopaedic, national median" },
+      { procedure: "Cataract surgery (public)", waitWeeks: 28, note: "Ophthalmology, public hospital median" },
+      { procedure: "Tonsillectomy", waitWeeks: 32, note: "ENT, paediatric, public hospital average" },
+      { procedure: "Coronary bypass (urgent)", waitWeeks: 4, note: "Cardiac, public system; non-urgent up to 16 weeks" },
+    ],
+    faqs: [
+      { q: "Can I use my private health insurance for treatment abroad?", a: "Yes — most Australian health funds (Bupa, Medibank, HCF, nib) cover emergency medical treatment overseas as part of travel insurance add-ons. For planned procedures, some funds have international treatment benefits on their premium extras." },
+      { q: "Can I claim on Medicare for treatment abroad?", a: "Australia has Reciprocal Health Care Agreements with NZ, UK, Ireland, Sweden, Netherlands, Finland, Italy, Malta, Norway, and Slovenia — covering emergency treatment only. Planned procedures are not covered." },
+      { q: "Will my specialist recognise the records?", a: "We use internationally standardised clinical documentation and DICOM imaging format compatible with Australian hospital systems." },
+      { q: "What if I have a complication?", a: "Our partner hospitals have 24/7 clinical staff. We coordinate with your Australian GP and provide a full incident report for Medicare / health fund claiming." },
+    ],
+    insurersCoverOutbound: ["Bupa Australia", "Medibank", "AHM", "nib Health Funds", "HCF", "Defence Health"],
+  },
+  bangladesh: {
+    name: "Bangladesh",
+    flagEmoji: "🇧🇩",
+    tagline: "Tertiary care, a short flight away.",
+    intro: "Bangladesh has built strong primary and district healthcare, but advanced cardiac surgery, transplant, complex oncology and sub-specialty neurosurgery still run into limited domestic capacity and long referral queues. Hundreds of thousands of Bangladeshis travel every year — most to India — for treatment that is faster to access and resourced more deeply than what is currently available at home.",
+    insuranceCompanies: [
+      { name: "MetLife Bangladesh", note: "Group health plans through employers; some corporate policies include an overseas-referral benefit." },
+      { name: "Green Delta Insurance", note: "Health products available; overseas treatment cover is limited to specific corporate policies." },
+      { name: "Pragati Insurance", note: "Group medical schemes; outbound elective treatment generally not covered." },
+      { name: "Guardian Life Insurance", note: "Health riders on life policies; verify any international clause before travel." },
+      { name: "Delta Life Insurance", note: "Hospitalisation benefit on selected plans; outbound surgery typically self-funded." },
+    ],
+    packages: [
+      { tier: "basic", label: "Referral Fast Track", desc: "For patients holding a referral for a procedure not readily available at home. All clinical costs covered, no hidden fees.", includes: ["Specialist consultation + procedure", "Hospital stay as needed", "Return airport transfers", "Bangla-speaking coordinator", "Discharge summary + imaging on disc"] },
+      { tier: "standard", label: "Family Care Package", desc: "Full-service package including travel and accommodation for the patient plus one attendant — the norm for Bangladeshi families.", includes: ["Everything in Referral Fast Track", "Return flights for patient + 1 attendant", "Hotel near hospital (up to 10 nights)", "In-person care coordinator", "Help with medical-visa paperwork"] },
+      { tier: "premium", label: "Complete Concierge", desc: "Private room, named surgeon, full travel for patient and family, and follow-up coordination after you return.", includes: ["Everything in Family Care Package", "Private hospital room", "Named consultant + second opinion", "Accommodation for up to 3 family members", "6-month remote follow-up with your local doctor"] },
+    ],
+    waitStats: [
+      { procedure: "Paediatric cardiac surgery", waitWeeks: 44, note: "Few national centres; most complex cases referred abroad" },
+      { procedure: "Bone marrow / stem-cell transplant", waitWeeks: 52, note: "Very limited domestic capacity" },
+      { procedure: "Liver transplant", waitWeeks: 56, note: "Programme nascent; majority travel for living-donor transplant" },
+      { procedure: "Advanced radiation oncology", waitWeeks: 30, note: "Linear-accelerator access concentrated in Dhaka" },
+      { procedure: "Cochlear implant", waitWeeks: 36, note: "Long queues at the handful of implanting centres" },
+      { procedure: "Complex spine surgery", waitWeeks: 24, note: "Specialist availability limited outside major cities" },
+    ],
+    faqs: [
+      { q: "Why do so many Bangladeshi patients travel to India?", a: "Proximity, short flights, no language barrier in clinical settings, and deep sub-specialty capacity. Procedures that mean a long referral wait at home — paediatric cardiac, transplant, advanced oncology — can often be scheduled within weeks." },
+      { q: "Do I need a medical visa?", a: "Yes, for most destinations. India issues a dedicated medical visa, and an attendant visa for one or two accompanying family members. We provide the hospital invitation letter and document checklist." },
+      { q: "Can my family travel with me?", a: "Yes — our Family Care and Concierge packages include flights and accommodation for attendants, which is standard for Bangladeshi patients." },
+      { q: "What happens with follow-up after I return?", a: "You receive a full English discharge summary and imaging on disc, and we coordinate remote follow-up with your local doctor in Bangladesh." },
+    ],
+    insurersCoverOutbound: ["MetLife Bangladesh", "Green Delta Insurance", "Pragati Insurance", "Guardian Life Insurance"],
+  },
+  ethiopia: {
+    name: "Ethiopia",
+    flagEmoji: "🇪🇹",
+    tagline: "Specialist care your hospital may not offer yet.",
+    intro: "Ethiopia's health system has expanded fast, but sub-specialty surgery — open-heart, organ transplant, advanced cancer care, tumour neurosurgery — is concentrated in a small number of Addis Ababa centres with long queues. Many Ethiopian patients travel to India and Thailand for procedures that are not yet widely available at home.",
+    insuranceCompanies: [
+      { name: "Ethiopian Insurance Corporation", note: "State insurer with health products; outbound elective treatment is generally not covered." },
+      { name: "Nyala Insurance", note: "Group health schemes; overseas cover limited to specific corporate policies." },
+      { name: "Awash Insurance", note: "Health products available; verify any international clause in writing before travel." },
+      { name: "United Insurance", note: "Group medical plans; outbound surgery typically self-funded." },
+    ],
+    packages: [
+      { tier: "basic", label: "Specialist Access", desc: "For patients needing a procedure not available domestically. Covers the full clinical pathway abroad.", includes: ["Consultation + surgical procedure", "Hospital stay as needed", "Return airport transfers", "English-speaking coordinator", "Discharge summary + records"] },
+      { tier: "standard", label: "Guided Journey", desc: "Clinical care plus travel, accommodation and a coordinator who manages the trip end to end.", includes: ["Everything in Specialist Access", "Return flights for patient + 1 attendant", "Hotel near hospital (up to 10 nights)", "In-person care coordinator", "Medical-visa documentation support"] },
+      { tier: "premium", label: "Full Concierge", desc: "Private room, named surgeon, family accommodation and follow-up coordination once you are home.", includes: ["Everything in Guided Journey", "Private hospital room", "Named consultant + second opinion", "Accommodation for up to 3 family members", "6-month remote follow-up"] },
+    ],
+    waitStats: [
+      { procedure: "Open-heart surgery", waitWeeks: 48, note: "Limited cardiac-surgery capacity nationally" },
+      { procedure: "Kidney transplant", waitWeeks: 52, note: "Programme small; most patients referred abroad" },
+      { procedure: "Radiotherapy (linear accelerator)", waitWeeks: 40, note: "Severe shortage of radiotherapy machines" },
+      { procedure: "Tumour neurosurgery", waitWeeks: 36, note: "Sub-specialty neurosurgeons concentrated in Addis Ababa" },
+      { procedure: "Joint replacement", waitWeeks: 28, note: "Long public-hospital queues for elective orthopaedics" },
+      { procedure: "PET-CT diagnostics", waitWeeks: 30, note: "Advanced imaging not widely available" },
+    ],
+    faqs: [
+      { q: "Which procedures most often require travel from Ethiopia?", a: "Open-heart surgery, organ transplant, advanced radiotherapy and complex neurosurgery — areas where domestic capacity is still limited. We confirm whether your specific procedure is realistically available at home before you commit to travelling." },
+      { q: "Where do most Ethiopian patients go?", a: "India is the most common destination for cost and capacity; Thailand is chosen for some specialties. We match the destination to your diagnosis, budget and flight access from Addis Ababa." },
+      { q: "Will my insurance cover treatment abroad?", a: "Most Ethiopian health policies do not cover elective outbound treatment. We give you an itemised quote up front so there are no surprises, and a clear invoice if a corporate policy may reimburse part of it." },
+      { q: "How do I arrange follow-up after returning?", a: "You leave with a full English discharge summary and imaging, and we coordinate remote follow-up with your treating doctor in Ethiopia." },
+    ],
+    insurersCoverOutbound: ["Ethiopian Insurance Corporation", "Nyala Insurance", "Awash Insurance"],
+  },
+  iraq: {
+    name: "Iraq",
+    flagEmoji: "🇮🇶",
+    tagline: "Rebuilding health, one referral at a time.",
+    intro: "Years of conflict left Iraq's tertiary hospitals under-resourced even as demand kept rising. Cardiac surgery, cancer care, complex orthopaedics and reconstructive surgery often mean travelling — to India, Turkey, Iran or Lebanon — for faster access, modern equipment and a wider choice of surgeon.",
+    insuranceCompanies: [
+      { name: "Iraqi government referral committee", note: "For approved cases unavailable domestically, the Ministry of Health can sponsor treatment abroad." },
+      { name: "Iraq Insurance Company", note: "State insurer; private health cover is limited and rarely extends to elective outbound treatment." },
+      { name: "Al-Hamraa Insurance", note: "Group medical products; verify any international clause in writing before travel." },
+      { name: "Gulf Insurance Group (Iraq)", note: "Regional health plans; some include treatment in neighbouring countries." },
+    ],
+    packages: [
+      { tier: "basic", label: "Treatment Access", desc: "For patients needing care that is hard to obtain at home. Covers the full clinical pathway abroad.", includes: ["Consultation + surgical procedure", "Hospital stay as needed", "Return airport transfers", "Arabic-speaking coordinator", "Discharge summary + imaging on disc"] },
+      { tier: "standard", label: "Family Journey", desc: "Clinical care plus travel and accommodation for the patient and accompanying family.", includes: ["Everything in Treatment Access", "Return flights for patient + 1 attendant", "Hotel near hospital (up to 10 nights)", "In-person care coordinator", "Medical-visa documentation support"] },
+      { tier: "premium", label: "Complete Concierge", desc: "Private room, named surgeon, family accommodation and structured follow-up once you return.", includes: ["Everything in Family Journey", "Private hospital room", "Named consultant + second opinion", "Accommodation for up to 3 family members", "6-month remote follow-up"] },
+    ],
+    waitStats: [
+      { procedure: "Cardiac bypass surgery", waitWeeks: 36, note: "Demand exceeds tertiary cardiac-surgery capacity" },
+      { procedure: "Cancer care (chemo + radiotherapy)", waitWeeks: 32, note: "Equipment downtime and drug shortages common" },
+      { procedure: "Reconstructive / plastic surgery", waitWeeks: 28, note: "Limited specialist availability for complex reconstruction" },
+      { procedure: "Joint replacement", waitWeeks: 30, note: "Long public-hospital queues for elective orthopaedics" },
+      { procedure: "Neurosurgery (tumour / spine)", waitWeeks: 34, note: "Sub-specialty capacity concentrated in a few centres" },
+      { procedure: "Organ transplant", waitWeeks: 52, note: "Programmes limited; most patients referred abroad" },
+    ],
+    faqs: [
+      { q: "Where do most Iraqi patients travel for treatment?", a: "India and Turkey are the most common destinations, with Iran and Lebanon also used. We match the destination to your diagnosis, budget and visa access — Turkey is often fastest to reach from Iraq." },
+      { q: "Can the government sponsor my treatment?", a: "For certain cases not available domestically, the Ministry of Health referral committee can sponsor treatment abroad. We can prepare the medical documentation that process requires; the decision rests with the committee." },
+      { q: "Do I need a visa?", a: "Yes — India and Turkey both issue medical visas, usually with an attendant visa for one accompanying family member. We provide the hospital invitation letter and a document checklist." },
+      { q: "What about follow-up when I get home?", a: "You receive a full discharge summary and imaging on disc, and we coordinate remote follow-up with a doctor in Iraq." },
+    ],
+    insurersCoverOutbound: ["Iraqi Ministry of Health referral", "Iraq Insurance Company", "Gulf Insurance Group"],
+  },
+  kenya: {
+    name: "Kenya",
+    flagEmoji: "🇰🇪",
+    tagline: "When the referral letter says ‘abroad’.",
+    intro: "Kenya has strong referral hospitals — Kenyatta National, Moi, Aga Khan — but advanced cardiac surgery, radiotherapy capacity, organ transplant and paediatric sub-specialties remain bottlenecked. The National Hospital Insurance Fund can fund overseas treatment for cases verified as unavailable locally, and many Kenyans travel to India for treatment within weeks.",
+    insuranceCompanies: [
+      { name: "NHIF (National Hospital Insurance Fund)", note: "Has an overseas treatment benefit for cases confirmed unavailable in Kenya; requires pre-approval and a referral from a designated hospital." },
+      { name: "Jubilee Health Insurance", note: "Premium plans include an international / overseas treatment benefit; pre-authorisation required." },
+      { name: "AAR Insurance", note: "Selected plans cover treatment abroad for procedures unavailable locally." },
+      { name: "Britam", note: "International cover available as an add-on on higher-tier health plans." },
+      { name: "Madison Insurance", note: "Overseas treatment benefit on selected medical policies." },
+      { name: "CIC Insurance", note: "International treatment cover on premium health products." },
+    ],
+    packages: [
+      { tier: "basic", label: "Referral Pathway", desc: "For patients holding a referral for care not available locally. Covers the full clinical pathway abroad.", includes: ["Specialist consultation + procedure", "Hospital stay as needed", "Return airport transfers", "English-speaking coordinator", "Discharge summary + records"] },
+      { tier: "standard", label: "Coordinated Care", desc: "Clinical care plus travel, accommodation and help filing an NHIF or private overseas-treatment claim.", includes: ["Everything in Referral Pathway", "Return flights for patient + 1 attendant", "Hotel near hospital (up to 10 nights)", "NHIF / insurer claim documentation support", "In-person care coordinator"] },
+      { tier: "premium", label: "Concierge Care", desc: "Private room, named surgeon, family accommodation and follow-up coordination once you are home.", includes: ["Everything in Coordinated Care", "Private hospital room", "Named consultant + second opinion", "Accommodation for up to 3 family members", "6-month follow-up coordination in Kenya"] },
+    ],
+    waitStats: [
+      { procedure: "Paediatric cardiac surgery", waitWeeks: 44, note: "Long queues at the few centres performing it" },
+      { procedure: "Radiotherapy (cancer)", waitWeeks: 30, note: "Limited number of functioning radiotherapy machines" },
+      { procedure: "Kidney transplant", waitWeeks: 40, note: "Programme growing but capacity-limited" },
+      { procedure: "Cardiac bypass surgery", waitWeeks: 26, note: "Tertiary cardiac-surgery capacity concentrated in Nairobi" },
+      { procedure: "Complex spine surgery", waitWeeks: 24, note: "Sub-specialty surgeons in short supply" },
+      { procedure: "Bone marrow transplant", waitWeeks: 52, note: "Very limited domestic availability" },
+    ],
+    faqs: [
+      { q: "Can NHIF pay for my treatment abroad?", a: "NHIF has an overseas treatment benefit for procedures confirmed unavailable in Kenya. It requires a referral from a designated hospital and pre-approval. We help prepare the medical documentation; the funding decision rests with NHIF." },
+      { q: "Which destination is best from Kenya?", a: "India is the most common choice for cardiac, oncology, transplant and orthopaedic care — strong capacity, English-language clinical settings, and direct flights from Nairobi. We match the destination to your diagnosis and budget." },
+      { q: "Can I use private insurance?", a: "Yes — Jubilee, AAR, Britam, Madison and CIC have overseas treatment benefits on their higher-tier plans. We assist with pre-authorisation paperwork." },
+      { q: "What about follow-up in Kenya?", a: "You receive a full discharge summary and imaging on disc, and we coordinate follow-up with your referring hospital or doctor in Kenya." },
+    ],
+    insurersCoverOutbound: ["NHIF", "Jubilee Health Insurance", "AAR Insurance", "Britam", "Madison Insurance", "CIC Insurance"],
+  },
+  nigeria: {
+    name: "Nigeria",
+    flagEmoji: "🇳🇬",
+    tagline: "Among the world’s largest medical-travel markets.",
+    intro: "Nigerians spend an estimated one billion dollars a year on treatment abroad — one of the largest outbound medical-travel flows anywhere. Specialist shortages, limited tertiary capacity and equipment downtime push patients toward India, the UK, Egypt and Turkey for cardiac, oncology, orthopaedic, fertility and renal care.",
+    insuranceCompanies: [
+      { name: "Hygeia HMO", note: "Premium plans include an international treatment benefit for procedures unavailable in Nigeria; pre-authorisation required." },
+      { name: "AXA Mansard Health", note: "International health plans cover planned treatment abroad on higher tiers." },
+      { name: "Leadway Health", note: "Overseas treatment benefit on selected corporate and individual plans." },
+      { name: "Avon HMO", note: "International referral cover available on premium products." },
+      { name: "Reliance Health", note: "Some plans include outbound referral for specialist care unavailable locally." },
+      { name: "NHIS (National Health Insurance Scheme)", note: "Coverage is limited and rarely extends to elective treatment abroad." },
+    ],
+    packages: [
+      { tier: "basic", label: "Specialist Referral", desc: "For patients needing care that is hard to access at home. Covers the full clinical pathway abroad.", includes: ["Specialist consultation + procedure", "Hospital stay as needed", "Return airport transfers", "English-speaking coordinator", "Discharge summary + imaging on disc"] },
+      { tier: "standard", label: "Full Travel Package", desc: "Clinical care plus flights, accommodation and a coordinator managing the journey for patient and family.", includes: ["Everything in Specialist Referral", "Return flights for patient + 1 attendant", "Hotel near hospital (up to 10 nights)", "In-person care coordinator", "Medical-visa documentation support"] },
+      { tier: "premium", label: "Executive Concierge", desc: "Private suite, named surgeon, business-class travel and structured follow-up once you return.", includes: ["Everything in Full Travel Package", "Business-class flights", "Private hospital suite", "Named consultant + second opinion", "Accommodation for up to 3 family members", "6-month remote follow-up"] },
+    ],
+    waitStats: [
+      { procedure: "Cardiac bypass / valve surgery", waitWeeks: 40, note: "Very few centres performing open-heart surgery" },
+      { procedure: "Radiotherapy (cancer)", waitWeeks: 36, note: "Chronic shortage of functioning radiotherapy machines" },
+      { procedure: "Kidney transplant", waitWeeks: 44, note: "Programmes limited; most patients referred abroad" },
+      { procedure: "IVF / advanced fertility", waitWeeks: 20, note: "Available but variable; many travel for higher success rates" },
+      { procedure: "Complex orthopaedic surgery", waitWeeks: 28, note: "Specialist availability and implant supply inconsistent" },
+      { procedure: "Bone marrow transplant", waitWeeks: 52, note: "Minimal domestic capacity" },
+    ],
+    faqs: [
+      { q: "Why do so many Nigerians travel for treatment?", a: "A shortage of sub-specialists, limited tertiary-hospital capacity and unreliable equipment availability mean that cardiac, oncology, transplant and complex orthopaedic care often cannot be scheduled quickly at home. Travelling gives faster, more predictable access." },
+      { q: "Which destination should I choose?", a: "India is the most common for cost and capacity; the UK and Turkey are also used. We match the destination to your diagnosis, budget and visa access, and give you transparent pricing before you commit." },
+      { q: "Will my HMO cover it?", a: "Premium plans from Hygeia, AXA Mansard, Leadway and Avon include international treatment benefits for care unavailable in Nigeria. We help with pre-authorisation; most elective outbound treatment is still partly self-funded." },
+      { q: "How is follow-up handled?", a: "You receive a full English discharge summary and imaging on disc, and we coordinate remote follow-up with your doctor in Nigeria." },
+    ],
+    insurersCoverOutbound: ["Hygeia HMO", "AXA Mansard Health", "Leadway Health", "Avon HMO", "Reliance Health"],
+  },
+  oman: {
+    name: "Oman",
+    flagEmoji: "🇴🇲",
+    tagline: "Sponsored care, sent to the right hospital.",
+    intro: "Oman's Ministry of Health runs a long-standing programme that sponsors citizens for treatment abroad when a procedure is not available domestically — sending patients to India, Germany, the UK and Thailand. Private patients and expatriate residents also travel for faster access and a wider choice of surgeon.",
+    insuranceCompanies: [
+      { name: "Oman Ministry of Health overseas scheme", note: "Sponsors citizens for MoH-approved cases that cannot be treated within Oman." },
+      { name: "GIG Gulf (formerly AXA Gulf)", note: "Regional and international health plans; planned treatment abroad covered on higher tiers." },
+      { name: "Sukoon Insurance (formerly Oman Insurance)", note: "International health cover available on premium products." },
+      { name: "National Life & General Insurance", note: "Group medical schemes; some include regional / international treatment cover." },
+      { name: "Dhofar Insurance", note: "Health products with treatment-abroad benefit on selected plans." },
+    ],
+    packages: [
+      { tier: "basic", label: "Treatment Access", desc: "For patients needing a procedure not available in Oman. Covers the full clinical pathway abroad.", includes: ["Specialist consultation + procedure", "Hospital stay as needed", "Return airport transfers", "Arabic-speaking coordinator", "Discharge summary + imaging on disc"] },
+      { tier: "standard", label: "Family Journey", desc: "Clinical care plus travel and accommodation for the patient and accompanying family.", includes: ["Everything in Treatment Access", "Return flights for patient + 1 attendant", "Hotel near hospital (up to 10 nights)", "In-person care coordinator", "MoH-sponsorship or insurer documentation support"] },
+      { tier: "premium", label: "Executive Concierge", desc: "Private suite, named surgeon, business-class travel and structured follow-up once you return.", includes: ["Everything in Family Journey", "Business-class flights", "Private hospital suite", "Named consultant + second opinion", "Accommodation for up to 3 family members", "6-month remote follow-up"] },
+    ],
+    waitStats: [
+      { procedure: "Complex paediatric surgery", waitWeeks: 32, note: "Specialised cases routinely referred abroad" },
+      { procedure: "Organ transplant", waitWeeks: 48, note: "Domestic programmes limited; most cases sponsored overseas" },
+      { procedure: "Advanced oncology (proton / specialised)", waitWeeks: 30, note: "Specialised radiotherapy not available domestically" },
+      { procedure: "Complex cardiac surgery", waitWeeks: 24, note: "Sub-specialty cardiac cases often sent abroad" },
+      { procedure: "Neurosurgery (complex tumour)", waitWeeks: 28, note: "Highly specialised neurosurgery capacity limited" },
+      { procedure: "Joint replacement", waitWeeks: 18, note: "Available domestically; some travel for faster access or choice of surgeon" },
+    ],
+    faqs: [
+      { q: "How does the Ministry of Health overseas scheme work?", a: "When a procedure is not available within Oman, the MoH can sponsor a citizen's treatment abroad. The decision and destination are set by the Ministry; we can prepare the medical documentation and coordinate the hospital side once a case is approved." },
+      { q: "Can private patients and expatriates travel too?", a: "Yes. Private patients and expatriate residents often travel independently for faster access or a specific surgeon. We provide transparent pricing and full trip coordination." },
+      { q: "Which destinations do Omani patients use most?", a: "India, Germany, the UK and Thailand are the most common, depending on the procedure. We match the destination to your diagnosis, budget and sponsorship status." },
+      { q: "What about follow-up back in Oman?", a: "You receive a full discharge summary and imaging on disc, and we coordinate follow-up with your treating doctor or hospital in Oman." },
+    ],
+    insurersCoverOutbound: ["Oman Ministry of Health", "GIG Gulf", "Sukoon Insurance", "National Life & General Insurance", "Dhofar Insurance"],
+  },
+  uzbekistan: {
+    name: "Uzbekistan",
+    flagEmoji: "🇺🇿",
+    tagline: "Beyond what’s available in Tashkent.",
+    intro: "Uzbekistan has invested heavily in specialised national medical centres, but advanced oncology, paediatric cardiac surgery, transplant and certain neurosurgical procedures still send patients abroad — most often to India, Turkey, South Korea and Germany. State quotas cover some cases; many families travel privately for faster access and choice of surgeon.",
+    insuranceCompanies: [
+      { name: "State quota programme", note: "Government quotas can fund select procedures abroad that are unavailable domestically; allocation is limited." },
+      { name: "Uzbekinvest", note: "State-linked insurer with health products; outbound elective treatment is rarely covered." },
+      { name: "Gross Insurance", note: "Health products available; verify any international clause in writing before travel." },
+      { name: "Kafolat Insurance", note: "Group medical schemes; outbound surgery typically self-funded." },
+      { name: "Apex Insurance", note: "Private health cover; treatment-abroad benefit limited to specific policies." },
+    ],
+    packages: [
+      { tier: "basic", label: "Specialist Access", desc: "For patients needing a procedure not available domestically. Covers the full clinical pathway abroad.", includes: ["Specialist consultation + procedure", "Hospital stay as needed", "Return airport transfers", "Russian-speaking coordinator", "Discharge summary + imaging on disc"] },
+      { tier: "standard", label: "Guided Journey", desc: "Clinical care plus travel and accommodation, with a coordinator managing the trip for patient and family.", includes: ["Everything in Specialist Access", "Return flights for patient + 1 attendant", "Hotel near hospital (up to 10 nights)", "In-person care coordinator", "Medical-visa documentation support"] },
+      { tier: "premium", label: "Full Concierge", desc: "Private room, named surgeon, family accommodation and follow-up coordination once you return.", includes: ["Everything in Guided Journey", "Private hospital room", "Named consultant + second opinion", "Accommodation for up to 3 family members", "6-month remote follow-up"] },
+    ],
+    waitStats: [
+      { procedure: "Advanced oncology care", waitWeeks: 34, note: "Specialised cancer treatment capacity limited" },
+      { procedure: "Paediatric cardiac surgery", waitWeeks: 40, note: "Complex congenital cases routinely referred abroad" },
+      { procedure: "Organ transplant", waitWeeks: 50, note: "Domestic programmes limited; most patients travel" },
+      { procedure: "Bone marrow transplant", waitWeeks: 48, note: "Very limited domestic availability" },
+      { procedure: "Complex neurosurgery", waitWeeks: 30, note: "Highly specialised neurosurgery concentrated in Tashkent" },
+      { procedure: "Joint replacement", waitWeeks: 22, note: "Available domestically; some travel for implants or surgeon choice" },
+    ],
+    faqs: [
+      { q: "Which procedures most often require travel from Uzbekistan?", a: "Advanced oncology, paediatric cardiac surgery, transplant and complex neurosurgery — areas where domestic capacity is still developing. We confirm whether your specific procedure is realistically available at home before you commit to travelling." },
+      { q: "Can the state quota cover my treatment?", a: "Government quotas can fund select procedures abroad that are not available in Uzbekistan, but allocation is limited. We can prepare the medical documentation; the funding decision rests with the relevant authority." },
+      { q: "Which destinations do Uzbek patients use?", a: "India, Turkey, South Korea and Germany are the most common, depending on the procedure and budget. We match the destination to your diagnosis and give you transparent pricing before you commit." },
+      { q: "What about follow-up after returning home?", a: "You receive a full discharge summary and imaging on disc, and we coordinate remote follow-up with your doctor in Uzbekistan." },
+    ],
+    insurersCoverOutbound: ["State quota programme", "Uzbekinvest", "Gross Insurance", "Kafolat Insurance"],
+  },
+};
+
+const data = SOURCE_COUNTRIES[countrySlug];
+if (!data) return new Response(`Not found: ${countrySlug}`, { status: 404 });
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: `Medical travel from ${data.name}`, url },
+]);
+
+const maxWait = 60;
+const tierColors: Record<string, string> = {
+  basic: "var(--color-ink-muted)",
+  standard: "var(--color-accent)",
+  premium: "var(--color-ink)",
+};
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta
+      title={`Medical Travel from ${data.name} — Skip the Wait`}
+      description={data.intro.slice(0, 160)}
+      path={path}
+      locale={locale}
+      noindex={locale !== "en"}
+    />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main id="main" class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <!-- Breadcrumb -->
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto max-w-[1440px] px-7 md:px-10">
+        <div class="py-4">
+          <nav class="mono text-[12px] flex items-center gap-2 flex-wrap" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+            <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+            <span aria-hidden="true" class="text-[var(--color-border-strong)]">/</span>
+            <span>Medical travel from {data.name}</span>
+          </nav>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hero -->
+    <section style="border-bottom: 1px solid var(--color-border);">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8 py-12 md:py-16">
+        <div class="grid gap-10 lg:grid-cols-[1fr_0.5fr] lg:items-center">
+          <div>
+            <p class="mono uppercase inline-flex items-center gap-2" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
+              <span>{data.flagEmoji}</span>
+              Medical travel from {data.name}
+            </p>
+            <h1 class="display mt-4" style="font-size: clamp(2.25rem, 5vw, 4.25rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em;">
+              {data.tagline}
+            </h1>
+            <p class="serif mt-5 max-w-[44rem]" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">{data.intro}</p>
+            <div class="mt-7 flex flex-wrap gap-3">
+              <a href={localizedPath(locale, "/contact")} class="inline-flex items-center gap-2 font-semibold px-6 py-3 rounded-full" style="background: var(--color-accent); color: var(--color-bg);">
+                Get a fast quote
+              </a>
+              <a href={localizedPath(locale, "/insurance")} class="inline-flex items-center gap-2 font-semibold px-6 py-3 rounded-full border transition-colors hover:border-ink" style="border-color: var(--color-border); color: var(--color-ink);">
+                Check my insurance
+              </a>
+            </div>
+          </div>
+          <div class="relative paper-flat overflow-hidden" style="aspect-ratio: 4/5; border-radius: var(--radius-lg);">
+            <img
+              src={patientHero(`from-${countrySlug}`, regionForCountry(countrySlug), 600)}
+              alt={`Patients from ${data.name}`}
+              width="600"
+              height="750"
+              loading="eager"
+              decoding="async"
+              style="width: 100%; height: 100%; object-fit: cover;"
+            />
+            <div class="image-veil" />
+            <div class="absolute" style="inset-inline-start: 16px; inset-block-end: 16px; inset-inline-end: 16px;">
+              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: rgba(251,248,241,0.78);">
+                {data.flagEmoji} {data.name} → MedCasts hospitals
+              </div>
+              <div class="serif" style="font-size: 16px; font-weight: 500; color: #FBF8F1; line-height: 1.3; margin-top: 4px;">
+                Care that doesn't make you wait years.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Wait times -->
+    <section class="py-14">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <p class="mono uppercase mb-3" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">01 · Public wait times</p>
+        <h2 class="display mb-8" style="font-size: 32px; letter-spacing: -0.02em;">{data.name} public system wait times</h2>
+        <ul class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {data.waitStats.map((s) => {
+            const pct = Math.min((s.waitWeeks / maxWait) * 100, 100);
+            return (
+              <li class="paper" style="padding: 20px;">
+                <div class="flex items-baseline justify-between gap-2">
+                  <p class="serif text-xl" style="letter-spacing: -0.01em;">{s.procedure}</p>
+                  <p class="mono tnum text-[13px]" style="color: var(--color-accent);">{s.waitWeeks} wks</p>
+                </div>
+                <div class="w-full rounded-full h-2 mt-3" style="background: var(--color-border);">
+                  <div class="h-2 rounded-full" style={{width: `${pct}%`, background: "var(--color-accent)"}}></div>
+                </div>
+                <p class="mt-2 text-[11px]" style="color: var(--color-ink-subtle);">{s.note}</p>
+              </li>
+            );
+          })}
+        </ul>
+        <p class="mt-6 text-[13px]" style="color: var(--color-ink-subtle);">Compare: fly out for most of these procedures and be treated within 2–3 weeks.</p>
+      </div>
+    </section>
+
+    <!-- Packages -->
+    <section style="background: var(--color-paper); border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border);">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8 py-14">
+        <p class="mono uppercase mb-3" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">02 · Special packages</p>
+        <h2 class="display mb-8" style="font-size: 32px; letter-spacing: -0.02em;">Packages for {data.name} patients</h2>
+        <ul class="grid gap-5 md:grid-cols-3">
+          {data.packages.map((pkg) => (
+            <li class="paper" style={{padding: "24px", borderTop: `3px solid ${tierColors[pkg.tier]}`}}>
+              <p class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{pkg.tier}</p>
+              <h3 class="serif mt-3" style="font-size: 22px; font-weight: 500; letter-spacing: -0.015em;">{pkg.label}</h3>
+              <p class="mt-2 text-[14px]" style="color: var(--color-ink-muted); line-height: 1.55;">{pkg.desc}</p>
+              <ul class="mt-4 space-y-1.5">
+                {pkg.includes.map((item) => (
+                  <li class="flex items-start gap-2 text-[13px]" style="color: var(--color-ink-muted);">
+                    <span style="color: var(--color-accent); line-height: 1.6;">—</span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+
+    <!-- Insurers -->
+    <section class="py-14">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <p class="mono uppercase mb-3" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">03 · Insurance</p>
+        <div class="grid gap-12 lg:grid-cols-2 lg:items-start">
+          <div>
+            <h2 class="display" style="font-size: 32px; letter-spacing: -0.02em;">Outbound insurance companies</h2>
+            <p class="mt-4 serif max-w-[36rem]" style="font-size: 17px; line-height: 1.5; color: var(--color-ink-muted);">
+              These insurers cover planned medical treatment abroad for {data.name} residents.
+              Coverage depends on your specific policy — we help with pre-authorisation.
+            </p>
+            <a href={localizedPath(locale, "/insurance")} class="inline-flex items-center gap-2 font-semibold px-6 py-3 rounded-full border mt-7 transition-colors hover:border-ink" style="border-color: var(--color-border); color: var(--color-ink);">
+              See all international insurers we work with
+            </a>
+          </div>
+          <ul class="space-y-3">
+            {data.insuranceCompanies.map((ins) => (
+              <li class="paper" style="padding: 18px;">
+                <p class="serif text-base" style="letter-spacing: -0.005em;">{ins.name}</p>
+                <p class="mt-1 text-[13px]" style="color: var(--color-ink-muted);">{ins.note}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Coverage check -->
+    <section style="background: var(--color-paper); border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border);">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8 py-14">
+        <div class="grid gap-10 lg:grid-cols-2 lg:items-center">
+          <div>
+            <p class="mono uppercase mb-3" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">Check your policy</p>
+            <h2 class="display" style="font-size: 32px; letter-spacing: -0.02em;">Does your insurer cover treatment abroad?</h2>
+            <p class="mt-4" style="font-size: 15px; color: var(--color-ink-muted); line-height: 1.6;">
+              Send us your policy schedule or insurer name and we'll tell you within 24 hours
+              what's covered, what's excluded, and what pre-authorisation you need.
+            </p>
+          </div>
+          <div class="paper" style="padding: 24px; box-shadow: var(--shadow-md);">
+            <p class="mono uppercase mb-4" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Get a coverage check</p>
+            <form id="from-inquiry-form" class="space-y-4">
+              <input type="hidden" name="source" value={`/from/${countrySlug}`} />
+              <div>
+                <label class="block text-sm font-medium mb-1" style="color: var(--color-ink-muted);">Name *</label>
+                <input type="text" name="name" required autocomplete="name" class="w-full px-4 py-3 border rounded-lg text-sm" style="border-color: var(--color-border);" />
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-sm font-medium mb-1" style="color: var(--color-ink-muted);">Email</label>
+                  <input type="email" name="email" autocomplete="email" class="w-full px-4 py-3 border rounded-lg text-sm" style="border-color: var(--color-border);" />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1" style="color: var(--color-ink-muted);">Phone *</label>
+                  <input type="tel" name="phone" required autocomplete="tel" class="w-full px-4 py-3 border rounded-lg text-sm" style="border-color: var(--color-border);" />
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1" style="color: var(--color-ink-muted);">Insurance provider or policy details</label>
+                <input type="text" name="condition" placeholder="e.g. Bupa Global, policy number, or 'not sure'" class="w-full px-4 py-3 border rounded-lg text-sm" style="border-color: var(--color-border);" />
+              </div>
+              <div id="from-submit-result" class="hidden p-4 rounded-xl text-center" style="background: var(--color-accent-soft);">
+                <p class="font-semibold" style="color: var(--color-accent);">Request received!</p>
+                <p class="mt-1 text-sm" style="color: var(--color-ink-muted);">We'll review your policy and respond within 24 hours.</p>
+              </div>
+              <button type="submit" class="w-full py-3.5 rounded-lg font-semibold transition-colors" style="background: var(--color-accent); color: var(--color-bg);">
+                Check my coverage
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQs -->
+    <section class="py-14">
+      <div class="mx-auto w-full max-w-[60rem] px-5 md:px-8">
+        <p class="mono uppercase mb-3" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">04 · FAQ</p>
+        <h2 class="display mb-6" style="font-size: 32px; letter-spacing: -0.02em;">Common questions from {data.name} patients.</h2>
+        <div style="border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border);">
+          {data.faqs.map((f, i) => (
+            <details class="group py-5" style={i > 0 ? {borderTop: "1px solid var(--color-border-soft)"} : {}}>
+              <summary class="serif cursor-pointer flex items-center justify-between gap-4" style="font-size: 18px; font-weight: 500; list-style: none;">
+                {f.q}
+                <span class="mono text-[18px] transition-transform group-open:rotate-45 shrink-0" style="color: var(--color-ink-subtle);" aria-hidden="true">+</span>
+              </summary>
+              <p class="mt-3 text-[14.5px]" style="color: var(--color-ink-muted); line-height: 1.6;">{f.a}</p>
+            </details>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="py-14">
+      <div class="mx-auto w-full max-w-[60rem] px-5 md:px-8 text-center">
+        <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">No commitment</p>
+        <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -0.025em; line-height: 1.05;">
+          Tell us your procedure <span class="italic-display">and we'll quote it.</span>
+        </h2>
+        <p class="serif mt-4 max-w-[36rem] mx-auto" style="font-size: 17px; line-height: 1.5; color: var(--color-ink-muted);">
+          Share your diagnosis or referral letter — we'll shortlist hospitals,
+          give you transparent pricing, and tell you exactly when you could be treated.
+        </p>
+        <div class="mt-7 flex flex-wrap justify-center gap-3">
+          <a href={localizedPath(locale, "/contact")} class="inline-flex items-center gap-2 font-semibold px-6 py-3 rounded-full" style="background: var(--color-accent); color: var(--color-bg);">
+            Get my fast quote
+          </a>
+          <a href={localizedPath(locale, "/calculator")} class="inline-flex items-center gap-2 font-semibold px-6 py-3 rounded-full border transition-colors hover:border-ink" style="border-color: var(--color-border); color: var(--color-ink);">
+            Use the cost calculator
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <HowItWorks
+      heading='How patients from this country approach medical travel'
+      italicWord='approach medical travel'
+      eyebrow='Source-country guidance'
+      steps={[
+        { title: 'Common destinations from your country', description: 'Patients from your country often travel to specific destinations based on flight time, language, cultural fit.' },
+        { title: 'Cost reality vs domestic', description: 'Compare with what equivalent care costs in your home country. International savings are typically 50-80%.' },
+        { title: 'Visa pathway', description: 'Some destinations have streamlined visa pathways for patients from your country. Others require more documentation.' },
+        { title: 'Insurance coverage', description: 'Most domestic insurance excludes elective international. Some international policies may cover; verify pre-authorization.' },
+      ]}
+    />
+    
+    <ExploreGrid
+      locale={locale}
+      eyebrow={`From ${data.name}`}
+      heading="Where to take this next"
+      lede={`Cost is one piece. These pages cover the destinations, programs, and decision aids that matter when you're flying out from ${data.name}.`}
+      items={[
+        { eyebrow: "Destination", label: "All 9 countries", href: "/countries", hint: "Cost-of-care, accreditation profile, visa playbook per destination." },
+        { eyebrow: "Destination", label: "India hub", href: "/country/india", hint: "Largest medical-travel program — JCI/NABH hospitals, English-speaking, fastest pricing." },
+        { eyebrow: "Destination", label: "Turkey hub", href: "/country/turkey", hint: "Cosmetic, hair, dental, fertility — fast surgery dates, EU-adjacent." },
+        { eyebrow: "Destination", label: "Thailand hub", href: "/country/thailand", hint: "Bumrungrad and BNH — mature hospitality + clinical infrastructure." },
+        { eyebrow: "Destination", label: "Germany hub", href: "/country/germany", hint: "Complex cardiac, oncology, paediatric — premium pricing, premium outcomes." },
+        { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure cost ranges, recovery time, success rates." },
+        { eyebrow: "Browse", label: "15 specialties", href: "/specialties", hint: "Cardiac, ortho, oncology, transplant, fertility, cosmetic." },
+        { eyebrow: "Reference", label: "Insurance coverage", href: "/insurance", hint: "Which insurers reimburse outbound treatment, and how to file." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions → specialty + destination + 3-hospital shortlist." },
+        { eyebrow: "Compare", label: "Destination shootout", href: "/compare/countries", hint: "Hospitals, doctors, treatments, programs by country." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+      ]}
+    />
+
+    <PageCta locale={locale} />
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>
+
+<script>
+  const form = document.getElementById("from-inquiry-form") as HTMLFormElement | null;
+  const result = document.getElementById("from-submit-result");
+
+  if (form && result) {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = form.querySelector("button[type=submit]") as HTMLButtonElement;
+      const fd = new FormData(form);
+      btn.disabled = true;
+      btn.textContent = "Sending...";
+
+      await fetch("/api/v1/inquiry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(Object.fromEntries(fd)),
+      });
+
+      form.classList.add("hidden");
+      result.classList.remove("hidden");
+    });
+  }
+</script>
