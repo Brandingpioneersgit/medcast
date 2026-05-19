@@ -5,12 +5,14 @@ import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import LastUpdated from "@/components/LastUpdated.astro";
 import { listSurgeonsForSpecialty } from "@/lib/queries";
-import { getContent, getContentBatch, applyTranslated } from "@/lib/translate";
+import { getContent, getContentBatch, applyTranslated, isUntranslated } from "@/lib/translate";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
-import { breadcrumbJsonLd, localeUrl, itemListJsonLd, withProvenance } from "@/lib/seo";
+import { breadcrumbJsonLd, localeUrl, itemListJsonLd, withProvenance, surgeonNoun, titleCase } from "@/lib/seo";
 import { Award, ChevronRight, MapPin, Users } from "lucide-react";
 import { doctorPortrait } from "@/lib/images";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 
 export const prerender = false;
 
@@ -37,9 +39,11 @@ const doctors = data.doctors.map((d) => ({
 
 const tc = getTranslator(locale, "common");
 
-const seoTitle = `${specialty.name} surgeons in ${country.name}`;
+const surgeonYear = new Date().getFullYear();
+const surgeonNounLower = surgeonNoun(specialtyParam, specialty.name);
+const seoTitle = `Best ${titleCase(surgeonNounLower)} in ${country.name} (${surgeonYear}) — Ranked`;
 const seoDescription =
-  `${data.total.toLocaleString()} ${specialty.name.toLowerCase()} surgeons practising at ${country.name} hospitals, ranked by patient volume and experience. Free human shortlist on request.`.slice(0, 160);
+  `Top ${surgeonNounLower} in ${country.name} for ${surgeonYear} — ${data.total.toLocaleString()} doctors ranked by patient volume, years of practice and hospital credentialing. Free human shortlist on request.`.slice(0, 160);
 const path = `/surgeons/${specialtyParam}/${countryParam}`;
 const url = localeUrl(locale, path);
 
@@ -68,7 +72,7 @@ Astro.response.headers.set(
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={isUntranslated(locale, specialtyMap)} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(itemLd)} />
   </Fragment>
@@ -93,7 +97,7 @@ Astro.response.headers.set(
         {specialty.name} · {country.name}
       </p>
       <h1 class="mt-2 display display-tight" style="font-size: clamp(2rem, 4.5vw, 3.5rem); letter-spacing: -0.025em; line-height: 1.02;">
-        {specialty.name} surgeons in {country.name}
+        Best {surgeonNounLower} in {country.name}
       </h1>
       <p class="lede mt-5 max-w-[44rem]">
         {data.total.toLocaleString()} surgeons at {country.name} hospitals credentialed for {specialty.name.toLowerCase()}, ranked by patient volume and years in practice. Not every doctor operates exclusively in this specialty — we'll narrow the list to your case.
@@ -126,6 +130,9 @@ Astro.response.headers.set(
     </section>
 
     <section class="mx-auto max-w-7xl px-6 pb-10 border-t border-border-soft pt-8">
+      <h2 class="display-tight mb-5" style="font-size: clamp(1.5rem, 3vw, 2.25rem); letter-spacing: -0.02em;">
+        {data.total.toLocaleString()} {specialty.name.toLowerCase()} surgeons in {country.name}
+      </h2>
       <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {doctors.map((d) => {
           const nameHasTitle = /^(dr\.?|prof\.?|mr\.?|ms\.?|mrs\.?)\s/i.test(d.name);
@@ -172,6 +179,7 @@ Astro.response.headers.set(
     </section>
 
     <section class="mx-auto max-w-7xl px-6 pb-20">
+      <h2 class="sr-only">Get a personal {specialty.name.toLowerCase()} surgeon shortlist for {country.name}</h2>
       <div class="paper p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
         <div class="max-w-[36rem]">
           <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">Match me to a surgeon</p>
@@ -200,6 +208,28 @@ Astro.response.headers.set(
       </div>
     </section>
 
+    <ExploreGrid
+      locale={locale}
+      eyebrow={`${specialty.name} · ${country.name}`}
+      heading={`Beyond the surgeon list — full ${country.name} ${specialty.name.toLowerCase()} picture`}
+      lede={`Volume-ranked physician list is one cut. These hubs cover the hospitals, the destination context, the procedures, and the visa logistics — so the surgeon decision lands in a real travel plan.`}
+      items={[
+        { eyebrow: "Specialty", label: `${specialty.name} hub`, href: `/specialty/${specialtyParam}`, hint: `All ${specialty.name.toLowerCase()} programs across destinations.` },
+        { eyebrow: "Surgeons", label: `All ${specialty.name.toLowerCase()} surgeons`, href: `/surgeons/${specialtyParam}`, hint: "Volume-ranked directory across all destinations — for cross-border comparison." },
+        { eyebrow: "Best of", label: `Best ${specialty.name} in ${country.name}`, href: `/best/${specialtyParam}-in-${countryParam}`, hint: "Editorially ranked programs in this destination with methodology disclosed." },
+        { eyebrow: "Destination", label: `${country.name} hospital hub`, href: `/country/${countryParam}`, hint: `Featured programs and pricing benchmarks across ${country.name}.` },
+        { eyebrow: "Hospitals", label: `${country.name} hospitals`, href: `/hospitals?country=${countryParam}`, hint: "Filter by city, specialty, accreditation, beds, rating." },
+        { eyebrow: "Hospitals", label: `${specialty.name} hospitals`, href: `/hospitals?specialty=${specialtyParam}`, hint: "Programs credentialed for this specialty across all destinations." },
+        { eyebrow: "Visa", label: `${country.name} medical visa`, href: `/visa/${countryParam}`, hint: "Documents, processing time, embassy guidance." },
+        { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure success rates, recovery time, hospital pricing." },
+        { eyebrow: "Compare", label: "Doctor comparison", href: "/compare/doctors", hint: "Surgeons compared on volume, fees, languages, video-consult availability." },
+        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, pricing for up to 4 hospitals." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+      ]}
+    />
+
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

@@ -10,6 +10,9 @@ import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, itemListJsonLd, medicalConditionJsonLd, withProvenance, faqJsonLd } from "@/lib/seo";
 import { Award, ChevronRight, MapPin, Users } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 import { doctorPortrait } from "@/lib/images";
 
 export const prerender = false;
@@ -36,9 +39,9 @@ const doctors = data.doctors.map((d) => ({
   ...applyTranslated({ name: d.name, qualifications: d.qualifications }, doctorMap[d.id] ?? {}, ["name", "qualifications"]),
 }));
 
-const seoTitle = `Doctors who treat ${condition.name}`;
+const seoTitle = `Best Doctors for ${condition.name} — Ranked by Volume`;
 const seoDescription =
-  `${data.total.toLocaleString()} specialists across ${data.specialties.length} relevant specialties handling ${condition.name.toLowerCase()}. Ranked by volume and experience; free case-specific shortlist on request.`.slice(0, 160);
+  `Top doctors for ${condition.name.toLowerCase()} — ${data.total.toLocaleString()} specialists across ${data.specialties.length} relevant specialt${data.specialties.length === 1 ? "y" : "ies"}, ranked by patient volume and years of experience. Free case-specific shortlist on request.`.slice(0, 160);
 
 const path = `/condition/${slug}/doctors`;
 const url = localeUrl(locale, path);
@@ -90,7 +93,7 @@ Astro.response.headers.set(
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated || doctors.length === 0} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(conditionLd)} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(itemLd)} />
@@ -117,7 +120,7 @@ Astro.response.headers.set(
         {condition.name}
       </p>
       <h1 class="mt-2 display display-tight" style="font-size: clamp(2rem, 4.5vw, 3.5rem); letter-spacing: -0.025em; line-height: 1.02;">
-        Doctors who treat {condition.name.toLowerCase()}
+        Best doctors for {condition.name.toLowerCase()}
       </h1>
       <p class="lede mt-5 max-w-[44rem]">
         {data.total.toLocaleString()} specialists at hospitals credentialed for the {data.specialties.length} specialt{data.specialties.length === 1 ? "y" : "ies"} that commonly handle {condition.name.toLowerCase()} — ranked by volume and experience. These are directory listings; your case may need a sub-specialist we'll surface on request.
@@ -190,7 +193,7 @@ Astro.response.headers.set(
       <section class="mx-auto max-w-3xl px-6 pb-20">
         <div class="paper p-8 text-center" style="color: var(--color-ink-muted);">
           <p class="serif text-lg mb-3">No doctors on file yet for the specialties that treat this condition.</p>
-          <p class="text-sm mb-5">Ask for a human-curated shortlist instead — our case manager replies within 11 minutes.</p>
+          <p class="text-sm mb-5">Ask for a human-curated shortlist instead — our case manager replies within a few hours during business hours.</p>
           <a
             href={localizedPath(locale, `/contact?condition=${slug}`)}
             class="inline-flex items-center rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover"
@@ -275,6 +278,38 @@ Astro.response.headers.set(
         </div>
       </div>
     </section>
+
+    <HowItWorks
+      heading='How to find a specialist for this condition'
+      italicWord='this condition'
+      eyebrow='Specialist matching'
+      steps={[
+        { title: 'Identify the relevant specialty', description: 'The specialists shown above are filtered to those credentialed for this condition. Sub-specialty match within that specialty matters most.' },
+        { title: 'Compare by case volume', description: 'Look for surgeons doing 100+ cases of your specific procedure annually. Volume is the strongest single outcome predictor.' },
+        { title: 'Verify credentials', description: 'Board certification, fellowship training, peer-reviewed publications. Cross-check independently on PubMed.' },
+        { title: 'Schedule consultation', description: 'Video call with top 1-2 candidates. Communication quality during consult predicts case-management quality.' },
+      ]}
+    />
+    <ExploreGrid
+      locale={locale}
+      eyebrow={`${condition.name} care`}
+      heading={`Beyond surgeon shortlist: how to evaluate ${condition.name.toLowerCase()} care`}
+      lede="Surgeon volume is one factor. These hubs cover the matched specialties, treatments, destinations, and decision aids that determine outcomes."
+      items={[
+        { eyebrow: "Condition", label: `${condition.name} overview`, href: `/condition/${slug}`, hint: "Description, severity grading, treatment paths, watch-fors." },
+        ...(data.specialties[0] ? [{ eyebrow: "Specialty", label: `${data.specialties[0].name} hub`, href: `/specialty/${data.specialties[0].slug}`, hint: `Programs, surgeons, hospitals across ${data.specialties[0].name.toLowerCase()}.` }] : []),
+        ...(data.specialties[1] ? [{ eyebrow: "Specialty", label: `${data.specialties[1].name}`, href: `/specialty/${data.specialties[1].slug}`, hint: "Alternative specialty involved in care for this condition." }] : []),
+        ...(data.specialties[0] ? [{ eyebrow: "Surgeons", label: `All ${data.specialties[0].name.toLowerCase()} surgeons`, href: `/surgeons/${data.specialties[0].slug}`, hint: "Volume-ranked physician directory." }] : []),
+        { eyebrow: "Browse", label: "All 79 conditions", href: "/conditions", hint: "Map condition → specialty → first-line treatment." },
+        { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure success rates, recovery time, hospital pricing." },
+        { eyebrow: "Compare", label: "Doctor comparison", href: "/compare/doctors", hint: "Surgeons compared on volume, fees, languages, video-consult availability." },
+        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, and pricing." },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+        { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "How we verify physician credentials and source clinical content." },
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>

@@ -11,17 +11,17 @@ import { db, sql as rawSql } from "@/lib/db";
 import {
   specialties as specialtiesTbl,
   countries as countriesTbl,
-  hospitals as hospitalsTbl,
-  hospitalSpecialties as hsTbl,
-  cities as citiesTbl,
+  treatments as treatmentsTbl,
 } from "../../../../../src/lib/db/schema";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getContentBatch, applyTranslated, isUntranslated, getContent } from "@/lib/translate";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, itemListJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { hospitalCover } from "@/lib/images";
 import { ChevronRight } from "lucide-react";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 
 export const prerender = false;
 
@@ -40,18 +40,102 @@ function parseSlug(s: string): { specialtySlug: string; countrySlug: string } | 
   return { specialtySlug: s.slice(0, idx), countrySlug: s.slice(idx + 4) };
 }
 
+// Common search-form → canonical-slug aliases. When a user / external link
+// hits an alias (e.g. /best/knee-replacement-in-india), we 301 to the canonical
+// (/best/total-knee-replacement-in-india) so SEO equity consolidates on one URL.
+const SLUG_ALIASES: Record<string, string> = {
+  // Procedure short forms → canonical treatment slugs
+  "knee-replacement": "total-knee-replacement",
+  "hair-transplant": "hair-transplant-fue",
+  "ivf": "ivf-icsi",
+  "cabg": "cabg-heart-bypass",
+  "heart-bypass": "cabg-heart-bypass",
+  "bypass-surgery": "cabg-heart-bypass",
+  "gallbladder-surgery": "laparoscopic-gallbladder",
+  "appendix-surgery": "appendectomy-laparoscopic",
+  "kidney-stone-surgery": "kidney-stone-lithotripsy",
+  "cataract-surgery": "cataract-premium-iol",
+  "lasik": "lasik-smile",
+  // Body-part / lay terms → canonical specialty slugs
+  "heart": "cardiac-surgery",
+  "heart-surgery": "cardiac-surgery",
+  "cardiology": "cardiac-surgery",
+  "cancer": "oncology",
+  "cancer-hospital": "oncology",
+  "tumor": "oncology",
+  "brain": "neurology-neurosurgery",
+  "neuro": "neurology-neurosurgery",
+  "neurosurgery": "neurology-neurosurgery",
+  "neurology": "neurology-neurosurgery",
+  "eye": "ophthalmology",
+  "vision": "ophthalmology",
+  "transplant": "organ-transplant",
+  "ent": "ent-otolaryngology",
+  "kidney": "urology",
+  "ortho": "orthopedics",
+  "orthopedic": "orthopedics",
+  "orthopaedic": "orthopedics",
+  "joint-replacement": "orthopedics",
+  "bone": "orthopedics",
+  "plastic-surgery": "cosmetic-surgery",
+  "cosmetic": "cosmetic-surgery",
+  "weight-loss": "bariatric-surgery",
+  "obesity": "bariatric-surgery",
+  "fertility": "fertility-ivf",
+  "gyno": "gynecology",
+  "gynae": "gynecology",
+  "gynaecology": "gynecology",
+  "gi": "gi-surgery",
+  "gastro": "gi-surgery",
+  "pediatric": "pediatric-surgery",
+  "paediatric": "pediatric-surgery",
+};
+
 const parsed = parseSlug(slug);
 if (!parsed) return new Response("Not found", { status: 404 });
 
-const [specialty, country] = await Promise.all([
-  db.query.specialties.findFirst({ where: eq(specialtiesTbl.slug, parsed.specialtySlug) }),
-  db.query.countries.findFirst({
-    where: and(eq(countriesTbl.slug, parsed.countrySlug), eq(countriesTbl.isDestination, true)),
-  }),
-]);
-if (!specialty || !country) return new Response("Not found", { status: 404 });
+// 301 redirect aliases to the canonical /best/{canonical}-in-{country} URL.
+const aliasTarget = SLUG_ALIASES[parsed.specialtySlug];
+if (aliasTarget) {
+  return Astro.redirect(localizedPath(locale, `/best/${aliasTarget}-in-${parsed.countrySlug}`), 301);
+}
 
-// Ranked hospitals for this specialty × country
+const country = await db.query.countries.findFirst({
+  where: and(eq(countriesTbl.slug, parsed.countrySlug), eq(countriesTbl.isDestination, true)),
+});
+if (!country) return new Response("Not found", { status: 404 });
+
+// The slug before "-in-" can be a specialty (e.g. cardiac-surgery) or a treatment
+// (e.g. liver-transplant, hair-transplant-fue). Try specialty first; if absent,
+// fall back to treatment so we can serve "best {treatment} hospital in {country}"
+// queries with a dedicated ranking page.
+type EntityKind = "specialty" | "treatment";
+const specialtyHit = await db.query.specialties.findFirst({ where: eq(specialtiesTbl.slug, parsed.specialtySlug) });
+let entity: { id: number; slug: string; name: string; description: string | null };
+let parentSpecialty: { id: number; slug: string; name: string; description: string | null };
+let kind: EntityKind;
+
+if (specialtyHit) {
+  kind = "specialty";
+  entity = specialtyHit;
+  parentSpecialty = specialtyHit;
+} else {
+  const treatmentHit = await db.query.treatments.findFirst({
+    where: eq(treatmentsTbl.slug, parsed.specialtySlug),
+    with: { specialty: true },
+  });
+  if (!treatmentHit || !treatmentHit.specialty) return new Response("Not found", { status: 404 });
+  kind = "treatment";
+  entity = treatmentHit;
+  parentSpecialty = treatmentHit.specialty;
+}
+// Preserve legacy variable name to minimize churn through the rest of the file.
+const specialty = entity;
+
+// Ranked hospitals for this entity × country.
+// Specialty mode ranks via hospital_specialties (CoE flag + featured + rating + reviews).
+// Treatment mode ranks via hospital_treatments (must offer the procedure) joined
+// against hospital_specialties for the CoE signal on the parent specialty.
 type Row = {
   id: number;
   name: string;
@@ -67,43 +151,75 @@ type Row = {
   isCoe: boolean | null;
   fromUsd: number | null;
 };
-const hospitals = Array.from(
-  (await db.execute(sql`
-    SELECT h.id, h.name, h.slug, h.description,
-      h.rating, h.review_count as "reviewCount", h.bed_capacity as "bedCapacity",
-      h.established_year as "establishedYear", h.cover_image_url as "coverImageUrl",
-      ci.name as "cityName", ci.slug as "citySlug",
-      hs.is_center_of_excellence as "isCoe",
-      (SELECT MIN(ht.cost_min_usd)::int FROM hospital_treatments ht
-        INNER JOIN treatments t ON t.id = ht.treatment_id
-        WHERE ht.hospital_id = h.id AND t.specialty_id = ${specialty.id}) as "fromUsd"
-    FROM hospital_specialties hs
-    INNER JOIN hospitals h ON h.id = hs.hospital_id
-    INNER JOIN cities ci ON ci.id = h.city_id
-    WHERE hs.specialty_id = ${specialty.id}
-      AND ci.country_id = ${country.id}
-      AND h.is_active = true
-    ORDER BY hs.is_center_of_excellence DESC NULLS LAST,
-             h.is_featured DESC NULLS LAST,
-             h.rating DESC NULLS LAST,
-             h.review_count DESC NULLS LAST
-    LIMIT 20
-  `)) as Iterable<Row>,
-);
+const hospitals = kind === "specialty"
+  ? Array.from(
+      (await db.execute(sql`
+        SELECT h.id, h.name, h.slug, h.description,
+          h.rating, h.review_count as "reviewCount", h.bed_capacity as "bedCapacity",
+          h.established_year as "establishedYear", h.cover_image_url as "coverImageUrl",
+          ci.name as "cityName", ci.slug as "citySlug",
+          hs.is_center_of_excellence as "isCoe",
+          (SELECT MIN(ht.cost_min_usd)::int FROM hospital_treatments ht
+            INNER JOIN treatments t ON t.id = ht.treatment_id
+            WHERE ht.hospital_id = h.id AND t.specialty_id = ${parentSpecialty.id}) as "fromUsd"
+        FROM hospital_specialties hs
+        INNER JOIN hospitals h ON h.id = hs.hospital_id
+        INNER JOIN cities ci ON ci.id = h.city_id
+        WHERE hs.specialty_id = ${parentSpecialty.id}
+          AND ci.country_id = ${country.id}
+          AND h.is_active = true
+        ORDER BY hs.is_center_of_excellence DESC NULLS LAST,
+                 h.is_featured DESC NULLS LAST,
+                 h.rating DESC NULLS LAST,
+                 h.review_count DESC NULLS LAST
+        LIMIT 20
+      `)) as Iterable<Row>,
+    )
+  : Array.from(
+      (await db.execute(sql`
+        SELECT h.id, h.name, h.slug, h.description,
+          h.rating, h.review_count as "reviewCount", h.bed_capacity as "bedCapacity",
+          h.established_year as "establishedYear", h.cover_image_url as "coverImageUrl",
+          ci.name as "cityName", ci.slug as "citySlug",
+          COALESCE(hs.is_center_of_excellence, false) as "isCoe",
+          ht.cost_min_usd as "fromUsd"
+        FROM hospital_treatments ht
+        INNER JOIN hospitals h ON h.id = ht.hospital_id
+        INNER JOIN cities ci ON ci.id = h.city_id
+        LEFT JOIN hospital_specialties hs
+          ON hs.hospital_id = h.id AND hs.specialty_id = ${parentSpecialty.id}
+        WHERE ht.treatment_id = ${entity.id}
+          AND ci.country_id = ${country.id}
+          AND h.is_active = true
+        ORDER BY hs.is_center_of_excellence DESC NULLS LAST,
+                 h.is_featured DESC NULLS LAST,
+                 h.rating DESC NULLS LAST,
+                 h.review_count DESC NULLS LAST,
+                 ht.cost_min_usd ASC NULLS LAST
+        LIMIT 20
+      `)) as Iterable<Row>,
+    );
 
 if (hospitals.length === 0) return new Response("Not found", { status: 404 });
 
-// Pull deep specialty + country sections
+// Pull deep specialty + country sections — specSections always keyed off the
+// parent specialty, since treatment-mode pages share the specialty's narrative.
 const [specSectionRow, countrySectionRow] = await Promise.all([
-  rawSql`SELECT content_sections FROM specialties WHERE id = ${specialty.id} LIMIT 1`,
+  rawSql`SELECT content_sections FROM specialties WHERE id = ${parentSpecialty.id} LIMIT 1`,
   rawSql`SELECT content_sections FROM countries WHERE id = ${country.id} LIMIT 1`,
 ]);
 const specSections: any = specSectionRow[0]?.content_sections ?? null;
 const countrySections: any = countrySectionRow[0]?.content_sections ?? null;
 
-// Translate
-const specialtyMap = await getContent("specialty", specialty.id, locale);
-const specialtyT = applyTranslated(specialty, specialtyMap, ["name"]);
+// Translate — `entityMap` translates whatever the page is showing (specialty
+// or treatment); `specialtyMap` always holds the parent specialty translation
+// for the cross-link copy further down.
+const entityMap = await getContent(kind, entity.id, locale);
+const specialtyMap = kind === "specialty"
+  ? entityMap
+  : await getContent("specialty", parentSpecialty.id, locale);
+const specialtyT = applyTranslated(specialty, entityMap, ["name"]);
+const parentSpecialtyT = applyTranslated(parentSpecialty, specialtyMap, ["name"]);
 const hMap = await getContentBatch("hospital", hospitals.map((h) => h.id), locale);
 const hospitalsT = hospitals.map((h) => ({
   ...h,
@@ -117,6 +233,14 @@ const FLAG: Record<string, string> = {
   malaysia: "🇲🇾", "saudi-arabia": "🇸🇦",
 };
 const flag = FLAG[country.slug] ?? "🌐";
+
+// Routing helpers — branch on whether the page is showing a specialty or a treatment.
+const entityHubHref = kind === "specialty"
+  ? `/specialty/${specialty.slug}`
+  : `/treatment/${specialty.slug}`;
+const entityContactQs = kind === "specialty"
+  ? `specialty=${specialty.slug}`
+  : `treatment=${specialty.slug}`;
 
 const seoTitle = `Best Hospitals for ${specialtyT.name} in ${country.name} (${year})`;
 const seoDescription = `Ranked list of the top ${hospitals.length} hospitals for ${specialtyT.name} in ${country.name} — by center-of-excellence status, rating, review volume, and transparent pricing. ${year} edition.`;
@@ -312,7 +436,7 @@ Astro.response.headers.set(
                         <ChevronRight className="h-3 w-3 mirror-x" />
                       </a>
                       <a
-                        href={localizedPath(locale, `/contact?hospital=${h.slug}&specialty=${specialty.slug}`)}
+                        href={localizedPath(locale, `/contact?hospital=${h.slug}&${entityContactQs}`)}
                         class="inline-flex items-center justify-center gap-1"
                         style="background: transparent; color: var(--color-ink); padding: 8px 14px; font-size: 12px; border-radius: 9999px; border: 1px solid var(--color-border); white-space: nowrap;"
                       >
@@ -377,7 +501,7 @@ Astro.response.headers.set(
     {/* Methodology — full transparency */}
     <section style="padding: 64px 28px; border-top: 1px solid var(--color-border); background: var(--color-paper);">
       <div class="mx-auto max-w-[1120px]">
-        <div class="grid gap-10 lg:grid-cols-[0.45fr,1fr]">
+        <div class="grid gap-10 lg:grid-cols-[0.45fr_1fr]">
           <div>
             <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">Methodology</div>
             <h2 class="display mt-3" style="font-size: 30px; line-height: 1.05; letter-spacing: -0.02em;">
@@ -439,7 +563,7 @@ Astro.response.headers.set(
 
     {/* CTA */}
     <section style="padding: 72px 28px; border-top: 1px solid var(--color-border); background: var(--color-ink); color: var(--color-bg);">
-      <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[1fr,auto] lg:items-end">
+      <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
           <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7;">
             Shortlist from this list
@@ -454,18 +578,18 @@ Astro.response.headers.set(
         </div>
         <div class="flex flex-wrap gap-3">
           <a
-            href={localizedPath(locale, `/contact?specialty=${specialty.slug}&country=${country.slug}`)}
+            href={localizedPath(locale, `/contact?${entityContactQs}&country=${country.slug}`)}
             class="inline-flex items-center gap-2 font-semibold"
             style="background: var(--color-accent); color: #FFF; padding: 13px 22px; font-size: 15px; border-radius: 9999px;"
           >
             Request quotes <ChevronRight className="h-4 w-4 mirror-x" />
           </a>
           <a
-            href={localizedPath(locale, `/specialty/${specialty.slug}`)}
+            href={localizedPath(locale, entityHubHref)}
             class="inline-flex items-center gap-2 font-semibold"
             style="background: transparent; color: var(--color-bg); border: 1px solid rgba(246,241,230,0.3); padding: 13px 22px; font-size: 15px; border-radius: 9999px;"
           >
-            Specialty overview
+            {kind === "specialty" ? "Specialty overview" : "Procedure overview"}
           </a>
         </div>
       </div>
@@ -477,14 +601,14 @@ Astro.response.headers.set(
       countrySlug={country.slug}
       treatmentName={specialtyT.name}
       hospitalCount={hospitals.length}
-      specialtyName={specialty.name}
+      specialtyName={parentSpecialtyT.name}
     />
 
     {/* Specialty-specific quality signals from specialty content_sections */}
     {specSections?.programQualitySignals && specSections.programQualitySignals.length > 0 && (
       <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-          <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+          <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                 How to use this list
@@ -533,7 +657,7 @@ Astro.response.headers.set(
     {countrySections?.bestMonthsToTravel && (
       <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-          <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+          <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                 Travel timing
@@ -593,6 +717,36 @@ Astro.response.headers.set(
       ]}
     />
 
+    
+    <ExploreGrid
+      locale={locale}
+      eyebrow="Adjacent rankings"
+      heading={`Other ways to slice ${specialtyT.name} in ${country.name}`}
+      lede={`Best-of lists are one cut. These hubs let you re-rank by destination, by city, by surgeon volume, or by procedure.`}
+      items={[
+        ...(kind === "treatment"
+          ? [
+              { eyebrow: "Procedure", label: `${specialtyT.name} overview`, href: entityHubHref, hint: `All ${specialtyT.name.toLowerCase()} programs across all destinations.` },
+              { eyebrow: "Procedure cost", label: `${specialtyT.name} cost in ${country.name}`, href: `/treatment/${specialty.slug}/${country.slug}`, hint: `Hospital-reported pricing, stay, recovery for ${country.name} programs.` },
+            ]
+          : [
+              { eyebrow: "Specialty", label: `${specialtyT.name} hub`, href: entityHubHref, hint: `All ${specialtyT.name.toLowerCase()} programs across all destinations.` },
+            ]),
+        { eyebrow: "Destination", label: `${country.name} hospital hub`, href: `/country/${country.slug}`, hint: `Featured programs and pricing benchmarks for ${country.name}.` },
+        { eyebrow: "Surgeons", label: `${parentSpecialtyT.name} surgeons`, href: `/surgeons/${parentSpecialty.slug}`, hint: `Volume-ranked physician directory across all destinations.` },
+        { eyebrow: "Surgeons", label: `${parentSpecialtyT.name} surgeons in ${country.name}`, href: `/surgeons/${parentSpecialty.slug}/${country.slug}`, hint: `Filtered to ${country.name}-based programs only.` },
+        { eyebrow: "Hospitals", label: `All ${country.name} hospitals`, href: `/hospitals?country=${country.slug}`, hint: `Filter by city, specialty, accreditation, beds.` },
+        { eyebrow: "Hospitals", label: `Hospitals filtered by ${parentSpecialtyT.name}`, href: `/hospitals?specialty=${parentSpecialty.slug}`, hint: `Programs credentialed for ${parentSpecialtyT.name.toLowerCase()} across all destinations.` },
+        { eyebrow: "Browse", label: "Other best-of rankings", href: "/best", hint: "All specialty × country ranking combinations." },
+        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, and pricing for up to 4 hospitals." },
+        { eyebrow: "Compare", label: "Doctor comparison", href: "/compare/doctors", hint: "Surgeons compared on volume, fees, languages, video-consult availability." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: `Hospital-reported pricing for ${parentSpecialtyT.name.toLowerCase()} procedures across destinations.` },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
+        { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "Methodology behind ranking, AI disclosure, corrections SLA." },
+      ]}
+    />
+
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

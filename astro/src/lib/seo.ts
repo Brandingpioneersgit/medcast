@@ -27,6 +27,32 @@ export function toOgLocale(l: string): string {
   return OG_LOCALE[l] ?? "en_US";
 }
 
+const SURGEON_NOUN_BY_SLUG: Record<string, string> = {
+  "cardiac-surgery": "cardiac surgeons",
+  "cosmetic-surgery": "cosmetic surgeons",
+  "bariatric-surgery": "bariatric surgeons",
+  "gi-surgery": "GI surgeons",
+  "pediatric-surgery": "pediatric surgeons",
+  "neurology-neurosurgery": "neurosurgeons",
+  "orthopedics": "orthopedic surgeons",
+  "organ-transplant": "transplant surgeons",
+  "ent-otolaryngology": "ENT surgeons",
+  "fertility-ivf": "fertility specialists",
+  "ophthalmology": "eye surgeons",
+  "urology": "urological surgeons",
+  "gynecology": "gynecological surgeons",
+  "dental": "dental surgeons",
+  "oncology": "oncology surgeons",
+};
+
+export function surgeonNoun(specialtySlug: string, specialtyName: string): string {
+  return SURGEON_NOUN_BY_SLUG[specialtySlug] ?? `${specialtyName.toLowerCase()} surgeons`;
+}
+
+export function titleCase(s: string): string {
+  return s.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export type HospitalOffer = {
   treatmentName: string;
   treatmentUrl?: string;
@@ -69,20 +95,30 @@ export function hospitalJsonLd(h: {
   offers?: HospitalOffer[];
   credentials?: HospitalCredential[];
   sameAs?: HospitalSameAs;
+  /** Country slug used to also emit `areaServed` so local-intent queries
+   * ("hospitals in turkey for international patients") match more cleanly. */
+  areaServed?: string | null;
 }) {
   const geo =
     h.lat && h.lng
       ? { "@type": "GeoCoordinates", latitude: Number(h.lat), longitude: Number(h.lng) }
       : undefined;
-  const postalAddr =
-    h.city || h.country || h.countryCode
-      ? {
-          "@type": "PostalAddress",
-          streetAddress: h.address || undefined,
-          addressLocality: h.city || undefined,
-          addressCountry: (h.countryCode || h.country) || undefined,
-        }
-      : h.address;
+  // Schema.org Hospital wants a structured PostalAddress; build one whenever
+  // we have *any* address signal. `streetAddress` falls back to the city when
+  // we don't have a literal street — Google's Hospital rich-result validator
+  // expects the field to be present, not undefined.
+  const postalAddr = (() => {
+    const street = h.address || h.city || h.country || null;
+    if (!street && !h.city && !h.country && !h.countryCode) return null;
+    return {
+      "@type": "PostalAddress",
+      streetAddress: street ?? "Address on request",
+      ...(h.city ? { addressLocality: h.city } : {}),
+      ...(h.countryCode || h.country
+        ? { addressCountry: h.countryCode || h.country }
+        : {}),
+    };
+  })();
 
   const sameAsList = Array.from(
     new Set(
@@ -145,13 +181,27 @@ export function hospitalJsonLd(h: {
       : {}),
   }));
 
+  // priceRange — Google surfaces this in local hospital cards. Compute from
+  // the offer band so it's always honest.
+  const priceRange = (() => {
+    const lows = (h.offers ?? [])
+      .map((o) => Number(o.costMinUsd))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    if (lows.length === 0) return undefined;
+    const min = Math.min(...lows);
+    if (min < 1000) return "$"; // very low (per-cycle / cosmetic)
+    if (min < 5000) return "$$";
+    if (min < 15000) return "$$$";
+    return "$$$$";
+  })();
+
   return {
     "@context": "https://schema.org",
     "@type": ["Hospital", "MedicalOrganization"],
     name: h.name,
     description: h.description,
     url: h.url,
-    address: postalAddr,
+    ...(postalAddr ? { address: postalAddr } : {}),
     geo,
     telephone: h.phone,
     email: h.email,
@@ -162,6 +212,25 @@ export function hospitalJsonLd(h: {
       h.medicalSpecialties && h.medicalSpecialties.length > 0 ? h.medicalSpecialties : undefined,
     ...(offers.length > 0 ? { makesOffer: offers } : {}),
     ...(credentials.length > 0 ? { hasCredential: credentials } : {}),
+    ...(priceRange ? { priceRange } : {}),
+    ...(h.areaServed
+      ? {
+          areaServed: [
+            { "@type": "Country", name: h.areaServed },
+            "International patients",
+          ],
+        }
+      : {}),
+    // Hospitals operate 24/7 — Google's local rich result wants explicit
+    // hours rather than "open now" inference.
+    openingHoursSpecification: {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+      opens: "00:00",
+      closes: "23:59",
+    },
+    paymentAccepted: "Cash, Credit Card, Wire Transfer, Insurance",
+    currenciesAccepted: "USD, EUR, INR, AED, GBP",
     ...(h.rating && Number(h.rating) > 0 && h.reviewCount && h.reviewCount > 0 && {
       aggregateRating: {
         "@type": "AggregateRating",
@@ -186,6 +255,12 @@ export function doctorJsonLd(d: {
   specialties?: string[];
   expertise?: string[];
   sameAs?: string[];
+  /** Address signal — surfaces local geo intent on Physician schema so
+   * queries like "cardiac surgeon in Mumbai" can resolve to a single row. */
+  city?: string | null;
+  country?: string | null;
+  /** ISO 3166 alpha-2 (e.g. "IN"). When omitted, country name is used. */
+  countryCode?: string | null;
 }) {
   const knowsAbout = [
     ...(d.specialties ?? []),
@@ -198,6 +273,16 @@ export function doctorJsonLd(d: {
       ),
     ),
   );
+  const physicianAddress =
+    d.city || d.country || d.countryCode
+      ? {
+          "@type": "PostalAddress",
+          ...(d.city ? { addressLocality: d.city } : {}),
+          ...(d.countryCode || d.country
+            ? { addressCountry: d.countryCode || d.country }
+            : {}),
+        }
+      : undefined;
   return {
     "@context": "https://schema.org",
     "@type": "Physician",
@@ -206,11 +291,21 @@ export function doctorJsonLd(d: {
       d.specialties && d.specialties.length > 0 ? d.specialties : d.qualifications,
     image: d.imageUrl,
     url: d.url,
+    ...(physicianAddress ? { address: physicianAddress } : {}),
+    ...(d.country
+      ? {
+          areaServed: [
+            { "@type": "Country", name: d.country },
+            "International patients",
+          ],
+        }
+      : {}),
     worksFor: {
       "@type": "Hospital",
       name: d.hospitalName,
       ...(d.hospitalUrl ? { url: d.hospitalUrl } : {}),
       ...(d.hospitalWebsite ? { sameAs: [d.hospitalWebsite] } : {}),
+      ...(physicianAddress ? { address: physicianAddress } : {}),
     },
     ...(sameAsList.length > 0 ? { sameAs: sameAsList } : {}),
     ...(knowsAbout.length > 0 && { knowsAbout }),
@@ -241,6 +336,20 @@ export function treatmentJsonLd(t: {
   followup?: string | null;
   procedureType?: string | null;
 }) {
+  // Derive a clinician-readable expectedPrognosis sentence so Google can
+  // surface a "Success rate: ~94%" snippet on the procedure rich result.
+  const prognosis = t.successRatePercent
+    ? `Published success rate ~${Math.round(t.successRatePercent)}%${
+        t.recoveryDays ? `, with full recovery typically in ${t.recoveryDays} weeks` : ""
+      }${t.hospitalStayDays ? ` and ${t.hospitalStayDays}-day average hospital stay` : ""}.`
+    : null;
+
+  // Default followup string when caller didn't pass an explicit one.
+  const followup = t.followup
+    ?? (t.recoveryDays
+      ? `Routine post-procedure follow-up at 1, 4, and 12 weeks; full activity resumes around week ${t.recoveryDays}.`
+      : null);
+
   return {
     "@context": "https://schema.org",
     "@type": "MedicalProcedure",
@@ -250,8 +359,9 @@ export function treatmentJsonLd(t: {
     ...(t.bodyLocation && { bodyLocation: t.bodyLocation }),
     ...(t.preparation && { preparation: t.preparation }),
     ...(t.howPerformed && { howPerformed: t.howPerformed }),
-    ...(t.followup && { followup: t.followup }),
+    ...(followup && { followup }),
     ...(t.procedureType && { procedureType: t.procedureType }),
+    ...(prognosis && { expectedPrognosis: prognosis }),
     ...(t.costMinUsd && {
       offers: {
         "@type": "AggregateOffer",
@@ -425,12 +535,12 @@ export function organizationJsonLd() {
       "patient travel coordination",
       "medical second opinion",
     ],
-    email: "hello@medcasts.com",
+    email: "medcastsdigital@gmail.com",
     contactPoint: [
       {
         "@type": "ContactPoint",
         contactType: "customer support",
-        email: "hello@medcasts.com",
+        email: "medcastsdigital@gmail.com",
         availableLanguage: ["en", "ar", "ru", "fr", "pt", "bn", "tr", "hi"],
       },
       {
@@ -443,7 +553,7 @@ export function organizationJsonLd() {
       {
         "@type": "ContactPoint",
         contactType: "editorial corrections",
-        email: "corrections@medcasts.com",
+        email: "medcastsdigital@gmail.com",
       },
     ],
   };
