@@ -43,6 +43,7 @@ import {
 import { breadcrumbJsonLd, localeUrl, treatmentJsonLd, faqJsonLd, withProvenance } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { ChevronRight } from "lucide-react";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 
 export const prerender = false;
 
@@ -163,10 +164,13 @@ const FLAG: Record<string, string> = {
 };
 const flag = FLAG[countryRow.slug] ?? "🌐";
 
-const seoTitle = treatmentRow.metaTitle ?? `${treatment.name} cost in ${countryRow.name} (${new Date().getFullYear()})`;
+const seoTitle = `${treatment.name} Cost in ${countryRow.name} (${new Date().getFullYear()})`;
+const stayPart = treatmentRow.hospitalStayDays
+  ? `${treatmentRow.hospitalStayDays}-night stay. `
+  : "";
 const seoDescription = lowestPrice
-  ? `${treatment.name} in ${countryRow.name} starts from $${Math.round(lowestPrice).toLocaleString()}. Compare ${hospitalPricing.length} accredited hospitals${savingsPct ? `, save up to ${savingsPct}% vs US prices` : ""}. Book with MedCasts — board-certified surgeons, JCI-accredited hospitals, free quotes.`
-  : `${treatment.name} in ${countryRow.name}. Compare accredited hospitals with transparent pricing. Request a free itemized quote.`;
+  ? `${treatment.name} in ${countryRow.name} from $${Math.round(lowestPrice).toLocaleString()}. ${hospitalPricing.length} accredited hospitals${savingsPct ? `, save up to ${savingsPct}% vs US` : ""}. ${stayPart}Free itemised quote.`.slice(0, 160)
+  : `${treatment.name} in ${countryRow.name}. Compare accredited hospitals + transparent pricing. ${stayPart}Free itemised quote.`.slice(0, 160);
 
 const path = `/treatment/${slug}/${countrySlug}`;
 const url = localeUrl(locale, path);
@@ -267,7 +271,7 @@ Astro.response.headers.set(
             {specialty.name}
           </div>
         )}
-        <div class="grid gap-10 lg:grid-cols-[2fr,1fr] lg:gap-[48px] items-start">
+        <div class="grid gap-10 lg:grid-cols-[2fr_1fr] lg:gap-[48px] items-start">
           <div>
             <h1
               class="display display-tight"
@@ -363,7 +367,7 @@ Astro.response.headers.set(
             class="paper grid items-center"
             style="padding: 24px 28px; grid-template-columns: 1fr; gap: 20px; border-inline-start: 4px solid var(--color-accent); background: linear-gradient(110deg, var(--color-accent-soft) 0%, var(--color-paper) 65%);"
           >
-            <div class="grid gap-6 md:grid-cols-[auto,1fr,auto] md:items-center">
+            <div class="grid gap-6 md:grid-cols-[auto_1fr_auto] md:items-center">
               <div>
                 <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent-strong, var(--color-accent));">
                   Cost comparison
@@ -478,7 +482,7 @@ Astro.response.headers.set(
     {/* What's included */}
     <section style="padding: 64px 28px; background: var(--color-paper); border-top: 1px solid var(--color-border);">
       <div class="mx-auto max-w-[1120px]">
-        <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+        <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
           <div>
             <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">What's covered</div>
             <h2 class="display mt-3" style="font-size: 30px; letter-spacing: -0.02em;">What the {countryRow.name} package includes</h2>
@@ -532,7 +536,7 @@ Astro.response.headers.set(
         {tcSections.preparation && tcSections.preparation.length > 0 && (
           <section style="padding: 64px 28px; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
             <div class="mx-auto max-w-[1120px]">
-              <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+              <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
                 <div>
                   <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                     Preparation
@@ -632,7 +636,7 @@ Astro.response.headers.set(
     {ccSections?.bestMonthsToTravel && (
       <section style="padding: 56px 28px; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
         <div class="mx-auto max-w-[1120px]">
-          <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+          <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                 Travel timing
@@ -660,7 +664,7 @@ Astro.response.headers.set(
     {/* FAQ */}
     <section style="padding: 64px 28px; border-top: 1px solid var(--color-border);">
       <div class="mx-auto max-w-[1120px]">
-        <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+        <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
           <div>
             <div class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">FAQ</div>
             <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
@@ -740,7 +744,7 @@ Astro.response.headers.set(
 
     {/* CTA */}
     <section style="padding: 72px 28px; border-top: 1px solid var(--color-border); background: var(--color-ink); color: var(--color-bg);">
-      <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[1fr,auto] lg:items-end">
+      <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
           <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7;">Ready to plan</div>
           <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.05; letter-spacing: -0.025em; font-weight: 400;">
@@ -770,6 +774,27 @@ Astro.response.headers.set(
         </div>
       </div>
     </section>
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow={`${treatment.name} · ${countryRow.name}`}
+      heading={`Other lenses on ${treatment.name.toLowerCase()} care`}
+      lede={`Cost in one country is one signal. These hubs let you cross-check destinations, surgeons, and procedure-level data side by side.`}
+      items={[
+        { eyebrow: "Procedure", label: `Full ${treatment.name} page`, href: `/treatment/${slug}`, hint: "Description, recovery timeline, success rates, top hospitals priced." },
+        ...(specialty ? [{ eyebrow: "Specialty", label: `${specialty.name} hub`, href: `/specialty/${specialty.slug}`, hint: `All ${specialty.name.toLowerCase()} programs across destinations.` }] : []),
+        { eyebrow: "Cost", label: `${treatment.name} cost across destinations`, href: `/cost/${slug}`, hint: `Compare median pricing across all 9 destinations for ${treatment.name.toLowerCase()}.` },
+        { eyebrow: "Destination", label: `${countryRow.name} hospital hub`, href: `/country/${countryRow.slug}`, hint: `Featured programs, accreditation profile, pricing benchmarks.` },
+        { eyebrow: "Hospitals", label: `Hospitals in ${countryRow.name}`, href: `/hospitals?country=${countryRow.slug}`, hint: "Filter by city, specialty, accreditation." },
+        ...(specialty ? [{ eyebrow: "Surgeons", label: `${specialty.name} surgeons in ${countryRow.name}`, href: `/surgeons/${specialty.slug}/${countryRow.slug}`, hint: `${countryRow.name}-based physician directory for this specialty.` }] : []),
+        ...(specialty ? [{ eyebrow: "Best of", label: `Best ${specialty.name} in ${countryRow.name}`, href: `/best/${specialty.slug}-in-${countryRow.slug}`, hint: "Editorially ranked programs with methodology disclosed." }] : []),
+        { eyebrow: "Visa", label: `${countryRow.name} medical visa`, href: `/visa/${countryRow.slug}`, hint: "Documents, processing time, embassy guidance." },
+        { eyebrow: "Compare", label: "Treatments side-by-side", href: "/compare/treatments", hint: "Cost, stay, recovery, success-rate columns across procedures." },
+        { eyebrow: "Compare", label: "Destination shootout", href: "/compare/countries", hint: "Hospitals, doctors, treatments, programs by country." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
+        { eyebrow: "Open data", label: "Pricing index", href: "/pricing-index", hint: "Median package pricing dataset · CC BY 4.0 · CSV + JSON downloads." },
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>
