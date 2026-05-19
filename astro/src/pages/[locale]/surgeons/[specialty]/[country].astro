@@ -18,18 +18,40 @@ export const prerender = false;
 
 const rawLocale = Astro.params.locale ?? "en";
 const specialtyParam = Astro.params.specialty;
-const countryParam = Astro.params.country;
-if (!isLocale(rawLocale)) return Astro.redirect(`/en/surgeons/${specialtyParam}/${countryParam}`, 308);
-if (!specialtyParam || !countryParam) return new Response("Not found", { status: 404 });
+// File is [country].astro but the param accepts a country OR a city slug —
+// Astro can't have two dynamic files at the same depth, so this page is
+// place-aware (same pattern as condition/[slug]/[place]).
+const placeParam = Astro.params.country;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/surgeons/${specialtyParam}/${placeParam}`, 308);
+if (!specialtyParam || !placeParam) return new Response("Not found", { status: 404 });
 const locale = rawLocale as Locale;
 
-const data = await listSurgeonsForSpecialty(specialtyParam, { countrySlug: countryParam, limit: 36 });
-if (!data.specialty || !data.country) return new Response(`Not found: ${specialtyParam}/${countryParam}`, { status: 404 });
-if (data.doctors.length === 0) return new Response(`No surgeons listed for ${specialtyParam}/${countryParam}`, { status: 404 });
+// Resolve as a destination country first; if the slug isn't a country, retry
+// as a city. Worst case is 2 queries on a cold city hit — CDN-cached after.
+// `data` stays const so the `!data.specialty` guard's narrowing holds.
+const countryAttempt = await listSurgeonsForSpecialty(specialtyParam, { countrySlug: placeParam, limit: 36 });
+if (!countryAttempt.specialty) return new Response(`Not found: ${specialtyParam}`, { status: 404 });
+const mode: "country" | "city" = countryAttempt.country ? "country" : "city";
+const data = mode === "country"
+  ? countryAttempt
+  : await listSurgeonsForSpecialty(specialtyParam, { citySlug: placeParam, limit: 36 });
+if (mode === "city" && (!data.city || !data.country)) {
+  return new Response(`Not found: ${specialtyParam}/${placeParam}`, { status: 404 });
+}
+if (!data.specialty) return new Response(`Not found: ${specialtyParam}`, { status: 404 });
+
+// Inventory floor: a city with <3 surgeons isn't worth its own indexable page —
+// 301 up to the country page so the link still resolves to useful content.
+if (mode === "city" && data.total < 3 && data.country) {
+  return Astro.redirect(localizedPath(locale, `/surgeons/${specialtyParam}/${data.country.slug}`), 301);
+}
+if (data.doctors.length === 0) return new Response(`No surgeons listed for ${specialtyParam}/${placeParam}`, { status: 404 });
 
 const specialtyMap = await getContent("specialty", data.specialty.id, locale);
 const specialty = applyTranslated(data.specialty, specialtyMap, ["name", "description"]);
-const country = data.country;
+const country = data.country!;
+const city = data.city;
+const placeName = mode === "city" ? city!.name : country.name;
 
 const doctorMap = await getContentBatch("doctor", data.doctors.map((d) => d.id), locale);
 const doctors = data.doctors.map((d) => ({
@@ -41,17 +63,23 @@ const tc = getTranslator(locale, "common");
 
 const surgeonYear = new Date().getFullYear();
 const surgeonNounLower = surgeonNoun(specialtyParam, specialty.name);
-const seoTitle = `Best ${titleCase(surgeonNounLower)} in ${country.name} (${surgeonYear}) — Ranked`;
+const placeLabel = mode === "city" ? `${city!.name}, ${country.name}` : country.name;
+const seoTitle = `Best ${titleCase(surgeonNounLower)} in ${placeLabel} (${surgeonYear}) — Ranked`;
 const seoDescription =
-  `Top ${surgeonNounLower} in ${country.name} for ${surgeonYear} — ${data.total.toLocaleString()} doctors ranked by patient volume, years of practice and hospital credentialing. Free human shortlist on request.`.slice(0, 160);
-const path = `/surgeons/${specialtyParam}/${countryParam}`;
+  `Top ${surgeonNounLower} in ${placeLabel} for ${surgeonYear} — ${data.total.toLocaleString()} doctors ranked by patient volume, years of practice and hospital credentialing. Free human shortlist on request.`.slice(0, 160);
+const path = `/surgeons/${specialtyParam}/${placeParam}`;
 const url = localeUrl(locale, path);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
   { name: "Surgeons", url: localeUrl(locale, "/surgeons") },
   { name: specialty.name, url: localeUrl(locale, `/surgeons/${specialtyParam}`) },
-  { name: country.name, url },
+  ...(mode === "city"
+    ? [
+        { name: country.name, url: localeUrl(locale, `/surgeons/${specialtyParam}/${country.slug}`) },
+        { name: city!.name, url },
+      ]
+    : [{ name: country.name, url }]),
 ]);
 
 const itemLd = withProvenance(
@@ -88,25 +116,34 @@ Astro.response.headers.set(
         <span class="mx-2 text-ink-subtle">/</span>
         <a href={localizedPath(locale, `/surgeons/${specialtyParam}`)} class="hover:text-accent">{specialty.name}</a>
         <span class="mx-2 text-ink-subtle">/</span>
-        <span class="text-ink" aria-current="page">{country.name}</span>
+        {mode === "city" ? (
+          <>
+            <a href={localizedPath(locale, `/surgeons/${specialtyParam}/${country.slug}`)} class="hover:text-accent">{country.name}</a>
+            <span class="mx-2 text-ink-subtle">/</span>
+            <span class="text-ink" aria-current="page">{city!.name}</span>
+          </>
+        ) : (
+          <span class="text-ink" aria-current="page">{country.name}</span>
+        )}
       </div>
     </nav>
 
     <section class="mx-auto max-w-7xl px-6 pt-10 md:pt-14 pb-8">
       <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.18em; color: var(--color-accent);">
-        {specialty.name} · {country.name}
+        {specialty.name} · {placeName}
       </p>
       <h1 class="mt-2 display display-tight" style="font-size: clamp(2rem, 4.5vw, 3.5rem); letter-spacing: -0.025em; line-height: 1.02;">
-        Best {surgeonNounLower} in {country.name}
+        Best {surgeonNounLower} in {placeName}
       </h1>
       <p class="lede mt-5 max-w-[44rem]">
-        {data.total.toLocaleString()} surgeons at {country.name} hospitals credentialed for {specialty.name.toLowerCase()}, ranked by patient volume and years in practice. Not every doctor operates exclusively in this specialty — we'll narrow the list to your case.
+        {data.total.toLocaleString()} surgeons at {placeName} hospitals credentialed for {specialty.name.toLowerCase()}, ranked by patient volume and years in practice. Not every doctor operates exclusively in this specialty — we'll narrow the list to your case.
       </p>
       <div class="mt-5 flex flex-wrap items-center gap-3">
         <LastUpdated updated={new Date()} locale={locale} />
       </div>
 
-      {/* Back / other countries */}
+      {/* Scope selector — country mode lists countries + cities; city mode
+          lists the parent country + sibling cities. */}
       <div class="mt-6 flex flex-wrap items-center gap-2">
         <span class="mono uppercase text-[11px]" style="letter-spacing: 0.12em; color: var(--color-ink-subtle);">Scope</span>
         <a
@@ -115,8 +152,27 @@ Astro.response.headers.set(
         >
           All countries
         </a>
-        {data.countryBreakdown
+        {mode === "city" && (
+          <a
+            href={localizedPath(locale, `/surgeons/${specialtyParam}/${country.slug}`)}
+            class="rounded-full border border-accent bg-accent-soft px-3 py-1 text-[13px] font-medium text-ink hover:border-border-strong"
+          >
+            All {country.name}
+          </a>
+        )}
+        {mode === "country" && data.countryBreakdown
           .filter((c) => c.slug !== country.slug)
+          .slice(0, 6)
+          .map((c) => (
+            <a
+              href={localizedPath(locale, `/surgeons/${specialtyParam}/${c.slug}`)}
+              class="rounded-full border border-border bg-surface px-3 py-1 text-[13px] font-medium text-ink hover:border-border-strong"
+            >
+              {c.name} · <span class="tnum">{c.n.toLocaleString()}</span>
+            </a>
+          ))}
+        {data.cityBreakdown
+          .filter((c) => !city || c.slug !== city.slug)
           .slice(0, 8)
           .map((c) => (
             <a
@@ -131,7 +187,7 @@ Astro.response.headers.set(
 
     <section class="mx-auto max-w-7xl px-6 pb-10 border-t border-border-soft pt-8">
       <h2 class="display-tight mb-5" style="font-size: clamp(1.5rem, 3vw, 2.25rem); letter-spacing: -0.02em;">
-        {data.total.toLocaleString()} {specialty.name.toLowerCase()} surgeons in {country.name}
+        {data.total.toLocaleString()} {specialty.name.toLowerCase()} surgeons in {placeName}
       </h2>
       <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {doctors.map((d) => {
@@ -179,7 +235,7 @@ Astro.response.headers.set(
     </section>
 
     <section class="mx-auto max-w-7xl px-6 pb-20">
-      <h2 class="sr-only">Get a personal {specialty.name.toLowerCase()} surgeon shortlist for {country.name}</h2>
+      <h2 class="sr-only">Get a personal {specialty.name.toLowerCase()} surgeon shortlist for {placeName}</h2>
       <div class="paper p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
         <div class="max-w-[36rem]">
           <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">Match me to a surgeon</p>
@@ -216,11 +272,14 @@ Astro.response.headers.set(
       items={[
         { eyebrow: "Specialty", label: `${specialty.name} hub`, href: `/specialty/${specialtyParam}`, hint: `All ${specialty.name.toLowerCase()} programs across destinations.` },
         { eyebrow: "Surgeons", label: `All ${specialty.name.toLowerCase()} surgeons`, href: `/surgeons/${specialtyParam}`, hint: "Volume-ranked directory across all destinations — for cross-border comparison." },
-        { eyebrow: "Best of", label: `Best ${specialty.name} in ${country.name}`, href: `/best/${specialtyParam}-in-${countryParam}`, hint: "Editorially ranked programs in this destination with methodology disclosed." },
-        { eyebrow: "Destination", label: `${country.name} hospital hub`, href: `/country/${countryParam}`, hint: `Featured programs and pricing benchmarks across ${country.name}.` },
-        { eyebrow: "Hospitals", label: `${country.name} hospitals`, href: `/hospitals?country=${countryParam}`, hint: "Filter by city, specialty, accreditation, beds, rating." },
+        { eyebrow: "Best of", label: `Best ${specialty.name} in ${country.name}`, href: `/best/${specialtyParam}-in-${country.slug}`, hint: "Editorially ranked programs in this destination with methodology disclosed." },
+        ...(mode === "city"
+          ? [{ eyebrow: "Destination", label: `All ${specialty.name.toLowerCase()} surgeons in ${country.name}`, href: `/surgeons/${specialtyParam}/${country.slug}`, hint: `Step up from ${city!.name} to the full ${country.name} list.` }]
+          : []),
+        { eyebrow: "Destination", label: `${mode === "city" ? city!.name : country.name} hospital hub`, href: mode === "city" ? `/city/${city!.slug}` : `/country/${country.slug}`, hint: `Featured programs and pricing benchmarks across ${placeName}.` },
+        { eyebrow: "Hospitals", label: `${country.name} hospitals`, href: `/hospitals?country=${country.slug}`, hint: "Filter by city, specialty, accreditation, beds, rating." },
         { eyebrow: "Hospitals", label: `${specialty.name} hospitals`, href: `/hospitals?specialty=${specialtyParam}`, hint: "Programs credentialed for this specialty across all destinations." },
-        { eyebrow: "Visa", label: `${country.name} medical visa`, href: `/visa/${countryParam}`, hint: "Documents, processing time, embassy guidance." },
+        { eyebrow: "Visa", label: `${country.name} medical visa`, href: `/visa/${country.slug}`, hint: "Documents, processing time, embassy guidance." },
         { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure success rates, recovery time, hospital pricing." },
         { eyebrow: "Compare", label: "Doctor comparison", href: "/compare/doctors", hint: "Surgeons compared on volume, fees, languages, video-consult availability." },
         { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, pricing for up to 4 hospitals." },

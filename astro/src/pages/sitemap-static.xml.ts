@@ -9,6 +9,7 @@ const STATIC_PATHS = [
   "/specialties",
   "/conditions",
   "/countries",
+  "/cities",
   "/contact",
   "/for-hospitals",
   "/second-opinion",
@@ -21,6 +22,17 @@ const STATIC_PATHS = [
   "/editorial-policy",
   "/medical-board",
   "/pricing-index",
+  "/from/united-kingdom",
+  "/from/usa",
+  "/from/canada",
+  "/from/australia",
+  "/from/nigeria",
+  "/from/kenya",
+  "/from/bangladesh",
+  "/from/oman",
+  "/from/iraq",
+  "/from/ethiopia",
+  "/from/uzbekistan",
 ];
 
 export const GET: APIRoute = () =>

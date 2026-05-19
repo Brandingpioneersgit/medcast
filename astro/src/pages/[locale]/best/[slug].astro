@@ -12,6 +12,7 @@ import {
   specialties as specialtiesTbl,
   countries as countriesTbl,
   treatments as treatmentsTbl,
+  cities as citiesTbl,
 } from "../../../../../src/lib/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { getContentBatch, applyTranslated, isUntranslated, getContent } from "@/lib/translate";
@@ -33,11 +34,12 @@ if (!slug) return new Response("Not found", { status: 404 });
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
 
-/** Parses "cardiac-surgery-in-india" → { specialtySlug, countrySlug } */
-function parseSlug(s: string): { specialtySlug: string; countrySlug: string } | null {
+/** Parses "cardiac-surgery-in-india" → { specialtySlug, placeSlug }.
+ *  placeSlug is a destination-country slug OR a city slug. */
+function parseSlug(s: string): { specialtySlug: string; placeSlug: string } | null {
   const idx = s.lastIndexOf("-in-");
   if (idx < 1 || idx > s.length - 5) return null;
-  return { specialtySlug: s.slice(0, idx), countrySlug: s.slice(idx + 4) };
+  return { specialtySlug: s.slice(0, idx), placeSlug: s.slice(idx + 4) };
 }
 
 // Common search-form → canonical-slug aliases. When a user / external link
@@ -94,16 +96,37 @@ const SLUG_ALIASES: Record<string, string> = {
 const parsed = parseSlug(slug);
 if (!parsed) return new Response("Not found", { status: 404 });
 
-// 301 redirect aliases to the canonical /best/{canonical}-in-{country} URL.
+// 301 redirect aliases to the canonical /best/{canonical}-in-{place} URL.
 const aliasTarget = SLUG_ALIASES[parsed.specialtySlug];
 if (aliasTarget) {
-  return Astro.redirect(localizedPath(locale, `/best/${aliasTarget}-in-${parsed.countrySlug}`), 301);
+  return Astro.redirect(localizedPath(locale, `/best/${aliasTarget}-in-${parsed.placeSlug}`), 301);
 }
 
-const country = await db.query.countries.findFirst({
-  where: and(eq(countriesTbl.slug, parsed.countrySlug), eq(countriesTbl.isDestination, true)),
+// The place after "-in-" can be a destination country (e.g. "india") or a
+// city (e.g. "mumbai"). Resolve country first; fall back to city, keeping the
+// city's parent country for cross-links + the "why this country" section.
+type PlaceMode = "country" | "city";
+const countryHit = await db.query.countries.findFirst({
+  where: and(eq(countriesTbl.slug, parsed.placeSlug), eq(countriesTbl.isDestination, true)),
 });
-if (!country) return new Response("Not found", { status: 404 });
+let placeMode: PlaceMode;
+let city: { id: number; slug: string; name: string } | null = null;
+let country: typeof countriesTbl.$inferSelect;
+if (countryHit) {
+  placeMode = "country";
+  country = countryHit;
+} else {
+  // "unknown" is the ungeocoded-hospitals bucket — never a real city page.
+  if (parsed.placeSlug === "unknown") return new Response("Not found", { status: 404 });
+  const cityHit = await db.query.cities.findFirst({ where: eq(citiesTbl.slug, parsed.placeSlug) });
+  if (!cityHit) return new Response("Not found", { status: 404 });
+  const cityCountry = await db.query.countries.findFirst({ where: eq(countriesTbl.id, cityHit.countryId) });
+  if (!cityCountry) return new Response("Not found", { status: 404 });
+  placeMode = "city";
+  city = { id: cityHit.id, slug: cityHit.slug, name: cityHit.name };
+  country = cityCountry;
+}
+const placeScope = city ? sql`AND ci.id = ${city.id}` : sql`AND ci.country_id = ${country.id}`;
 
 // The slug before "-in-" can be a specialty (e.g. cardiac-surgery) or a treatment
 // (e.g. liver-transplant, hair-transplant-fue). Try specialty first; if absent,
@@ -166,7 +189,7 @@ const hospitals = kind === "specialty"
         INNER JOIN hospitals h ON h.id = hs.hospital_id
         INNER JOIN cities ci ON ci.id = h.city_id
         WHERE hs.specialty_id = ${parentSpecialty.id}
-          AND ci.country_id = ${country.id}
+          ${placeScope}
           AND h.is_active = true
         ORDER BY hs.is_center_of_excellence DESC NULLS LAST,
                  h.is_featured DESC NULLS LAST,
@@ -189,7 +212,7 @@ const hospitals = kind === "specialty"
         LEFT JOIN hospital_specialties hs
           ON hs.hospital_id = h.id AND hs.specialty_id = ${parentSpecialty.id}
         WHERE ht.treatment_id = ${entity.id}
-          AND ci.country_id = ${country.id}
+          ${placeScope}
           AND h.is_active = true
         ORDER BY hs.is_center_of_excellence DESC NULLS LAST,
                  h.is_featured DESC NULLS LAST,
@@ -201,6 +224,12 @@ const hospitals = kind === "specialty"
     );
 
 if (hospitals.length === 0) return new Response("Not found", { status: 404 });
+
+// Inventory floor for city-scoped pages: a "best of" ranking needs a real
+// field to rank. Under 5 hospitals, 301 up to the country-level page.
+if (placeMode === "city" && hospitals.length < 5) {
+  return Astro.redirect(localizedPath(locale, `/best/${parsed.specialtySlug}-in-${country.slug}`), 301);
+}
 
 // Pull deep specialty + country sections — specSections always keyed off the
 // parent specialty, since treatment-mode pages share the specialty's narrative.
@@ -234,6 +263,11 @@ const FLAG: Record<string, string> = {
 };
 const flag = FLAG[country.slug] ?? "🌐";
 
+// Display labels — `placeName` is the city or country shown in headings;
+// `placeLabel` adds the country for disambiguation in titles ("Mumbai, India").
+const placeName = placeMode === "city" ? city!.name : country.name;
+const placeLabel = placeMode === "city" ? `${city!.name}, ${country.name}` : country.name;
+
 // Routing helpers — branch on whether the page is showing a specialty or a treatment.
 const entityHubHref = kind === "specialty"
   ? `/specialty/${specialty.slug}`
@@ -242,15 +276,20 @@ const entityContactQs = kind === "specialty"
   ? `specialty=${specialty.slug}`
   : `treatment=${specialty.slug}`;
 
-const seoTitle = `Best Hospitals for ${specialtyT.name} in ${country.name} (${year})`;
-const seoDescription = `Ranked list of the top ${hospitals.length} hospitals for ${specialtyT.name} in ${country.name} — by center-of-excellence status, rating, review volume, and transparent pricing. ${year} edition.`;
+const seoTitle = `Best Hospitals for ${specialtyT.name} in ${placeLabel} (${year})`;
+const seoDescription = `Ranked list of the top ${hospitals.length} hospitals for ${specialtyT.name} in ${placeLabel} — by center-of-excellence status, rating, review volume, and transparent pricing. ${year} edition.`;
 const path = `/best/${slug}`;
 const url = localeUrl(locale, path);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
   { name: country.name, url: localeUrl(locale, `/country/${country.slug}`) },
-  { name: `Best for ${specialtyT.name}`, url },
+  ...(placeMode === "city"
+    ? [
+        { name: `Best ${specialtyT.name}`, url: localeUrl(locale, `/best/${parsed.specialtySlug}-in-${country.slug}`) },
+        { name: city!.name, url },
+      ]
+    : [{ name: `Best for ${specialtyT.name}`, url }]),
 ]);
 const itemLd = itemListJsonLd(hospitalsT.map((h) => ({
   name: h.name,
@@ -279,7 +318,15 @@ Astro.response.headers.set(
       <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
         <a href={localizedPath(locale, `/country/${country.slug}`)} class="hover:text-ink">{country.name}</a>
         <span class="mx-1.5">/</span>
-        <span style="color: var(--color-ink);">Best for {specialtyT.name}</span>
+        {placeMode === "city" ? (
+          <>
+            <a href={localizedPath(locale, `/best/${parsed.specialtySlug}-in-${country.slug}`)} class="hover:text-ink">Best {specialtyT.name}</a>
+            <span class="mx-1.5">/</span>
+            <span style="color: var(--color-ink);">{city!.name}</span>
+          </>
+        ) : (
+          <span style="color: var(--color-ink);">Best for {specialtyT.name}</span>
+        )}
       </nav>
     </div>
 
@@ -295,7 +342,7 @@ Astro.response.headers.set(
         >
           Best hospitals for <span style="font-style: italic;">{specialtyT.name}</span>
           <br />
-          in {flag} {country.name}
+          in {flag} {placeName}
         </h1>
         <p class="serif mt-5" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted); max-width: 680px;">
           Ranked by center-of-excellence status, patient rating, and review volume. Hospitals with transparent pricing and international patient desks; {hospitals.length} make the list this year.
@@ -569,7 +616,7 @@ Astro.response.headers.set(
             Shortlist from this list
           </div>
           <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.05; letter-spacing: -0.025em; font-weight: 400;">
-            Get 3 itemized quotes from the top {country.name} hospitals for {specialtyT.name}
+            Get 3 itemized quotes from the top {placeName} hospitals for {specialtyT.name}
             <span style="font-style: italic;"> this week.</span>
           </h2>
           <p class="serif mt-4" style="font-size: 17px; line-height: 1.55; max-width: 560px; opacity: 0.85;">
@@ -707,7 +754,7 @@ Astro.response.headers.set(
 
     {/* EEAT signals */}
     <MethodologyBlock locale={locale}
-      curationNote={`This ranking of "best ${specialtyT.name.toLowerCase()} in ${country.name}" weights center-of-excellence designations, JCI/national accreditation status, peer-reviewed surgeon publication record, and patient outcome data — not advertising spend. Position is re-evaluated quarterly when new credentialling data lands.`}
+      curationNote={`This ranking of "best ${specialtyT.name.toLowerCase()} in ${placeLabel}" weights center-of-excellence designations, JCI/national accreditation status, peer-reviewed surgeon publication record, and patient outcome data — not advertising spend. Position is re-evaluated quarterly when new credentialling data lands.`}
       dataSources={[
         "JCI accreditation registry",
         ...(country.slug === "india" ? ["NABH licence register", "AIIMS / PGIMER training records"] : []),
@@ -721,7 +768,7 @@ Astro.response.headers.set(
     <ExploreGrid
       locale={locale}
       eyebrow="Adjacent rankings"
-      heading={`Other ways to slice ${specialtyT.name} in ${country.name}`}
+      heading={`Other ways to slice ${specialtyT.name} in ${placeName}`}
       lede={`Best-of lists are one cut. These hubs let you re-rank by destination, by city, by surgeon volume, or by procedure.`}
       items={[
         ...(kind === "treatment"
@@ -732,6 +779,12 @@ Astro.response.headers.set(
           : [
               { eyebrow: "Specialty", label: `${specialtyT.name} hub`, href: entityHubHref, hint: `All ${specialtyT.name.toLowerCase()} programs across all destinations.` },
             ]),
+        ...(placeMode === "city"
+          ? [
+              { eyebrow: "Best of", label: `Best ${specialtyT.name} in ${country.name}`, href: `/best/${parsed.specialtySlug}-in-${country.slug}`, hint: `Step up from ${city!.name} to the full ${country.name} ranking.` },
+              { eyebrow: "City", label: `${city!.name} hospital hub`, href: `/city/${city!.slug}`, hint: `All hospitals and pricing benchmarks in ${city!.name}.` },
+            ]
+          : []),
         { eyebrow: "Destination", label: `${country.name} hospital hub`, href: `/country/${country.slug}`, hint: `Featured programs and pricing benchmarks for ${country.name}.` },
         { eyebrow: "Surgeons", label: `${parentSpecialtyT.name} surgeons`, href: `/surgeons/${parentSpecialty.slug}`, hint: `Volume-ranked physician directory across all destinations.` },
         { eyebrow: "Surgeons", label: `${parentSpecialtyT.name} surgeons in ${country.name}`, href: `/surgeons/${parentSpecialty.slug}/${country.slug}`, hint: `Filtered to ${country.name}-based programs only.` },

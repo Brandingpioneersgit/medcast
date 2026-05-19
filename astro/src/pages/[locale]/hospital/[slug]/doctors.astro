@@ -1,0 +1,219 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import LastUpdated from "@/components/LastUpdated.astro";
+import { listHospitalDoctors } from "@/lib/queries";
+import { getContent, getContentBatch, applyTranslated, isUntranslated } from "@/lib/translate";
+import { getTranslator } from "@/lib/messages";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, itemListJsonLd, withProvenance } from "@/lib/seo";
+import { Award, ChevronRight, MapPin, Users } from "lucide-react";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
+import { doctorPortrait } from "@/lib/images";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const slug = Astro.params.slug;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/hospital/${slug}/doctors`, 308);
+if (!slug) return new Response("Not found", { status: 404 });
+const locale = rawLocale as Locale;
+
+const data = await listHospitalDoctors(slug);
+if (!data) return new Response(`Not found: ${slug}`, { status: 404 });
+
+// Inventory floor — a roster page needs a roster. Under 3 doctors, 301 back
+// to the hospital page (which already shows its handful of doctors).
+if (data.doctors.length < 3) {
+  return Astro.redirect(localizedPath(locale, `/hospital/${slug}`), 301);
+}
+
+const tc = getTranslator(locale, "common");
+
+const [hMap, doctorMap] = await Promise.all([
+  getContent("hospital", data.hospital.id, locale),
+  getContentBatch("doctor", data.doctors.map((d) => d.id), locale),
+]);
+const hospital = { ...applyTranslated(data.hospital, hMap, ["name"]), city: data.hospital.city };
+const doctors = data.doctors.map((d) => ({
+  ...d,
+  ...applyTranslated({ name: d.name, qualifications: d.qualifications }, doctorMap[d.id] ?? {}, ["name", "qualifications"]),
+}));
+
+const cityName = hospital.city?.name ?? null;
+const countryName = hospital.city?.country?.name ?? null;
+const countrySlug = hospital.city?.country?.slug ?? null;
+const locationLabel = [cityName, countryName].filter(Boolean).join(", ");
+
+const seoTitle = `Doctors at ${hospital.name} — Full Specialist Roster`;
+const seoDescription =
+  `${doctors.length} specialists practising at ${hospital.name}${locationLabel ? `, ${locationLabel}` : ""}. Experience, patient volume and ratings — request a case-specific consultation.`.slice(0, 160);
+
+const path = `/hospital/${slug}/doctors`;
+const url = localeUrl(locale, path);
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Hospitals", url: localeUrl(locale, "/hospitals") },
+  { name: hospital.name, url: localeUrl(locale, `/hospital/${slug}`) },
+  { name: "Doctors", url },
+]);
+
+const itemLd = withProvenance(
+  itemListJsonLd(
+    doctors.slice(0, 20).map((d) => ({
+      name: d.title ? `${d.title} ${d.name}`.replace(/^Dr\. Dr\./i, "Dr.") : d.name,
+      url: localeUrl(locale, `/doctor/${d.slug}`),
+    })),
+  ),
+  { dateModified: new Date() },
+);
+
+// Distinct specialties across the roster — for cross-links.
+const rosterSpecialties = Array.from(
+  new Set(doctors.flatMap((d) => d.specialty_names ?? [])),
+).slice(0, 8);
+
+const untranslated = isUntranslated(locale, hMap);
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(itemLd)} />
+  </Fragment>
+
+  <main id="main" class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <nav aria-label="Breadcrumb" class="border-b border-border bg-bg">
+      <div class="mx-auto max-w-7xl px-6 py-3.5 text-sm text-ink-muted overflow-x-auto whitespace-nowrap">
+        <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <a href={localizedPath(locale, "/hospitals")} class="hover:text-accent">Hospitals</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <a href={localizedPath(locale, `/hospital/${slug}`)} class="hover:text-accent">{hospital.name}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <span class="text-ink" aria-current="page">Doctors</span>
+      </div>
+    </nav>
+
+    <section class="mx-auto max-w-7xl px-6 pt-10 md:pt-14 pb-8">
+      <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.18em; color: var(--color-accent);">
+        {hospital.name}{locationLabel ? ` · ${locationLabel}` : ""}
+      </p>
+      <h1 class="mt-2 display display-tight" style="font-size: clamp(2rem, 4.5vw, 3.5rem); letter-spacing: -0.025em; line-height: 1.02;">
+        Doctors at {hospital.name}
+      </h1>
+      <p class="lede mt-5 max-w-[44rem]">
+        The full specialist roster at {hospital.name} — {doctors.length} doctors across {rosterSpecialties.length || "multiple"} specialties, ranked by patient volume and years in practice. Send your case and we'll point you to the right one.
+      </p>
+      <div class="mt-5 flex flex-wrap items-center gap-3">
+        <LastUpdated updated={new Date()} locale={locale} />
+      </div>
+    </section>
+
+    <section class="mx-auto max-w-7xl px-6 pb-10 border-t border-border-soft pt-8">
+      <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {doctors.map((d) => {
+          const nameHasTitle = /^(dr\.?|prof\.?|mr\.?|ms\.?|mrs\.?)\s/i.test(d.name);
+          const titlePrefix = nameHasTitle ? "" : (d.title ?? "Dr.");
+          const fullName = titlePrefix ? `${titlePrefix} ${d.name}` : d.name;
+          return (
+            <li>
+              <a
+                href={localizedPath(locale, `/doctor/${d.slug}`)}
+                class="group flex h-full gap-4 rounded-xl border border-border bg-surface p-4 transition-colors hover:border-border-strong"
+              >
+                <img
+                  src={doctorPortrait({ imageUrl: d.image_url, id: d.id }, 128)}
+                  alt={d.name}
+                  width="64"
+                  height="64"
+                  loading="lazy"
+                  decoding="async"
+                  class="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-border"
+                />
+                <div class="min-w-0 flex-1">
+                  <span class="block font-display text-[17px] leading-tight text-ink group-hover:text-accent line-clamp-1">{fullName}</span>
+                  {d.qualifications && <span class="mt-1 block text-[12.5px] text-ink-muted line-clamp-1">{d.qualifications}</span>}
+                  <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-subtle">
+                    {d.experience_years != null && (
+                      <span class="inline-flex items-center gap-1"><Award className="h-3 w-3 text-accent" />{d.experience_years} yrs</span>
+                    )}
+                    {d.patients_treated != null && d.patients_treated > 0 && (
+                      <span class="inline-flex items-center gap-1"><Users className="h-3 w-3 text-accent" />{d.patients_treated.toLocaleString()}</span>
+                    )}
+                    {d.rating && Number(d.rating) > 0 && (
+                      <span class="inline-flex items-center gap-1"><span class="text-gold-500">★</span><span class="tnum">{Number(d.rating).toFixed(1)}</span></span>
+                    )}
+                  </div>
+                  {d.specialty_names && d.specialty_names.length > 0 && (
+                    <div class="mt-2 text-[12px] text-ink-subtle inline-flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />{d.specialty_names.slice(0, 2).join(" · ")}
+                    </div>
+                  )}
+                </div>
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+
+    <section class="mx-auto max-w-7xl px-6 pb-20">
+      <div class="paper p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+        <div class="max-w-[36rem]">
+          <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">Match me to a doctor</p>
+          <h3 class="mt-2 font-display text-2xl md:text-3xl">
+            Not sure which {hospital.name} specialist fits your case?
+          </h3>
+          <p class="mt-2 text-sm text-ink-muted">
+            Send your reports — we'll point you to the right doctor on this roster, confirm availability, and return a quote within a day.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-3 shrink-0">
+          <a
+            href={localizedPath(locale, `/contact?hospital=${slug}`)}
+            class="inline-flex items-center rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover"
+          >
+            Request a consultation
+          </a>
+          <a
+            href={localizedPath(locale, `/hospital/${slug}`)}
+            class="inline-flex items-center rounded-lg border border-border px-5 py-2.5 text-sm font-semibold hover:border-border-strong"
+          >
+            About {hospital.name}
+            <ChevronRight className="ml-1 h-4 w-4" />
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow={hospital.name}
+      heading={`Explore ${hospital.name}`}
+      lede="The roster is one view. These hubs cover the hospital's departments, pricing and how it compares."
+      items={[
+        { eyebrow: "Hospital", label: `${hospital.name} overview`, href: `/hospital/${slug}`, hint: "Accreditations, departments, pricing, location and contact." },
+        ...(countrySlug
+          ? [{ eyebrow: "Destination", label: `Hospitals in ${countryName}`, href: `/hospitals?country=${countrySlug}`, hint: `Compare ${hospital.name} with other ${countryName} hospitals.` }]
+          : []),
+        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Put up to 4 hospitals side by side on accreditation, beds and pricing." },
+        { eyebrow: "Compare", label: "Doctor comparison", href: "/compare/doctors", hint: "Surgeons compared on volume, fees, languages and video-consult availability." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures and destinations." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+      ]}
+    />
+
+    <PageCta locale={locale} />
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

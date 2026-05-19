@@ -3,14 +3,18 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
-import { db } from "@/lib/db";
+import AccreditationLogo from "@/components/AccreditationLogo.astro";
+import { db, sql as rawSql } from "@/lib/db";
 import { sql } from "drizzle-orm";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, itemListJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { hospitalCover } from "@/lib/images";
 import PhotoBlock from "@/components/PhotoBlock.astro";
+import Price from "@/components/Price.astro";
 import { ChevronRight } from "lucide-react";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 
 export const prerender = false;
 
@@ -35,6 +39,10 @@ const accRes = await db
   .catch(() => [] as unknown[]);
 const acc = Array.from(accRes as Iterable<AccredRow>)[0] ?? null;
 if (!acc) return new Response(`Not found: ${code}`, { status: 404 });
+
+// Pull deep accreditation sections
+const accSectionRow = await rawSql`SELECT content_sections FROM accreditations WHERE id = ${acc.id} LIMIT 1`;
+const accSections: any = accSectionRow[0]?.content_sections ?? null;
 
 type HospitalRow = {
   id: number;
@@ -129,13 +137,13 @@ Astro.response.headers.set(
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    <script type="application/ld+json" set:html={JSON.stringify(accreditationOrgLd)} />
-    {itemLd && <script type="application/ld+json" set:html={JSON.stringify(itemLd)} />}
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={hospitals.length === 0} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(accreditationOrgLd)} />
+    {itemLd && <script type="application/ld+json" is:inline set:html={JSON.stringify(itemLd)} />}
   </Fragment>
 
-  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} />
 
     <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
@@ -150,10 +158,13 @@ Astro.response.headers.set(
 
     <section style="padding: 48px 28px;">
       <div class="mx-auto max-w-[1440px]">
-        <div class="grid gap-10 lg:grid-cols-[2fr,1fr]">
+        <div class="grid gap-10 lg:grid-cols-[2fr_1fr]">
           <div>
-            <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
-              Certifying body
+            <div class="flex items-center gap-3" style="margin-bottom: 4px;">
+              <AccreditationLogo code={acc.acronym ?? acc.slug} title={acc.name} size="lg" showText={false} />
+              <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
+                Certifying body
+              </div>
             </div>
             <h1
               class="display display-tight mt-3"
@@ -205,7 +216,7 @@ Astro.response.headers.set(
                 {byCountry.map((c) => (
                   <li>
                     <a
-                      href={localizedPath(locale, `/country/${c.country_slug}`)}
+                      href={localizedPath(locale, c.n >= 3 ? `/accreditation/${code}/${c.country_slug}` : `/country/${c.country_slug}`)}
                       class="flex items-center justify-between gap-3 hover:text-accent"
                       style="font-size: 14px;"
                     >
@@ -276,7 +287,7 @@ Astro.response.headers.set(
                             From
                           </div>
                           <div class="display tnum" style="font-size: 20px;">
-                            ${Math.round(h.fromUsd).toLocaleString()}
+                            <Price usd={h.fromUsd} />
                           </div>
                         </div>
                         <span
@@ -297,6 +308,119 @@ Astro.response.headers.set(
       </section>
     )}
 
+    {/* Deep accreditation content */}
+    {accSections && (
+      <section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+        <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+          <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+            What this accreditation actually means
+          </div>
+          <h2 class="display mb-7" style="font-size: 30px; letter-spacing: -0.02em;">
+            Understanding <span style="font-style: italic;">{acc.acronym ?? acc.name}</span>
+          </h2>
+
+          {accSections.whatItIs && Array.isArray(accSections.whatItIs) && (
+            <div class="prose-editorial mb-10" style="max-width: 56rem;">
+              {accSections.whatItIs.map((p: string) => <p>{p}</p>)}
+            </div>
+          )}
+
+          {accSections.whatItMeansForPatients && accSections.whatItMeansForPatients.length > 0 && (
+            <div class="mb-10">
+              <h3 class="display mb-4" style="font-size: 22px;">What it means for patients</h3>
+              <ul class="space-y-3">
+                {accSections.whatItMeansForPatients.map((p: string) => (
+                  <li class="flex gap-3 items-start" style="font-size: 15.5px; line-height: 1.55;">
+                    <span style="color: var(--color-accent);">→</span>
+                    <span>{p}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div class="grid gap-6 md:grid-cols-2 mb-10">
+            {accSections.howItsAwarded && (
+              <div class="paper" style="padding: 22px;">
+                <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
+                  How it's awarded
+                </div>
+                <p style="font-size: 14.5px; line-height: 1.55;">{accSections.howItsAwarded}</p>
+              </div>
+            )}
+
+            {accSections.signalStrength && (
+              <div class="paper" style="padding: 22px;">
+                <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
+                  Signal strength
+                </div>
+                <p style="font-size: 14.5px; line-height: 1.55;">{accSections.signalStrength}</p>
+              </div>
+            )}
+          </div>
+
+          {accSections.limitations && accSections.limitations.length > 0 && (
+            <div class="mb-10">
+              <h3 class="display mb-4" style="font-size: 22px;">Honest limitations</h3>
+              <ul class="space-y-3">
+                {accSections.limitations.map((l: string) => (
+                  <li class="flex gap-3 items-start" style="font-size: 15px; line-height: 1.55; padding: 14px 18px; border: 1px solid var(--color-border-soft); border-inline-start: 3px solid var(--color-coral, #E85A4F); background: white;">
+                    <span style="color: var(--color-coral, #E85A4F); font-weight: 700;">!</span>
+                    <span>{l}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {accSections.howToVerify && (
+            <div class="paper mb-6" style="padding: 22px;">
+              <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
+                How to verify a hospital's claim
+              </div>
+              <p style="font-size: 14.5px; line-height: 1.55;">{accSections.howToVerify}</p>
+            </div>
+          )}
+
+          {accSections.relatedAccreditations && accSections.relatedAccreditations.length > 0 && (
+            <div>
+              <h3 class="display mb-4" style="font-size: 20px;">Related certifications</h3>
+              <div class="flex flex-wrap gap-2">
+                {accSections.relatedAccreditations.map((r: string) => (
+                  <span class="mono uppercase" style="font-size: 11px; letter-spacing: 0.1em; padding: 6px 12px; border: 1px solid var(--color-border); background: white; color: var(--color-ink);">
+                    {r}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+    )}
+
+    
+    <ExploreGrid
+      locale={locale}
+      eyebrow="Use this credential"
+      heading="Where this accreditation matters"
+      lede={`${acc.acronym ?? acc.name} is one signal among several. These hubs let you weight it against pricing, surgeon volume, and destination — not just take the badge at face value.`}
+      items={[
+        { eyebrow: "Reference", label: "All accreditation bodies", href: "/accreditation", hint: "JCI, NABH, ISO 9001, KTQ, HA, MOHAP — what each one actually means clinically." },
+        { eyebrow: "Browse", label: "All hospitals", href: "/hospitals", hint: "Filter by accreditation, country, specialty, beds, rating." },
+        { eyebrow: "Browse", label: "9 destination countries", href: "/countries", hint: "Per-country accreditation profile and program quality benchmarks." },
+        { eyebrow: "Browse", label: "15 medical specialties", href: "/specialties", hint: "Where program quality matters most: cardiac, transplant, oncology, neuro." },
+        { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Procedure-first browsing with success rates and recovery timelines." },
+        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, pricing for up to 4 hospitals." },
+        { eyebrow: "Compare", label: "Destination shootout", href: "/compare/countries", hint: "Hospitals, doctors, treatments, programs by country." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
+        { eyebrow: "Reference", label: "Glossary of terms", href: "/glossary", hint: "Plain-language definitions for credentials, procedures, logistics." },
+        { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "How we verify accreditations and methodology behind hospital scoring." },
+        { eyebrow: "Trust", label: "Medical board", href: "/medical-board", hint: "Named clinicians who review hospital programs and content." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+      ]}
+    />
+
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

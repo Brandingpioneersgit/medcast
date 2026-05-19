@@ -1,0 +1,318 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import LastUpdated from "@/components/LastUpdated.astro";
+import { db } from "@/lib/db";
+import { treatments } from "../../../../../../src/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { getContent, applyTranslated, isUntranslated } from "@/lib/translate";
+import { getTranslator } from "@/lib/messages";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, faqJsonLd } from "@/lib/seo";
+import { ChevronRight } from "lucide-react";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const slug = Astro.params.slug;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/treatment/${slug}/recovery`, 308);
+if (!slug) return new Response("Not found", { status: 404 });
+const locale = rawLocale as Locale;
+
+const t = await db.query.treatments.findFirst({
+  where: eq(treatments.slug, slug),
+  with: { specialty: true },
+});
+if (!t) return new Response(`Not found: ${slug}`, { status: 404 });
+// No recovery window on file → no timeline to build; send to the main page.
+if (t.recoveryDays == null) {
+  return Astro.redirect(localizedPath(locale, `/treatment/${slug}`), 301);
+}
+
+const tc = getTranslator(locale, "common");
+const tMap = await getContent("treatment", t.id, locale);
+const treatment = applyTranslated(t, tMap, ["name", "description"]);
+const R = t.recoveryDays;
+const H = t.hospitalStayDays ?? 0;
+const specialtySlug = t.specialty?.slug ?? "";
+const dayCase = H === 0;
+
+// Recovery phases — computed from the hospital stay + recovery window so the
+// timeline is honest to this procedure rather than a generic template.
+const wk = (d: number) => (d <= 13 ? `Day ${d}` : `Week ${Math.round(d / 7)}`);
+const phases = [
+  {
+    label: dayCase ? "Procedure day" : `In hospital · ${H} ${H === 1 ? "night" : "nights"}`,
+    window: dayCase ? "Day 0" : `Day 0–${H}`,
+    body: dayCase
+      ? "Day-case procedure — you go home the same day once observation clears. Expect monitored recovery from anaesthesia, pain control, and discharge instructions before you leave."
+      : "Monitored recovery: pain control, wound and vital-sign checks, and early mobilisation. The care team confirms you can eat, move and manage pain before discharge.",
+  },
+  {
+    label: "First days near the hospital",
+    window: `Day ${H + 1}–${H + 5}`,
+    body: "International patients stay near the hospital for the first post-discharge review. Wound checks, medication adjustment, and the green light before any longer travel happen in this window.",
+  },
+  {
+    label: "Early recovery",
+    window: `${wk(H + 6)}–${wk(Math.max(H + 7, Math.round(R * 0.5)))}`,
+    body: `Gradual return of energy and mobility. Light daily activity resumes; strenuous activity, heavy lifting and driving are still restricted. Most discomfort settles across this phase.`,
+  },
+  {
+    label: "Back to normal activity",
+    window: `Around day ${R}`,
+    body: `By about day ${R}, most patients are back to desk work and routine daily life. Your surgeon's specific clearance — not the calendar — is what matters; follow their sign-off.`,
+  },
+  {
+    label: "Full recovery",
+    window: `Beyond day ${R}`,
+    body: "Full strength, final result and complete tissue healing continue past the return-to-normal point — often several more weeks. Keep follow-up appointments and report anything unexpected.",
+  },
+];
+
+// Specialty-keyed red flags — when to seek urgent help.
+const RED_FLAGS: Record<string, string[]> = {
+  "cardiac-surgery": ["Chest pain, palpitations or breathlessness at rest", "Fever, or redness/discharge at the wound", "Sudden swelling in one leg", "Dizziness or fainting"],
+  "orthopedics": ["Calf pain or swelling (possible clot)", "Fever or spreading wound redness", "Sudden loss of movement or new severe pain", "Numbness or pins-and-needles below the operated joint"],
+  "oncology": ["Fever ≥38°C (infection risk during treatment)", "Uncontrolled nausea, vomiting or inability to keep fluids down", "Unusual bleeding or bruising", "Severe fatigue or breathlessness"],
+  "neurology-neurosurgery": ["Severe or worsening headache", "New weakness, numbness or speech difficulty", "Seizure", "Fever with neck stiffness, or clear fluid from the wound/nose"],
+  "organ-transplant": ["Fever or flu-like symptoms (rejection or infection)", "Reduced urine output or sudden weight gain", "Pain or tenderness over the graft", "Yellowing of skin or eyes"],
+  "fertility-ivf": ["Severe abdominal pain or rapid bloating", "Heavy vaginal bleeding", "Shortness of breath or reduced urination (possible OHSS)", "Fever"],
+  "cosmetic-surgery": ["Spreading redness, warmth or discharge at incisions", "Fever", "Sudden asymmetric swelling or severe pain", "Calf pain or breathlessness"],
+  "bariatric-surgery": ["Persistent vomiting or inability to keep fluids down", "Fever or rapid heartbeat", "Severe abdominal pain", "Calf pain or breathlessness"],
+};
+const redFlags = RED_FLAGS[specialtySlug] ?? [
+  "Fever, or spreading redness, warmth or discharge at the wound",
+  "Pain that worsens instead of easing, or isn't controlled by prescribed medication",
+  "Calf pain, swelling or breathlessness (possible clot)",
+  "Anything that feels sudden, severe or simply wrong",
+];
+
+const flyHomeFrom = Math.max(H + 3, 7);
+const flyHomeTo = Math.max(flyHomeFrom + 4, Math.round(R * 0.4));
+
+const faqs = [
+  {
+    question: `How long is recovery after ${treatment.name.toLowerCase()}?`,
+    answer: `Most patients are back to routine daily activity around day ${R}. ${dayCase ? "It is a day-case procedure" : `The hospital stay is about ${H} ${H === 1 ? "night" : "nights"}`}, followed by a staged return over the following weeks. Full strength and the final result continue beyond day ${R}. Your surgeon's clearance — not the calendar — is the real signal.`,
+  },
+  {
+    question: `When can I fly home after ${treatment.name.toLowerCase()}?`,
+    answer: `Most international patients are cleared to fly roughly ${flyHomeFrom}–${flyHomeTo} days after the procedure, once the first post-discharge review is done. Long-haul flights carry a clot risk during recovery — get explicit fit-to-fly sign-off from your treating surgeon before booking, and plan accommodation near the hospital until then.`,
+  },
+  {
+    question: `When can I return to work?`,
+    answer: `Desk or light work is usually possible around day ${R}; physically demanding work takes longer and depends on your surgeon's clearance. Build a buffer into your plans rather than booking to the minimum.`,
+  },
+  {
+    question: `Will recovery be painful?`,
+    answer: `Some discomfort is normal and is managed with prescribed medication that is stepped down as you heal. Pain that worsens, or isn't controlled by your medication, is not normal — contact your care team.`,
+  },
+  {
+    question: `What follow-up will I need back home?`,
+    answer: `Before you leave, get a full discharge summary, imaging, and a medication list to hand to your local doctor. ${treatment.specialty?.name ? `Arrange ${treatment.specialty.name.toLowerCase()} follow-up locally` : "Arrange specialist follow-up locally"} for ongoing checks. We help coordinate this handover.`,
+  },
+];
+
+const seoTitle = `${treatment.name} Recovery Time — Week-by-Week Guide`;
+const seoDescription =
+  `${treatment.name} recovery: a day-by-day timeline — hospital stay, when you can fly home, return to work around day ${R}, red flags to watch, and follow-up. Reviewed by the MedCasts editorial desk.`.slice(0, 160);
+
+const path = `/treatment/${slug}/recovery`;
+const url = localeUrl(locale, path);
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Treatments", url: localeUrl(locale, "/treatments") },
+  { name: treatment.name, url: localeUrl(locale, `/treatment/${slug}`) },
+  { name: "Recovery", url },
+]);
+const faqLd = faqJsonLd(faqs);
+const pageLd = {
+  "@context": "https://schema.org",
+  "@type": "MedicalWebPage",
+  name: seoTitle,
+  description: seoDescription,
+  url,
+  about: { "@type": "MedicalProcedure", name: treatment.name },
+  lastReviewed: new Date().toISOString().slice(0, 10),
+  reviewedBy: { "@type": "Organization", name: "MedCasts editorial desk", url: localeUrl(locale, "/editorial-policy") },
+};
+
+const untranslated = isUntranslated(locale, tMap);
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(faqLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(pageLd)} />
+  </Fragment>
+
+  <main id="main" class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <nav aria-label="Breadcrumb" class="border-b border-border bg-bg">
+      <div class="mx-auto max-w-5xl px-6 py-3.5 text-sm text-ink-muted overflow-x-auto whitespace-nowrap">
+        <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <a href={localizedPath(locale, "/treatments")} class="hover:text-accent">Treatments</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <a href={localizedPath(locale, `/treatment/${slug}`)} class="hover:text-accent">{treatment.name}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <span class="text-ink" aria-current="page">Recovery</span>
+      </div>
+    </nav>
+
+    <section class="mx-auto max-w-5xl px-6 pt-10 md:pt-14 pb-8">
+      <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.18em; color: var(--color-accent);">
+        Recovery guide
+      </p>
+      <h1 class="mt-2 display display-tight" style="font-size: clamp(2rem, 4.5vw, 3.3rem); letter-spacing: -0.025em; line-height: 1.04;">
+        {treatment.name} recovery — week by week
+      </h1>
+      <p class="lede mt-5 max-w-[44rem]">
+        What to expect after {treatment.name.toLowerCase()}: hospital stay, the days near the hospital, when it's safe to fly home, and the return to normal life around day {R}. A timeline to plan around — your surgeon's clearance is always the final word.
+      </p>
+      <div class="mt-5"><LastUpdated updated={new Date()} locale={locale} showPolicyLink /></div>
+
+      <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div class="rounded-lg border border-border bg-surface p-3">
+          <div class="mono uppercase text-[10px]" style="letter-spacing: 0.1em; color: var(--color-ink-subtle);">Hospital stay</div>
+          <div class="display tnum mt-1" style="font-size: 20px;">{dayCase ? "Day case" : `${H} night${H === 1 ? "" : "s"}`}</div>
+        </div>
+        <div class="rounded-lg border border-border bg-surface p-3">
+          <div class="mono uppercase text-[10px]" style="letter-spacing: 0.1em; color: var(--color-ink-subtle);">Back to normal</div>
+          <div class="display tnum mt-1" style="font-size: 20px;">~{R} days</div>
+        </div>
+        <div class="rounded-lg border border-border bg-surface p-3">
+          <div class="mono uppercase text-[10px]" style="letter-spacing: 0.1em; color: var(--color-ink-subtle);">Fly home</div>
+          <div class="display tnum mt-1" style="font-size: 20px;">{flyHomeFrom}–{flyHomeTo} days</div>
+        </div>
+        <div class="rounded-lg border border-border bg-surface p-3">
+          <div class="mono uppercase text-[10px]" style="letter-spacing: 0.1em; color: var(--color-ink-subtle);">Specialty</div>
+          <div class="mt-1" style="font-size: 14px; font-weight: 600;">{t.specialty?.name ?? "—"}</div>
+        </div>
+      </div>
+    </section>
+
+    {/* Timeline */}
+    <section class="mx-auto max-w-5xl px-6 pb-12">
+      <h2 class="display-tight mb-6" style="font-size: clamp(1.4rem, 3vw, 2rem); letter-spacing: -0.02em;">
+        The recovery timeline
+      </h2>
+      <ol class="relative space-y-5 border-s-2 border-border ps-6">
+        {phases.map((p, i) => (
+          <li class="relative">
+            <span
+              class="absolute flex h-7 w-7 items-center justify-center rounded-full bg-accent text-accent-contrast tnum"
+              style="inset-inline-start: -38px; top: 0; font-size: 12px; font-weight: 700;"
+            >
+              {i + 1}
+            </span>
+            <div class="paper p-5">
+              <div class="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 class="font-display text-[18px]">{p.label}</h3>
+                <span class="mono uppercase text-[11px]" style="letter-spacing: 0.1em; color: var(--color-accent);">{p.window}</span>
+              </div>
+              <p class="serif mt-2" style="font-size: 14.5px; line-height: 1.6; color: var(--color-ink-muted);">{p.body}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+
+    {/* When to fly home callout */}
+    <section class="mx-auto max-w-5xl px-6 pb-12">
+      <div class="paper p-6" style="border-inline-start: 3px solid var(--color-accent);">
+        <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.13em; color: var(--color-accent);">Fit to fly</div>
+        <h3 class="font-display text-xl mt-2">Plan your flight home for day {flyHomeFrom}–{flyHomeTo}, not earlier</h3>
+        <p class="serif mt-2" style="font-size: 14.5px; line-height: 1.6; color: var(--color-ink-muted);">
+          Long-haul flights raise clot risk during recovery, and cabin pressure can affect healing tissue and air-containing spaces. Book a flexible return ticket, keep accommodation near the hospital until the first review, and get written fit-to-fly clearance from your treating surgeon before you travel.
+        </p>
+      </div>
+    </section>
+
+    {/* Red flags */}
+    <section class="mx-auto max-w-5xl px-6 pb-12">
+      <div class="paper p-6" style="border-inline-start: 3px solid var(--color-coral, #E85A4F);">
+        <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.13em; color: var(--color-coral, #E85A4F);">Seek help immediately if</div>
+        <h3 class="font-display text-xl mt-2">Recovery red flags</h3>
+        <ul class="mt-3 space-y-2">
+          {redFlags.map((f) => (
+            <li class="flex gap-2.5 items-start" style="font-size: 14.5px; line-height: 1.55;">
+              <span style="color: var(--color-coral, #E85A4F); font-weight: 700;">!</span>
+              <span>{f}</span>
+            </li>
+          ))}
+        </ul>
+        <p class="mt-3 text-[13px]" style="color: var(--color-ink-subtle);">
+          This is general guidance, not medical advice — your discharge instructions and surgeon override anything here. When in doubt, contact your care team or local emergency services.
+        </p>
+      </div>
+    </section>
+
+    {/* FAQ */}
+    <section class="mx-auto max-w-5xl px-6 pb-12">
+      <h2 class="display-tight mb-5" style="font-size: clamp(1.4rem, 3vw, 2rem); letter-spacing: -0.02em;">
+        Recovery questions
+      </h2>
+      <div class="divide-y divide-border-soft border-y border-border-soft">
+        {faqs.map((f) => (
+          <details class="group">
+            <summary class="flex cursor-pointer items-center justify-between gap-4 py-4 list-none">
+              <span class="font-display text-[16px]">{f.question}</span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-ink-subtle transition-transform group-open:rotate-90" />
+            </summary>
+            <p class="pb-4 serif" style="font-size: 14.5px; line-height: 1.6; color: var(--color-ink-muted);">{f.answer}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+
+    {/* CTA */}
+    <section class="mx-auto max-w-5xl px-6 pb-16">
+      <div class="paper p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+        <div class="max-w-[34rem]">
+          <h3 class="font-display text-xl md:text-2xl">Planning {treatment.name.toLowerCase()} abroad?</h3>
+          <p class="mt-1.5 text-sm text-ink-muted">
+            We build the recovery and travel plan into your quote — hospital stay, accommodation near the hospital, fit-to-fly timing and the follow-up handover to your doctor back home.
+          </p>
+        </div>
+        <a
+          href={localizedPath(locale, `/treatment/${slug}`)}
+          class="inline-flex shrink-0 items-center rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover"
+        >
+          {treatment.name} cost & hospitals
+        </a>
+      </div>
+    </section>
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow={`${treatment.name} recovery`}
+      heading="Plan the rest of the journey"
+      lede="Recovery is one piece. These hubs cover the cost, the hospitals, the comparison and the logistics."
+      items={[
+        { eyebrow: "Procedure", label: `${treatment.name} — cost & hospitals`, href: `/treatment/${slug}`, hint: "Pricing, ranked hospitals and outcomes across all destinations." },
+        ...(t.specialty
+          ? [{ eyebrow: "Specialty", label: `${t.specialty.name} hub`, href: `/specialty/${t.specialty.slug}`, hint: `All programs and surgeons in ${t.specialty.name.toLowerCase()}.` }]
+          : []),
+        { eyebrow: "Tool", label: "Quote-as-PDF plan", href: "/quote-plan", hint: "A branded treatment plan you can forward to family or carry to a consult." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures and destinations." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+        { eyebrow: "Reference", label: "Medical glossary", href: "/glossary", hint: "Plain-language definitions for recovery, procedure and logistics terms." },
+      ]}
+    />
+
+    <PageCta locale={locale} />
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

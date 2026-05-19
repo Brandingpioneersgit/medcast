@@ -1,0 +1,264 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import LastUpdated from "@/components/LastUpdated.astro";
+import { listConditionDoctors, listFaqsFor } from "@/lib/queries";
+import { getContent, getContentBatch, applyTranslated, isUntranslated } from "@/lib/translate";
+import { getTranslator } from "@/lib/messages";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, itemListJsonLd, medicalConditionJsonLd, withProvenance, faqJsonLd } from "@/lib/seo";
+import { Award, ChevronRight, MapPin, Users } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
+import { doctorPortrait } from "@/lib/images";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const slug = Astro.params.slug;
+const countryParam = Astro.params.country;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/condition/${slug}/doctors/${countryParam}`, 308);
+if (!slug || !countryParam) return new Response("Not found", { status: 404 });
+const locale = rawLocale as Locale;
+
+const data = await listConditionDoctors(slug, 30, countryParam);
+if (!data) return new Response(`Not found: ${slug}`, { status: 404 });
+if (!data.country) return new Response(`Not found: ${countryParam}`, { status: 404 });
+
+// Inventory floor — a country with <3 listed doctors 301s up to the
+// all-destinations condition-doctors page.
+if (data.total < 3) {
+  return Astro.redirect(localizedPath(locale, `/condition/${slug}/doctors`), 301);
+}
+
+const country = data.country;
+const tc = getTranslator(locale, "common");
+
+const [conditionMap, doctorMap, faqs] = await Promise.all([
+  getContent("condition", data.condition.id, locale),
+  getContentBatch("doctor", data.doctors.map((d) => d.id), locale),
+  listFaqsFor("condition", data.condition.id),
+]);
+const condition = applyTranslated(data.condition, conditionMap, ["name", "description"]);
+const doctors = data.doctors.map((d) => ({
+  ...d,
+  ...applyTranslated({ name: d.name, qualifications: d.qualifications }, doctorMap[d.id] ?? {}, ["name", "qualifications"]),
+}));
+
+const seoTitle = `Best Doctors for ${condition.name} in ${country.name}`;
+const seoDescription =
+  `Top doctors for ${condition.name.toLowerCase()} in ${country.name} — ${data.total.toLocaleString()} specialists across ${data.specialties.length} relevant specialt${data.specialties.length === 1 ? "y" : "ies"}, ranked by patient volume and experience. Free case-specific shortlist.`.slice(0, 160);
+
+const path = `/condition/${slug}/doctors/${countryParam}`;
+const url = localeUrl(locale, path);
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Conditions", url: localeUrl(locale, "/conditions") },
+  { name: condition.name, url: localeUrl(locale, `/condition/${slug}`) },
+  { name: "Doctors", url: localeUrl(locale, `/condition/${slug}/doctors`) },
+  { name: country.name, url },
+]);
+
+const itemLd = withProvenance(
+  itemListJsonLd(
+    doctors.slice(0, 15).map((d) => ({
+      name: d.title ? `${d.title} ${d.name}`.replace(/^Dr\. Dr\./i, "Dr.") : d.name,
+      url: localeUrl(locale, `/doctor/${d.slug}`),
+    })),
+  ),
+  { dateModified: new Date() },
+);
+
+const conditionLd = withProvenance(
+  medicalConditionJsonLd({
+    name: condition.name,
+    description: condition.description,
+    url: localeUrl(locale, `/condition/${slug}`),
+    relevantSpecialty: data.specialties.map((s) => ({
+      name: s.name,
+      url: localeUrl(locale, `/specialty/${s.slug}`),
+    })),
+  }),
+  { dateModified: data.condition.updatedAt ?? new Date() },
+);
+
+const faqLd = faqs.length > 0
+  ? faqJsonLd(faqs.map((f) => ({ question: f.question, answer: f.answer })))
+  : null;
+
+const untranslated = isUntranslated(locale, conditionMap);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=3600, stale-while-revalidate=86400",
+);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(conditionLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(itemLd)} />
+    {faqLd && <script type="application/ld+json" is:inline set:html={JSON.stringify(faqLd)} />}
+  </Fragment>
+
+  <main id="main" class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <nav aria-label="Breadcrumb" class="border-b border-border bg-bg">
+      <div class="mx-auto max-w-7xl px-6 py-3.5 text-sm text-ink-muted overflow-x-auto whitespace-nowrap">
+        <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <a href={localizedPath(locale, "/conditions")} class="hover:text-accent">Conditions</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <a href={localizedPath(locale, `/condition/${slug}`)} class="hover:text-accent">{condition.name}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <a href={localizedPath(locale, `/condition/${slug}/doctors`)} class="hover:text-accent">Doctors</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <span class="text-ink" aria-current="page">{country.name}</span>
+      </div>
+    </nav>
+
+    <section class="mx-auto max-w-7xl px-6 pt-10 md:pt-14 pb-8">
+      <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.18em; color: var(--color-accent);">
+        {condition.name} · {country.name}
+      </p>
+      <h1 class="mt-2 display display-tight" style="font-size: clamp(2rem, 4.5vw, 3.5rem); letter-spacing: -0.025em; line-height: 1.02;">
+        Best doctors for {condition.name.toLowerCase()} in {country.name}
+      </h1>
+      <p class="lede mt-5 max-w-[44rem]">
+        {data.total.toLocaleString()} specialists at {country.name} hospitals credentialed for the {data.specialties.length} specialt{data.specialties.length === 1 ? "y" : "ies"} that commonly handle {condition.name.toLowerCase()} — ranked by volume and experience. These are directory listings; your case may need a sub-specialist we'll surface on request.
+      </p>
+      <div class="mt-5 flex flex-wrap items-center gap-3">
+        <LastUpdated updated={new Date()} locale={locale} />
+      </div>
+
+      <div class="mt-6 flex flex-wrap items-center gap-2">
+        <span class="mono uppercase text-[11px]" style="letter-spacing: 0.12em; color: var(--color-ink-subtle);">Scope</span>
+        <a
+          href={localizedPath(locale, `/condition/${slug}/doctors`)}
+          class="rounded-full border border-border bg-surface px-3 py-1 text-[13px] font-medium text-ink hover:border-border-strong"
+        >
+          All destinations
+        </a>
+        {data.specialties.map((s) => (
+          <a
+            href={localizedPath(locale, `/surgeons/${s.slug}/${country.slug}`)}
+            class="rounded-full border border-border bg-surface px-3 py-1 text-[13px] font-medium text-ink hover:border-border-strong"
+          >
+            {s.name} surgeons
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <section class="mx-auto max-w-7xl px-6 pb-10 border-t border-border-soft pt-8">
+      <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {doctors.map((d) => {
+          const nameHasTitle = /^(dr\.?|prof\.?|mr\.?|ms\.?|mrs\.?)\s/i.test(d.name);
+          const titlePrefix = nameHasTitle ? "" : (d.title ?? "Dr.");
+          const fullName = titlePrefix ? `${titlePrefix} ${d.name}` : d.name;
+          return (
+            <li>
+              <a
+                href={localizedPath(locale, `/doctor/${d.slug}`)}
+                class="group flex h-full gap-4 rounded-xl border border-border bg-surface p-4 transition-colors hover:border-border-strong"
+              >
+                <img
+                  src={doctorPortrait({ imageUrl: d.image_url, id: d.id }, 128)}
+                  alt={d.name}
+                  width="64"
+                  height="64"
+                  loading="lazy"
+                  decoding="async"
+                  class="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-border"
+                />
+                <div class="min-w-0 flex-1">
+                  <span class="block font-display text-[17px] leading-tight text-ink group-hover:text-accent line-clamp-1">{fullName}</span>
+                  {d.qualifications && <span class="mt-1 block text-[12.5px] text-ink-muted line-clamp-1">{d.qualifications}</span>}
+                  <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-subtle">
+                    {d.experience_years != null && (
+                      <span class="inline-flex items-center gap-1"><Award className="h-3 w-3 text-accent" />{d.experience_years} yrs</span>
+                    )}
+                    {d.patients_treated != null && d.patients_treated > 0 && (
+                      <span class="inline-flex items-center gap-1"><Users className="h-3 w-3 text-accent" />{d.patients_treated.toLocaleString()}</span>
+                    )}
+                    {d.rating && Number(d.rating) > 0 && (
+                      <span class="inline-flex items-center gap-1"><span class="text-gold-500">★</span><span class="tnum">{Number(d.rating).toFixed(1)}</span></span>
+                    )}
+                  </div>
+                  <div class="mt-2 text-[12px] text-ink-subtle inline-flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />{d.hospital_name} · {d.city}
+                  </div>
+                </div>
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+
+    <section class="mx-auto max-w-7xl px-6 pb-20">
+      <div class="paper p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+        <div class="max-w-[36rem]">
+          <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">Match me to a doctor</p>
+          <h3 class="mt-2 font-display text-2xl md:text-3xl">
+            Want three named {country.name} specialists for your {condition.name.toLowerCase()} case?
+          </h3>
+          <p class="mt-2 text-sm text-ink-muted">
+            Send your reports — we'll match, confirm availability, and come back with a quote in under a day.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-3 shrink-0">
+          <a
+            href={localizedPath(locale, `/second-opinion`)}
+            class="inline-flex items-center rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover"
+          >
+            Get a free second opinion
+          </a>
+          <a
+            href={localizedPath(locale, `/condition/${slug}`)}
+            class="inline-flex items-center rounded-lg border border-border px-5 py-2.5 text-sm font-semibold hover:border-border-strong"
+          >
+            Back to {condition.name}
+            <ChevronRight className="ml-1 h-4 w-4" />
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <HowItWorks
+      heading={`How to find a ${condition.name.toLowerCase()} specialist in ${country.name}`}
+      italicWord={country.name}
+      eyebrow='Specialist matching'
+      steps={[
+        { title: 'Identify the relevant specialty', description: 'The specialists shown above are filtered to those credentialed for this condition. Sub-specialty match within that specialty matters most.' },
+        { title: 'Compare by case volume', description: 'Look for surgeons doing 100+ cases of your specific procedure annually. Volume is the strongest single outcome predictor.' },
+        { title: 'Verify credentials', description: 'Board certification, fellowship training, peer-reviewed publications. Cross-check independently on PubMed.' },
+        { title: 'Schedule consultation', description: 'Video call with top 1-2 candidates. Communication quality during consult predicts case-management quality.' },
+      ]}
+    />
+    <ExploreGrid
+      locale={locale}
+      eyebrow={`${condition.name} · ${country.name}`}
+      heading={`Beyond the shortlist — ${condition.name.toLowerCase()} care in ${country.name}`}
+      lede="Surgeon volume is one factor. These hubs cover the matched specialties, the destination context, and the decision aids."
+      items={[
+        { eyebrow: "Condition", label: `${condition.name} overview`, href: `/condition/${slug}`, hint: "Description, severity grading, treatment paths, watch-fors." },
+        { eyebrow: "Doctors", label: `${condition.name} doctors — all destinations`, href: `/condition/${slug}/doctors`, hint: "The full cross-border specialist directory for this condition." },
+        { eyebrow: "Treatment", label: `${condition.name} treatment in ${country.name}`, href: `/condition/${slug}/${country.slug}`, hint: `Hospitals, pricing and treatment paths in ${country.name}.` },
+        ...(data.specialties[0] ? [{ eyebrow: "Surgeons", label: `${data.specialties[0].name} surgeons in ${country.name}`, href: `/surgeons/${data.specialties[0].slug}/${country.slug}`, hint: `Volume-ranked ${data.specialties[0].name.toLowerCase()} surgeons in ${country.name}.` }] : []),
+        { eyebrow: "Destination", label: `${country.name} hospital hub`, href: `/country/${country.slug}`, hint: `Featured programs and pricing benchmarks across ${country.name}.` },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+      ]}
+    />
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

@@ -9,6 +9,7 @@ import {
 } from "../../../src/lib/db/schema";
 import { asc, eq, sql } from "drizzle-orm";
 import { localizedPath, type Locale } from "@/lib/i18n";
+import { bindChromeT } from "@/lib/chrome-i18n";
 import McLogo from "@/components/McLogo.astro";
 import CompareDock from "@/components/CompareDock.astro";
 
@@ -16,7 +17,7 @@ interface Props {
   locale: Locale;
 }
 const { locale } = Astro.props;
-const isRTL = locale === "ar";
+const t = bindChromeT(locale);
 
 type FooterRow = { slug: string; name: string; count?: number };
 type FooterData = {
@@ -65,81 +66,86 @@ try {
 
 // Static sections — every reachable utility page surfaced here.
 const careLinks = [
-  { href: "/treatments", label: isRTL ? "كل العلاجات" : "All treatments" },
-  { href: "/specialties", label: isRTL ? "التخصصات" : "Specialties" },
-  { href: "/conditions", label: isRTL ? "الحالات" : "Conditions" },
-  { href: "/hospitals", label: isRTL ? "كل المستشفيات" : "All hospitals" },
-  { href: "/doctors", label: isRTL ? "كل الأطباء" : "All doctors" },
-  { href: "/surgeons", label: isRTL ? "أطباء بحسب التخصص" : "Surgeons by specialty" },
-  { href: "/best", label: isRTL ? "الأفضل في..." : "Best of (specialty × country)" },
-  { href: "/countries", label: isRTL ? "كل الوجهات" : "All destinations" },
+  { href: "/treatments", label: t("f.allTreatments") },
+  { href: "/specialties", label: t("nav.specialties") },
+  { href: "/conditions", label: t("nav.conditions") },
+  { href: "/hospitals", label: t("f.allHospitals") },
+  { href: "/doctors", label: t("f.allDoctors") },
+  { href: "/surgeons", label: t("nav.surgeons") },
+  { href: "/best", label: t("nav.bestOf") },
+  { href: "/countries", label: t("f.allDestinations") },
+  { href: "/cities", label: "Cities" },
 ];
 
 const toolsLinks = [
-  { href: "/calculator", label: isRTL ? "حاسبة التكلفة" : "Cost calculator" },
-  { href: "/match-me", label: isRTL ? "ابحث عن المناسب" : "Match me quiz" },
-  { href: "/quote", label: isRTL ? "اطلب عرض سعر" : "Quote builder" },
-  { href: "/quote-plan", label: isRTL ? "اطبع خطتي" : "Print my plan (PDF)" },
-  { href: "/find-specialist", label: isRTL ? "ابحث عن أخصائي" : "Find a specialist" },
-  { href: "/compare/hospitals", label: isRTL ? "قارن المستشفيات" : "Compare hospitals" },
-  { href: "/compare/doctors", label: isRTL ? "قارن الأطباء" : "Compare doctors" },
-  { href: "/compare/treatments", label: isRTL ? "قارن العلاجات" : "Compare treatments" },
-  { href: "/compare/countries", label: isRTL ? "قارن الدول" : "Compare countries" },
-  { href: "/pricing-index", label: isRTL ? "مؤشر الأسعار" : "Price index (data)" },
+  { href: "/calculator", label: t("nav.calculator") },
+  { href: "/match-me", label: t("nav.matchMe") },
+  { href: "/quote", label: t("nav.quote") },
+  { href: "/quote-plan", label: t("nav.quotePlan") },
+  { href: "/find-specialist", label: t("nav.findSpecialist") },
+  { href: "/compare/hospitals", label: t("nav.compareHospitals") },
+  { href: "/compare/doctors", label: t("nav.compareDoctors") },
+  { href: "/compare/treatments", label: t("nav.compareTreatments") },
+  { href: "/compare/countries", label: t("nav.compareCountries") },
+  { href: "/pricing-index", label: t("nav.priceIndex") },
 ];
 
 const patientLinks = [
-  { href: "/second-opinion", label: isRTL ? "رأي ثانٍ مجاني" : "Free 2nd opinion" },
-  { href: "/services", label: isRTL ? "الخدمات" : "Services" },
-  { href: "/qa", label: isRTL ? "أسئلة وأجوبة" : "Q&A" },
-  { href: "/glossary", label: isRTL ? "المصطلحات" : "Glossary" },
-  { href: "/insurance", label: isRTL ? "التأمين" : "Insurance" },
-  { href: "/portal", label: isRTL ? "تتبع حالتي" : "Patient portal · track case" },
-  { href: "/referral", label: isRTL ? "أحل مريضاً" : "Refer a patient" },
-  { href: "/emergency", label: isRTL ? "طوارئ ٢٤/٧" : "Emergency · 24/7" },
-  { href: "/incident-report", label: isRTL ? "بلاغ حادثة" : "Report an incident" },
+  { href: "/second-opinion", label: t("f.secondOpinionShort") },
+  { href: "/services", label: t("f.services") },
+  { href: "/qa", label: t("nav.qa") },
+  { href: "/glossary", label: t("nav.glossary") },
+  { href: "/insurance", label: t("f.insuranceShort") },
+  { href: "/portal", label: t("nav.portal") },
+  { href: "/referral", label: t("f.referShort") },
+  { href: "/emergency", label: t("f.emergencyShort") },
+  { href: "/incident-report", label: t("nav.incident") },
 ];
 
 const companyLinks = [
-  { href: "/about", label: isRTL ? "عن MedCasts" : "About MedCasts" },
-  { href: "/medical-board", label: isRTL ? "اللجنة الطبية" : "Medical review board" },
-  { href: "/editorial-policy", label: isRTL ? "سياسة التحرير" : "Editorial policy" },
-  { href: "/accreditation", label: isRTL ? "الاعتمادات" : "Accreditations" },
-  { href: "/for-hospitals", label: isRTL ? "للمستشفيات" : "For hospitals (B2B)" },
-  { href: "/blog", label: isRTL ? "المدونة" : "Editorial blog" },
-  { href: "/contact", label: isRTL ? "اتصل بنا" : "Contact us" },
+  { href: "/about", label: t("nav.aboutMc") },
+  { href: "/medical-board", label: t("nav.medicalBoard") },
+  { href: "/editorial-policy", label: t("f.editorialShort") },
+  { href: "/accreditation", label: t("f.accreditationShort") },
+  { href: "/for-hospitals", label: t("nav.forHospitals") },
+  { href: "/blog", label: t("nav.blog") },
+  { href: "/contact", label: t("nav.contact") },
 ];
 
 const trustBadges = ["JCI Partner", "ISO 27001", "GDPR", "HIPAA"];
 const year = new Date().getFullYear();
 
+// Origin-country guides — keep in sync with src/pages/[locale]/from/[countrySlug].astro.
+// Surfaced here so /from/ pages always have an inbound link from every page on the site.
+const originGuides = [
+  { slug: "united-kingdom", label: "Travelling from the UK" },
+  { slug: "usa", label: "Travelling from the US" },
+  { slug: "canada", label: "Travelling from Canada" },
+  { slug: "australia", label: "Travelling from Australia" },
+  { slug: "nigeria", label: "Travelling from Nigeria" },
+  { slug: "kenya", label: "Travelling from Kenya" },
+  { slug: "bangladesh", label: "Travelling from Bangladesh" },
+  { slug: "oman", label: "Travelling from Oman" },
+  { slug: "iraq", label: "Travelling from Iraq" },
+  { slug: "ethiopia", label: "Travelling from Ethiopia" },
+  { slug: "uzbekistan", label: "Travelling from Uzbekistan" },
+];
+
 type Column = { heading: string; links: Array<{ href: string; label: string; count?: number }> };
 
 const columns: Column[] = [
+  { heading: t("f.h.care"), links: careLinks },
+  { heading: t("f.h.tools"), links: toolsLinks },
+  { heading: t("f.h.patients"), links: patientLinks },
   {
-    heading: isRTL ? "العلاج" : "Care",
-    links: careLinks,
-  },
-  {
-    heading: isRTL ? "الأدوات" : "Tools",
-    links: toolsLinks,
-  },
-  {
-    heading: isRTL ? "للمرضى" : "Patients",
-    links: patientLinks,
-  },
-  {
-    heading: isRTL ? "الوجهات" : "Destinations",
+    heading: t("f.h.destinations"),
     links: data.countries.map((c) => ({
       href: `/country/${c.slug}`,
       label: c.name,
       count: c.count,
     })),
   },
-  {
-    heading: isRTL ? "الشركة" : "Company",
-    links: companyLinks,
-  },
+  { heading: t("f.h.company"), links: companyLinks },
 ];
 ---
 
@@ -152,24 +158,24 @@ const columns: Column[] = [
     <div class="mx-auto max-w-[1440px] px-7 py-6 flex flex-wrap items-center justify-between gap-5">
       <div class="flex items-center gap-4 flex-wrap">
         <div class="serif" style="font-size: 18px; line-height: 1.3;">
-          {isRTL ? "ابدأ عملياً" : "Start practically"}
+          {t("f.startPractically")}
         </div>
         <div style="height: 16px; width: 1px; background: rgba(246,241,230,0.2);" class="hidden sm:block" />
         <div class="flex flex-wrap gap-2">
           <a href={localizedPath(locale, "/calculator")} class="footer-pill">
-            {isRTL ? "احسب تكلفة" : "Cost calculator"}
+            {t("nav.calculator")}
           </a>
           <a href={localizedPath(locale, "/match-me")} class="footer-pill">
-            {isRTL ? "ابحث عن المناسب" : "Match-me quiz"}
+            {t("f.matchQuiz")}
           </a>
           <a href={localizedPath(locale, "/second-opinion")} class="footer-pill">
-            {isRTL ? "رأي ثانٍ" : "Free 2nd opinion"}
+            {t("f.secondOpinionShort")}
           </a>
           <a href={localizedPath(locale, "/quote")} class="footer-pill">
-            {isRTL ? "اطلب عرض سعر" : "Quote builder"}
+            {t("nav.quote")}
           </a>
           <a href={localizedPath(locale, "/portal")} class="footer-pill">
-            {isRTL ? "تتبع حالتي" : "Track case"}
+            {t("u.trackCase")}
           </a>
         </div>
       </div>
@@ -178,7 +184,7 @@ const columns: Column[] = [
         class="inline-flex items-center gap-1.5 font-medium"
         style="background: var(--color-bg); color: var(--color-ink); padding: 9px 16px; font-size: 13.5px; border-radius: 9999px;"
       >
-        {isRTL ? "اتصل بمنسق" : "Talk to a coordinator"} →
+        {t("f.talkCoordinator")} →
       </a>
     </div>
   </div>
@@ -192,12 +198,10 @@ const columns: Column[] = [
           class="serif"
           style="font-size: 17px; line-height: 1.4; margin-top: 18px; opacity: 0.78; max-width: 280px;"
         >
-          {isRTL ? "بوصلتك في العلاج الطبي العالمي." : "Your compass for global medical care."}
+          {t("f.tagline")}
         </p>
         <p style="font-size: 12.5px; line-height: 1.5; margin-top: 14px; opacity: 0.55; max-width: 280px;">
-          {isRTL
-            ? "نحن منسقون، لسنا أطباء. الحجوزات بدون وسطاء، مع لجنة طبية مستقلة."
-            : "We're coordinators, not clinicians. No middleman markup. Independent medical panel."}
+          {t("f.subTagline")}
         </p>
         <div class="mt-4 flex flex-wrap gap-2">
           {trustBadges.map((b) => (
@@ -249,7 +253,7 @@ const columns: Column[] = [
           {data.specialties.length > 0 && (
             <div>
               <span class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.5; margin-inline-end: 8px;">
-                {isRTL ? "تخصصات شائعة" : "Top specialties"}
+                {t("f.topSpecialties")}
               </span>
               {data.specialties.map((s, i) => (
                 <>
@@ -268,22 +272,39 @@ const columns: Column[] = [
           {data.treatments.length > 0 && (
             <div>
               <span class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.5; margin-inline-end: 8px;">
-                {isRTL ? "علاجات شائعة" : "Popular treatments"}
+                {t("f.popularTreatments")}
               </span>
-              {data.treatments.map((t, i) => (
+              {data.treatments.map((tr, i) => (
                 <>
                   {i > 0 && <span style="opacity: 0.3; margin: 0 8px;">·</span>}
                   <a
-                    href={localizedPath(locale, `/treatment/${t.slug}`)}
+                    href={localizedPath(locale, `/treatment/${tr.slug}`)}
                     style="font-size: 13px; opacity: 0.78;"
                     class="hover:opacity-100"
                   >
-                    {t.name}
+                    {tr.name}
                   </a>
                 </>
               ))}
             </div>
           )}
+          <div>
+            <span class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.5; margin-inline-end: 8px;">
+              Coming from
+            </span>
+            {originGuides.map((og, i) => (
+              <>
+                {i > 0 && <span style="opacity: 0.3; margin: 0 8px;">·</span>}
+                <a
+                  href={localizedPath(locale, `/from/${og.slug}`)}
+                  style="font-size: 13px; opacity: 0.78;"
+                  class="hover:opacity-100"
+                >
+                  {og.label}
+                </a>
+              </>
+            ))}
+          </div>
         </div>
       </div>
     )}
@@ -293,14 +314,14 @@ const columns: Column[] = [
       class="flex flex-col md:flex-row md:items-center md:justify-between gap-3"
       style="font-size: 12px; opacity: 0.6; padding-top: 20px;"
     >
-      <div>© {year} MedCasts · Patient-first medical travel · Not a substitute for medical advice.</div>
+      <div>{t("f.copyright").replace("{year}", String(year))}</div>
       <div class="flex flex-wrap gap-5">
-        <a href={localizedPath(locale, "/privacy-policy")}>Privacy</a>
-        <a href={localizedPath(locale, "/terms")}>Terms</a>
-        <a href={localizedPath(locale, "/editorial-policy")}>Editorial</a>
-        <a href={localizedPath(locale, "/medical-board")}>Medical Board</a>
-        <a href={localizedPath(locale, "/sitemap-browse")}>Site map</a>
-        <a href="/sitemap.xml">XML sitemap</a>
+        <a href={localizedPath(locale, "/privacy-policy")}>{t("f.privacy")}</a>
+        <a href={localizedPath(locale, "/terms")}>{t("f.terms")}</a>
+        <a href={localizedPath(locale, "/editorial-policy")}>{t("f.editorial")}</a>
+        <a href={localizedPath(locale, "/medical-board")}>{t("f.medBoard")}</a>
+        <a href={localizedPath(locale, "/sitemap-browse")}>{t("f.siteMap")}</a>
+        <a href="/sitemap.xml">{t("f.xmlSitemap")}</a>
       </div>
     </div>
   </div>

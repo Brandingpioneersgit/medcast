@@ -1,0 +1,201 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import PriceRange from "@/components/PriceRange.astro";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
+import { getTreatmentComparison } from "@/lib/queries";
+import { COMPARISON_BY_SLUG } from "@/lib/comparisons";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { ChevronRight } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const slug = Astro.params.slug;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/compare/${slug}`, 308);
+if (!slug) return new Response("Not found", { status: 404 });
+const locale = rawLocale as Locale;
+
+let comparison = COMPARISON_BY_SLUG.get(slug);
+// If the reversed pair is whitelisted, 301 to the canonical ordering.
+if (!comparison) {
+  const m = slug.match(/^(.+)-vs-(.+)$/);
+  if (m && COMPARISON_BY_SLUG.has(`${m[2]}-vs-${m[1]}`)) {
+    return Astro.redirect(localizedPath(locale, `/compare/${m[2]}-vs-${m[1]}`), 301);
+  }
+  return new Response("Not found", { status: 404 });
+}
+
+const data = await getTreatmentComparison(comparison.a, comparison.b);
+if (!data) return new Response("Not found", { status: 404 });
+const { a, b } = data;
+
+const tc = getTranslator(locale, "common");
+const path = `/compare/${slug}`;
+const url = localeUrl(locale, path);
+
+const seoTitle = `${a.name} vs ${b.name} — Cost, Recovery & Which to Choose`;
+const seoDescription = comparison.note.slice(0, 158);
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Compare", url: localeUrl(locale, "/compare/treatments") },
+  { name: `${a.name} vs ${b.name}`, url },
+]);
+
+// Comparison rows — pulled from real treatment + pricing data.
+const fmtDays = (d: number | null) => (d == null ? "—" : d === 0 ? "Day case" : `${d} day${d === 1 ? "" : "s"}`);
+const rows = [
+  { label: "Hospital stay", a: fmtDays(a.hospitalStayDays), b: fmtDays(b.hospitalStayDays) },
+  { label: "Recovery time", a: fmtDays(a.recoveryDays), b: fmtDays(b.recoveryDays) },
+  {
+    label: "Reported success rate",
+    a: a.successRatePercent ? `${Number(a.successRatePercent).toFixed(0)}%` : "Varies by case",
+    b: b.successRatePercent ? `${Number(b.successRatePercent).toFixed(0)}%` : "Varies by case",
+  },
+  {
+    label: "Approach",
+    a: a.isMinimallyInvasive ? "Minimally invasive" : (a.procedureType ?? "—"),
+    b: b.isMinimallyInvasive ? "Minimally invasive" : (b.procedureType ?? "—"),
+  },
+  { label: "Anaesthesia", a: a.anesthesiaType ?? "—", b: b.anesthesiaType ?? "—" },
+  {
+    label: "Hospitals offering it",
+    a: a.hospitalCount.toLocaleString(),
+    b: b.hospitalCount.toLocaleString(),
+  },
+];
+
+const untranslated = locale !== "en";
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+  </Fragment>
+
+  <main id="main" class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <nav aria-label="Breadcrumb" class="border-b border-border bg-bg">
+      <div class="mx-auto max-w-6xl px-6 py-3.5 text-sm text-ink-muted">
+        <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <a href={localizedPath(locale, "/treatments")} class="hover:text-accent">Treatments</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <span class="text-ink" aria-current="page">{a.name} vs {b.name}</span>
+      </div>
+    </nav>
+
+    <section class="mx-auto max-w-6xl px-6 pt-10 md:pt-14 pb-8">
+      <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.18em; color: var(--color-accent);">
+        Procedure comparison
+      </p>
+      <h1 class="mt-2 display display-tight" style="font-size: clamp(2rem, 4.5vw, 3.4rem); letter-spacing: -0.025em; line-height: 1.04;">
+        {a.name} <span style="font-style: italic; color: var(--color-ink-subtle);">vs</span> {b.name}
+      </h1>
+      <p class="lede mt-5 max-w-[46rem]">{comparison.note}</p>
+    </section>
+
+    {/* Side-by-side comparison table */}
+    <section class="mx-auto max-w-6xl px-6 pb-10">
+      <div class="overflow-hidden rounded-xl border border-border">
+        <div class="grid grid-cols-3 bg-paper" style="border-bottom: 1px solid var(--color-border);">
+          <div class="p-4 mono uppercase text-[11px]" style="letter-spacing: 0.1em; color: var(--color-ink-subtle);">Factor</div>
+          <div class="p-4 font-display text-[15px] md:text-[17px] border-s border-border">{a.name}</div>
+          <div class="p-4 font-display text-[15px] md:text-[17px] border-s border-border">{b.name}</div>
+        </div>
+        <div class="grid grid-cols-3" style="border-bottom: 1px solid var(--color-border-soft);">
+          <div class="p-4 text-[13px] font-medium" style="color: var(--color-ink-muted);">Estimated cost</div>
+          <div class="p-4 border-s border-border-soft tnum text-[14px]">
+            {a.priceMin ? <PriceRange min={a.priceMin} max={a.priceMax} /> : "On request"}
+          </div>
+          <div class="p-4 border-s border-border-soft tnum text-[14px]">
+            {b.priceMin ? <PriceRange min={b.priceMin} max={b.priceMax} /> : "On request"}
+          </div>
+        </div>
+        {rows.map((r) => (
+          <div class="grid grid-cols-3" style="border-bottom: 1px solid var(--color-border-soft);">
+            <div class="p-4 text-[13px] font-medium" style="color: var(--color-ink-muted);">{r.label}</div>
+            <div class="p-4 border-s border-border-soft text-[14px]">{r.a}</div>
+            <div class="p-4 border-s border-border-soft text-[14px]">{r.b}</div>
+          </div>
+        ))}
+      </div>
+      <p class="mt-3 text-[12px]" style="color: var(--color-ink-subtle);">
+        Cost is a hospital-reported range across destinations; your quote depends on hospital, surgeon and case complexity.
+        Success rates vary by how each program defines and measures them — always ask.
+      </p>
+    </section>
+
+    {/* Which is right for you */}
+    <section class="mx-auto max-w-6xl px-6 pb-12">
+      <h2 class="display-tight mb-5" style="font-size: clamp(1.4rem, 3vw, 2rem); letter-spacing: -0.02em;">
+        Which is right for you?
+      </h2>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="paper p-6" style="border-inline-start: 3px solid var(--color-accent);">
+          <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.13em; color: var(--color-accent);">Choose {a.name}</div>
+          <p class="serif mt-2" style="font-size: 15px; line-height: 1.6; color: var(--color-ink-muted);">{comparison.aWins}</p>
+          <a href={localizedPath(locale, `/treatment/${a.slug}`)} class="mt-4 inline-flex items-center gap-1 text-[13px] font-semibold text-accent hover:underline">
+            {a.name} in detail <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+          </a>
+        </div>
+        <div class="paper p-6" style="border-inline-start: 3px solid var(--color-ocean, var(--color-accent));">
+          <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.13em; color: var(--color-ocean, var(--color-accent));">Choose {b.name}</div>
+          <p class="serif mt-2" style="font-size: 15px; line-height: 1.6; color: var(--color-ink-muted);">{comparison.bWins}</p>
+          <a href={localizedPath(locale, `/treatment/${b.slug}`)} class="mt-4 inline-flex items-center gap-1 text-[13px] font-semibold text-accent hover:underline">
+            {b.name} in detail <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+          </a>
+        </div>
+      </div>
+      <div class="paper mt-4 p-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div class="max-w-[34rem]">
+          <h3 class="font-display text-xl md:text-2xl">Not sure which fits your case?</h3>
+          <p class="mt-1.5 text-sm text-ink-muted">
+            Send your reports — our medical team and a relevant specialist will tell you which procedure
+            your case actually calls for, with hospital options and a quote. No fee.
+          </p>
+        </div>
+        <a
+          href={localizedPath(locale, `/second-opinion`)}
+          class="inline-flex shrink-0 items-center rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover"
+        >
+          Get a free second opinion
+        </a>
+      </div>
+    </section>
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow="Keep comparing"
+      heading="Take the decision further"
+      lede="A procedure comparison is the start. These hubs cover pricing by destination, the ranked hospitals, and the specialists who do both."
+      items={[
+        { eyebrow: "Procedure", label: `${a.name} overview`, href: `/treatment/${a.slug}`, hint: `Cost, recovery, hospitals and outcomes for ${a.name.toLowerCase()}.` },
+        { eyebrow: "Procedure", label: `${b.name} overview`, href: `/treatment/${b.slug}`, hint: `Cost, recovery, hospitals and outcomes for ${b.name.toLowerCase()}.` },
+        ...(a.specialtySlug
+          ? [{ eyebrow: "Specialty", label: `${a.specialtyName} hub`, href: `/specialty/${a.specialtySlug}`, hint: `All programs and surgeons in ${(a.specialtyName ?? "").toLowerCase()}.` }]
+          : []),
+        ...(a.specialtySlug
+          ? [{ eyebrow: "Surgeons", label: `${a.specialtyName} surgeons`, href: `/surgeons/${a.specialtySlug}`, hint: "Volume-ranked physician directory across destinations." }]
+          : []),
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures and destinations." },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions → a specialty, destination and 3-hospital shortlist." },
+        { eyebrow: "Compare", label: "Compare hospitals", href: "/compare/hospitals", hint: "Accreditations, ratings, beds and pricing side by side." },
+        { eyebrow: "Browse", label: "All procedures", href: "/treatments", hint: "Every procedure with success rates, recovery and pricing." },
+      ]}
+    />
+
+    <PageCta locale={locale} />
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

@@ -1,0 +1,232 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import AccreditationLogo from "@/components/AccreditationLogo.astro";
+import { db } from "@/lib/db";
+import { sql } from "drizzle-orm";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, itemListJsonLd } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { hospitalCover } from "@/lib/images";
+import PhotoBlock from "@/components/PhotoBlock.astro";
+import Price from "@/components/Price.astro";
+import { ChevronRight } from "lucide-react";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const code = Astro.params.code;
+const countryParam = Astro.params.country;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/accreditation/${code}/${countryParam}`, 308);
+if (!code || !countryParam) return new Response("Not found", { status: 404 });
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+type AccredRow = { id: number; slug: string; name: string; acronym: string | null; description: string | null; website: string | null };
+const acc = Array.from(
+  (await db
+    .execute(sql`SELECT id, slug, name, acronym, description, website FROM accreditations WHERE slug = ${code}`)
+    .catch(() => [] as unknown[])) as Iterable<AccredRow>,
+)[0] ?? null;
+if (!acc) return new Response(`Not found: ${code}`, { status: 404 });
+
+type CountryRow = { id: number; slug: string; name: string };
+const country = Array.from(
+  (await db
+    .execute(sql`SELECT id, slug, name FROM countries WHERE slug = ${countryParam} AND is_destination = true`)
+    .catch(() => [] as unknown[])) as Iterable<CountryRow>,
+)[0] ?? null;
+if (!country) return new Response(`Not found: ${countryParam}`, { status: 404 });
+
+type HospitalRow = {
+  id: number; slug: string; name: string; coverImageUrl: string | null;
+  rating: string | null; reviewCount: number | null; bedCapacity: number | null;
+  cityName: string | null; accrCount: number; fromUsd: number | null;
+};
+const hospitals = Array.from(
+  (await db.execute(sql`
+    SELECT h.id, h.slug, h.name, h.cover_image_url as "coverImageUrl",
+      h.rating, h.review_count as "reviewCount", h.bed_capacity as "bedCapacity",
+      ci.name as "cityName",
+      (SELECT COUNT(*)::int FROM hospital_accreditations WHERE hospital_id = h.id) as "accrCount",
+      (SELECT MIN(cost_min_usd)::int FROM hospital_treatments WHERE hospital_id = h.id) as "fromUsd"
+    FROM hospitals h
+    INNER JOIN hospital_accreditations ha ON ha.hospital_id = h.id AND ha.accreditation_id = ${acc.id}
+    INNER JOIN cities ci ON ci.id = h.city_id
+    WHERE h.is_active = true AND ci.country_id = ${country.id}
+    ORDER BY h.is_featured DESC NULLS LAST, h.rating DESC NULLS LAST, h.review_count DESC NULLS LAST
+    LIMIT 90
+  `)) as Iterable<HospitalRow>,
+);
+
+// Inventory floor — under 3 accredited hospitals, 301 to the global page.
+if (hospitals.length < 3) {
+  return Astro.redirect(localizedPath(locale, `/accreditation/${code}`), 301);
+}
+
+const FLAG: Record<string, string> = {
+  india: "🇮🇳", turkey: "🇹🇷", thailand: "🇹🇭", uae: "🇦🇪",
+  germany: "🇩🇪", singapore: "🇸🇬", "south-korea": "🇰🇷",
+  malaysia: "🇲🇾", "saudi-arabia": "🇸🇦",
+};
+const flag = FLAG[country.slug] ?? "🌐";
+const label = acc.acronym ?? acc.name;
+const year = new Date().getFullYear();
+
+const seoTitle = `${label}-Accredited Hospitals in ${country.name} (${year})`;
+const seoDescription =
+  `All ${hospitals.length} ${label}-accredited hospitals in ${country.name} for international patients — ranked by rating and review volume, with pricing and city. ${acc.description ?? ""}`.slice(0, 160);
+
+const path = `/accreditation/${code}/${countryParam}`;
+const url = localeUrl(locale, path);
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Accreditations", url: localeUrl(locale, "/accreditation") },
+  { name: label, url: localeUrl(locale, `/accreditation/${code}`) },
+  { name: country.name, url },
+]);
+const itemLd = itemListJsonLd(hospitals.slice(0, 20).map((h) => ({
+  name: h.name,
+  url: localeUrl(locale, `/hospital/${h.slug}`),
+})));
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(itemLd)} />
+  </Fragment>
+
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+    <SiteHeader locale={locale} />
+
+    <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
+      <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+        <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+        <span class="mx-1.5">/</span>
+        <a href={localizedPath(locale, "/accreditation")} class="hover:text-ink">Accreditations</a>
+        <span class="mx-1.5">/</span>
+        <a href={localizedPath(locale, `/accreditation/${code}`)} class="hover:text-ink">{label}</a>
+        <span class="mx-1.5">/</span>
+        <span style="color: var(--color-ink);">{country.name}</span>
+      </nav>
+    </div>
+
+    <section style="padding: 48px 28px;">
+      <div class="mx-auto max-w-[1440px]">
+        <div class="flex items-center gap-3" style="margin-bottom: 6px;">
+          <AccreditationLogo code={acc.acronym ?? acc.slug} title={acc.name} size="lg" showText={false} />
+          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
+            {label} · {country.name}
+          </div>
+        </div>
+        <h1
+          class="display display-tight mt-3"
+          style="font-size: clamp(2.25rem, 5vw, 3.6rem); line-height: 1.02; font-weight: 400; letter-spacing: -0.03em;"
+        >
+          {label}-accredited hospitals in {flag} {country.name}
+        </h1>
+        <p class="serif mt-5" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted); max-width: 720px;">
+          {hospitals.length} hospital{hospitals.length === 1 ? "" : "s"} in {country.name} hold {acc.name}{acc.acronym && acc.acronym !== acc.name ? ` (${acc.acronym})` : ""} accreditation — ranked by patient rating and review volume. {acc.description ?? ""}
+        </p>
+        <div class="mt-5 flex flex-wrap gap-3">
+          <a href={localizedPath(locale, `/accreditation/${code}`)} class="rounded-full border border-border bg-surface px-3.5 py-1.5 text-[13px] font-medium hover:border-border-strong">
+            {label} worldwide
+          </a>
+          <a href={localizedPath(locale, `/country/${country.slug}`)} class="rounded-full border border-border bg-surface px-3.5 py-1.5 text-[13px] font-medium hover:border-border-strong">
+            All {country.name} hospitals
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section style="padding: 8px 28px 80px; border-top: 1px solid var(--color-border);">
+      <div class="mx-auto max-w-[1440px]" style="padding-top: 28px;">
+        <h2 class="display" style="font-size: 26px; letter-spacing: -0.02em; margin-bottom: 22px;">
+          Every {label}-accredited hospital in {country.name}
+        </h2>
+        <ul class="grid gap-5" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
+          {hospitals.map((h) => (
+            <li>
+              <a
+                href={localizedPath(locale, `/hospital/${h.slug}`)}
+                class="paper block overflow-hidden transition hover:-translate-y-0.5"
+                style="padding: 0;"
+              >
+                <PhotoBlock
+                  aspect="16/10"
+                  imgUrl={hospitalCover({ coverImageUrl: h.coverImageUrl, countrySlug: country.slug })}
+                  label={h.name}
+                  rounded={false}
+                />
+                <div style="padding: 18px;">
+                  <div class="mono flex items-center gap-2" style="font-size: 10px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">
+                    <span aria-hidden="true">{flag}</span>
+                    {h.cityName}, {country.name}
+                  </div>
+                  <div class="serif mt-2" style="font-size: 19px; font-weight: 500; letter-spacing: -0.015em;">
+                    {h.name}
+                  </div>
+                  <div class="flex items-center gap-3 flex-wrap mt-3" style="font-size: 12.5px; color: var(--color-ink-muted);">
+                    {h.rating && Number(h.rating) > 0 && (
+                      <span class="inline-flex items-center gap-1">
+                        <span style="color: var(--color-saffron);">★</span>
+                        <span class="tnum">{Number(h.rating).toFixed(1)}</span>
+                      </span>
+                    )}
+                    {h.bedCapacity && <span class="tnum">{h.bedCapacity.toLocaleString()} beds</span>}
+                    <span class="mono" style="font-size: 10px; color: var(--color-ink-subtle);">
+                      {h.accrCount} accreditations
+                    </span>
+                  </div>
+                  {h.fromUsd && (
+                    <div class="flex items-end justify-between mt-4 pt-4" style="border-top: 1px solid var(--color-border-soft);">
+                      <div>
+                        <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">From</div>
+                        <div class="display tnum" style="font-size: 20px;"><Price usd={h.fromUsd} /></div>
+                      </div>
+                      <span
+                        class="inline-flex items-center gap-1"
+                        style="background: var(--color-ink); color: var(--color-bg); padding: 6px 12px; font-size: 12px; font-weight: 500; border-radius: 9999px;"
+                      >
+                        View
+                        <ChevronRight className="h-3 w-3 mirror-x" />
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow={`${label} · ${country.name}`}
+      heading="Keep exploring"
+      lede="Accreditation is one quality signal. Weigh it against pricing, surgeon volume and the destination context."
+      items={[
+        { eyebrow: "Accreditation", label: `${label} worldwide`, href: `/accreditation/${code}`, hint: `Every ${label}-accredited hospital across all destinations, plus what the credential means.` },
+        { eyebrow: "Destination", label: `${country.name} hospital hub`, href: `/country/${country.slug}`, hint: `Featured programs and pricing benchmarks across ${country.name}.` },
+        { eyebrow: "Hospitals", label: `All ${country.name} hospitals`, href: `/hospitals?country=${country.slug}`, hint: "Filter by city, specialty, accreditation, beds, rating." },
+        { eyebrow: "Reference", label: "All accreditation bodies", href: "/accreditation", hint: "JCI, NABH, ISO, KTQ — what each one means clinically." },
+        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds and pricing." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures and destinations." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+      ]}
+    />
+
+    <PageCta locale={locale} />
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>
