@@ -109,25 +109,34 @@ Existing: `/hospitals` `/doctors` `/treatments` `/specialties` `/conditions` `/c
 5. **`noindex` untranslated locales** — keep the `isUntranslated()` guard so 7 English-copy locales don't dilute crawl budget.
 6. **Editorial-tier pages get a named reviewer byline.** T1, T2, C2, C3 are not templated — they need real authorship or they don't ship.
 
-## 7 · Build waves
+## 7 · Build waves — STATUS (updated 2026-05-20)
 
-**Wave 1 — P1 (highest leverage, ~2 weeks):**
-- D1 — city-level surgeon pages (promote the redirect stub) — keyword-backed, ~150 pages
-- H1 — extend `/best/[slug]` to accept city slugs — ~300 pages
-- T1 — procedure comparison pages (curate ~60 pairs) — highest intent
-- L1 — `/cities` directory — closes the crawl-graph gap
+**Wave 1 — P1 — ✅ SHIPPED** (commits `98fd42f`):
+- D1 ✅ city-level surgeon pages — `/surgeons/[specialty]/[city]`
+- H1 ✅ `/best/[slug]` extended to accept city slugs
+- T1 ✅ procedure comparison pages — `/compare/[a]-vs-[b]`, 34 curated pairs
+- L1 ✅ `/cities` directory
 
-**Wave 2 — P2 (~2 weeks):**
-- C1 — country-scoped condition doctors
-- D2 — all-doctors-at-hospital roster
-- H2 — hospital × treatment (top-100 cap)
-- H3 — accreditation × country
-- T2 — recovery guides (needs editorial capacity)
+**Wave 2 — P2 — ✅ SHIPPED** (commit `98fd42f`):
+- C1 ✅ country-scoped condition doctors — `/condition/[slug]/doctors/[country]`
+- D2 ✅ all-doctors-at-hospital roster — `/hospital/[slug]/doctors`
+- H2 ✅ hospital × treatment — `/hospital/[slug]/treatment/[t]` (top-150 cap)
+- H3 ✅ accreditation × country — `/accreditation/[code]/[country]`
+- T2 ✅ recovery guides — `/treatment/[slug]/recovery`, 113 pages
 
-**Wave 3 — P3 / conditional:**
-- T3, C2, L2, L3 — build only if Search Console data justifies; several overlap existing pages
-- C3 (symptom pages) — held pending clinician review capacity
-- D3 — likely folded into doctor page, not a separate route
+Plus data fix `a207172`: backfilled `condition_specialties` for 5 orphan conditions.
+
+**Wave 3 — disposition (closed 2026-05-20):**
+- T3 ✅ **SHIPPED** (commit after `98fd42f`) — `/specialty/[slug]/[country]` specialty×country hub. It's distinct enough from `/best/` (a full hub vs a ranked list) to be its own page; 98 indexable pairs.
+- C2 ❌ **WON'T BUILD** — `/condition/[slug]/treatment-options` duplicates the treatment list already on the `/condition/[slug]` detail page. Folded, not a separate route.
+- C3 ⏸ **HELD** — `/symptom/[slug]` symptom pages. Templated symptom pages on a YMYL medical site are a thin-content / doorway-page liability. Build only when a clinician can review each one — a deliberate quality decision, not a backlog miss.
+- L2 ❌ **WON'T BUILD** — promoting the `/hospitals/specialty/[slug]` redirect stub is redundant now that `/specialty/[slug]`, `/specialty/[slug]/[country]` (T3) and `/best/[specialty]-in-[country]` all own the specialty intent.
+- L3 ❌ **WON'T BUILD** — `/treatments/[specialtySlug]` duplicates the treatment list on `/specialty/[slug]`.
+- D3 ❌ **WON'T BUILD as a route** — patient reviews render as a section on `/doctor/[slug]`; a standalone `/doctor/[slug]/reviews` isn't warranted at current review volume.
+
+**All planned page work is complete.** The won't-build items are closed deliberately — building them would duplicate existing pages or create thin-content SEO risk, against the §6 doorway-page guardrails.
+
+## 8 · Shared infrastructure these need
 
 ## 8 · Shared infrastructure these need
 
