@@ -25,6 +25,7 @@ if (!slug || !placeSlug) return new Response("Not found", { status: 404 });
 
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tCnp = getTranslator(locale, "conditionPlacePage");
 
 const data = await getConditionPlaceData(slug, placeSlug);
 if (!data) return new Response("Not found", { status: 404 });
@@ -101,6 +102,7 @@ const seoTitle = (mode === "country"
 const seoDescription = priceRange
   ? `${condition.name} treatment in ${placeName} starts from $${priceRange.min.toLocaleString()} across ${hospitalsLocal.length} accredited hospital${hospitalsLocal.length === 1 ? "" : "s"}. ${totalTreatmentOptions} treatment option${totalTreatmentOptions === 1 ? "" : "s"} reviewed by named clinicians.`
   : `${condition.name} treatment options in ${placeName}. Compare accredited hospitals and request a free itemized quote.`;
+// SEO strings above intentionally remain English-only (meta tags)
 
 const crumbsLd = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
@@ -193,7 +195,7 @@ Astro.response.headers.set(
         class="mono mx-auto max-w-[1440px] px-7 md:px-10 flex items-center gap-2 flex-wrap py-4"
         style="font-size: 12px; color: var(--color-ink-subtle);"
       >
-        <a href={localizedPath(locale, "/conditions")} class="hover:text-ink">Conditions</a>
+        <a href={localizedPath(locale, "/conditions")} class="hover:text-ink">{tCnp("breadcrumbConditions")}</a>
         <ChevronRight size={12} />
         <a href={localizedPath(locale, `/condition/${slug}`)} class="hover:text-ink">{condition.name}</a>
         <ChevronRight size={12} />
@@ -215,7 +217,7 @@ Astro.response.headers.set(
               class="display display-tight"
               style="font-size: clamp(2.5rem, 5.5vw, 4.25rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em;"
             >
-              {condition.name} treatment in
+              {condition.name} {tCnp("heroTreatmentIn")}
               <span style="font-style: italic;"> {flag} {placeName}</span>
             </h1>
             <p
@@ -224,7 +226,7 @@ Astro.response.headers.set(
             >
               {condition.description
                 ? condition.description.split("\n\n")[0].slice(0, 280)
-                : `Compare ${hospitalsLocal.length} accredited hospital${hospitalsLocal.length === 1 ? "" : "s"} treating ${condition.name} in ${placeName}, including costs, surgeon volumes, and recovery windows.`}
+                : tCnp("heroFallbackDesc").replace("{count}", String(hospitalsLocal.length)).replace("{hospital}", hospitalsLocal.length === 1 ? tCnp("heroFallbackHospital") : tCnp("heroFallbackHospitals")).replace("{condition}", condition.name).replace("{place}", placeName)}
             </p>
 
             {/* Stat ribbon */}
@@ -233,11 +235,11 @@ Astro.response.headers.set(
               style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); border-top: 1px solid var(--color-ink); border-bottom: 1px solid var(--color-border);"
             >
               {[
-                priceRange && { l: "Starting price", v: `$${priceRange.min.toLocaleString()}` },
-                { l: "Hospitals", v: hospitalsLocal.length.toString() },
-                { l: "Treatment options", v: totalTreatmentOptions.toString() },
-                minRecovery && maxRecovery && { l: "Recovery window", v: `${minRecovery}–${maxRecovery} days` },
-                avgSuccessRate && { l: "Avg success rate", v: `${avgSuccessRate}%` },
+                priceRange && { l: tCnp("statStartingPrice"), v: `$${priceRange.min.toLocaleString()}` },
+                { l: tCnp("statHospitals"), v: hospitalsLocal.length.toString() },
+                { l: tCnp("statTreatmentOptions"), v: totalTreatmentOptions.toString() },
+                minRecovery && maxRecovery && { l: tCnp("statRecoveryWindow"), v: tCnp("statRecoveryDays").replace("{min}", String(minRecovery)).replace("{max}", String(maxRecovery)) },
+                avgSuccessRate && { l: tCnp("statAvgSuccessRate"), v: `${avgSuccessRate}%` },
               ].filter(Boolean).slice(0, 4).map((s: any, i: number) => (
                 <div style={i === 0
                   ? {paddingInline: "18px"}
@@ -254,10 +256,10 @@ Astro.response.headers.set(
           <aside class="lg:sticky lg:top-32 lg:self-start">
             <div class="paper" style="padding: 22px;">
               <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">
-                Free panel review
+                {tCnp("quotePanelEyebrow")}
               </div>
               <div class="display mt-1.5" style="font-size: 22px; line-height: 1.2; letter-spacing: -0.02em;">
-                For {condition.name} in {placeCountryName}
+                {tCnp("quotePanelFor")} {condition.name} in {placeCountryName}
               </div>
               {priceRange && (
                 <div class="flex items-baseline gap-2 mt-3">
@@ -270,7 +272,7 @@ Astro.response.headers.set(
                 class="inline-flex items-center justify-center gap-2 w-full font-semibold mt-4"
                 style="background: var(--color-accent); color: #FFF; padding: 14px 22px; font-size: 15px; border-radius: 9999px;"
               >
-                Get 3 free quotes
+                {tCnp("quoteBtn")}
                 <ChevronRight className="h-3.5 w-3.5 mirror-x" />
               </a>
               <a
@@ -278,11 +280,11 @@ Astro.response.headers.set(
                 class="inline-flex items-center justify-center gap-2 w-full font-medium mt-2.5"
                 style="background: transparent; color: var(--color-ink); border: 1px solid var(--color-border); padding: 12px 22px; font-size: 14px; border-radius: 9999px;"
               >
-                Free 2nd opinion (48 hr)
+                {tCnp("secondOpinionBtn")}
               </a>
               <div class="flex items-center gap-2 mt-4 mono justify-center" style="font-size: 11px; color: var(--color-ink-subtle);">
                 <span style="width: 6px; height: 6px; border-radius: 50%; background: #10B981;" />
-                Case manager replies in ~9 min
+                {tCnp("caseManagerReply")}
               </div>
             </div>
           </aside>
@@ -297,10 +299,10 @@ Astro.response.headers.set(
           <div class="flex items-end justify-between flex-wrap gap-4 mb-8">
             <div>
               <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent); margin-bottom: 8px;">
-                Treatment options
+                {tCnp("treatmentsEyebrow")}
               </div>
               <h2 class="display" style="font-size: clamp(1.75rem, 3.4vw, 2.5rem); line-height: 1.05; font-weight: 400; letter-spacing: -0.02em;">
-                How {condition.name} is treated in <span style="font-style: italic;">{placeName}</span>
+                {tCnp("treatmentsHeading").replace("{condition}", condition.name).replace("{place}", "")} <span style="font-style: italic;">{placeName}</span>
               </h2>
             </div>
             {primaryTreatment && (
@@ -309,7 +311,7 @@ Astro.response.headers.set(
                 class="inline-flex items-center gap-1 text-sm"
                 style="color: var(--color-accent);"
               >
-                Most common: {primaryTreatment.name} →
+                {tCnp("treatmentsMostCommon").replace("{name}", primaryTreatment.name)}
               </a>
             )}
           </div>
@@ -323,7 +325,7 @@ Astro.response.headers.set(
                   style="padding: 22px; box-shadow: var(--shadow-xs); height: 100%;"
                 >
                   {t.isPrimary && (
-                    <span class="mono" style="display: inline-block; font-size: 9.5px; padding: 2px 7px; background: var(--color-accent); color: #FFF; border-radius: 3px; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px;">First-line</span>
+                    <span class="mono" style="display: inline-block; font-size: 9.5px; padding: 2px 7px; background: var(--color-accent); color: #FFF; border-radius: 3px; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px;">{tCnp("treatmentFirstLine")}</span>
                   )}
                   <div class="serif" style="font-size: 19px; font-weight: 500; letter-spacing: -0.01em; color: var(--color-ink);">{t.name}</div>
                   {t.specialty && (
@@ -332,19 +334,19 @@ Astro.response.headers.set(
                   <div class="grid gap-2 mt-4" style="grid-template-columns: 1fr 1fr;">
                     {t.hospitalStayDays && (
                       <div>
-                        <div class="mono" style="font-size: 9px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">Stay</div>
-                        <div class="tnum" style="font-size: 14px; margin-top: 2px;">{t.hospitalStayDays} days</div>
+                        <div class="mono" style="font-size: 9px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">{tCnp("treatmentStayLabel")}</div>
+                        <div class="tnum" style="font-size: 14px; margin-top: 2px;">{t.hospitalStayDays} {tCnp("daysUnit")}</div>
                       </div>
                     )}
                     {t.recoveryDays && (
                       <div>
-                        <div class="mono" style="font-size: 9px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">Recovery</div>
-                        <div class="tnum" style="font-size: 14px; margin-top: 2px;">~{t.recoveryDays} days</div>
+                        <div class="mono" style="font-size: 9px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">{tCnp("treatmentRecoveryLabel")}</div>
+                        <div class="tnum" style="font-size: 14px; margin-top: 2px;">~{t.recoveryDays} {tCnp("daysUnit")}</div>
                       </div>
                     )}
                   </div>
                   <div class="mono mt-4" style="font-size: 11px; color: var(--color-accent);">
-                    See {t.name} pricing in {placeName} →
+                    {tCnp("treatmentSeePricing").replace("{name}", t.name).replace("{place}", placeName)}
                   </div>
                 </a>
               </li>
@@ -360,15 +362,14 @@ Astro.response.headers.set(
         <div class="mx-auto max-w-[1440px]">
           <div class="flex items-end justify-between flex-wrap gap-4 mb-7">
             <h2 class="display" style="font-size: 32px; letter-spacing: -0.02em;">
-              Top {placeName} hospitals for {condition.name},
-              <span style="font-style: italic;"> ranked by value</span>
+              {tCnp("hospitalsHeading").replace("{place}", placeName).replace("{condition}", condition.name)}
             </h2>
             <a
               href={localizedPath(locale, `/condition/${slug}/doctors`)}
               class="inline-flex items-center gap-1 text-sm"
               style="color: var(--color-accent);"
             >
-              See all specialists →
+              {tCnp("hospitalsSeeAllSpecialists")}
             </a>
           </div>
 
@@ -396,15 +397,15 @@ Astro.response.headers.set(
                   </div>
                 </div>
                 <div>
-                  <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">From</div>
+                  <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">{tCnp("hospitalsColFrom")}</div>
                   <div class="display tnum mt-0.5" style="font-size: 19px;">
                     {h.fromUsd ? `$${Number(h.fromUsd).toLocaleString()}` : "—"}
                   </div>
                 </div>
                 <div>
-                  <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">Treatments</div>
+                  <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">{tCnp("hospitalsColTreatments")}</div>
                   <div class="tnum mt-1" style="font-size: 14px;">
-                    {h.treatmentsOffered} of {totalTreatmentOptions}
+                    {h.treatmentsOffered} {tCnp("hospitalsColOf")} {totalTreatmentOptions}
                   </div>
                 </div>
                 <div>
@@ -422,7 +423,7 @@ Astro.response.headers.set(
                   class="inline-flex items-center gap-1 font-semibold"
                   style="background: var(--color-ink); color: var(--color-bg); padding: 8px 14px; font-size: 12.5px; border-radius: 9999px;"
                 >
-                  Quote
+                  {tCnp("hospitalsColQuote")}
                   <ChevronRight className="h-3.5 w-3.5 mirror-x" />
                 </a>
               </div>
@@ -434,17 +435,17 @@ Astro.response.headers.set(
       <section style="padding: 64px 28px; background: var(--color-paper); border-top: 1px solid var(--color-border);">
         <div class="mx-auto max-w-[1120px] text-center">
           <h2 class="display" style="font-size: 28px; letter-spacing: -0.02em;">
-            No matched hospitals in {placeName} <span style="font-style: italic;">yet</span>.
+            {tCnp("emptyStateHeading").replace("{place}", placeName)}
           </h2>
           <p class="serif mt-3" style="font-size: 17px; color: var(--color-ink-muted); max-width: 560px; margin-inline: auto;">
-            Our coordinators can still match you to a panel hospital that treats {condition.name} — share your case and we'll send a written shortlist within 48 hours.
+            {tCnp("emptyStateBody").replace("{condition}", condition.name)}
           </p>
           <a
             href={localizedPath(locale, `/contact?condition=${slug}&country=${placeCountrySlug || placeSlug}`)}
             class="inline-flex items-center gap-2 font-semibold mt-6"
             style="background: var(--color-accent); color: #FFF; padding: 13px 22px; font-size: 14px; border-radius: 9999px;"
           >
-            Request a panel match
+            {tCnp("emptyStateCta")}
             <ChevronRight className="h-3.5 w-3.5 mirror-x" />
           </a>
         </div>
@@ -458,10 +459,10 @@ Astro.response.headers.set(
           <div class="flex items-end justify-between flex-wrap gap-4 mb-6">
             <div>
               <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent); margin-bottom: 8px;">
-                Specialists in {placeCountryName}
+                {tCnp("specialistsEyebrow").replace("{place}", placeCountryName)}
               </div>
               <h2 class="display" style="font-size: 28px; letter-spacing: -0.02em;">
-                Surgeons treating <span style="font-style: italic;">{condition.name}</span>
+                {tCnp("specialistsHeading").replace("{condition}", "")} <span style="font-style: italic;">{condition.name}</span>
               </h2>
             </div>
             <a
@@ -469,7 +470,7 @@ Astro.response.headers.set(
               class="inline-flex items-center gap-1 text-sm"
               style="color: var(--color-accent);"
             >
-              All specialists →
+              {tCnp("specialistsAllLink")}
             </a>
           </div>
           <ul class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));">
@@ -488,7 +489,7 @@ Astro.response.headers.set(
                   </div>
                   {d.experienceYears && (
                     <div class="mono mt-3" style="font-size: 11px; color: var(--color-ink-2);">
-                      {d.experienceYears}+ years experience
+                      {tCnp("specialistExperience").replace("{years}", String(d.experienceYears))}
                     </div>
                   )}
                 </a>
@@ -504,9 +505,9 @@ Astro.response.headers.set(
       <div class="mx-auto max-w-[1120px]">
         <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
           <div>
-            <div class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">FAQ</div>
+            <div class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">{tCnp("faqEyebrow")}</div>
             <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
-              {condition.name} in {placeName} — common questions
+              {tCnp("faqHeading").replace("{condition}", condition.name).replace("{place}", placeName)}
             </h2>
           </div>
           <div class="divide-y" style="border-color: var(--color-border-soft);">
@@ -528,13 +529,12 @@ Astro.response.headers.set(
     <section style="padding: 72px 28px; background: var(--color-ink); color: var(--color-bg);">
       <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
-          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7;">Ready to plan</div>
+          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7;">{tCnp("ctaEyebrow")}</div>
           <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.05; letter-spacing: -0.025em; font-weight: 400;">
-            Get 3 itemized quotes for {condition.name} in {placeName}
-            <span style="font-style: italic;"> this week.</span>
+            {tCnp("ctaHeading").replace("{condition}", condition.name).replace("{place}", placeName)}
           </h2>
           <p class="serif mt-4" style="font-size: 17px; line-height: 1.55; max-width: 560px; opacity: 0.85;">
-            Share your imaging or current plan. A named case manager shortlists 3 hospitals and returns an itemized quote + travel plan in under 48 hours.
+            {tCnp("ctaBody")}
           </p>
         </div>
         <div class="flex flex-wrap gap-3">
@@ -543,7 +543,7 @@ Astro.response.headers.set(
             class="inline-flex items-center gap-2 font-semibold"
             style="background: var(--color-accent); color: #FFF; padding: 13px 22px; font-size: 15px; border-radius: 9999px;"
           >
-            Request quotes
+            {tCnp("ctaRequestQuotes")}
             <ChevronRight className="h-4 w-4 mirror-x" />
           </a>
           <a
@@ -551,21 +551,21 @@ Astro.response.headers.set(
             class="inline-flex items-center gap-2 font-semibold"
             style="background: transparent; color: var(--color-bg); border: 1px solid rgba(246,241,230,0.3); padding: 13px 22px; font-size: 15px; border-radius: 9999px;"
           >
-            Free 2nd opinion
+            {tCnp("ctaSecondOpinion")}
           </a>
         </div>
       </div>
     </section>
 
     <HowItWorks
-      heading='How to evaluate care for this condition in this destination'
-      italicWord='this destination'
-      eyebrow='Destination evaluation'
+      heading={tCnp("howItWorksHeading")}
+      italicWord={tCnp("howItWorksItalicWord")}
+      eyebrow={tCnp("howItWorksEyebrow")}
       steps={[
-        { title: 'Match destination strength to condition', description: 'Some destinations excel at specific conditions. Verify the destination has high-volume programs for your specific case type.' },
-        { title: 'Compare hospital options', description: 'From the hospitals shown above, narrow to 2-3 candidates with strong sub-specialty match.' },
-        { title: 'Request itemized quotes', description: "Quotes from 2-3 hospitals enable real comparison. Generic 'package' quotes hide what's included." },
-        { title: 'Plan logistics', description: 'Visa, flights, accommodation, recovery support. Plan around the recovery window for this condition.' },
+        { title: tCnp("howItWorksStep1Title"), description: tCnp("howItWorksStep1Desc") },
+        { title: tCnp("howItWorksStep2Title"), description: tCnp("howItWorksStep2Desc") },
+        { title: tCnp("howItWorksStep3Title"), description: tCnp("howItWorksStep3Desc") },
+        { title: tCnp("howItWorksStep4Title"), description: tCnp("howItWorksStep4Desc") },
       ]}
     />
     <ExploreGrid
@@ -574,18 +574,18 @@ Astro.response.headers.set(
       heading={`Continue evaluating ${condition.name.toLowerCase()} care`}
       lede={`Destination is one variable. These hubs widen the search by specialty, by surgeon, by treatment, and by alternative destinations.`}
       items={[
-        { eyebrow: "Condition", label: `${condition.name} overview`, href: `/condition/${slug}`, hint: "Description, severity grading, treatment paths." },
-        { eyebrow: "Surgeons", label: `Doctors who treat ${condition.name}`, href: `/condition/${slug}/doctors`, hint: "Volume-ranked specialists across relevant specialties." },
-        ...(primaryTreatment ? [{ eyebrow: "Procedure", label: `${primaryTreatment.name} hub`, href: `/treatment/${primaryTreatment.slug}`, hint: "First-line treatment for this condition." }] : []),
-        ...(primaryTreatment && placeCountrySlug ? [{ eyebrow: "Cost", label: `${primaryTreatment.name} cost in ${placeCountryName}`, href: `/treatment/${primaryTreatment.slug}/${placeCountrySlug}`, hint: "Per-hospital pricing in this destination." }] : []),
-        ...(conditionSpecialties[0] ? [{ eyebrow: "Specialty", label: `${conditionSpecialties[0].name} hub`, href: `/specialty/${conditionSpecialties[0].slug}`, hint: `Programs and surgeons across ${conditionSpecialties[0].name.toLowerCase()}.` }] : []),
-        ...(conditionSpecialties[1] ? [{ eyebrow: "Specialty", label: `${conditionSpecialties[1].name}`, href: `/specialty/${conditionSpecialties[1].slug}`, hint: "Alternative specialty involved in care for this condition." }] : []),
-        ...(placeCountrySlug && placeCountryName ? [{ eyebrow: "Destination", label: `${placeCountryName} hospital hub`, href: `/country/${placeCountrySlug}`, hint: `Featured programs and pricing benchmarks across ${placeCountryName}.` }] : []),
-        ...(placeCountrySlug ? [{ eyebrow: "Visa", label: `${placeCountryName} medical visa`, href: `/visa/${placeCountrySlug}`, hint: "Documents, processing time, embassy guidance." }] : []),
-        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, and pricing." },
-        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+        { eyebrow: tCnp("exploreEyebrowConditionOverview"), label: tCnp("exploreConditionOverviewLabel").replace("{condition}", condition.name), href: `/condition/${slug}`, hint: tCnp("exploreConditionOverviewHint") },
+        { eyebrow: tCnp("exploreSurgeonsEyebrow"), label: tCnp("exploreSurgeonsLabel").replace("{condition}", condition.name), href: `/condition/${slug}/doctors`, hint: tCnp("exploreSurgeonsHint") },
+        ...(primaryTreatment ? [{ eyebrow: tCnp("exploreProcedureEyebrow"), label: tCnp("exploreProcedureLabel").replace("{treatment}", primaryTreatment.name), href: `/treatment/${primaryTreatment.slug}`, hint: tCnp("exploreProcedureHint") }] : []),
+        ...(primaryTreatment && placeCountrySlug ? [{ eyebrow: tCnp("exploreCostEyebrow"), label: tCnp("exploreCostLabel").replace("{treatment}", primaryTreatment.name).replace("{place}", placeCountryName), href: `/treatment/${primaryTreatment.slug}/${placeCountrySlug}`, hint: tCnp("exploreCostHint") }] : []),
+        ...(conditionSpecialties[0] ? [{ eyebrow: tCnp("exploreSpecialtyEyebrow"), label: tCnp("exploreSpecialty1Label").replace("{specialty}", conditionSpecialties[0].name), href: `/specialty/${conditionSpecialties[0].slug}`, hint: tCnp("exploreSpecialty1Hint").replace("{specialty}", conditionSpecialties[0].name.toLowerCase()) }] : []),
+        ...(conditionSpecialties[1] ? [{ eyebrow: tCnp("exploreSpecialtyEyebrow"), label: conditionSpecialties[1].name, href: `/specialty/${conditionSpecialties[1].slug}`, hint: tCnp("exploreSpecialty2Hint") }] : []),
+        ...(placeCountrySlug && placeCountryName ? [{ eyebrow: tCnp("exploreDestinationEyebrow"), label: tCnp("exploreDestinationLabel").replace("{place}", placeCountryName), href: `/country/${placeCountrySlug}`, hint: tCnp("exploreDestinationHint").replace("{place}", placeCountryName) }] : []),
+        ...(placeCountrySlug ? [{ eyebrow: tCnp("exploreVisaEyebrow"), label: tCnp("exploreVisaLabel").replace("{place}", placeCountryName), href: `/visa/${placeCountrySlug}`, hint: tCnp("exploreVisaHint") }] : []),
+        { eyebrow: tCnp("exploreCompareEyebrow"), label: tCnp("exploreCompareLabel"), href: "/compare/hospitals", hint: tCnp("exploreCompareHint") },
+        { eyebrow: tCnp("exploreToolEyebrow"), label: tCnp("exploreMatchMeLabel"), href: "/match-me", hint: tCnp("exploreMatchMeHint") },
+        { eyebrow: tCnp("exploreToolEyebrow"), label: tCnp("exploreCalculatorLabel"), href: "/calculator", hint: tCnp("exploreCalculatorHint") },
+        { eyebrow: tCnp("exploreActionEyebrow"), label: tCnp("exploreSecondOpinionLabel"), href: "/second-opinion", hint: tCnp("exploreSecondOpinionHint") },
       ]}
     />
 

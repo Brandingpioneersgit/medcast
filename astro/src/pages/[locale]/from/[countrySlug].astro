@@ -475,7 +475,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
           <div class="relative paper-flat overflow-hidden" style="aspect-ratio: 4/5; border-radius: var(--radius-lg);">
             <img
               src={patientHero(`from-${countrySlug}`, regionForCountry(countrySlug), 600)}
-              alt={`Patients from ${data.name}`}
+              alt={tFr("heroImgAlt").replace("{country}", data.name)}
               width="600"
               height="750"
               loading="eager"
@@ -578,41 +578,40 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8 py-14">
         <div class="grid gap-10 lg:grid-cols-2 lg:items-center">
           <div>
-            <p class="mono uppercase mb-3" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">Check your policy</p>
-            <h2 class="display" style="font-size: 32px; letter-spacing: -0.02em;">Does your insurer cover treatment abroad?</h2>
+            <p class="mono uppercase mb-3" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">{tFr("coverageCheckEyebrow")}</p>
+            <h2 class="display" style="font-size: 32px; letter-spacing: -0.02em;">{tFr("coverageCheckHeading")}</h2>
             <p class="mt-4" style="font-size: 15px; color: var(--color-ink-muted); line-height: 1.6;">
-              Send us your policy schedule or insurer name and we'll tell you within 24 hours
-              what's covered, what's excluded, and what pre-authorisation you need.
+              {tFr("coverageCheckBody")}
             </p>
           </div>
           <div class="paper" style="padding: 24px; box-shadow: var(--shadow-md);">
-            <p class="mono uppercase mb-4" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Get a coverage check</p>
+            <p class="mono uppercase mb-4" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tFr("formEyebrow")}</p>
             <form id="from-inquiry-form" class="space-y-4">
               <input type="hidden" name="source" value={`/from/${countrySlug}`} />
               <div>
-                <label class="block text-sm font-medium mb-1" style="color: var(--color-ink-muted);">Name *</label>
+                <label class="block text-sm font-medium mb-1" style="color: var(--color-ink-muted);">{tFr("formLabelName")}</label>
                 <input type="text" name="name" required autocomplete="name" class="w-full px-4 py-3 border rounded-lg text-sm" style="border-color: var(--color-border);" />
               </div>
               <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <label class="block text-sm font-medium mb-1" style="color: var(--color-ink-muted);">Email</label>
+                  <label class="block text-sm font-medium mb-1" style="color: var(--color-ink-muted);">{tFr("formLabelEmail")}</label>
                   <input type="email" name="email" autocomplete="email" class="w-full px-4 py-3 border rounded-lg text-sm" style="border-color: var(--color-border);" />
                 </div>
                 <div>
-                  <label class="block text-sm font-medium mb-1" style="color: var(--color-ink-muted);">Phone *</label>
+                  <label class="block text-sm font-medium mb-1" style="color: var(--color-ink-muted);">{tFr("formLabelPhone")}</label>
                   <input type="tel" name="phone" required autocomplete="tel" class="w-full px-4 py-3 border rounded-lg text-sm" style="border-color: var(--color-border);" />
                 </div>
               </div>
               <div>
-                <label class="block text-sm font-medium mb-1" style="color: var(--color-ink-muted);">Insurance provider or policy details</label>
-                <input type="text" name="condition" placeholder="e.g. Bupa Global, policy number, or 'not sure'" class="w-full px-4 py-3 border rounded-lg text-sm" style="border-color: var(--color-border);" />
+                <label class="block text-sm font-medium mb-1" style="color: var(--color-ink-muted);">{tFr("formLabelInsurer")}</label>
+                <input type="text" name="condition" placeholder={tFr("formPlaceholderInsurer")} class="w-full px-4 py-3 border rounded-lg text-sm" style="border-color: var(--color-border);" />
               </div>
               <div id="from-submit-result" class="hidden p-4 rounded-xl text-center" style="background: var(--color-accent-soft);">
-                <p class="font-semibold" style="color: var(--color-accent);">Request received!</p>
-                <p class="mt-1 text-sm" style="color: var(--color-ink-muted);">We'll review your policy and respond within 24 hours.</p>
+                <p class="font-semibold" style="color: var(--color-accent);">{tFr("formSuccessTitle")}</p>
+                <p class="mt-1 text-sm" style="color: var(--color-ink-muted);">{tFr("formSuccessBody")}</p>
               </div>
               <button type="submit" class="w-full py-3.5 rounded-lg font-semibold transition-colors" style="background: var(--color-accent); color: var(--color-bg);">
-                Check my coverage
+                {tFr("formSubmitBtn")}
               </button>
             </form>
           </div>
@@ -623,8 +622,8 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
     <!-- FAQs -->
     <section class="py-14">
       <div class="mx-auto w-full max-w-[60rem] px-5 md:px-8">
-        <p class="mono uppercase mb-3" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">04 · FAQ</p>
-        <h2 class="display mb-6" style="font-size: 32px; letter-spacing: -0.02em;">Common questions from {data.name} patients.</h2>
+        <p class="mono uppercase mb-3" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">{tFr("faqEyebrow")}</p>
+        <h2 class="display mb-6" style="font-size: 32px; letter-spacing: -0.02em;">{tFr("faqHeading").replace("{country}", data.name)}</h2>
         <div style="border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border);">
           {data.faqs.map((f, i) => (
             <details class="group py-5" style={i > 0 ? {borderTop: "1px solid var(--color-border-soft)"} : {}}>
@@ -642,55 +641,54 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
     <!-- CTA -->
     <section class="py-14">
       <div class="mx-auto w-full max-w-[60rem] px-5 md:px-8 text-center">
-        <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">No commitment</p>
+        <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">{tFr("ctaEyebrow")}</p>
         <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -0.025em; line-height: 1.05;">
-          Tell us your procedure <span class="italic-display">and we'll quote it.</span>
+          {tFr("ctaHeading")} <span class="italic-display">{tFr("ctaHeadingItalic")}</span>
         </h2>
         <p class="serif mt-4 max-w-[36rem] mx-auto" style="font-size: 17px; line-height: 1.5; color: var(--color-ink-muted);">
-          Share your diagnosis or referral letter — we'll shortlist hospitals,
-          give you transparent pricing, and tell you exactly when you could be treated.
+          {tFr("ctaBody")}
         </p>
         <div class="mt-7 flex flex-wrap justify-center gap-3">
           <a href={localizedPath(locale, "/contact")} class="inline-flex items-center gap-2 font-semibold px-6 py-3 rounded-full" style="background: var(--color-accent); color: var(--color-bg);">
-            Get my fast quote
+            {tFr("ctaBtnPrimary")}
           </a>
           <a href={localizedPath(locale, "/calculator")} class="inline-flex items-center gap-2 font-semibold px-6 py-3 rounded-full border transition-colors hover:border-ink" style="border-color: var(--color-border); color: var(--color-ink);">
-            Use the cost calculator
+            {tFr("ctaBtnSecondary")}
           </a>
         </div>
       </div>
     </section>
 
     <HowItWorks
-      heading='How patients from this country approach medical travel'
-      italicWord='approach medical travel'
-      eyebrow='Source-country guidance'
+      heading={tFr("howHeading")}
+      italicWord={tFr("howItalicWord")}
+      eyebrow={tFr("howEyebrow")}
       steps={[
-        { title: 'Common destinations from your country', description: 'Patients from your country often travel to specific destinations based on flight time, language, cultural fit.' },
-        { title: 'Cost reality vs domestic', description: 'Compare with what equivalent care costs in your home country. International savings are typically 50-80%.' },
-        { title: 'Visa pathway', description: 'Some destinations have streamlined visa pathways for patients from your country. Others require more documentation.' },
-        { title: 'Insurance coverage', description: 'Most domestic insurance excludes elective international. Some international policies may cover; verify pre-authorization.' },
+        { title: tFr("howStep1Title"), description: tFr("howStep1Desc") },
+        { title: tFr("howStep2Title"), description: tFr("howStep2Desc") },
+        { title: tFr("howStep3Title"), description: tFr("howStep3Desc") },
+        { title: tFr("howStep4Title"), description: tFr("howStep4Desc") },
       ]}
     />
     
     <ExploreGrid
       locale={locale}
-      eyebrow={`From ${data.name}`}
-      heading="Where to take this next"
-      lede={`Cost is one piece. These pages cover the destinations, programs, and decision aids that matter when you're flying out from ${data.name}.`}
+      eyebrow={tFr("exploreEyebrow").replace("{country}", data.name)}
+      heading={tFr("exploreHeading")}
+      lede={tFr("exploreLede").replace("{country}", data.name)}
       items={[
-        { eyebrow: "Destination", label: "All 9 countries", href: "/countries", hint: "Cost-of-care, accreditation profile, visa playbook per destination." },
-        { eyebrow: "Destination", label: "India hub", href: "/country/india", hint: "Largest medical-travel program — JCI/NABH hospitals, English-speaking, fastest pricing." },
-        { eyebrow: "Destination", label: "Turkey hub", href: "/country/turkey", hint: "Cosmetic, hair, dental, fertility — fast surgery dates, EU-adjacent." },
-        { eyebrow: "Destination", label: "Thailand hub", href: "/country/thailand", hint: "Bumrungrad and BNH — mature hospitality + clinical infrastructure." },
-        { eyebrow: "Destination", label: "Germany hub", href: "/country/germany", hint: "Complex cardiac, oncology, paediatric — premium pricing, premium outcomes." },
-        { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure cost ranges, recovery time, success rates." },
-        { eyebrow: "Browse", label: "15 specialties", href: "/specialties", hint: "Cardiac, ortho, oncology, transplant, fertility, cosmetic." },
-        { eyebrow: "Reference", label: "Insurance coverage", href: "/insurance", hint: "Which insurers reimburse outbound treatment, and how to file." },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
-        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions → specialty + destination + 3-hospital shortlist." },
-        { eyebrow: "Compare", label: "Destination shootout", href: "/compare/countries", hint: "Hospitals, doctors, treatments, programs by country." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+        { eyebrow: tFr("exploreEyebrowDestination"), label: tFr("exploreItem1Label"), href: "/countries", hint: tFr("exploreItem1Hint") },
+        { eyebrow: tFr("exploreEyebrowDestination"), label: tFr("exploreItem2Label"), href: "/country/india", hint: tFr("exploreItem2Hint") },
+        { eyebrow: tFr("exploreEyebrowDestination"), label: tFr("exploreItem3Label"), href: "/country/turkey", hint: tFr("exploreItem3Hint") },
+        { eyebrow: tFr("exploreEyebrowDestination"), label: tFr("exploreItem4Label"), href: "/country/thailand", hint: tFr("exploreItem4Hint") },
+        { eyebrow: tFr("exploreEyebrowDestination"), label: tFr("exploreItem5Label"), href: "/country/germany", hint: tFr("exploreItem5Hint") },
+        { eyebrow: tFr("exploreEyebrowBrowse"), label: tFr("exploreItem6Label"), href: "/treatments", hint: tFr("exploreItem6Hint") },
+        { eyebrow: tFr("exploreEyebrowBrowse"), label: tFr("exploreItem7Label"), href: "/specialties", hint: tFr("exploreItem7Hint") },
+        { eyebrow: tFr("exploreEyebrowReference"), label: tFr("exploreItem8Label"), href: "/insurance", hint: tFr("exploreItem8Hint") },
+        { eyebrow: tFr("exploreEyebrowTool"), label: tFr("exploreItem9Label"), href: "/calculator", hint: tFr("exploreItem9Hint") },
+        { eyebrow: tFr("exploreEyebrowTool"), label: tFr("exploreItem10Label"), href: "/match-me", hint: tFr("exploreItem10Hint") },
+        { eyebrow: tFr("exploreEyebrowCompare"), label: tFr("exploreItem11Label"), href: "/compare/countries", hint: tFr("exploreItem11Hint") },
+        { eyebrow: tFr("exploreEyebrowAction"), label: tFr("exploreItem12Label"), href: "/second-opinion", hint: tFr("exploreItem12Hint") },
       ]}
     />
 

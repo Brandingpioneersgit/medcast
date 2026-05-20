@@ -22,6 +22,7 @@ const locale = rawLocale as Locale;
 
 const rawStories = await listTestimonials(72);
 const tc = getTranslator(locale, "common");
+const tSt = getTranslator(locale, "storiesPage");
 
 // Localize testimonials + their joined treatment/hospital/country names for
 // non-default locales (getContentBatch returns {} on `en` — no-op there).
@@ -52,12 +53,10 @@ const verifiedCount = stories.filter((s) => s.is_verified).length;
 const countryCount = new Set(stories.map((s) => s.patient_country).filter(Boolean)).size;
 const path = "/stories";
 
-const seoTitle = `Patient Stories — Real Medical Travel Experiences`;
-const seoDescription =
-  `${stories.length.toLocaleString()} first-person accounts from international patients who travelled for treatment — the diagnosis, the destination, the cost and the outcome. Verified, unedited.`.slice(
-    0,
-    160,
-  );
+const seoTitle = tSt("seoTitle");
+const seoDescription = tSt("seoDescription")
+  .replace("{count}", stories.length.toLocaleString())
+  .slice(0, 160);
 
 // Empty until testimonials are loaded — don't index a hollow page. Also skip
 // indexing a non-default locale when none of the stories are translated.
@@ -65,7 +64,7 @@ const shouldNoindex = stories.length === 0 || isUntranslated(locale, ...Object.v
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Patient stories", url: localeUrl(locale, path) },
+  { name: tSt("breadcrumbStories"), url: localeUrl(locale, path) },
 ]);
 
 // Collect the treatments these stories relate to — an honest CollectionPage
@@ -81,7 +80,7 @@ const collectionLd =
   treatmentItems.length > 0
     ? withProvenance(
         collectionPageJsonLd({
-          name: "Patient stories",
+          name: tSt("breadcrumbStories"),
           description: seoDescription,
           url: localeUrl(locale, path),
           items: treatmentItems,
@@ -93,10 +92,10 @@ const collectionLd =
 const stats =
   stories.length > 0
     ? [
-        { l: "Stories", v: stories.length.toLocaleString() },
-        { l: "Verified", v: verifiedCount.toLocaleString() },
-        { l: "Home countries", v: countryCount.toLocaleString() },
-        { l: "Reply time", v: "9 min" },
+        { l: tSt("statStories"), v: stories.length.toLocaleString() },
+        { l: tSt("statVerified"), v: verifiedCount.toLocaleString() },
+        { l: tSt("statHomeCountries"), v: countryCount.toLocaleString() },
+        { l: tSt("statReplyTime"), v: "9 min" },
       ]
     : [];
 
@@ -131,39 +130,39 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
         <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span class="mx-1.5">/</span>
-          <span style="color: var(--color-ink);">Patient stories</span>
+          <span style="color: var(--color-ink);">{tSt("breadcrumbStories")}</span>
         </nav>
       </div>
     </div>
 
     <EntityListingHero
-      eyebrow="Patient stories"
-      h1First="Real journeys,"
-      h1Italic="told first-hand"
-      lede="Unedited accounts from patients who crossed a border for treatment — what they were diagnosed with, where they went, what it cost, and how they are now. We publish the hard parts too."
+      eyebrow={tSt("eyebrow")}
+      h1First={tSt("h1First")}
+      h1Italic={tSt("h1Italic")}
+      lede={tSt("lede")}
       stats={stats}
     />
 
     <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-6 pb-20">
-      <h2 class="sr-only">Patient stories</h2>
+      <h2 class="sr-only">{tSt("srOnlyH2")}</h2>
       {stories.length === 0 ? (
         <div class="paper text-center py-20" style="color: var(--color-ink-muted);">
-          <p class="serif text-lg mb-3">Patient stories are published as consent is recorded.</p>
-          <p class="text-sm mb-5">In the meantime, see how we vet hospitals and surgeons — or start your own case.</p>
+          <p class="serif text-lg mb-3">{tSt("emptyStateMain")}</p>
+          <p class="text-sm mb-5">{tSt("emptyStateDesc")}</p>
           <div class="flex items-center justify-center gap-3">
             <a
               href={localizedPath(locale, "/medical-board")}
               class="mono uppercase"
               style="font-size: 11px; letter-spacing: 0.12em; border: 1px solid var(--color-border); padding: 9px 16px; border-radius: 9999px; color: var(--color-ink);"
             >
-              Our medical board
+              {tSt("emptyStateMedBoard")}
             </a>
             <a
               href={localizedPath(locale, "/match-me")}
               class="mono uppercase"
               style="font-size: 11px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 9px 16px; border-radius: 9999px;"
             >
-              Start your case →
+              {tSt("emptyStateStartCase")}
             </a>
           </div>
         </div>
@@ -198,7 +197,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
                       {s.patient_name}
                     </div>
                     <div class="mono uppercase mt-0.5" style="font-size: 10px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
-                      {[s.patient_country, s.patient_age ? `age ${s.patient_age}` : null].filter(Boolean).join(" · ")}
+                      {[s.patient_country, s.patient_age ? tSt("ageLabel").replace("{age}", String(s.patient_age)) : null].filter(Boolean).join(" · ")}
                     </div>
                   </div>
                 </div>
@@ -209,7 +208,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
                   </span>
                   {s.is_verified && (
                     <span class="inline-flex items-center gap-1 mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-accent);">
-                      <ShieldCheck className="h-3 w-3" /> Verified
+                      <ShieldCheck className="h-3 w-3" /> {tSt("verifiedBadge")}
                     </span>
                   )}
                 </div>
@@ -263,32 +262,32 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
     </section>
 
     <HowItWorks
-      heading="How we publish patient stories"
-      italicWord="patient stories"
-      eyebrow="Editorial standard"
+      heading={tSt("howHeading")}
+      italicWord={tSt("howItalicWord")}
+      eyebrow={tSt("howEyebrow")}
       steps={[
-        { title: "Written consent first", description: "No story — and no photo — is published without explicit written consent. Patients can withdraw at any time and the story comes down." },
-        { title: "Unedited substance", description: "We fix spelling and translate, but we don't rewrite outcomes. Complications, delays and disappointments stay in. A page of only-perfect stories isn't trustworthy." },
-        { title: "Verified where possible", description: "A 'Verified' badge means we confirmed the treatment took place at the named hospital. Unbadged stories are still genuine but not independently confirmed." },
-        { title: "No incentives", description: "Patients are not paid and receive no discount for a story. We don't accept hospital-supplied testimonials into this collection." },
+        { title: tSt("howStep1Title"), description: tSt("howStep1Desc") },
+        { title: tSt("howStep2Title"), description: tSt("howStep2Desc") },
+        { title: tSt("howStep3Title"), description: tSt("howStep3Desc") },
+        { title: tSt("howStep4Title"), description: tSt("howStep4Desc") },
       ]}
-      outroNote="Outcomes vary by anatomy, age, condition and surgeon. These stories are individual experiences, not predictions for your case."
+      outroNote={tSt("howOutroNote")}
     />
 
     <ExploreGrid
       locale={locale}
-      eyebrow="From story to plan"
-      heading="Turn a story into your own shortlist"
-      lede="A story tells you it's possible. These tools turn that into a costed, hospital-specific plan for your case."
+      eyebrow={tSt("exploreEyebrow")}
+      heading={tSt("exploreHeading")}
+      lede={tSt("exploreLede")}
       items={[
-        { eyebrow: "Outcomes", label: "Before & after gallery", href: "/gallery", hint: "Consented before/after outcomes across cosmetic, dental and reconstructive procedures." },
-        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures and destinations." },
-        { eyebrow: "Browse", label: "All treatments", href: "/treatments", hint: "Per-procedure success rates, recovery time and pricing." },
-        { eyebrow: "Browse", label: "Destination countries", href: "/countries", hint: "Compare hospital count, pricing and visa shape per country." },
-        { eyebrow: "Trust", label: "Medical board", href: "/medical-board", hint: "The named clinicians who review our directory and content." },
-        { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "How we source, review and correct everything we publish." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+        { eyebrow: tSt("exploreItem0Eyebrow"), label: tSt("exploreItem0Label"), href: "/gallery", hint: tSt("exploreItem0Hint") },
+        { eyebrow: tSt("exploreItem1Eyebrow"), label: tSt("exploreItem1Label"), href: "/match-me", hint: tSt("exploreItem1Hint") },
+        { eyebrow: tSt("exploreItem2Eyebrow"), label: tSt("exploreItem2Label"), href: "/calculator", hint: tSt("exploreItem2Hint") },
+        { eyebrow: tSt("exploreItem3Eyebrow"), label: tSt("exploreItem3Label"), href: "/treatments", hint: tSt("exploreItem3Hint") },
+        { eyebrow: tSt("exploreItem4Eyebrow"), label: tSt("exploreItem4Label"), href: "/countries", hint: tSt("exploreItem4Hint") },
+        { eyebrow: tSt("exploreItem5Eyebrow"), label: tSt("exploreItem5Label"), href: "/medical-board", hint: tSt("exploreItem5Hint") },
+        { eyebrow: tSt("exploreItem6Eyebrow"), label: tSt("exploreItem6Label"), href: "/editorial-policy", hint: tSt("exploreItem6Hint") },
+        { eyebrow: tSt("exploreItem7Eyebrow"), label: tSt("exploreItem7Label"), href: "/second-opinion", hint: tSt("exploreItem7Hint") },
       ]}
     />
 

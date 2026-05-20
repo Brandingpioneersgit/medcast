@@ -65,25 +65,26 @@ const activeLetters = new Set(groups.map((g) => g.letter));
 const totalHospitals = rows.reduce((s, r) => s + r.hospitalCount, 0);
 
 const tc = getTranslator(locale, "common");
-const seoTitle = "Medical treatments index";
-const seoDescription = `Browse ${rows.length} medical procedures across specialties. Compare hospital pricing, success rates, and recovery times.`;
+const tTi = getTranslator(locale, "treatmentIndexPage");
+const seoTitle = tTi("seoTitle");
+const seoDescription = tTi("seoDescription").replace("{n}", String(rows.length));
 const path = "/treatments";
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Treatments", url: localeUrl(locale, path) },
+  { name: tTi("breadcrumbTreatments"), url: localeUrl(locale, path) },
 ]);
 
 const collectionLd = collectionPageJsonLd({
-  name: "Medical treatments",
+  name: tTi("collectionName"),
   description: seoDescription,
   url: localeUrl(locale, path),
   items: rows.map((r) => ({ name: r.name, url: localeUrl(locale, `/treatment/${r.slug}`) })),
 });
 
 const stats = [
-  { l: "Treatments", v: rows.length.toString() },
-  { l: "Hospitals", v: totalHospitals.toString() },
+  { l: tTi("statTreatments"), v: rows.length.toString() },
+  { l: tTi("statHospitals"), v: totalHospitals.toString() },
 ].filter(Boolean) as Array<{ l: string; v: string }>;
 
 Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
@@ -104,16 +105,16 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
         <nav class="mono text-[12px] flex items-center gap-2 flex-wrap" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span aria-hidden="true" class="text-[var(--color-border-strong)]">/</span>
-          <span style="color: var(--color-ink);">Treatments</span>
+          <span style="color: var(--color-ink);">{tTi("breadcrumbTreatments")}</span>
         </nav>
       </div>
     </div>
 
     <EntityListingHero
-      eyebrow={`Treatment index · ${rows.length} entries`}
-      h1First="Find the right"
-      h1Italic="procedure"
-      lede={`${rows.length} medical procedures across specialties. Compare hospital pricing, success rates, and recovery times to make an informed decision.`}
+      eyebrow={tTi("heroEyebrow").replace("{n}", String(rows.length))}
+      h1First={tTi("heroH1First")}
+      h1Italic={tTi("heroH1Italic")}
+      lede={tTi("heroLede").replace("{n}", String(rows.length))}
       stats={stats}
     />
 
@@ -125,7 +126,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
             return (
               <a
                 href={isActive ? `#letter-${L}` : undefined}
-                title={isActive ? undefined : "No entries"}
+                title={isActive ? undefined : tTi("noEntries")}
                 aria-disabled={isActive ? undefined : "true"}
                 class="mono tnum inline-flex items-center justify-center transition"
                 style={{
@@ -158,7 +159,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
                   {g.letter}
                 </div>
                 <div class="mono uppercase mt-1" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                  {g.items.length} entries
+                  {tTi("groupEntries").replace("{n}", String(g.items.length))}
                 </div>
               </div>
               <ul>
@@ -189,12 +190,12 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
                       </div>
                       {t.fromUsd && (
                         <span class="mono tnum text-[11px]" style="color: var(--color-ink-muted);">
-                          From <Price usd={t.fromUsd} />
+                          {tTi("priceFrom")} <Price usd={t.fromUsd} />
                         </span>
                       )}
                       {t.hospitalCount > 0 && (
                         <span class="mono tnum text-[11px]" style="color: var(--color-ink-subtle);">
-                          {t.hospitalCount} hosp{t.hospitalCount === 1 ? "" : "s"}
+                          {t.hospitalCount} {t.hospitalCount === 1 ? tTi("hospSingular") : tTi("hospPlural")}
                         </span>
                       )}
                       <ChevronRight className="h-4 w-4 mirror-x text-[var(--color-ink-subtle)] group-hover:text-[var(--color-accent)] transition-colors" />
@@ -210,18 +211,18 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
 
     <ExploreGrid
       locale={locale}
-      eyebrow="Sliced differently"
-      heading="Cross-mesh entry points"
-      lede="If a treatment isn't quite the right starting question, the pages below let you approach the same network from a specialty, condition, or destination angle."
+      eyebrow={tTi("exploreEyebrow")}
+      heading={tTi("exploreHeading")}
+      lede={tTi("exploreLede")}
       items={[
-        { eyebrow: "Browse", label: "All specialties", href: "/specialties", hint: "Cardiac, oncology, ortho, transplant, more." },
-        { eyebrow: "Browse", label: "All conditions", href: "/conditions", hint: "79 conditions cross-linked to specialties + treatments." },
-        { eyebrow: "Browse", label: "Top destinations", href: "/countries", hint: "9 countries ranked by what they're best at." },
-        { eyebrow: "Cost", label: "Cost calculator", href: "/calculator", hint: "Procedure × country pricing band." },
-        { eyebrow: "Cost", label: "Pricing matrix", href: "/pricing-index", hint: "All 88 treatments × 9 destinations." },
-        { eyebrow: "Compare", label: "Compare treatments", href: "/compare/treatments", hint: "Cost, recovery, success rate side-by-side." },
-        { eyebrow: "Match", label: "Match Me quiz", href: "/match-me", hint: "Concern + budget → recommended path." },
-        { eyebrow: "Action", label: "Get a free quote", href: "/quote", hint: "We send 3 hospital options + cost in 48h." },
+        { eyebrow: tTi("item0Eyebrow"), label: tTi("item0Label"), href: "/specialties", hint: tTi("item0Hint") },
+        { eyebrow: tTi("item1Eyebrow"), label: tTi("item1Label"), href: "/conditions", hint: tTi("item1Hint") },
+        { eyebrow: tTi("item2Eyebrow"), label: tTi("item2Label"), href: "/countries", hint: tTi("item2Hint") },
+        { eyebrow: tTi("item3Eyebrow"), label: tTi("item3Label"), href: "/calculator", hint: tTi("item3Hint") },
+        { eyebrow: tTi("item4Eyebrow"), label: tTi("item4Label"), href: "/pricing-index", hint: tTi("item4Hint") },
+        { eyebrow: tTi("item5Eyebrow"), label: tTi("item5Label"), href: "/compare/treatments", hint: tTi("item5Hint") },
+        { eyebrow: tTi("item6Eyebrow"), label: tTi("item6Label"), href: "/match-me", hint: tTi("item6Hint") },
+        { eyebrow: tTi("item7Eyebrow"), label: tTi("item7Label"), href: "/quote", hint: tTi("item7Hint") },
       ]}
     />
 

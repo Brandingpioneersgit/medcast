@@ -68,6 +68,7 @@ if (!specialtyFilter && total < 3 && country) {
 }
 
 const tc = getTranslator(locale, "common");
+const tDc = getTranslator(locale, "doctorsCityPage");
 const countText = total.toLocaleString();
 const placeLabel = country ? `${city.name}, ${country.name}` : city.name;
 const activeSpecialty = placeSpecialties.find((s) => s.slug === specialtyFilter) ?? null;
@@ -75,10 +76,10 @@ const specialtyLabel = activeSpecialty ? `${activeSpecialty.name} ` : "";
 
 const path = `/doctors/city/${citySlug}`;
 const seoTitle = activeSpecialty
-  ? `${activeSpecialty.name} doctors in ${city.name} — ${countText} specialists`
-  : `Doctors in ${city.name} — ${countText} verified specialists`;
+  ? tDc("seoTitleSpecialty").replace("{specialtyName}", activeSpecialty.name).replace("{cityName}", city.name).replace("{countText}", countText)
+  : tDc("seoTitleDefault").replace("{cityName}", city.name).replace("{countText}", countText);
 const seoDescription =
-  `Browse ${countText} ${specialtyLabel}board-certified doctors and surgeons practising in ${placeLabel}. Compare experience, sub-specialty, hospital and patient ratings — free human shortlist on request.`.slice(
+  tDc("seoDescription").replace("{countText}", countText).replace("{specialtyLabel}", specialtyLabel).replace("{placeLabel}", placeLabel).slice(
     0,
     160,
   );
@@ -100,7 +101,7 @@ const collectionLd =
   page === 1 && !specialtyFilter && rows.length > 0
     ? withProvenance(
         collectionPageJsonLd({
-          name: `Doctors in ${placeLabel}`,
+          name: tDc("collectionName").replace("{placeLabel}", placeLabel),
           description: seoDescription,
           url: localeUrl(locale, path),
           items: rows.map((d) => ({
@@ -129,19 +130,19 @@ const prevUrl = page > 1 ? buildHref({ page: page - 1 }) : undefined;
 const nextUrl = page < totalPages ? buildHref({ page: page + 1 }) : undefined;
 
 const SORTS = [
-  { value: "featured", label: "Featured" },
-  { value: "rating", label: "Top rated" },
-  { value: "experience", label: "Most experienced" },
-  { value: "reviews", label: "Most reviewed" },
+  { value: "featured", label: tDc("sortFeatured") },
+  { value: "rating", label: tDc("sortTopRated") },
+  { value: "experience", label: tDc("sortMostExperienced") },
+  { value: "reviews", label: tDc("sortMostReviewed") },
 ];
 
 const stats =
   page === 1 && !specialtyFilter
     ? [
-        { l: "Specialists", v: countText },
-        { l: "Specialties", v: placeSpecialties.length.toLocaleString() },
-        { l: "Country", v: country?.name ?? "—" },
-        { l: "Reply time", v: "9 min" },
+        { l: tDc("statSpecialists"), v: countText },
+        { l: tDc("statSpecialties"), v: placeSpecialties.length.toLocaleString() },
+        { l: tDc("statCountry"), v: country?.name ?? "—" },
+        { l: tDc("statReplyTime"), v: tDc("statReplyTimeValue") },
       ]
     : [];
 
@@ -177,7 +178,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
         <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span class="mx-1.5">/</span>
-          <a href={localizedPath(locale, "/doctors")} class="hover:text-ink">Doctors</a>
+          <a href={localizedPath(locale, "/doctors")} class="hover:text-ink">{tDc("breadcrumbDoctors")}</a>
           {country && (
             <>
               <span class="mx-1.5">/</span>
@@ -191,21 +192,21 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
     </div>
 
     <EntityListingHero
-      eyebrow={`${countText} specialists · ${placeLabel}`}
-      h1First="Doctors in"
+      eyebrow={tDc("heroEyebrow").replace("{countText}", countText).replace("{placeLabel}", placeLabel)}
+      h1First={tDc("heroH1First")}
       h1Italic={city.name}
-      lede={`Board-certified doctors and surgeons practising at hospitals in ${placeLabel}, ranked by patient volume and sub-specialty fit. Send your reports and we'll shortlist three for your case — free.`}
+      lede={tDc("heroLede").replace("{placeLabel}", placeLabel)}
       stats={stats}
       locale={locale}
       image={countryBanner(country?.slug)}
-      imageAlt={`Medical travel to ${city.name}`}
+      imageAlt={tDc("heroImageAlt").replace("{cityName}", city.name)}
     />
 
     <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-6 pb-20">
       {placeSpecialties.length > 0 && (
         <div class="mb-6 flex flex-wrap items-center gap-2">
           <span class="mono uppercase pe-1" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-            Specialty
+            {tDc("filterSpecialtyLabel")}
           </span>
           <a
             href={buildHref({ specialty: null })}
@@ -214,7 +215,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
               ? "background: var(--color-ink); color: var(--color-bg);"
               : "color: var(--color-ink-muted); border: 1px solid var(--color-border);"}
           >
-            All
+            {tDc("filterAll")}
           </a>
           {placeSpecialties.map((s) => (
             <a
@@ -235,16 +236,16 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
         style="border-bottom: 1px solid var(--color-border);"
       >
         <span class="serif text-[14px]" style="color: var(--color-ink-muted);">
-          <span class="display tnum text-ink">{countText}</span> {activeSpecialty ? `${activeSpecialty.name.toLowerCase()} ` : ""}specialist{total === 1 ? "" : "s"}
+          <span class="display tnum text-ink">{countText}</span> {activeSpecialty ? `${activeSpecialty.name.toLowerCase()} ` : ""}{total === 1 ? tDc("specialistSingular") : tDc("specialistPlural")}
           {totalPages > 1 && (
             <span class="ms-2 mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-              Page {page} of {totalPages}
+              {tDc("pageOf").replace("{page}", String(page)).replace("{totalPages}", String(totalPages))}
             </span>
           )}
         </span>
         <div class="flex items-center gap-1 -mx-1 overflow-x-auto">
           <span class="mono uppercase px-1 whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-            Sort
+            {tDc("sortLabel")}
           </span>
           {SORTS.map((o) => {
             const active = sort === o.value;
@@ -263,25 +264,25 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
         </div>
       </div>
 
-      <h2 class="sr-only">Doctors practising in {placeLabel}</h2>
+      <h2 class="sr-only">{tDc("srHeading").replace("{placeLabel}", placeLabel)}</h2>
 
       {rows.length === 0 ? (
         <div class="paper text-center py-20" style="color: var(--color-ink-muted);">
-          <p class="serif text-lg mb-3">No doctors match this filter in {city.name}.</p>
+          <p class="serif text-lg mb-3">{tDc("emptyState").replace("{cityName}", city.name)}</p>
           <div class="flex items-center justify-center gap-3">
             <a
               href={localizedPath(locale, path)}
               class="mono uppercase"
               style="font-size: 11px; letter-spacing: 0.12em; border: 1px solid var(--color-border); padding: 9px 16px; border-radius: 9999px; color: var(--color-ink);"
             >
-              All {city.name} doctors
+              {tDc("emptyStateAllDoctors").replace("{cityName}", city.name)}
             </a>
             <a
               href={localizedPath(locale, "/match-me")}
               class="mono uppercase"
               style="font-size: 11px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 9px 16px; border-radius: 9999px;"
             >
-              Match me →
+              {tDc("emptyStateMatchMe")}
             </a>
           </div>
         </div>
@@ -331,7 +332,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
                       style="border-top: 1px dashed var(--color-border); margin-top: 12px; padding-top: 10px;"
                     >
                       <div class="flex items-center gap-3 text-[12px]" style="color: var(--color-ink-subtle);">
-                        {d.experienceYears && <span class="tnum">{d.experienceYears}yr</span>}
+                        {d.experienceYears && <span class="tnum">{d.experienceYears}{tDc("yearSuffix")}</span>}
                         {d.rating && Number(d.rating) > 0 && (
                           <span class="tnum inline-flex items-center gap-1">
                             <span style="color: var(--color-saffron);">★</span>
@@ -359,33 +360,33 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
     </section>
 
     <HowItWorks
-      heading={`How to choose a doctor in ${city.name}`}
+      heading={tDc("howItWorksHeading").replace("{cityName}", city.name)}
       italicWord={city.name}
-      eyebrow="Surgeon-evaluation guide"
+      eyebrow={tDc("howItWorksEyebrow")}
       steps={[
-        { title: "Match the sub-specialty, not the specialty", description: "Search for the exact procedure family. Sub-specialty experience predicts outcomes better than the broad specialty label." },
-        { title: "Check personal annual case volume", description: "Ask how many of your specific procedure the doctor performs each year. 100+/year is a meaningful threshold across most surgical fields." },
-        { title: "Verify credentials independently", description: "Board certification, fellowship training, hospital privileges and peer-reviewed publications — cross-check on PubMed, Google Scholar and ORCID." },
-        { title: "Check the hospital, not just the doctor", description: `Every doctor here practises at a hospital in ${city.name}. Confirm the hospital is accredited and credentialed for your specialty.` },
-        { title: "Have a video consultation first", description: "Talk to your shortlisted doctor directly before booking any travel — communication quality during consultation predicts it during your case." },
+        { title: tDc("step1Title"), description: tDc("step1Description") },
+        { title: tDc("step2Title"), description: tDc("step2Description") },
+        { title: tDc("step3Title"), description: tDc("step3Description") },
+        { title: tDc("step4Title"), description: tDc("step4Description").replace("{cityName}", city.name) },
+        { title: tDc("step5Title"), description: tDc("step5Description") },
       ]}
     />
 
     <ExploreGrid
       locale={locale}
-      eyebrow={`${city.name} medical travel`}
-      heading={`Other ways to plan care in ${city.name}`}
-      lede={`The doctor directory is one cut. These hubs cover the surgeon rosters, the hospitals and the wider destination context.`}
+      eyebrow={tDc("exploreEyebrow").replace("{cityName}", city.name)}
+      heading={tDc("exploreHeading").replace("{cityName}", city.name)}
+      lede={tDc("exploreLede")}
       items={[
-        { eyebrow: "Surgeons", label: `${city.name} surgeons by specialty`, href: `/surgeons/city/${citySlug}`, hint: "Volume-ranked surgeon rosters grouped by specialty." },
-        { eyebrow: "City", label: `${city.name} medical guide`, href: `/city/${citySlug}`, hint: "Airport, language, climate window and hospital concentration." },
-        { eyebrow: "Hospitals", label: `Hospitals in ${city.name}`, href: `/hospitals/city/${citySlug}`, hint: "Accredited hospitals in this city with ratings and specialties." },
-        ...(country ? [{ eyebrow: "Destination", label: `All ${country.name} doctors`, href: `/doctors/country/${country.slug}`, hint: `Step up from ${city.name} to the full ${country.name} directory.` }] : []),
-        ...(country ? [{ eyebrow: "Destination", label: `${country.name} hospital hub`, href: `/country/${country.slug}`, hint: `Featured programs and pricing benchmarks across ${country.name}.` }] : []),
-        ...(placeSpecialties[0] ? [{ eyebrow: "Specialty", label: `${placeSpecialties[0].name} hub`, href: `/specialty/${placeSpecialties[0].slug}`, hint: `${placeSpecialties[0].n} doctors listed for this specialty.` }] : []),
-        { eyebrow: "Browse", label: "All doctors", href: "/doctors", hint: "The full multi-country specialist directory with filters." },
-        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-doctor shortlist." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+        { eyebrow: tDc("exploreItem1Eyebrow"), label: tDc("exploreItem1Label").replace("{cityName}", city.name), href: `/surgeons/city/${citySlug}`, hint: tDc("exploreItem1Hint") },
+        { eyebrow: tDc("exploreItem2Eyebrow"), label: tDc("exploreItem2Label").replace("{cityName}", city.name), href: `/city/${citySlug}`, hint: tDc("exploreItem2Hint") },
+        { eyebrow: tDc("exploreItem3Eyebrow"), label: tDc("exploreItem3Label").replace("{cityName}", city.name), href: `/hospitals/city/${citySlug}`, hint: tDc("exploreItem3Hint") },
+        ...(country ? [{ eyebrow: tDc("exploreItem4Eyebrow"), label: tDc("exploreItem4Label").replace("{countryName}", country.name), href: `/doctors/country/${country.slug}`, hint: tDc("exploreItem4Hint").replace("{cityName}", city.name).replace("{countryName}", country.name) }] : []),
+        ...(country ? [{ eyebrow: tDc("exploreItem5Eyebrow"), label: tDc("exploreItem5Label").replace("{countryName}", country.name), href: `/country/${country.slug}`, hint: tDc("exploreItem5Hint").replace("{countryName}", country.name) }] : []),
+        ...(placeSpecialties[0] ? [{ eyebrow: tDc("exploreItem6Eyebrow"), label: tDc("exploreItem6Label").replace("{specialtyName}", placeSpecialties[0].name), href: `/specialty/${placeSpecialties[0].slug}`, hint: tDc("exploreItem6Hint").replace("{count}", String(placeSpecialties[0].n)) }] : []),
+        { eyebrow: tDc("exploreItem7Eyebrow"), label: tDc("exploreItem7Label"), href: "/doctors", hint: tDc("exploreItem7Hint") },
+        { eyebrow: tDc("exploreItem8Eyebrow"), label: tDc("exploreItem8Label"), href: "/match-me", hint: tDc("exploreItem8Hint") },
+        { eyebrow: tDc("exploreItem9Eyebrow"), label: tDc("exploreItem9Label"), href: "/second-opinion", hint: tDc("exploreItem9Hint") },
       ]}
     />
 

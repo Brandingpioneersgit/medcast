@@ -29,6 +29,7 @@ if (!slug) return new Response("Not found", { status: 404 });
 
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tV = getTranslator(locale, "visaDetailPage");
 
 const country = await db.query.countries.findFirst({ where: eq(countries.slug, slug) });
 if (!country) return new Response(`Not found: ${slug}`, { status: 404 });
@@ -100,38 +101,42 @@ const reqList = (visa?.requirements ?? "")
 
 const faqList = [
   {
-    question: `Do I need a medical visa for ${country.name}?`,
+    question: tV("faq1Q").replace("{countryName}", country.name),
     answer: visa?.visa_required
-      ? `Yes — ${country.name} requires a ${visa.visa_type ?? "Medical Visa"} for treatment travel. Processing typically takes ${visa.processing_time_days ?? "3-5"} working days.`
-      : `Most nationalities can enter ${country.name} visa-free or with visa-on-arrival for short elective procedures. For stays beyond 30 days or surgical cases requiring extension, a medical visa is recommended.`,
+      ? tV("faq1AYes").replace("{countryName}", country.name).replace("{visaType}", visa.visa_type ?? "Medical Visa").replace("{days}", String(visa.processing_time_days ?? "3-5"))
+      : tV("faq1ANo").replace("{countryName}", country.name),
   },
   {
-    question: `How long does the visa last?`,
+    question: tV("faq2Q"),
     answer: visa?.duration_days
-      ? `${visa.duration_days} days, ${visa.extendable ? "extendable" : "non-extendable"}. ${visa.allows_attendants ? "Family attendants can be included on related visa categories." : ""}`.trim()
-      : `Typical medical visas for ${country.name} last 60-90 days, often extendable. Confirm the latest rules with the embassy or your case manager.`,
+      ? (tV("faq2AWithData").replace("{days}", String(visa.duration_days)).replace("{extendable}", visa.extendable ? tV("faq2AExtendable") : tV("faq2ANonExtendable")).replace("{attendants}", visa.allows_attendants ? tV("faq2AAttendants") : "")).trim()
+      : tV("faq2AFallback").replace("{countryName}", country.name),
   },
   {
-    question: `Can family members travel with me?`,
+    question: tV("faq3Q"),
     answer: visa?.allows_attendants
-      ? `Yes — most destinations including ${country.name} issue attendant visas for immediate family travelling with the patient. Relationship documentation is typically required.`
-      : `${country.name} does not have a dedicated attendant visa category — family members apply via standard tourist or visit visa.`,
+      ? tV("faq3AYes").replace("{countryName}", country.name)
+      : tV("faq3ANo").replace("{countryName}", country.name),
   },
   {
-    question: `What should I prepare before applying?`,
-    answer:
-      "Get your hospital's invitation letter in writing (not just email), translate civil documents if required, photograph your passport + photos in advance, and have 3-6 months of bank statements ready. Your case manager prepares most of this bundle for you.",
+    question: tV("faq4Q"),
+    answer: tV("faq4A"),
   },
   {
-    question: `Is MedCasts help with the visa included?`,
-    answer:
-      "Yes — visa invitation letter, documentation checklist, and embassy-appointment coordination are all part of the standard case-manager service. You handle the in-person appointment if one is required; we handle the paperwork bundle.",
+    question: tV("faq5Q"),
+    answer: tV("faq5A"),
   },
 ];
 
-const seoTitle = `${country.name} Medical Visa — Requirements, Processing, Timeline`;
+const seoTitle = tV("seoTitle").replace("{countryName}", country.name);
 const seoDescription = visa?.overview?.slice(0, 160) ??
-  `How to get a medical visa for ${country.name}. ${visa?.visa_type ? `${visa.visa_type}. ` : ""}${visa?.processing_time_days ? `Processed in ~${visa.processing_time_days} days.` : ""} Hospital list + free assistance.`;
+  (visa?.visa_type && visa?.processing_time_days
+    ? tV("seoDescFallback").replace("{countryName}", country.name).replace("{visaType}", visa.visa_type).replace("{processingTime}", `Processed in ~${visa.processing_time_days} days.`)
+    : visa?.visa_type
+    ? tV("seoDescFallbackNoProcessing").replace("{countryName}", country.name).replace("{visaType}", visa.visa_type)
+    : visa?.processing_time_days
+    ? tV("seoDescFallbackNoType").replace("{countryName}", country.name).replace("{processingTime}", `Processed in ~${visa.processing_time_days} days.`)
+    : tV("seoDescFallbackMinimal").replace("{countryName}", country.name));
 
 const path = `/visa/${slug}`;
 const url = localeUrl(locale, path);
@@ -139,7 +144,7 @@ const url = localeUrl(locale, path);
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
   { name: country.name, url: localeUrl(locale, `/country/${country.slug}`) },
-  { name: "Medical visa", url },
+  { name: tV("breadcrumb"), url },
 ]);
 const faqSchema = faqJsonLd(faqList);
 
@@ -164,7 +169,7 @@ Astro.response.headers.set(
       <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
         <a href={localizedPath(locale, `/country/${country.slug}`)} class="hover:text-ink">{country.name}</a>
         <span class="mx-1.5">/</span>
-        <span style="color: var(--color-ink);">Medical visa</span>
+        <span style="color: var(--color-ink);">{tV("breadcrumb")}</span>
       </nav>
     </div>
 
@@ -173,22 +178,22 @@ Astro.response.headers.set(
       <div class="mx-auto max-w-[1440px] grid gap-10 lg:grid-cols-[2fr_1fr] items-start">
         <div>
           <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent); margin-bottom: 12px;">
-            Visa playbook
+            {tV("heroEyebrow")}
           </div>
           <h1
             class="display display-tight"
             style="font-size: clamp(2.5rem, 5.5vw, 4rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em;"
           >
-            {country.name} <span style="font-style: italic;">medical visa</span>
+            {country.name} <span style="font-style: italic;">{tV("heroTitleItalic")}</span>
           </h1>
           <div class="flex items-center gap-3 mt-4" style="color: var(--color-ink-muted); font-size: 14px;">
             <span>{flag}</span>
-            <span>{countHospitals.toLocaleString()} active hospitals</span>
+            <span>{tV("activeHospitals").replace("{count}", countHospitals.toLocaleString())}</span>
             {visa?.updated_at && (
               <>
                 <span style="width: 3px; height: 3px; border-radius: 50%; background: var(--color-border);" aria-hidden="true" />
                 <span class="mono" style="font-size: 11.5px; color: var(--color-ink-subtle);">
-                  Verified {new Date(visa.updated_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                  {tV("verifiedDate").replace("{date}", new Date(visa.updated_at).toLocaleDateString("en-US", { month: "short", year: "numeric" }))}
                 </span>
               </>
             )}
@@ -203,10 +208,10 @@ Astro.response.headers.set(
             style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); border-top: 1px solid var(--color-ink); border-bottom: 1px solid var(--color-border);"
           >
             {[
-              visa?.visa_type && { l: "Visa type", v: visa.visa_type.split("(")[0].trim() },
-              visa?.processing_time_days && { l: "Processing", v: `${visa.processing_time_days} days` },
-              visa?.duration_days && { l: "Duration", v: `${visa.duration_days} days` },
-              { l: "Extendable", v: visa?.extendable ? "Yes" : "No" },
+              visa?.visa_type && { l: tV("statVisaType"), v: visa.visa_type.split("(")[0].trim() },
+              visa?.processing_time_days && { l: tV("statProcessing"), v: tV("statDays").replace("{n}", String(visa.processing_time_days)) },
+              visa?.duration_days && { l: tV("statDuration"), v: tV("statDays").replace("{n}", String(visa.duration_days)) },
+              { l: tV("statExtendable"), v: visa?.extendable ? tV("yes") : tV("no") },
             ].filter(Boolean).map((s: any, i: number) => (
               <div style={`padding-inline: 18px; ${i > 0 ? "border-inline-start: 1px solid var(--color-border);" : ""}`}>
                 <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">{s.l}</div>
@@ -219,21 +224,21 @@ Astro.response.headers.set(
         <aside class="lg:sticky lg:top-32 lg:self-start">
           <div class="paper" style="padding: 22px;">
             <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">
-              Need visa help?
+              {tV("asideEyebrow")}
             </div>
             <div class="display mt-1.5" style="font-size: 22px; letter-spacing: -0.02em; line-height: 1.2;">
-              We handle the full
-              <span style="font-style: italic;"> paperwork bundle.</span>
+              {tV("asideHeading")}
+              <span style="font-style: italic;"> {tV("asideHeadingItalic")}</span>
             </div>
             <p style="font-size: 13.5px; color: var(--color-ink-muted); margin-top: 10px; line-height: 1.55;">
-              Invitation letter, documentation checklist, embassy-appointment coordination. You show up; we handle the rest.
+              {tV("asideBody")}
             </p>
             <a
               href={localizedPath(locale, `/contact?country=${country.slug}&topic=visa`)}
               class="inline-flex items-center justify-center gap-2 w-full mt-4 font-semibold"
               style="background: var(--color-accent); color: #FFF; padding: 13px 22px; font-size: 14.5px; border-radius: 9999px;"
             >
-              Request visa help
+              {tV("asideCta")}
               <ChevronRight className="h-3.5 w-3.5 mirror-x" />
             </a>
             {visa?.embassy_url && (
@@ -244,7 +249,7 @@ Astro.response.headers.set(
                 class="inline-flex items-center justify-center gap-1.5 w-full mt-2 font-medium"
                 style="background: transparent; color: var(--color-ink); border: 1px solid var(--color-border); padding: 9px 14px; font-size: 13px; border-radius: 9999px;"
               >
-                Official embassy portal →
+                {tV("embassyLink")}
               </a>
             )}
           </div>
@@ -257,8 +262,8 @@ Astro.response.headers.set(
         <div class="mx-auto max-w-[1120px]">
           <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
             <div>
-              <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">Requirements</div>
-              <h2 class="display mt-3" style="font-size: 30px; letter-spacing: -0.02em;">What you'll need</h2>
+              <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">{tV("requirementsEyebrow")}</div>
+              <h2 class="display mt-3" style="font-size: 30px; letter-spacing: -0.02em;">{tV("requirementsHeading")}</h2>
             </div>
             <ul class="grid gap-2.5">
               {reqList.map((r) => (
@@ -280,7 +285,7 @@ Astro.response.headers.set(
             <div class="flex items-start gap-4">
               <AlertCircle className="h-5 w-5 shrink-0 mt-1" />
               <div>
-                <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent); text-transform: uppercase;">Insider tip</div>
+                <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent); text-transform: uppercase;">{tV("tipsEyebrow")}</div>
                 <div class="serif mt-2" style="font-size: 17px; line-height: 1.5; color: var(--color-ink);" set:html={tipsHtml} />
               </div>
             </div>
@@ -292,19 +297,19 @@ Astro.response.headers.set(
     <section style="padding: 56px 28px; border-top: 1px solid var(--color-border);">
       <div class="mx-auto max-w-[1120px]">
         <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent); margin-bottom: 12px;">
-          Step-by-step
+          {tV("stepsEyebrow")}
         </div>
         <h2 class="display" style="font-size: 30px; letter-spacing: -0.02em;">
-          From first enquiry to boarding pass
+          {tV("stepsHeading")}
         </h2>
 
         <ol class="mt-8">
           {[
-            { k: "01", t: "Share your case", d: "Upload imaging + current treatment plan. We share with 2-3 hospitals, get back itemized quotes in 48 hr.", dur: "Day 1-2" },
-            { k: "02", t: "Pick a hospital", d: `Confirm the chosen hospital in ${country.name}. They issue the invitation letter + treatment plan letter on letterhead.`, dur: "Day 3-5" },
-            { k: "03", t: "Apply for visa", d: `Submit ${visa?.visa_type ?? "medical visa"} application with hospital documentation. ${visa?.processing_time_days ? `Processed in ~${visa.processing_time_days} working days.` : ""}`, dur: visa?.processing_time_days ? `Day 6-${6 + visa.processing_time_days}` : "Day 6-14" },
-            { k: "04", t: "Finalise travel", d: "Book flights + accommodation. Your coordinator arranges airport pickup, SIM card, interpreter if needed.", dur: "1-2 weeks pre-travel" },
-            { k: "05", t: "Arrive + treat", d: "Land → check in → case manager meets you at the hospital. Everything pre-scheduled.", dur: "Day of arrival" },
+            { k: tV("step01Key"), t: tV("step01Title"), d: tV("step01Desc"), dur: tV("step01Dur") },
+            { k: tV("step02Key"), t: tV("step02Title"), d: tV("step02Desc").replace("{countryName}", country.name), dur: tV("step02Dur") },
+            { k: tV("step03Key"), t: tV("step03Title"), d: (visa?.processing_time_days ? tV("step03Desc").replace("{visaType}", visa?.visa_type ?? tV("heroTitleItalic")).replace("{processingNote}", tV("step03ProcessingNote").replace("{n}", String(visa.processing_time_days))) : tV("step03DescNoProcessing").replace("{visaType}", visa?.visa_type ?? tV("heroTitleItalic"))), dur: visa?.processing_time_days ? tV("step03Dur").replace("{end}", String(6 + visa.processing_time_days)) : tV("step03DurFallback") },
+            { k: tV("step04Key"), t: tV("step04Title"), d: tV("step04Desc"), dur: tV("step04Dur") },
+            { k: tV("step05Key"), t: tV("step05Title"), d: tV("step05Desc"), dur: tV("step05Dur") },
           ].map((step, i) => (
             <li
               class="grid items-start gap-4"
@@ -325,9 +330,9 @@ Astro.response.headers.set(
     <section style="padding: 56px 28px; border-top: 1px solid var(--color-border);">
       <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[0.35fr_1fr]">
         <div>
-          <div class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">FAQ</div>
+          <div class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">{tV("faqEyebrow")}</div>
           <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
-            Common visa questions
+            {tV("faqHeading")}
           </h2>
         </div>
         <div class="divide-y" style="border-color: var(--color-border-soft);">
@@ -352,24 +357,24 @@ Astro.response.headers.set(
 
     {/* EEAT signals — methodology + corrections */}
     <MethodologyBlock locale={locale}
-      curationNote={`Visa requirements, processing times, and documentary checklists for ${country.name} are verified against the official ministry/embassy portals quarterly. We list documentary categories — not legal advice — and your case manager confirms your specific eligibility before flight booking.`}
+      curationNote={tV("methodologyCurationNote").replace("{countryName}", country.name)}
       dataSources={[
-        `${country.name} ministry of foreign affairs`,
-        "Official e-visa / consular portals",
-        "Hospital international patient departments",
+        tV("methodologySource1").replace("{countryName}", country.name),
+        tV("methodologySource2"),
+        tV("methodologySource3"),
       ]}
     />
 
     <section style="padding: 72px 28px; border-top: 1px solid var(--color-border); background: var(--color-ink); color: var(--color-bg);">
       <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
-          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7;">Ready when you are</div>
+          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7;">{tV("ctaBottomEyebrow")}</div>
           <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.05; letter-spacing: -0.025em; font-weight: 400;">
-            Get a {country.name} {flag} visa + treatment plan
-            <span style="font-style: italic;"> in two weeks.</span>
+            {tV("ctaBottomHeading").replace("{countryName}", country.name).replace("{flag}", flag)}
+            <span style="font-style: italic;"> {tV("ctaBottomHeadingItalic")}</span>
           </h2>
           <p class="serif mt-4" style="font-size: 17px; line-height: 1.55; max-width: 560px; opacity: 0.85;">
-            We prepare the full bundle: hospital invitation, document checklist, embassy-appointment guidance, and itemized quotes from 3 accredited hospitals.
+            {tV("ctaBottomBody")}
           </p>
         </div>
         <div class="flex flex-wrap gap-3">
@@ -378,7 +383,7 @@ Astro.response.headers.set(
             class="inline-flex items-center gap-2 font-semibold"
             style="background: var(--color-accent); color: #FFF; padding: 13px 22px; font-size: 15px; border-radius: 9999px;"
           >
-            Start now
+            {tV("ctaBottomStart")}
             <ChevronRight className="h-4 w-4 mirror-x" />
           </a>
           <a
@@ -386,56 +391,56 @@ Astro.response.headers.set(
             class="inline-flex items-center gap-2 font-semibold"
             style="background: transparent; color: var(--color-bg); border: 1px solid rgba(246,241,230,0.3); padding: 13px 22px; font-size: 15px; border-radius: 9999px;"
           >
-            Browse {country.name} hospitals
+            {tV("ctaBottomBrowse").replace("{countryName}", country.name)}
           </a>
         </div>
       </div>
     </section>
 
     <HowItWorks
-      heading={`How to apply for a medical visa to ${country.name}`}
-      italicWord={country.name}
-      eyebrow="Visa application process"
+      heading={tV("howItWorksHeading").replace("{countryName}", country.name)}
+      italicWord={tV("howItWorksItalicWord").replace("{countryName}", country.name)}
+      eyebrow={tV("howItWorksEyebrow")}
       steps={[
-        { title: "Hospital invitation letter", description: "First step. The destination hospital issues a formal invitation letter on its letterhead, addressed to the embassy or consulate. We coordinate this through the partner hospital — typical turnaround 3-5 days." },
-        { title: "Embassy appointment booking", description: `Book an appointment at the ${country.name} embassy or consulate in your country. Some destinations offer eVisa for medical purposes; verify eligibility for your nationality.` },
-        { title: "Document compilation", description: "Standard package: passport (≥6 months validity), photos, hospital invitation, treatment cost estimate, accommodation proof, return flight tickets. Some destinations also require: medical history summary, prior treatment records, financial statements." },
-        { title: "Embassy submission", description: "Submit at the appointment. Visa fees vary by country and processing time. Standard processing typically 5-15 business days; expedited where available 2-5 days." },
-        { title: "Visa receipt + travel", description: "Visa is typically issued for the duration of treatment + buffer (commonly 30-90 days). Attendant visas (1-2 family members) can be applied for in parallel." },
+        { title: tV("howStep1Title"), description: tV("howStep1Desc") },
+        { title: tV("howStep2Title"), description: tV("howStep2Desc").replace("{countryName}", country.name) },
+        { title: tV("howStep3Title"), description: tV("howStep3Desc") },
+        { title: tV("howStep4Title"), description: tV("howStep4Desc") },
+        { title: tV("howStep5Title"), description: tV("howStep5Desc") },
       ]}
-      outroNote={`We handle the visa coordination as part of our standard service. Documents reviewed for completeness before submission. ${country.name} embassy appointment booking guidance provided.`}
+      outroNote={tV("howOutroNote").replace("{countryName}", country.name)}
     />
 
     <WhatToExpect
-      heading="Common visa application issues"
-      italicWord="application issues"
+      heading={tV("whatHeading")}
+      italicWord={tV("whatItalicWord")}
       items={[
-        { label: "Insufficient hospital invitation", description: "Some embassies reject invitations that don't specify exact procedure, dates, and cost. Get specific letters, not generic ones." },
-        { label: "Missing financial proof", description: "Embassies often require evidence of ability to pay (bank statements, treatment payment confirmation). Submit clear documentation up front." },
-        { label: "Wrong visa category", description: "Tourist visa for treatment is technically improper at most destinations. Use medical visa specifically — even if processing takes longer." },
-        { label: "Attendant visa overlooked", description: "Don't apply for attendants as separate tourist visas; coordinate with the medical visa application. Both should reference the patient's invitation letter." },
-        { label: "Processing time misjudgment", description: "Plan visa application 6-8 weeks before treatment date. Embassy holiday windows, document re-submission, or interview requests can extend timelines." },
+        { label: tV("whatItem1Label"), description: tV("whatItem1Desc") },
+        { label: tV("whatItem2Label"), description: tV("whatItem2Desc") },
+        { label: tV("whatItem3Label"), description: tV("whatItem3Desc") },
+        { label: tV("whatItem4Label"), description: tV("whatItem4Desc") },
+        { label: tV("whatItem5Label"), description: tV("whatItem5Desc") },
       ]}
     />
 
     <ExploreGrid
       locale={locale}
-      eyebrow={`${country.name} medical travel`}
-      heading={`Plan the rest of your ${country.name} trip`}
-      lede={`Visa is one piece. These pages cover the destination programs, the hospitals you'll choose between, and the logistics around the medical stay.`}
+      eyebrow={tV("exploreEyebrow").replace("{countryName}", country.name)}
+      heading={tV("exploreHeading").replace("{countryName}", country.name)}
+      lede={tV("exploreLede")}
       items={[
-        { eyebrow: "Destination", label: `${country.name} hospital hub`, href: `/country/${country.slug}`, hint: `Featured programs, accreditation profile, and pricing benchmarks for ${country.name}.` },
-        { eyebrow: "Hospitals", label: `All hospitals in ${country.name}`, href: `/hospitals/country/${country.slug}`, hint: "Filter by city, specialty, and accreditation." },
-        { eyebrow: "Doctors", label: `Surgeons in ${country.name}`, href: `/doctors/country/${country.slug}`, hint: "Volume-ranked physician directory across specialties." },
-        { eyebrow: "Reference", label: "All destinations", href: "/countries", hint: "Compare 9 medical-travel destinations side by side." },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across 88 procedures × 9 destinations." },
-        { eyebrow: "Open data", label: "Pricing index", href: "/pricing-index", hint: "CC BY 4.0 dataset — median package pricing per country × treatment." },
-        { eyebrow: "Compare", label: "Destination shootout", href: "/compare/countries", hint: "Hospitals, doctors, treatments, programs by country." },
-        { eyebrow: "Triage", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + hospital shortlist." },
-        { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure success rates, recovery time, cost ranges." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
-        { eyebrow: "Action", label: "Get itemised quotes", href: "/quote", hint: "Three quotes with line-item breakdowns within 48 hours." },
-        { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "How we verify visa rules, source pricing, and disclose AI use." },
+        { eyebrow: tV("exploreItem1Eyebrow"), label: tV("exploreItem1Label").replace("{countryName}", country.name), href: `/country/${country.slug}`, hint: tV("exploreItem1Hint").replace("{countryName}", country.name) },
+        { eyebrow: tV("exploreItem2Eyebrow"), label: tV("exploreItem2Label").replace("{countryName}", country.name), href: `/hospitals/country/${country.slug}`, hint: tV("exploreItem2Hint") },
+        { eyebrow: tV("exploreItem3Eyebrow"), label: tV("exploreItem3Label").replace("{countryName}", country.name), href: `/doctors/country/${country.slug}`, hint: tV("exploreItem3Hint") },
+        { eyebrow: tV("exploreItem4Eyebrow"), label: tV("exploreItem4Label"), href: "/countries", hint: tV("exploreItem4Hint") },
+        { eyebrow: tV("exploreItem5Eyebrow"), label: tV("exploreItem5Label"), href: "/calculator", hint: tV("exploreItem5Hint") },
+        { eyebrow: tV("exploreItem6Eyebrow"), label: tV("exploreItem6Label"), href: "/pricing-index", hint: tV("exploreItem6Hint") },
+        { eyebrow: tV("exploreItem7Eyebrow"), label: tV("exploreItem7Label"), href: "/compare/countries", hint: tV("exploreItem7Hint") },
+        { eyebrow: tV("exploreItem8Eyebrow"), label: tV("exploreItem8Label"), href: "/match-me", hint: tV("exploreItem8Hint") },
+        { eyebrow: tV("exploreItem9Eyebrow"), label: tV("exploreItem9Label"), href: "/treatments", hint: tV("exploreItem9Hint") },
+        { eyebrow: tV("exploreItem10Eyebrow"), label: tV("exploreItem10Label"), href: "/second-opinion", hint: tV("exploreItem10Hint") },
+        { eyebrow: tV("exploreItem11Eyebrow"), label: tV("exploreItem11Label"), href: "/quote", hint: tV("exploreItem11Hint") },
+        { eyebrow: tV("exploreItem12Eyebrow"), label: tV("exploreItem12Label"), href: "/editorial-policy", hint: tV("exploreItem12Hint") },
       ]}
     />
 

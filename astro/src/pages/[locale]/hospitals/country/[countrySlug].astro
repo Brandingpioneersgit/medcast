@@ -58,7 +58,7 @@ if (hospitalIds.length > 0) {
       SELECT ha.hospital_id, ARRAY_AGG(DISTINCT COALESCE(a.acronym, a.name)) AS codes
       FROM hospital_accreditations ha
       INNER JOIN accreditations a ON a.id = ha.accreditation_id
-      WHERE ha.hospital_id = ANY(${hospitalIds}::int[])
+      WHERE ha.hospital_id IN ${hospitalIds}
       GROUP BY ha.hospital_id
     `);
     for (const r of Array.from(accr)) accreditationMap.set(r.hospital_id, r.codes);
@@ -75,14 +75,14 @@ const FLAG_MAP: Record<string, string> = {
 const flag = FLAG_MAP[countrySlug] ?? "🌐";
 
 const tc = getTranslator(locale, "common");
+const tHco = getTranslator(locale, "hospitalsCountryPage");
 const countText = total.toLocaleString();
 const path = `/hospitals/country/${countrySlug}`;
-const seoTitle = `Hospitals in ${country.name} — ${countText} accredited`;
-const seoDescription =
-  `Browse ${countText} accredited hospitals in ${country.name}. Compare specialties, ratings, bed capacity and JCI/ISO accreditation — continuously re-vetted by our medical panel.`.slice(
-    0,
-    160,
-  );
+const seoTitle = tHco("seoTitle").replace("{country}", country.name).replace("{count}", countText);
+const seoDescription = tHco("seoDescription")
+  .replace("{count}", countText)
+  .replace("{country}", country.name)
+  .slice(0, 160);
 
 const shouldNoindex = page > 1 || total === 0 || isUntranslated(locale, countryMap);
 
@@ -96,7 +96,7 @@ const collectionLd =
   page === 1 && rows.length > 0
     ? withProvenance(
         collectionPageJsonLd({
-          name: `Hospitals in ${country.name}`,
+          name: tHco("seoCollectionName").replace("{country}", country.name),
           description: seoDescription,
           url: localeUrl(locale, path),
           items: rows.map((h) => ({ name: h.name, url: localeUrl(locale, `/hospital/${h.slug}`) })),
@@ -120,19 +120,19 @@ const prevUrl = page > 1 ? buildHref({ page: page - 1 }) : undefined;
 const nextUrl = page < totalPages ? buildHref({ page: page + 1 }) : undefined;
 
 const SORTS = [
-  { value: "featured", label: "Featured" },
-  { value: "rating", label: "Top rated" },
-  { value: "reviews", label: "Most reviewed" },
-  { value: "beds", label: "Largest" },
+  { value: "featured", label: tHco("sortFeatured") },
+  { value: "rating", label: tHco("sortTopRated") },
+  { value: "reviews", label: tHco("sortMostReviewed") },
+  { value: "beds", label: tHco("sortLargest") },
 ];
 
 const stats =
   page === 1
     ? [
-        { l: "Hospitals", v: countText },
-        { l: "Destination", v: country.name },
-        { l: "Accredited", v: "Vetted" },
-        { l: "Reply time", v: "9 min" },
+        { l: tHco("statHospitals"), v: countText },
+        { l: tHco("statDestination"), v: country.name },
+        { l: tHco("statAccredited"), v: tHco("statVetted") },
+        { l: tHco("statReplyTime"), v: tHco("statReplyTimeValue") },
       ]
     : [];
 
@@ -164,7 +164,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
         <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span class="mx-1.5">/</span>
-          <a href={localizedPath(locale, "/hospitals")} class="hover:text-ink">Hospitals</a>
+          <a href={localizedPath(locale, "/hospitals")} class="hover:text-ink">{tc("hospitals")}</a>
           <span class="mx-1.5">/</span>
           <span style="color: var(--color-ink);">{country.name}</span>
         </nav>
@@ -172,19 +172,19 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
     </div>
 
     <EntityListingHero
-      eyebrow={`${flag} ${countText} hospitals · ${country.name}`}
-      h1First="Hospitals in"
+      eyebrow={`${flag} ${countText} ${tHco("heroEyebrowSuffix")} · ${country.name}`}
+      h1First={tHco("heroH1First")}
       h1Italic={country.name}
-      lede={`Every accredited hospital we list in ${country.name}, with ratings, specialties and accreditation badges. Continuously re-vetted by our medical panel.`}
+      lede={tHco("heroLede").replace("{country}", country.name)}
       stats={stats}
       locale={locale}
       image={countryBanner(countrySlug)}
-      imageAlt={`Accredited hospitals in ${country.name}`}
+      imageAlt={tHco("imageAlt").replace("{country}", country.name)}
     />
 
     <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-8 pb-12">
       <h2 class="display-tight mb-6" style="font-size: clamp(1.5rem, 3vw, 2.25rem); letter-spacing: -0.02em;">
-        Accredited hospitals in {country.name}
+        {tHco("sectionHeading").replace("{country}", country.name)}
       </h2>
       <div class="min-w-0">
         <div
@@ -192,16 +192,16 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
           style="border-bottom: 1px solid var(--color-border);"
         >
           <span class="serif text-[14px]" style="color: var(--color-ink-muted);">
-            <span class="display tnum text-ink">{countText}</span> hospital{total === 1 ? "" : "s"}
+            <span class="display tnum text-ink">{countText}</span> {total === 1 ? tHco("hospitalSingular") : tHco("hospitalPlural")}
             {totalPages > 1 && (
               <span class="ms-2 mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-                Page {page} of {totalPages}
+                {tHco("pageOf").replace("{page}", String(page)).replace("{total}", String(totalPages))}
               </span>
             )}
           </span>
           <div class="flex items-center gap-1 -mx-1 overflow-x-auto">
             <span class="mono uppercase px-1 whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-              Sort
+              {tHco("sortLabel")}
             </span>
             {SORTS.map((o) => {
               const active = sort === o.value;
@@ -222,13 +222,13 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
 
         {rows.length === 0 ? (
           <div class="paper text-center py-20" style="color: var(--color-ink-muted);">
-            <p class="serif text-lg mb-2">No hospitals listed in {country.name} yet.</p>
+            <p class="serif text-lg mb-2">{tHco("emptyState").replace("{country}", country.name)}</p>
             <a
               href={localizedPath(locale, "/hospitals")}
               class="inline-block mt-2 mono uppercase text-[11px]"
               style="color: var(--color-accent); letter-spacing: 0.12em;"
             >
-              Browse all hospitals →
+              {tHco("emptyStateCta")}
             </a>
           </div>
         ) : (
@@ -282,9 +282,9 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
                         style="border-top: 1px dashed var(--color-border); margin-top: 14px; padding-top: 12px;"
                       >
                         <div class="flex items-center gap-3 text-[12px]" style="color: var(--color-ink-muted);">
-                          {h.bedCapacity && <span class="tnum">{h.bedCapacity.toLocaleString()} beds</span>}
+                          {h.bedCapacity && <span class="tnum">{h.bedCapacity.toLocaleString()} {tHco("cardBeds")}</span>}
                           {h.reviewCount && h.reviewCount > 0 && (
-                            <span class="tnum">{h.reviewCount.toLocaleString()} reviews</span>
+                            <span class="tnum">{h.reviewCount.toLocaleString()} {tHco("cardReviews")}</span>
                           )}
                         </div>
                         <ChevronRight className="h-3.5 w-3.5 mirror-x text-[var(--color-ink-subtle)] group-hover:text-[var(--color-accent)] transition-colors" />
@@ -305,33 +305,33 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
     </section>
 
     <HowItWorks
-      heading={`How to compare hospitals in ${country.name}`}
+      heading={tHco("howHeading").replace("{country}", country.name)}
       italicWord={country.name}
-      eyebrow="Hospital comparison guide"
+      eyebrow={tHco("howEyebrow")}
       steps={[
-        { title: "Match the hospital to your specialty", description: "Hospital reputation varies by department. A strong cardiac centre may have an average orthopedics unit — compare on the specialty you actually need." },
-        { title: "Read accreditation, not just ratings", description: "JCI, ISO 9001 and the national regulator certify safety processes. Multiple accreditations plus dedicated sub-specialty teams beat a single badge." },
-        { title: "Check surgeon volume for your procedure", description: "Ask the hospital for the assigned surgeon's annual case volume on your specific procedure — it predicts outcomes better than hospital prestige." },
-        { title: "Get itemised quotes", description: "Request line-by-line quotes from your top two or three hospitals and compare on equal scope — surgeon fee, stay, implants, diagnostics, follow-up." },
+        { title: tHco("howStep1Title"), description: tHco("howStep1Desc") },
+        { title: tHco("howStep2Title"), description: tHco("howStep2Desc") },
+        { title: tHco("howStep3Title"), description: tHco("howStep3Desc") },
+        { title: tHco("howStep4Title"), description: tHco("howStep4Desc") },
       ]}
     />
 
     <ExploreGrid
       locale={locale}
-      eyebrow={`${country.name} medical travel`}
-      heading={`Other ways to plan care in ${country.name}`}
-      lede={`The hospital list is one cut. These hubs let you cut by surgeon, by procedure cost, by city and by visa logistics.`}
+      eyebrow={tHco("exploreEyebrow").replace("{country}", country.name)}
+      heading={tHco("exploreHeading").replace("{country}", country.name)}
+      lede={tHco("exploreLede")}
       items={[
-        { eyebrow: "Destination", label: `${country.name} hospital hub`, href: `/country/${countrySlug}`, hint: `Featured programs, pricing benchmarks and logistics across ${country.name}.` },
-        { eyebrow: "Doctors", label: `Doctors in ${country.name}`, href: `/doctors/country/${countrySlug}`, hint: "The full filterable specialist directory for this destination." },
-        { eyebrow: "Surgeons", label: `${country.name} surgeons by specialty`, href: `/surgeons/country/${countrySlug}`, hint: "Volume-ranked surgeon rosters grouped by specialty." },
-        { eyebrow: "Visa", label: `${country.name} medical visa`, href: `/visa/${countrySlug}`, hint: "Documents, processing time and embassy guidance." },
-        { eyebrow: "Browse", label: "All hospitals", href: "/hospitals", hint: "Filter the full network by country, specialty, accreditation, beds and rating." },
-        { eyebrow: "Browse", label: "Medical cities", href: "/cities", hint: "City-level hospital hubs grouped by destination." },
-        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds and pricing for up to 4 hospitals." },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures and destinations." },
-        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+        { eyebrow: tHco("exploreEyebrowDestination"), label: tHco("exploreLabelCountryHub").replace("{country}", country.name), href: `/country/${countrySlug}`, hint: tHco("exploreHintCountryHub").replace("{country}", country.name) },
+        { eyebrow: tHco("exploreEyebrowDoctors"), label: tHco("exploreLabelDoctors").replace("{country}", country.name), href: `/doctors/country/${countrySlug}`, hint: tHco("exploreHintDoctors") },
+        { eyebrow: tHco("exploreEyebrowSurgeons"), label: tHco("exploreLabelSurgeons").replace("{country}", country.name), href: `/surgeons/country/${countrySlug}`, hint: tHco("exploreHintSurgeons") },
+        { eyebrow: tHco("exploreEyebrowVisa"), label: tHco("exploreLabelVisa").replace("{country}", country.name), href: `/visa/${countrySlug}`, hint: tHco("exploreHintVisa") },
+        { eyebrow: tHco("exploreEyebrowBrowse"), label: tHco("exploreLabelAllHospitals"), href: "/hospitals", hint: tHco("exploreHintAllHospitals") },
+        { eyebrow: tHco("exploreEyebrowBrowse"), label: tHco("exploreLabelCities"), href: "/cities", hint: tHco("exploreHintCities") },
+        { eyebrow: tHco("exploreEyebrowCompare"), label: tHco("exploreLabelCompare"), href: "/compare/hospitals", hint: tHco("exploreHintCompare") },
+        { eyebrow: tHco("exploreEyebrowTool"), label: tHco("exploreLabelCalculator"), href: "/calculator", hint: tHco("exploreHintCalculator") },
+        { eyebrow: tHco("exploreEyebrowTool"), label: tHco("exploreLabelMatchMe"), href: "/match-me", hint: tHco("exploreHintMatchMe") },
+        { eyebrow: tHco("exploreEyebrowAction"), label: tHco("exploreLabelSecondOpinion"), href: "/second-opinion", hint: tHco("exploreHintSecondOpinion") },
       ]}
     />
 

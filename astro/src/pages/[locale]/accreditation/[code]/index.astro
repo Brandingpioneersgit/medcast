@@ -402,22 +402,22 @@ Astro.response.headers.set(
     
     <ExploreGrid
       locale={locale}
-      eyebrow="Use this credential"
-      heading="Where this accreditation matters"
-      lede={`${acc.acronym ?? acc.name} is one signal among several. These hubs let you weight it against pricing, surgeon volume, and destination — not just take the badge at face value.`}
+      eyebrow={tAcc("exploreEyebrow")}
+      heading={tAcc("exploreHeading")}
+      lede={tAcc("exploreLede").replace("{name}", acc.acronym ?? acc.name)}
       items={[
-        { eyebrow: "Reference", label: "All accreditation bodies", href: "/accreditation", hint: "JCI, NABH, ISO 9001, KTQ, HA, MOHAP — what each one actually means clinically." },
-        { eyebrow: "Browse", label: "All hospitals", href: "/hospitals", hint: "Filter by accreditation, country, specialty, beds, rating." },
-        { eyebrow: "Browse", label: "9 destination countries", href: "/countries", hint: "Per-country accreditation profile and program quality benchmarks." },
-        { eyebrow: "Browse", label: "15 medical specialties", href: "/specialties", hint: "Where program quality matters most: cardiac, transplant, oncology, neuro." },
-        { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Procedure-first browsing with success rates and recovery timelines." },
-        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, pricing for up to 4 hospitals." },
-        { eyebrow: "Compare", label: "Destination shootout", href: "/compare/countries", hint: "Hospitals, doctors, treatments, programs by country." },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
-        { eyebrow: "Reference", label: "Glossary of terms", href: "/glossary", hint: "Plain-language definitions for credentials, procedures, logistics." },
-        { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "How we verify accreditations and methodology behind hospital scoring." },
-        { eyebrow: "Trust", label: "Medical board", href: "/medical-board", hint: "Named clinicians who review hospital programs and content." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+        { eyebrow: tAcc("exploreItem1Eyebrow"), label: tAcc("exploreItem1Label"), href: "/accreditation", hint: tAcc("exploreItem1Hint") },
+        { eyebrow: tAcc("exploreItem2Eyebrow"), label: tAcc("exploreItem2Label"), href: "/hospitals", hint: tAcc("exploreItem2Hint") },
+        { eyebrow: tAcc("exploreItem3Eyebrow"), label: tAcc("exploreItem3Label"), href: "/countries", hint: tAcc("exploreItem3Hint") },
+        { eyebrow: tAcc("exploreItem4Eyebrow"), label: tAcc("exploreItem4Label"), href: "/specialties", hint: tAcc("exploreItem4Hint") },
+        { eyebrow: tAcc("exploreItem5Eyebrow"), label: tAcc("exploreItem5Label"), href: "/treatments", hint: tAcc("exploreItem5Hint") },
+        { eyebrow: tAcc("exploreItem6Eyebrow"), label: tAcc("exploreItem6Label"), href: "/compare/hospitals", hint: tAcc("exploreItem6Hint") },
+        { eyebrow: tAcc("exploreItem7Eyebrow"), label: tAcc("exploreItem7Label"), href: "/compare/countries", hint: tAcc("exploreItem7Hint") },
+        { eyebrow: tAcc("exploreItem8Eyebrow"), label: tAcc("exploreItem8Label"), href: "/calculator", hint: tAcc("exploreItem8Hint") },
+        { eyebrow: tAcc("exploreItem9Eyebrow"), label: tAcc("exploreItem9Label"), href: "/glossary", hint: tAcc("exploreItem9Hint") },
+        { eyebrow: tAcc("exploreItem10Eyebrow"), label: tAcc("exploreItem10Label"), href: "/editorial-policy", hint: tAcc("exploreItem10Hint") },
+        { eyebrow: tAcc("exploreItem11Eyebrow"), label: tAcc("exploreItem11Label"), href: "/medical-board", hint: tAcc("exploreItem11Hint") },
+        { eyebrow: tAcc("exploreItem12Eyebrow"), label: tAcc("exploreItem12Label"), href: "/second-opinion", hint: tAcc("exploreItem12Hint") },
       ]}
     />
 

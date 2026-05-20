@@ -313,34 +313,34 @@ Astro.response.headers.set(
     </section>
 
     <HowItWorks
-      heading='How to find a specialist for this condition'
-      italicWord='this condition'
-      eyebrow='Specialist matching'
+      heading={tCndoc("howItWorksHeading")}
+      italicWord={tCndoc("howItWorksItalicWord")}
+      eyebrow={tCndoc("howItWorksEyebrow")}
       steps={[
-        { title: 'Identify the relevant specialty', description: 'The specialists shown above are filtered to those credentialed for this condition. Sub-specialty match within that specialty matters most.' },
-        { title: 'Compare by case volume', description: 'Look for surgeons doing 100+ cases of your specific procedure annually. Volume is the strongest single outcome predictor.' },
-        { title: 'Verify credentials', description: 'Board certification, fellowship training, peer-reviewed publications. Cross-check independently on PubMed.' },
-        { title: 'Schedule consultation', description: 'Video call with top 1-2 candidates. Communication quality during consult predicts case-management quality.' },
+        { title: tCndoc("step1Title"), description: tCndoc("step1Desc") },
+        { title: tCndoc("step2Title"), description: tCndoc("step2Desc") },
+        { title: tCndoc("step3Title"), description: tCndoc("step3Desc") },
+        { title: tCndoc("step4Title"), description: tCndoc("step4Desc") },
       ]}
     />
     <ExploreGrid
       locale={locale}
-      eyebrow={`${condition.name} care`}
-      heading={`Beyond surgeon shortlist: how to evaluate ${condition.name.toLowerCase()} care`}
-      lede="Surgeon volume is one factor. These hubs cover the matched specialties, treatments, destinations, and decision aids that determine outcomes."
+      eyebrow={tCndoc("exploreEyebrow").replace("{conditionName}", condition.name)}
+      heading={tCndoc("exploreHeading").replace("{conditionName}", condition.name.toLowerCase())}
+      lede={tCndoc("exploreLede")}
       items={[
-        { eyebrow: "Condition", label: `${condition.name} overview`, href: `/condition/${slug}`, hint: "Description, severity grading, treatment paths, watch-fors." },
-        ...(data.specialties[0] ? [{ eyebrow: "Specialty", label: `${data.specialties[0].name} hub`, href: `/specialty/${data.specialties[0].slug}`, hint: `Programs, surgeons, hospitals across ${data.specialties[0].name.toLowerCase()}.` }] : []),
-        ...(data.specialties[1] ? [{ eyebrow: "Specialty", label: `${data.specialties[1].name}`, href: `/specialty/${data.specialties[1].slug}`, hint: "Alternative specialty involved in care for this condition." }] : []),
-        ...(data.specialties[0] ? [{ eyebrow: "Surgeons", label: `All ${data.specialties[0].name.toLowerCase()} surgeons`, href: `/surgeons/${data.specialties[0].slug}`, hint: "Volume-ranked physician directory." }] : []),
-        { eyebrow: "Browse", label: "All 79 conditions", href: "/conditions", hint: "Map condition → specialty → first-line treatment." },
-        { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure success rates, recovery time, hospital pricing." },
-        { eyebrow: "Compare", label: "Doctor comparison", href: "/compare/doctors", hint: "Surgeons compared on volume, fees, languages, video-consult availability." },
-        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, and pricing." },
-        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
-        { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "How we verify physician credentials and source clinical content." },
+        { eyebrow: tCndoc("exploreItem1Eyebrow"), label: tCndoc("exploreItem1Label").replace("{conditionName}", condition.name), href: `/condition/${slug}`, hint: tCndoc("exploreItem1Hint") },
+        ...(data.specialties[0] ? [{ eyebrow: tCndoc("exploreItem2Eyebrow"), label: tCndoc("exploreItem2Label").replace("{specialtyName}", data.specialties[0].name), href: `/specialty/${data.specialties[0].slug}`, hint: tCndoc("exploreItem2Hint").replace("{specialtyName}", data.specialties[0].name.toLowerCase()) }] : []),
+        ...(data.specialties[1] ? [{ eyebrow: tCndoc("exploreItem3Eyebrow"), label: data.specialties[1].name, href: `/specialty/${data.specialties[1].slug}`, hint: tCndoc("exploreItem3Hint") }] : []),
+        ...(data.specialties[0] ? [{ eyebrow: tCndoc("exploreItem4Eyebrow"), label: tCndoc("exploreItem4Label").replace("{specialtyName}", data.specialties[0].name.toLowerCase()), href: `/surgeons/${data.specialties[0].slug}`, hint: tCndoc("exploreItem4Hint") }] : []),
+        { eyebrow: tCndoc("exploreItem5Eyebrow"), label: tCndoc("exploreItem5Label"), href: "/conditions", hint: tCndoc("exploreItem5Hint") },
+        { eyebrow: tCndoc("exploreItem6Eyebrow"), label: tCndoc("exploreItem6Label"), href: "/treatments", hint: tCndoc("exploreItem6Hint") },
+        { eyebrow: tCndoc("exploreItem7Eyebrow"), label: tCndoc("exploreItem7Label"), href: "/compare/doctors", hint: tCndoc("exploreItem7Hint") },
+        { eyebrow: tCndoc("exploreItem8Eyebrow"), label: tCndoc("exploreItem8Label"), href: "/compare/hospitals", hint: tCndoc("exploreItem8Hint") },
+        { eyebrow: tCndoc("exploreItem9Eyebrow"), label: tCndoc("exploreItem9Label"), href: "/match-me", hint: tCndoc("exploreItem9Hint") },
+        { eyebrow: tCndoc("exploreItem10Eyebrow"), label: tCndoc("exploreItem10Label"), href: "/calculator", hint: tCndoc("exploreItem10Hint") },
+        { eyebrow: tCndoc("exploreItem11Eyebrow"), label: tCndoc("exploreItem11Label"), href: "/second-opinion", hint: tCndoc("exploreItem11Hint") },
+        { eyebrow: tCndoc("exploreItem12Eyebrow"), label: tCndoc("exploreItem12Label"), href: "/editorial-policy", hint: tCndoc("exploreItem12Hint") },
       ]}
     />
 

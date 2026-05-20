@@ -592,17 +592,17 @@ Astro.response.headers.set(
 
         <div class="mt-12 grid gap-8 md:grid-cols-2">
           <div class="paper" style="padding: 22px 24px; border-inline-start: 3px solid var(--color-coral);">
-            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-coral);">What this list isn't</div>
-            <h3 class="display mt-2" style="font-size: 21px; letter-spacing: -0.015em;">Rating ≠ outcome</h3>
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-coral);">{tBd("notListEyebrow")}</div>
+            <h3 class="display mt-2" style="font-size: 21px; letter-spacing: -0.015em;">{tBd("notListHeading")}</h3>
             <p class="serif mt-2" style="font-size: 14px; line-height: 1.55; color: var(--color-ink-muted);">
-              A hospital ranking is a <em>qualifying filter</em>, not a prediction of your outcome. Within any listed hospital, your outcome is shaped by your specific surgeon's volume, the program's protocol for your indication, and your own clinical baseline. Always ask for surgeon-level data — case volume per year, conversion rate, infection rate — before committing.
+              {tBd("notListBody")}
             </p>
           </div>
           <div class="paper" style="padding: 22px 24px; border-inline-start: 3px solid var(--color-accent);">
-            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">When we re-rank</div>
-            <h3 class="display mt-2" style="font-size: 21px; letter-spacing: -0.015em;">Triggered, not scheduled</h3>
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">{tBd("reRankEyebrow")}</div>
+            <h3 class="display mt-2" style="font-size: 21px; letter-spacing: -0.015em;">{tBd("reRankHeading")}</h3>
             <p class="serif mt-2" style="font-size: 14px; line-height: 1.55; color: var(--color-ink-muted);">
-              The list shifts when an accreditation lapses, a Center-of-Excellence designation changes hands, a hospital opens a new flagship program, or our patient-coordinator network observes systematically different outcomes. We don't move ranks for marketing pushes or PR cycles.
+              {tBd("reRankBody")}
             </p>
           </div>
         </div>
@@ -614,14 +614,14 @@ Astro.response.headers.set(
       <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
           <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7;">
-            Shortlist from this list
+            {tBd("ctaEyebrow")}
           </div>
           <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.05; letter-spacing: -0.025em; font-weight: 400;">
-            Get 3 itemized quotes from the top {placeName} hospitals for {specialtyT.name}
-            <span style="font-style: italic;"> this week.</span>
+            {tBd("ctaHeadingPre").replace("{place}", placeName).replace("{specialty}", specialtyT.name)}
+            <span style="font-style: italic;"> {tBd("ctaHeadingAccent")}</span>
           </h2>
           <p class="serif mt-4" style="font-size: 17px; line-height: 1.55; max-width: 560px; opacity: 0.85;">
-            We pick 3 from this ranked list that best fit your case + budget. Full itemized pricing + surgeon bios + visa-letter in 48 hours. No obligation.
+            {tBd("ctaBody")}
           </p>
         </div>
         <div class="flex flex-wrap gap-3">
@@ -630,14 +630,14 @@ Astro.response.headers.set(
             class="inline-flex items-center gap-2 font-semibold"
             style="background: var(--color-accent); color: #FFF; padding: 13px 22px; font-size: 15px; border-radius: 9999px;"
           >
-            Request quotes <ChevronRight className="h-4 w-4 mirror-x" />
+            {tBd("ctaBtnRequestQuotes")} <ChevronRight className="h-4 w-4 mirror-x" />
           </a>
           <a
             href={localizedPath(locale, entityHubHref)}
             class="inline-flex items-center gap-2 font-semibold"
             style="background: transparent; color: var(--color-bg); border: 1px solid rgba(246,241,230,0.3); padding: 13px 22px; font-size: 15px; border-radius: 9999px;"
           >
-            {kind === "specialty" ? "Specialty overview" : "Procedure overview"}
+            {kind === "specialty" ? tBd("ctaBtnSpecialtyOverview") : tBd("ctaBtnProcedureOverview")}
           </a>
         </div>
       </div>
@@ -659,10 +659,10 @@ Astro.response.headers.set(
           <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                How to use this list
+                {tBd("qualitySignalsEyebrow")}
               </div>
               <h2 class="display mt-3" style="font-size: 26px; letter-spacing: -0.015em;">
-                What to <span style="font-style: italic;">look for</span>
+                {tBd("qualitySignalsHeadingPre")} <span style="font-style: italic;">{tBd("qualitySignalsHeadingAccent")}</span>
               </h2>
             </div>
             <ul class="space-y-3">
@@ -682,10 +682,10 @@ Astro.response.headers.set(
       <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft);">
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
           <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-            Volume benchmarks
+            {tBd("volumeBenchmarksEyebrow")}
           </div>
           <h2 class="display mb-7" style="font-size: 26px; letter-spacing: -0.02em;">
-            Surgeon volume <span style="font-style: italic;">benchmarks</span>
+            {tBd("volumeBenchmarksHeadingPre")} <span style="font-style: italic;">{tBd("volumeBenchmarksHeadingAccent")}</span>
           </h2>
           <div class="paper overflow-hidden" style="padding: 0;">
             {specSections.surgeonVolumeThresholds.map((t: any, i: number) => (
@@ -708,18 +708,18 @@ Astro.response.headers.set(
           <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Travel timing
+                {tBd("travelTimingEyebrow")}
               </div>
               <h2 class="display mt-3" style="font-size: 24px; letter-spacing: -0.015em;">
-                When to travel to {country.name}
+                {tBd("travelTimingHeading").replace("{country}", country.name)}
               </h2>
             </div>
             <div class="paper" style="padding: 22px;">
               {countrySections.bestMonthsToTravel.peak && (
-                <p class="mb-2" style="font-size: 14.5px;"><strong>Peak window:</strong> {countrySections.bestMonthsToTravel.peak.join(", ")}</p>
+                <p class="mb-2" style="font-size: 14.5px;"><strong>{tBd("travelPeakLabel")}</strong> {countrySections.bestMonthsToTravel.peak.join(", ")}</p>
               )}
               {countrySections.bestMonthsToTravel.avoid && countrySections.bestMonthsToTravel.avoid.length > 0 && (
-                <p class="mb-2" style="font-size: 14.5px;"><strong>Avoid:</strong> {countrySections.bestMonthsToTravel.avoid.join(", ")}</p>
+                <p class="mb-2" style="font-size: 14.5px;"><strong>{tBd("travelAvoidLabel")}</strong> {countrySections.bestMonthsToTravel.avoid.join(", ")}</p>
               )}
               {countrySections.bestMonthsToTravel.notes && (
                 <p style="font-size: 14px; line-height: 1.6; color: var(--color-ink-muted);">{countrySections.bestMonthsToTravel.notes}</p>
@@ -734,10 +734,10 @@ Astro.response.headers.set(
       <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft);">
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
           <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-            Questions
+            {tBd("questionsEyebrow")}
           </div>
           <h2 class="display mb-7" style="font-size: 26px; letter-spacing: -0.02em;">
-            What to <span style="font-style: italic;">ask each program on this list</span>
+            {tBd("questionsHeadingPre")} <span style="font-style: italic;">{tBd("questionsHeadingAccent")}</span>
           </h2>
           <ol class="space-y-3">
             {specSections.questionsForProgram.map((q: string, i: number) => (
@@ -768,35 +768,35 @@ Astro.response.headers.set(
     
     <ExploreGrid
       locale={locale}
-      eyebrow="Adjacent rankings"
-      heading={`Other ways to slice ${specialtyT.name} in ${placeName}`}
-      lede={`Best-of lists are one cut. These hubs let you re-rank by destination, by city, by surgeon volume, or by procedure.`}
+      eyebrow={tBd("exploreEyebrow")}
+      heading={tBd("exploreHeading").replace("{specialty}", specialtyT.name).replace("{place}", placeName)}
+      lede={tBd("exploreLede")}
       items={[
         ...(kind === "treatment"
           ? [
-              { eyebrow: "Procedure", label: `${specialtyT.name} overview`, href: entityHubHref, hint: `All ${specialtyT.name.toLowerCase()} programs across all destinations.` },
-              { eyebrow: "Procedure cost", label: `${specialtyT.name} cost in ${country.name}`, href: `/treatment/${specialty.slug}/${country.slug}`, hint: `Hospital-reported pricing, stay, recovery for ${country.name} programs.` },
+              { eyebrow: tBd("exploreCatProcedure"), label: `${specialtyT.name} overview`, href: entityHubHref, hint: tBd("exploreProcedureHint").replace("{specialty}", specialtyT.name.toLowerCase()) },
+              { eyebrow: tBd("exploreCatProcedureCost"), label: `${specialtyT.name} cost in ${country.name}`, href: `/treatment/${specialty.slug}/${country.slug}`, hint: tBd("exploreProcedureCostHint").replace("{country}", country.name) },
             ]
           : [
-              { eyebrow: "Specialty", label: `${specialtyT.name} hub`, href: entityHubHref, hint: `All ${specialtyT.name.toLowerCase()} programs across all destinations.` },
+              { eyebrow: tBd("exploreCatSpecialty"), label: `${specialtyT.name} hub`, href: entityHubHref, hint: tBd("exploreSpecialtyHint").replace("{specialty}", specialtyT.name.toLowerCase()) },
             ]),
         ...(placeMode === "city"
           ? [
-              { eyebrow: "Best of", label: `Best ${specialtyT.name} in ${country.name}`, href: `/best/${parsed.specialtySlug}-in-${country.slug}`, hint: `Step up from ${city!.name} to the full ${country.name} ranking.` },
-              { eyebrow: "City", label: `${city!.name} hospital hub`, href: `/city/${city!.slug}`, hint: `All hospitals and pricing benchmarks in ${city!.name}.` },
+              { eyebrow: tBd("exploreCatBestOf"), label: `Best ${specialtyT.name} in ${country.name}`, href: `/best/${parsed.specialtySlug}-in-${country.slug}`, hint: tBd("exploreBestOfCityHint").replace("{city}", city!.name).replace("{country}", country.name) },
+              { eyebrow: tBd("exploreCatCity"), label: `${city!.name} hospital hub`, href: `/city/${city!.slug}`, hint: tBd("exploreCityHint").replace("{city}", city!.name) },
             ]
           : []),
-        { eyebrow: "Destination", label: `${country.name} hospital hub`, href: `/country/${country.slug}`, hint: `Featured programs and pricing benchmarks for ${country.name}.` },
-        { eyebrow: "Surgeons", label: `${parentSpecialtyT.name} surgeons`, href: `/surgeons/${parentSpecialty.slug}`, hint: `Volume-ranked physician directory across all destinations.` },
-        { eyebrow: "Surgeons", label: `${parentSpecialtyT.name} surgeons in ${country.name}`, href: `/surgeons/${parentSpecialty.slug}/${country.slug}`, hint: `Filtered to ${country.name}-based programs only.` },
-        { eyebrow: "Hospitals", label: `All ${country.name} hospitals`, href: `/hospitals/country/${country.slug}`, hint: `Filter by city, specialty, accreditation, beds.` },
-        { eyebrow: "Hospitals", label: `Hospitals filtered by ${parentSpecialtyT.name}`, href: `/hospitals/specialty/${parentSpecialty.slug}`, hint: `Programs credentialed for ${parentSpecialtyT.name.toLowerCase()} across all destinations.` },
-        { eyebrow: "Browse", label: "Other best-of rankings", href: "/best", hint: "All specialty × country ranking combinations." },
-        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, and pricing for up to 4 hospitals." },
-        { eyebrow: "Compare", label: "Doctor comparison", href: "/compare/doctors", hint: "Surgeons compared on volume, fees, languages, video-consult availability." },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: `Hospital-reported pricing for ${parentSpecialtyT.name.toLowerCase()} procedures across destinations.` },
-        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
-        { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "Methodology behind ranking, AI disclosure, corrections SLA." },
+        { eyebrow: tBd("exploreCatDestination"), label: `${country.name} hospital hub`, href: `/country/${country.slug}`, hint: tBd("exploreDestinationHint").replace("{country}", country.name) },
+        { eyebrow: tBd("exploreCatSurgeons"), label: `${parentSpecialtyT.name} surgeons`, href: `/surgeons/${parentSpecialty.slug}`, hint: tBd("exploreSurgeonsHint") },
+        { eyebrow: tBd("exploreCatSurgeons"), label: `${parentSpecialtyT.name} surgeons in ${country.name}`, href: `/surgeons/${parentSpecialty.slug}/${country.slug}`, hint: tBd("exploreSurgeonsCountryHint").replace("{country}", country.name) },
+        { eyebrow: tBd("exploreCatHospitals"), label: `All ${country.name} hospitals`, href: `/hospitals/country/${country.slug}`, hint: tBd("exploreAllHospitalsHint") },
+        { eyebrow: tBd("exploreCatHospitals"), label: `Hospitals filtered by ${parentSpecialtyT.name}`, href: `/hospitals/specialty/${parentSpecialty.slug}`, hint: tBd("exploreHospitalsBySpecialtyHint").replace("{specialty}", parentSpecialtyT.name.toLowerCase()) },
+        { eyebrow: tBd("exploreCatBrowse"), label: tBd("exploreBrowseBestOfLabel"), href: "/best", hint: tBd("exploreBrowseBestOfHint") },
+        { eyebrow: tBd("exploreCatCompare"), label: tBd("exploreCompareHospitalsLabel"), href: "/compare/hospitals", hint: tBd("exploreCompareHospitalsHint") },
+        { eyebrow: tBd("exploreCatCompare"), label: tBd("exploreCompareDoctorsLabel"), href: "/compare/doctors", hint: tBd("exploreCompareDoctorsHint") },
+        { eyebrow: tBd("exploreCatTool"), label: tBd("exploreCostCalcLabel"), href: "/calculator", hint: tBd("exploreCostCalcHint").replace("{specialty}", parentSpecialtyT.name.toLowerCase()) },
+        { eyebrow: tBd("exploreCatTool"), label: tBd("exploreMatchMeLabel"), href: "/match-me", hint: tBd("exploreMatchMeHint") },
+        { eyebrow: tBd("exploreCatTrust"), label: tBd("exploreEditorialLabel"), href: "/editorial-policy", hint: tBd("exploreEditorialHint") },
       ]}
     />
 

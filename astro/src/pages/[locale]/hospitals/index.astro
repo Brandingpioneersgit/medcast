@@ -84,7 +84,7 @@ if (hospitalIds.length > 0) {
       SELECT ha.hospital_id, ARRAY_AGG(DISTINCT COALESCE(a.acronym, a.name)) AS codes
       FROM hospital_accreditations ha
       INNER JOIN accreditations a ON a.id = ha.accreditation_id
-      WHERE ha.hospital_id = ANY(${hospitalIds}::int[])
+      WHERE ha.hospital_id IN ${hospitalIds}
       GROUP BY ha.hospital_id
     `);
     for (const r of Array.from(accr)) accreditationMap.set(r.hospital_id, r.codes);

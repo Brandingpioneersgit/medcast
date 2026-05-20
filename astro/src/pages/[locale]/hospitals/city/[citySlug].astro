@@ -42,8 +42,6 @@ const sort =
     : "featured";
 
 const { rows, total, totalPages } = await listHospitals({ page, sort, city: citySlug });
-
-// Batch-fetch accreditation chips for visible rows
 const hospitalIds = rows.map((h) => h.id);
 const accreditationMap = new Map<number, string[]>();
 if (hospitalIds.length > 0) {
@@ -52,7 +50,7 @@ if (hospitalIds.length > 0) {
       SELECT ha.hospital_id, ARRAY_AGG(DISTINCT COALESCE(a.acronym, a.name)) AS codes
       FROM hospital_accreditations ha
       INNER JOIN accreditations a ON a.id = ha.accreditation_id
-      WHERE ha.hospital_id = ANY(${hospitalIds}::int[])
+      WHERE ha.hospital_id IN ${hospitalIds}
       GROUP BY ha.hospital_id
     `);
     for (const r of Array.from(accr)) accreditationMap.set(r.hospital_id, r.codes);
@@ -69,8 +67,9 @@ const FLAG_MAP: Record<string, string> = {
 function countryFlag(s: string | null | undefined): string { return s ? (FLAG_MAP[s] ?? "🌐") : "🌐"; }
 
 const tc = getTranslator(locale, "common");
-const seoTitle = `Top hospitals in ${city.name}, ${city.country?.name ?? ""}`.trim();
-const seoDescription = `Browse ${total.toLocaleString()} accredited hospitals in ${city.name}. Compare specialties, ratings, and accreditations.`;
+const tHc = getTranslator(locale, "hospitalsCityPage");
+const seoTitle = tHc("seoTitle").replace("{cityName}", city.name).replace("{countryName}", city.country?.name ?? "").trim();
+const seoDescription = tHc("seoDescription").replace("{total}", total.toLocaleString()).replace("{cityName}", city.name);
 const path = `/hospitals/city/${citySlug}`;
 
 const crumbs = breadcrumbJsonLd([
@@ -96,19 +95,19 @@ function buildHref(patch: { sort?: string }): string {
 }
 
 const SORTS = [
-  { value: "featured", label: "Featured" },
-  { value: "rating", label: "Top rated" },
-  { value: "reviews", label: "Most reviewed" },
-  { value: "beds", label: "Largest" },
+  { value: "featured", label: tHc("sortFeatured") },
+  { value: "rating", label: tHc("sortTopRated") },
+  { value: "reviews", label: tHc("sortMostReviewed") },
+  { value: "beds", label: tHc("sortLargest") },
 ];
 
 const paginationBase = buildHref({});
 const topSpecialty = specialtyCounts[0]?.name ?? "—";
 
 const stats = page === 1 ? [
-  { l: "Hospitals", v: total.toLocaleString() },
-  { l: "Top specialty", v: topSpecialty },
-  { l: "Country", v: city.country?.name ?? "—" },
+  { l: tHc("statHospitals"), v: total.toLocaleString() },
+  { l: tHc("statTopSpecialty"), v: topSpecialty },
+  { l: tHc("statCountry"), v: city.country?.name ?? "—" },
 ] : [];
 ---
 
@@ -127,7 +126,7 @@ const stats = page === 1 ? [
         <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span class="mx-1.5">/</span>
-          <a href={localizedPath(locale, "/hospitals")} class="hover:text-ink">Hospitals</a>
+          <a href={localizedPath(locale, "/hospitals")} class="hover:text-ink">{tc("hospitals")}</a>
           {city.country && (
             <>
               <span class="mx-1.5">/</span>
@@ -141,16 +140,16 @@ const stats = page === 1 ? [
     </div>
 
     <EntityListingHero
-      eyebrow={`${total.toLocaleString()} hospitals · ${city.country?.name ?? ""}`}
-      h1First={`Hospitals in`}
+      eyebrow={tHc("heroEyebrow").replace("{total}", total.toLocaleString()).replace("{countryName}", city.country?.name ?? "")}
+      h1First={tHc("heroH1First")}
       h1Italic={city.name}
-      lede={`Every accredited hospital in ${city.name}, with ratings, specialties and accreditation badges. Continuously re-vetted by our medical panel.`}
+      lede={tHc("heroLede").replace("{cityName}", city.name)}
       stats={stats}
     />
 
     <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-8 pb-12">
       <h2 class="display-tight mb-6" style="font-size: clamp(1.5rem, 3vw, 2.25rem); letter-spacing: -0.02em;">
-        Accredited hospitals in {city.name}
+        {tHc("sectionHeading").replace("{cityName}", city.name)}
       </h2>
       <div class="min-w-0">
         <div
@@ -158,11 +157,11 @@ const stats = page === 1 ? [
           style="border-bottom: 1px solid var(--color-border);"
         >
           <span class="serif text-[14px]" style="color: var(--color-ink-muted);">
-            <span class="display tnum text-ink">{total.toLocaleString()}</span> hospital{total === 1 ? "" : "s"}
+            <span class="display tnum text-ink">{total.toLocaleString()}</span> {total === 1 ? tHc("resultCountSingular") : tHc("resultCountPlural")}
           </span>
           <div class="flex items-center gap-1 -mx-1 overflow-x-auto">
             <span class="mono uppercase px-1 whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-              Sort
+              {tHc("sortLabel")}
             </span>
             {SORTS.map((o) => {
               const active = sort === o.value;
@@ -183,14 +182,14 @@ const stats = page === 1 ? [
 
         {rows.length === 0 ? (
           <div class="paper text-center py-20" style="color: var(--color-ink-muted);">
-            <p class="serif text-lg mb-2">No hospitals listed in {city.name} yet.</p>
+            <p class="serif text-lg mb-2">{tHc("emptyState").replace("{cityName}", city.name)}</p>
             {city.country && (
               <a
                 href={localizedPath(locale, `/hospitals/country/${city.country.slug}`)}
                 class="inline-block mt-2 mono uppercase text-[11px]"
                 style="color: var(--color-accent); letter-spacing: 0.12em;"
               >
-                Browse all {city.country.name} hospitals →
+                {tHc("emptyStateBrowse").replace("{countryName}", city.country.name)}
               </a>
             )}
           </div>
@@ -246,9 +245,9 @@ const stats = page === 1 ? [
                         style="border-top: 1px dashed var(--color-border); margin-top: 14px; padding-top: 12px;"
                       >
                         <div class="flex items-center gap-3 text-[12px]" style="color: var(--color-ink-muted);">
-                          {h.bedCapacity && <span class="tnum">{h.bedCapacity.toLocaleString()} beds</span>}
+                          {h.bedCapacity && <span class="tnum">{h.bedCapacity.toLocaleString()} {tHc("cardBeds")}</span>}
                           {h.reviewCount && h.reviewCount > 0 && (
-                            <span class="tnum">{h.reviewCount.toLocaleString()} reviews</span>
+                            <span class="tnum">{h.reviewCount.toLocaleString()} {tHc("cardReviews")}</span>
                           )}
                         </div>
                         <ChevronRight className="h-3.5 w-3.5 mirror-x text-[var(--color-ink-subtle)] group-hover:text-[var(--color-accent)] transition-colors" />
@@ -269,35 +268,35 @@ const stats = page === 1 ? [
     </section>
 
     <HowItWorks
-      heading='How to compare hospitals within a city'
-      italicWord='within a city'
-      eyebrow='City hospital comparison'
+      heading={tHc("howHeading")}
+      italicWord={tHc("howItalicWord")}
+      eyebrow={tHc("howEyebrow")}
       steps={[
-        { title: 'Identify your specialty need', description: 'Match the hospital to your specific specialty. Hospital reputation varies by department.' },
-        { title: 'Compare on accreditation + sub-specialty depth', description: 'Multiple accreditations + dedicated sub-specialty teams matter more than single accreditation + generalist coverage.' },
-        { title: 'Check surgeon volume', description: "For your specific procedure, request the surgeon's annual case volume." },
-        { title: 'Itemized quotes', description: 'Request quotes from your top 2-3 hospitals. Compare on equal scope.' },
+        { title: tHc("howStep1Title"), description: tHc("howStep1Desc") },
+        { title: tHc("howStep2Title"), description: tHc("howStep2Desc") },
+        { title: tHc("howStep3Title"), description: tHc("howStep3Desc") },
+        { title: tHc("howStep4Title"), description: tHc("howStep4Desc") },
       ]}
     />
     
     <ExploreGrid
       locale={locale}
-      eyebrow={`${city.name} medical travel`}
-      heading={`Other ways to slice ${city.name}`}
-      lede={`Hospital list is one cut. These hubs let you cut by specialty, by surgeon, by destination, and by visa logistics.`}
+      eyebrow={tHc("exploreEyebrow").replace("{cityName}", city.name)}
+      heading={tHc("exploreHeading").replace("{cityName}", city.name)}
+      lede={tHc("exploreLede")}
       items={[
-        { eyebrow: "City", label: `${city.name} guide`, href: `/city/${citySlug}`, hint: "Airport, language, climate window, hospital concentration." },
-        ...(city.country?.slug && city.country?.name ? [{ eyebrow: "Destination", label: `${city.country.name} hospital hub`, href: `/country/${city.country.slug}`, hint: `All featured programs and pricing benchmarks across ${city.country.name}.` }] : []),
-        ...(city.country?.slug ? [{ eyebrow: "Visa", label: `${city.country.name} medical visa`, href: `/visa/${city.country.slug}`, hint: "Documents, processing time, embassy guidance." }] : []),
-        ...(specialtyCounts[0] ? [{ eyebrow: "Specialty", label: `${specialtyCounts[0].name} hub`, href: `/specialty/${specialtyCounts[0].slug}`, hint: `${specialtyCounts[0].hospital_count} hospitals credentialed for this specialty.` }] : []),
-        ...(specialtyCounts[1] ? [{ eyebrow: "Specialty", label: `${specialtyCounts[1].name}`, href: `/specialty/${specialtyCounts[1].slug}`, hint: `${specialtyCounts[1].hospital_count} hospitals priced for this specialty.` }] : []),
-        ...(specialtyCounts[2] ? [{ eyebrow: "Specialty", label: `${specialtyCounts[2].name}`, href: `/specialty/${specialtyCounts[2].slug}`, hint: `${specialtyCounts[2].hospital_count} hospitals with relevant credentials.` }] : []),
-        ...(city.country?.slug ? [{ eyebrow: "Doctors", label: `${city.country.name} surgeons`, href: `/doctors/country/${city.country.slug}`, hint: "Volume-ranked physician directory across this destination." }] : []),
-        { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure cost ranges, recovery time, success rates." },
-        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, and pricing." },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
-        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get specialty + destination + 3-hospital shortlist." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+        { eyebrow: tHc("exploreItemCityEyebrow"), label: tHc("exploreItemCityLabel").replace("{cityName}", city.name), href: `/city/${citySlug}`, hint: tHc("exploreItemCityHint") },
+        ...(city.country?.slug && city.country?.name ? [{ eyebrow: tHc("exploreItemDestEyebrow"), label: tHc("exploreItemDestLabel").replace("{countryName}", city.country.name), href: `/country/${city.country.slug}`, hint: tHc("exploreItemDestHint").replace("{countryName}", city.country.name) }] : []),
+        ...(city.country?.slug ? [{ eyebrow: tHc("exploreItemVisaEyebrow"), label: tHc("exploreItemVisaLabel").replace("{countryName}", city.country?.name ?? ""), href: `/visa/${city.country.slug}`, hint: tHc("exploreItemVisaHint") }] : []),
+        ...(specialtyCounts[0] ? [{ eyebrow: tHc("exploreItemSpecEyebrow"), label: `${specialtyCounts[0].name} hub`, href: `/specialty/${specialtyCounts[0].slug}`, hint: tHc("exploreItemSpec1Hint").replace("{count}", String(specialtyCounts[0].hospital_count)) }] : []),
+        ...(specialtyCounts[1] ? [{ eyebrow: tHc("exploreItemSpecEyebrow"), label: `${specialtyCounts[1].name}`, href: `/specialty/${specialtyCounts[1].slug}`, hint: tHc("exploreItemSpec2Hint").replace("{count}", String(specialtyCounts[1].hospital_count)) }] : []),
+        ...(specialtyCounts[2] ? [{ eyebrow: tHc("exploreItemSpecEyebrow"), label: `${specialtyCounts[2].name}`, href: `/specialty/${specialtyCounts[2].slug}`, hint: tHc("exploreItemSpec3Hint").replace("{count}", String(specialtyCounts[2].hospital_count)) }] : []),
+        ...(city.country?.slug ? [{ eyebrow: tHc("exploreItemDoctorsEyebrow"), label: tHc("exploreItemDoctorsLabel").replace("{countryName}", city.country?.name ?? ""), href: `/doctors/country/${city.country.slug}`, hint: tHc("exploreItemDoctorsHint") }] : []),
+        { eyebrow: tHc("exploreItemBrowseEyebrow"), label: tHc("exploreItemBrowseLabel"), href: "/treatments", hint: tHc("exploreItemBrowseHint") },
+        { eyebrow: tHc("exploreItemCompareEyebrow"), label: tHc("exploreItemCompareLabel"), href: "/compare/hospitals", hint: tHc("exploreItemCompareHint") },
+        { eyebrow: tHc("exploreItemToolEyebrow"), label: tHc("exploreItemCalcLabel"), href: "/calculator", hint: tHc("exploreItemCalcHint") },
+        { eyebrow: tHc("exploreItemToolEyebrow"), label: tHc("exploreItemMatchLabel"), href: "/match-me", hint: tHc("exploreItemMatchHint") },
+        { eyebrow: tHc("exploreItemActionEyebrow"), label: tHc("exploreItemOpinionLabel"), href: "/second-opinion", hint: tHc("exploreItemOpinionHint") },
       ]}
     />
 

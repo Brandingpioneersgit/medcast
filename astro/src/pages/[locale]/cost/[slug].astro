@@ -475,7 +475,7 @@ Astro.response.headers.set(
               class="inline-flex items-center gap-2 font-semibold"
               style="background: var(--color-bg); color: var(--color-ink); padding: 14px 22px; border-radius: 9999px;"
             >
-              Request quotes
+              {tCost("btnRequestQuotes")}
               <ChevronRight className="h-4 w-4 mirror-x" />
             </a>
             <a
@@ -483,7 +483,7 @@ Astro.response.headers.set(
               class="inline-flex items-center gap-2 font-semibold"
               style="border: 1px solid rgba(246,241,230,0.35); color: var(--color-bg); padding: 13px 22px; border-radius: 9999px;"
             >
-              Open price calculator
+              {tCost("btnOpenCalculator")}
             </a>
           </div>
         </div>
@@ -504,10 +504,10 @@ Astro.response.headers.set(
           <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft);">
             <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
               <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-coral, #E85A4F);">
-                Watch out for
+                {tCost("redFlagsEyebrow")}
               </div>
               <h2 class="display mb-7" style="font-size: 28px; letter-spacing: -0.02em;">
-                Red flags in <span style="font-style: italic;">quotes and clinics</span>
+                {tCost("redFlagsHeadingBefore")} <span style="font-style: italic;">{tCost("redFlagsHeadingAccent")}</span>
               </h2>
               <ul class="space-y-3">
                 {tSections.redFlags.map((rf: string) => (
@@ -528,10 +528,10 @@ Astro.response.headers.set(
           <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
             <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
               <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Questions
+                {tCost("questionsEyebrow")}
               </div>
               <h2 class="display mb-7" style="font-size: 28px; letter-spacing: -0.02em;">
-                What to <span style="font-style: italic;">ask before signing the quote</span>
+                {tCost("questionsHeadingBefore")} <span style="font-style: italic;">{tCost("questionsHeadingAccent")}</span>
               </h2>
               <ol class="space-y-3">
                 {tSections.questionsToAsk.map((q: string, i: number) => (
@@ -551,16 +551,16 @@ Astro.response.headers.set(
           <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft);">
             <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
               <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Candidacy
+                {tCost("candidacyEyebrow")}
               </div>
               <h2 class="display mb-7" style="font-size: 26px; letter-spacing: -0.015em;">
-                Are you a <span style="font-style: italic;">good candidate?</span>
+                {tCost("candidacyHeadingBefore")} <span style="font-style: italic;">{tCost("candidacyHeadingAccent")}</span>
               </h2>
               <div class="grid gap-6 md:grid-cols-2">
                 {tSections.whoIsACandidate.qualifiers && (
                   <div class="paper" style="padding: 22px;">
                     <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
-                      Yes, if
+                      {tCost("candidacyYesIf")}
                     </div>
                     <ul class="space-y-2.5">
                       {tSections.whoIsACandidate.qualifiers.map((q: string) => (
@@ -575,7 +575,7 @@ Astro.response.headers.set(
                 {tSections.whoIsACandidate.disqualifiers && (
                   <div class="paper" style="padding: 22px;">
                     <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-coral, #E85A4F); margin-bottom: 10px;">
-                      Not yet, if
+                      {tCost("candidacyNotYetIf")}
                     </div>
                     <ul class="space-y-2.5">
                       {tSections.whoIsACandidate.disqualifiers.map((d: string) => (

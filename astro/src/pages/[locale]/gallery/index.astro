@@ -21,6 +21,7 @@ const locale = rawLocale as Locale;
 
 const rawOutcomes = await listBeforeAfterGallery(72);
 const tc = getTranslator(locale, "common");
+const tGa = getTranslator(locale, "galleryPage");
 
 // Localize the joined treatment/hospital/country names for non-default locales
 // (getContentBatch returns {} on `en` or for empty id lists — no-op there).
@@ -49,19 +50,15 @@ const outcomes = rawOutcomes.map((o) => ({
 const treatmentCount = new Set(outcomes.map((o) => o.treatment_slug).filter(Boolean)).size;
 const path = "/gallery";
 
-const seoTitle = `Before & After Gallery — Real Patient Outcomes`;
-const seoDescription =
-  `${outcomes.length.toLocaleString()} consented before-and-after outcomes from our placement network — drag the handle to compare. Cosmetic, dental, hair and reconstructive results across accredited hospitals.`.slice(
-    0,
-    160,
-  );
+const seoTitle = tGa("seoTitle");
+const seoDescription = tGa("seoDescription").replace("{count}", outcomes.length.toLocaleString()).slice(0, 160);
 
 // Don't index an empty gallery — outcomes are added only as consent is recorded.
 const shouldNoindex = outcomes.length === 0;
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Before & after gallery", url: localeUrl(locale, path) },
+  { name: tGa("breadcrumb"), url: localeUrl(locale, path) },
 ]);
 
 const treatmentItems = Array.from(
@@ -75,7 +72,7 @@ const collectionLd =
   treatmentItems.length > 0
     ? withProvenance(
         collectionPageJsonLd({
-          name: "Before & after gallery",
+          name: tGa("breadcrumb"),
           description: seoDescription,
           url: localeUrl(locale, path),
           items: treatmentItems,
@@ -87,15 +84,15 @@ const collectionLd =
 const stats =
   outcomes.length > 0
     ? [
-        { l: "Outcomes", v: outcomes.length.toLocaleString() },
-        { l: "Procedures", v: treatmentCount.toLocaleString() },
-        { l: "Consent", v: "100%" },
-        { l: "Reply time", v: "9 min" },
+        { l: tGa("statOutcomes"), v: outcomes.length.toLocaleString() },
+        { l: tGa("statProcedures"), v: treatmentCount.toLocaleString() },
+        { l: tGa("statConsent"), v: "100%" },
+        { l: tGa("statReplyTime"), v: "9 min" },
       ]
     : [];
 
 function captionFor(o: (typeof outcomes)[number]): string {
-  return o.caption ?? `${o.treatment_name ?? "Treatment"} outcome`;
+  return o.caption ?? `${o.treatment_name ?? tGa("captionFallbackTreatment")} ${tGa("captionFallbackOutcome")}`;
 }
 
 Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-revalidate=86400");
@@ -118,39 +115,39 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
         <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span class="mx-1.5">/</span>
-          <span style="color: var(--color-ink);">Before &amp; after gallery</span>
+          <span style="color: var(--color-ink);">{tGa("breadcrumb")}</span>
         </nav>
       </div>
     </div>
 
     <EntityListingHero
-      eyebrow="Before & after"
-      h1First="Outcomes you can"
-      h1Italic="actually see"
-      lede="Real before-and-after pairs from patients treated through our placement network — every one published with written consent. Drag the handle on any card to compare."
+      eyebrow={tGa("heroEyebrow")}
+      h1First={tGa("heroH1First")}
+      h1Italic={tGa("heroH1Italic")}
+      lede={tGa("heroLede")}
       stats={stats}
     />
 
     <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-6 pb-16">
-      <h2 class="sr-only">Before and after outcomes</h2>
+      <h2 class="sr-only">{tGa("srHeading")}</h2>
       {outcomes.length === 0 ? (
         <div class="paper text-center py-20" style="color: var(--color-ink-muted);">
-          <p class="serif text-lg mb-3">Before-and-after outcomes are published only as patient consent is recorded.</p>
-          <p class="text-sm mb-5">We won't fill this page with stock images. In the meantime, explore procedures and pricing.</p>
+          <p class="serif text-lg mb-3">{tGa("emptyStatePrimary")}</p>
+          <p class="text-sm mb-5">{tGa("emptyStateSecondary")}</p>
           <div class="flex items-center justify-center gap-3">
             <a
               href={localizedPath(locale, "/treatments")}
               class="mono uppercase"
               style="font-size: 11px; letter-spacing: 0.12em; border: 1px solid var(--color-border); padding: 9px 16px; border-radius: 9999px; color: var(--color-ink);"
             >
-              Browse treatments
+              {tGa("emptyCtaBrowse")}
             </a>
             <a
               href={localizedPath(locale, "/match-me")}
               class="mono uppercase"
               style="font-size: 11px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 9px 16px; border-radius: 9999px;"
             >
-              Start your case →
+              {tGa("emptyCtaStart")}
             </a>
           </div>
         </div>
@@ -161,7 +158,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
               <div class="ba-frame" style="position: relative; aspect-ratio: 4/5; --pos: 50%;">
                 <img
                   src={o.after_url}
-                  alt={`After — ${captionFor(o)}`}
+                  alt={`${tGa("badgeAfter")} — ${captionFor(o)}`}
                   loading="lazy"
                   decoding="async"
                   style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;"
@@ -172,7 +169,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
                 >
                   <img
                     src={o.before_url}
-                    alt={`Before — ${captionFor(o)}`}
+                    alt={`${tGa("badgeBefore")} — ${captionFor(o)}`}
                     loading="lazy"
                     decoding="async"
                     style="width: 100%; height: 100%; object-fit: cover;"
@@ -192,20 +189,20 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
                   class="mono"
                   style="position: absolute; top: 12px; inset-inline-start: 12px; padding: 4px 10px; font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(251,248,241,.96); background: rgba(14,23,19,0.55); border-radius: 9999px; backdrop-filter: blur(6px);"
                 >
-                  Before
+                  {tGa("badgeBefore")}
                 </span>
                 <span
                   class="mono"
                   style="position: absolute; top: 12px; inset-inline-end: 12px; padding: 4px 10px; font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(251,248,241,.96); background: rgba(10,93,84,0.78); border-radius: 9999px; backdrop-filter: blur(6px);"
                 >
-                  After{o.months_after ? ` · ${o.months_after}mo` : ""}
+                  {tGa("badgeAfter")}{o.months_after ? ` · ${o.months_after}mo` : ""}
                 </span>
                 <input
                   type="range"
                   min="0"
                   max="100"
                   value="50"
-                  aria-label={`Compare before and after for outcome ${idx + 1}`}
+                  aria-label={tGa("rangeAriaLabel").replace("{n}", String(idx + 1))}
                   class="ba-range"
                   data-ba-range
                   style="position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: ew-resize; margin: 0;"
@@ -233,39 +230,38 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
         </div>
 
         <p style="font-size: 11.5px; color: var(--color-ink-subtle); margin-top: 16px; max-width: 70ch;">
-          All photos shown with written patient consent; faces blurred or cropped where requested.
-          Outcomes vary by anatomy, age, condition and surgeon — these are illustrative, not promises.
+          {tGa("consentDisclaimer")}
         </p>
       )}
     </section>
 
     <HowItWorks
-      heading="How outcomes get onto this page"
-      italicWord="this page"
-      eyebrow="Consent & moderation"
+      heading={tGa("howHeading")}
+      italicWord={tGa("howItalicWord")}
+      eyebrow={tGa("howEyebrow")}
       steps={[
-        { title: "Hospital submits with consent", description: "Partner hospitals upload before/after pairs only after recording written patient consent for publication." },
-        { title: "Moderation review", description: "Every pair is reviewed before it appears — we reject mismatched, over-edited or low-quality images. Only 'approved' rows render here." },
-        { title: "Anonymised by default", description: "Faces are blurred or cropped unless the patient explicitly consents to be identifiable. Identifying detail in captions is removed." },
-        { title: "Withdrawable any time", description: "Patients can ask for their photos to be removed at any point, and the pair comes down — no questions asked." },
+        { title: tGa("howStep1Title"), description: tGa("howStep1Desc") },
+        { title: tGa("howStep2Title"), description: tGa("howStep2Desc") },
+        { title: tGa("howStep3Title"), description: tGa("howStep3Desc") },
+        { title: tGa("howStep4Title"), description: tGa("howStep4Desc") },
       ]}
-      outroNote="A surgical photo is one data point. Ask any hospital for outcomes across a full case series, not just the best results."
+      outroNote={tGa("howOutroNote")}
     />
 
     <ExploreGrid
       locale={locale}
-      eyebrow="From outcome to plan"
-      heading="See an outcome you'd want? Plan it"
-      lede="A before/after pair shows what's possible. These hubs turn it into a costed, hospital-specific plan."
+      eyebrow={tGa("exploreEyebrow")}
+      heading={tGa("exploreHeading")}
+      lede={tGa("exploreLede")}
       items={[
-        { eyebrow: "Stories", label: "Patient stories", href: "/stories", hint: "First-person accounts of the full medical-travel journey." },
-        { eyebrow: "Browse", label: "All treatments", href: "/treatments", hint: "Per-procedure success rates, recovery time and pricing." },
-        { eyebrow: "Care", label: "Cosmetic & plastic surgery", href: "/specialty/cosmetic-surgery", hint: "Programs, surgeons and pricing for aesthetic procedures." },
-        { eyebrow: "Care", label: "Hair transplant", href: "/treatment/hair-transplant", hint: "Technique, graft counts, recovery and destination pricing." },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures and destinations." },
-        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
-        { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "How we handle patient photos, consent and corrections." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+        { eyebrow: tGa("exploreItem1Eyebrow"), label: tGa("exploreItem1Label"), href: "/stories", hint: tGa("exploreItem1Hint") },
+        { eyebrow: tGa("exploreItem2Eyebrow"), label: tGa("exploreItem2Label"), href: "/treatments", hint: tGa("exploreItem2Hint") },
+        { eyebrow: tGa("exploreItem3Eyebrow"), label: tGa("exploreItem3Label"), href: "/specialty/cosmetic-surgery", hint: tGa("exploreItem3Hint") },
+        { eyebrow: tGa("exploreItem4Eyebrow"), label: tGa("exploreItem4Label"), href: "/treatment/hair-transplant", hint: tGa("exploreItem4Hint") },
+        { eyebrow: tGa("exploreItem5Eyebrow"), label: tGa("exploreItem5Label"), href: "/calculator", hint: tGa("exploreItem5Hint") },
+        { eyebrow: tGa("exploreItem6Eyebrow"), label: tGa("exploreItem6Label"), href: "/match-me", hint: tGa("exploreItem6Hint") },
+        { eyebrow: tGa("exploreItem7Eyebrow"), label: tGa("exploreItem7Label"), href: "/editorial-policy", hint: tGa("exploreItem7Hint") },
+        { eyebrow: tGa("exploreItem8Eyebrow"), label: tGa("exploreItem8Label"), href: "/second-opinion", hint: tGa("exploreItem8Hint") },
       ]}
     />
 

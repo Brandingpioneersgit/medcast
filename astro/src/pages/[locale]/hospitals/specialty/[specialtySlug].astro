@@ -61,7 +61,7 @@ if (hospitalIds.length > 0) {
       SELECT ha.hospital_id, ARRAY_AGG(DISTINCT COALESCE(a.acronym, a.name)) AS codes
       FROM hospital_accreditations ha
       INNER JOIN accreditations a ON a.id = ha.accreditation_id
-      WHERE ha.hospital_id = ANY(${hospitalIds}::int[])
+      WHERE ha.hospital_id IN ${hospitalIds}
       GROUP BY ha.hospital_id
     `);
     for (const r of Array.from(accr)) accreditationMap.set(r.hospital_id, r.codes);
@@ -78,15 +78,15 @@ const FLAG_MAP: Record<string, string> = {
 function countryFlag(s: string | null | undefined): string { return s ? (FLAG_MAP[s] ?? "🌐") : "🌐"; }
 
 const tc = getTranslator(locale, "common");
+const tHs = getTranslator(locale, "hospitalsSpecialtyPage");
 const specialtyName = specialty.name;
 const countText = total.toLocaleString();
 const path = `/hospitals/specialty/${specialtySlug}`;
-const seoTitle = `${specialtyName} Hospitals — ${countText} accredited centres`;
-const seoDescription =
-  `Browse ${countText} accredited hospitals credentialed for ${specialtyName.toLowerCase()} across our destinations. Compare ratings, bed capacity and JCI/ISO accreditation.`.slice(
-    0,
-    160,
-  );
+const seoTitle = tHs("seoTitle").replace("{specialtyName}", specialtyName).replace("{countText}", countText);
+const seoDescription = tHs("seoDescription")
+  .replace("{countText}", countText)
+  .replace("{specialtyName}", specialtyName.toLowerCase())
+  .slice(0, 160);
 
 const shouldNoindex = page > 1 || total === 0 || isUntranslated(locale, specialtyMap);
 
@@ -124,19 +124,19 @@ const prevUrl = page > 1 ? buildHref({ page: page - 1 }) : undefined;
 const nextUrl = page < totalPages ? buildHref({ page: page + 1 }) : undefined;
 
 const SORTS = [
-  { value: "featured", label: "Featured" },
-  { value: "rating", label: "Top rated" },
-  { value: "reviews", label: "Most reviewed" },
-  { value: "beds", label: "Largest" },
+  { value: "featured", label: tHs("sortFeatured") },
+  { value: "rating", label: tHs("sortRating") },
+  { value: "reviews", label: tHs("sortReviews") },
+  { value: "beds", label: tHs("sortBeds") },
 ];
 
 const stats =
   page === 1
     ? [
-        { l: "Hospitals", v: countText },
-        { l: "Specialty", v: specialtyName },
-        { l: "Accredited", v: "Vetted" },
-        { l: "Reply time", v: "9 min" },
+        { l: tHs("statHospitalsLabel"), v: countText },
+        { l: tHs("statSpecialtyLabel"), v: specialtyName },
+        { l: tHs("statAccreditedLabel"), v: tHs("statAccreditedValue") },
+        { l: tHs("statReplyLabel"), v: tHs("statReplyValue") },
       ]
     : [];
 
@@ -165,10 +165,10 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
       <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
-        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label={tHs("breadcrumbAriaLabel")}>
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span class="mx-1.5">/</span>
-          <a href={localizedPath(locale, "/hospitals")} class="hover:text-ink">Hospitals</a>
+          <a href={localizedPath(locale, "/hospitals")} class="hover:text-ink">{tc("hospitals")}</a>
           <span class="mx-1.5">/</span>
           <span style="color: var(--color-ink);">{specialtyName}</span>
         </nav>
@@ -176,20 +176,20 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
     </div>
 
     <EntityListingHero
-      eyebrow={`${countText} hospitals · ${specialtyName}`}
-      h1First={`${specialtyName} hospitals`}
-      h1Italic="abroad"
-      lede={`Accredited hospitals credentialed for ${specialtyName.toLowerCase()} across our destinations — compared on rating, bed capacity and accreditation, and continuously re-vetted by our medical panel.`}
+      eyebrow={tHs("heroEyebrow").replace("{countText}", countText).replace("{specialtyName}", specialtyName)}
+      h1First={tHs("heroH1First").replace("{specialtyName}", specialtyName)}
+      h1Italic={tHs("heroH1Italic")}
+      lede={tHs("heroLede").replace("{specialtyName}", specialtyName.toLowerCase())}
       stats={stats}
       locale={locale}
       image={specialtyBanner(specialtySlug)}
-      imageAlt={`${specialtyName} hospitals abroad`}
+      imageAlt={tHs("heroH1First").replace("{specialtyName}", specialtyName) + " " + tHs("heroH1Italic")}
     />
 
     {(breakdown.countries.length > 0 || breakdown.cities.length > 0) && (
       <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-8">
         <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-          Browse {specialtyName.toLowerCase()} hospitals by destination
+          {tHs("browseByDestination").replace("{specialtyName}", specialtyName.toLowerCase())}
         </div>
         <div class="flex flex-wrap gap-2">
           {breakdown.countries.map((c) => (
@@ -198,7 +198,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
               class="rounded-full border px-3 py-1.5 text-[13px] font-medium hover:border-ink transition-colors"
               style="border-color: var(--color-border); color: var(--color-ink);"
             >
-              {specialtyName} in {c.name}
+              {tHs("countryPillLabel").replace("{specialtyName}", specialtyName).replace("{place}", c.name)}
               <span class="tnum" style="opacity: 0.55; margin-inline-start: 5px;">{c.n}</span>
             </a>
           ))}
@@ -218,7 +218,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
 
     <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-8 pb-12">
       <h2 class="display-tight mb-6" style="font-size: clamp(1.5rem, 3vw, 2.25rem); letter-spacing: -0.02em;">
-        Hospitals credentialed for {specialtyName.toLowerCase()}
+        {tHs("sectionHeading").replace("{specialtyName}", specialtyName.toLowerCase())}
       </h2>
       <div class="min-w-0">
         <div
@@ -226,16 +226,16 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
           style="border-bottom: 1px solid var(--color-border);"
         >
           <span class="serif text-[14px]" style="color: var(--color-ink-muted);">
-            <span class="display tnum text-ink">{countText}</span> hospital{total === 1 ? "" : "s"}
+            <span class="display tnum text-ink">{countText}</span> {total === 1 ? tHs("resultSingular") : tHs("resultPlural")}
             {totalPages > 1 && (
               <span class="ms-2 mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-                Page {page} of {totalPages}
+                {tHs("paginationLabel").replace("{page}", String(page)).replace("{total}", String(totalPages))}
               </span>
             )}
           </span>
           <div class="flex items-center gap-1 -mx-1 overflow-x-auto">
             <span class="mono uppercase px-1 whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-              Sort
+              {tHs("sortLabel")}
             </span>
             {SORTS.map((o) => {
               const active = sort === o.value;
@@ -256,13 +256,13 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
 
         {rows.length === 0 ? (
           <div class="paper text-center py-20" style="color: var(--color-ink-muted);">
-            <p class="serif text-lg mb-2">No hospitals credentialed for {specialtyName.toLowerCase()} yet.</p>
+            <p class="serif text-lg mb-2">{tHs("emptyState").replace("{specialtyName}", specialtyName.toLowerCase())}</p>
             <a
               href={localizedPath(locale, `/specialty/${specialtySlug}`)}
               class="inline-block mt-2 mono uppercase text-[11px]"
               style="color: var(--color-accent); letter-spacing: 0.12em;"
             >
-              {specialtyName} specialty hub →
+              {tHs("emptyStateLink").replace("{specialtyName}", specialtyName)}
             </a>
           </div>
         ) : (
@@ -317,9 +317,9 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
                         style="border-top: 1px dashed var(--color-border); margin-top: 14px; padding-top: 12px;"
                       >
                         <div class="flex items-center gap-3 text-[12px]" style="color: var(--color-ink-muted);">
-                          {h.bedCapacity && <span class="tnum">{h.bedCapacity.toLocaleString()} beds</span>}
+                          {h.bedCapacity && <span class="tnum">{tHs("bedCount").replace("{n}", h.bedCapacity.toLocaleString())}</span>}
                           {h.reviewCount && h.reviewCount > 0 && (
-                            <span class="tnum">{h.reviewCount.toLocaleString()} reviews</span>
+                            <span class="tnum">{tHs("reviewCount").replace("{n}", h.reviewCount.toLocaleString())}</span>
                           )}
                         </div>
                         <ChevronRight className="h-3.5 w-3.5 mirror-x text-[var(--color-ink-subtle)] group-hover:text-[var(--color-accent)] transition-colors" />
@@ -340,32 +340,32 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
     </section>
 
     <HowItWorks
-      heading={`How to compare ${specialtyName.toLowerCase()} hospitals`}
-      italicWord={`${specialtyName.toLowerCase()} hospitals`}
-      eyebrow="Hospital comparison guide"
+      heading={tHs("howItWorksHeading").replace("{specialtyName}", specialtyName.toLowerCase())}
+      italicWord={tHs("howItWorksItalic").replace("{specialtyName}", specialtyName.toLowerCase())}
+      eyebrow={tHs("howItWorksEyebrow")}
       steps={[
-        { title: "Look for a dedicated programme", description: `A hospital credentialed for ${specialtyName.toLowerCase()} should have a dedicated unit and sub-specialty team — not a general department that occasionally takes these cases.` },
-        { title: "Read accreditation, not just ratings", description: "JCI, ISO 9001 and the national regulator certify safety processes. Multiple accreditations plus a dedicated team beat a single badge." },
-        { title: "Check surgeon volume for your procedure", description: "Ask for the assigned surgeon's annual case volume on your specific procedure — it predicts outcomes better than hospital prestige." },
-        { title: "Get itemised quotes", description: "Request line-by-line quotes from your top two or three hospitals and compare on equal scope — surgeon fee, stay, implants, diagnostics, follow-up." },
+        { title: tHs("step1Title"), description: tHs("step1Desc").replace("{specialtyName}", specialtyName.toLowerCase()) },
+        { title: tHs("step2Title"), description: tHs("step2Desc") },
+        { title: tHs("step3Title"), description: tHs("step3Desc") },
+        { title: tHs("step4Title"), description: tHs("step4Desc") },
       ]}
     />
 
     <ExploreGrid
       locale={locale}
-      eyebrow={`${specialtyName} care`}
-      heading={`Beyond the hospital list — full ${specialtyName.toLowerCase()} picture`}
-      lede={`The hospital list is one cut. These hubs cover the specialty itself, the surgeons, the procedures and the cross-border comparison.`}
+      eyebrow={tHs("exploreEyebrow").replace("{specialtyName}", specialtyName)}
+      heading={tHs("exploreHeading").replace("{specialtyName}", specialtyName.toLowerCase())}
+      lede={tHs("exploreLede")}
       items={[
-        { eyebrow: "Specialty", label: `${specialtyName} hub`, href: `/specialty/${specialtySlug}`, hint: `Programs, sub-specialties and procedures across ${specialtyName.toLowerCase()}.` },
-        { eyebrow: "Surgeons", label: `${specialtyName} surgeons`, href: `/surgeons/${specialtySlug}`, hint: "Volume-ranked surgeon directory across all destinations." },
-        { eyebrow: "Best of", label: `Best ${specialtyName.toLowerCase()} programs`, href: "/best", hint: "Editorially ranked by specialty × country with methodology disclosed." },
-        { eyebrow: "Browse", label: "All hospitals", href: "/hospitals", hint: "Filter the full network by country, specialty, accreditation, beds and rating." },
-        { eyebrow: "Browse", label: "All specialties", href: "/specialties", hint: "Every specialty hub across the network." },
-        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds and pricing for up to 4 hospitals." },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures and destinations." },
-        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+        { eyebrow: tHs("exploreItem1Eyebrow"), label: tHs("exploreItem1Label").replace("{specialtyName}", specialtyName), href: `/specialty/${specialtySlug}`, hint: tHs("exploreItem1Hint").replace("{specialtyName}", specialtyName.toLowerCase()) },
+        { eyebrow: tHs("exploreItem2Eyebrow"), label: tHs("exploreItem2Label").replace("{specialtyName}", specialtyName), href: `/surgeons/${specialtySlug}`, hint: tHs("exploreItem2Hint") },
+        { eyebrow: tHs("exploreItem3Eyebrow"), label: tHs("exploreItem3Label").replace("{specialtyName}", specialtyName.toLowerCase()), href: "/best", hint: tHs("exploreItem3Hint") },
+        { eyebrow: tHs("exploreItem4Eyebrow"), label: tHs("exploreItem4Label"), href: "/hospitals", hint: tHs("exploreItem4Hint") },
+        { eyebrow: tHs("exploreItem5Eyebrow"), label: tHs("exploreItem5Label"), href: "/specialties", hint: tHs("exploreItem5Hint") },
+        { eyebrow: tHs("exploreItem6Eyebrow"), label: tHs("exploreItem6Label"), href: "/compare/hospitals", hint: tHs("exploreItem6Hint") },
+        { eyebrow: tHs("exploreItem7Eyebrow"), label: tHs("exploreItem7Label"), href: "/calculator", hint: tHs("exploreItem7Hint") },
+        { eyebrow: tHs("exploreItem8Eyebrow"), label: tHs("exploreItem8Label"), href: "/match-me", hint: tHs("exploreItem8Hint") },
+        { eyebrow: tHs("exploreItem9Eyebrow"), label: tHs("exploreItem9Label"), href: "/second-opinion", hint: tHs("exploreItem9Hint") },
       ]}
     />
 

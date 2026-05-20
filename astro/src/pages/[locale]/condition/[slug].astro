@@ -44,6 +44,7 @@ const [conditionRaw, linkables] = await Promise.all([
 if (!conditionRaw) return new Response(`Not found: ${slug}`, { status: 404 });
 
 const tc = getTranslator(locale, "common");
+const tCnd = getTranslator(locale, "conditionDetailPage");
 
 const specialtyIds = (conditionRaw.specialties ?? []).map((cs) => cs.specialty.id);
 const treatmentIds = (conditionRaw.treatments ?? []).map((ct) => ct.treatment.id);
@@ -105,9 +106,9 @@ const severityStyle = severity === "severe"
   : "border-color: var(--color-border); background: var(--color-paper); color: var(--color-ink-muted);";
 
 const stats = [
-  { l: "Treatment paths", v: conditionTreatments.length.toString() },
-  { l: "Specialties", v: conditionSpecialties.length.toString() },
-  severityLabel ? { l: "Typical severity", v: severityLabel } : null,
+  { l: tCnd("statLabelTreatmentPaths"), v: conditionTreatments.length.toString() },
+  { l: tCnd("statLabelSpecialties"), v: conditionSpecialties.length.toString() },
+  severityLabel ? { l: tCnd("statLabelTypicalSeverity"), v: severityLabel } : null,
 ].filter(Boolean) as Array<{ l: string; v: string }>;
 
 const seoFallbackDesc = `${condition.name} — overview, treatment paths, and ${conditionTreatments.length} options across accredited hospitals.`;
@@ -125,7 +126,7 @@ const url = localeUrl(locale, path);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Conditions", url: localeUrl(locale, "/conditions") },
+  { name: tCnd("breadcrumbConditions"), url: localeUrl(locale, "/conditions") },
   { name: condition.name, url },
 ]);
 
@@ -174,7 +175,7 @@ Astro.response.headers.set(
         <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span class="mx-1.5">/</span>
-          <a href={localizedPath(locale, "/conditions")} class="hover:text-ink">Conditions</a>
+          <a href={localizedPath(locale, "/conditions")} class="hover:text-ink">{tCnd("breadcrumbConditions")}</a>
           <span class="mx-1.5">/</span>
           <span style="color: var(--color-ink);">{condition.name}</span>
         </nav>
@@ -185,7 +186,7 @@ Astro.response.headers.set(
       <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
         <div class="flex items-center gap-3 flex-wrap">
           <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
-            Condition · {conditionTreatments.length} treatment path{conditionTreatments.length === 1 ? "" : "s"}
+            {tCnd("eyebrowCondition")} · {conditionTreatments.length} {conditionTreatments.length === 1 ? tCnd("eyebrowTreatmentPathSingular") : tCnd("eyebrowTreatmentPathPlural")}
           </p>
           {severityLabel && (
             <span
@@ -237,21 +238,21 @@ Astro.response.headers.set(
               slug={conditionSpecialties[0]?.specialty?.slug ?? null}
               name={conditionSpecialties[0]?.specialty?.name ?? condition.name}
               aspect="5/4"
-              label={`${condition.name} · case review`}
+              label={`${condition.name} · ${tCnd("caseReview")}`}
             />
             <div class="paper mt-4" style="padding: 16px 18px;">
               <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Free second opinion
+                {tCnd("secondOpinionEyebrow")}
               </div>
               <div class="serif mt-1.5" style="font-size: 16px; line-height: 1.4;">
-                Send your imaging + plan. Board-reviewed opinion in 5–10 working days.
+                {tCnd("secondOpinionBody")}
               </div>
               <a
                 href={localizedPath(locale, `/second-opinion?condition=${slug}`)}
                 class="mt-3 inline-flex items-center gap-1 text-sm font-semibold"
                 style="background: var(--color-ink); color: var(--color-bg); padding: 10px 16px; border-radius: 9999px;"
               >
-                Request opinion
+                {tCnd("requestOpinionBtn")}
                 <ChevronRight className="h-3.5 w-3.5 mirror-x" />
               </a>
             </div>
@@ -266,10 +267,10 @@ Astro.response.headers.set(
           <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                About {condition.name.toLowerCase()}
+                {tCnd("aboutEyebrow").replace("{conditionName}", condition.name.toLowerCase())}
               </div>
               <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
-                What to know
+                {tCnd("whatToKnowHeading")}
               </h2>
             </div>
             <div class="prose-editorial" set:html={descriptionRestHtml} />
@@ -287,10 +288,10 @@ Astro.response.headers.set(
               <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
                 <div>
                   <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                    Pre-flight workup
+                    {tCnd("preFlightEyebrow")}
                   </div>
                   <h2 class="display mt-3" style="font-size: 26px; letter-spacing: -0.015em;">
-                    Tests to <span style="font-style: italic;">have already done</span>
+                    {tCnd("testsHeadingPre")} <span style="font-style: italic;">{tCnd("testsHeadingItalic")}</span>
                   </h2>
                 </div>
                 <ul class="space-y-3">
@@ -312,10 +313,10 @@ Astro.response.headers.set(
               <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
                 <div>
                   <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                    Second opinion
+                    {tCnd("secondOpinionSectionEyebrow")}
                   </div>
                   <h2 class="display mt-3" style="font-size: 26px; letter-spacing: -0.015em;">
-                    When to <span style="font-style: italic;">get a second look</span>
+                    {tCnd("whenToHeadingPre")} <span style="font-style: italic;">{tCnd("whenToHeadingItalic")}</span>
                   </h2>
                 </div>
                 <ul class="space-y-3">
@@ -337,10 +338,10 @@ Astro.response.headers.set(
               <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
                 <div>
                   <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                    Talking to your doctor
+                    {tCnd("talkingToDoctorEyebrow")}
                   </div>
                   <h2 class="display mt-3" style="font-size: 26px; letter-spacing: -0.015em;">
-                    Questions to <span style="font-style: italic;">ask</span>
+                    {tCnd("questionsHeadingPre")} <span style="font-style: italic;">{tCnd("questionsHeadingItalic")}</span>
                   </h2>
                 </div>
                 <ol class="space-y-3.5">
@@ -360,10 +361,10 @@ Astro.response.headers.set(
           <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft);">
             <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
               <div class="mono uppercase mb-4" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Destinations
+                {tCnd("destinationsEyebrow")}
               </div>
               <h2 class="display mb-7" style="font-size: 28px; letter-spacing: -0.02em;">
-                Where this is <span style="font-style: italic;">commonly treated</span>
+                {tCnd("destinationsHeadingPre")} <span style="font-style: italic;">{tCnd("destinationsHeadingItalic")}</span>
               </h2>
               <div class="grid gap-5 md:grid-cols-2">
                 {condSections.destinationNotes.map((d) => (
@@ -385,9 +386,9 @@ Astro.response.headers.set(
               <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
                 <div>
                   <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                    Outlook
+                    {tCnd("outlookEyebrow")}
                   </div>
-                  <h2 class="display mt-3" style="font-size: 24px; letter-spacing: -0.015em;">Realistic prognosis</h2>
+                  <h2 class="display mt-3" style="font-size: 24px; letter-spacing: -0.015em;">{tCnd("realisticPrognosisHeading")}</h2>
                 </div>
                 <p class="serif" style="font-size: 16.5px; line-height: 1.6;">{condSections.expectedPrognosis}</p>
               </div>
@@ -402,10 +403,10 @@ Astro.response.headers.set(
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
           <div class="mb-6">
             <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-              01 · Specialties
+              {tCnd("specialtiesEyebrow")}
             </div>
             <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
-              Specialties that treat <span class="italic-display">{firstWord(condition.name)}</span>
+              {tCnd("specialtiesTreatHeading")} <span class="italic-display">{firstWord(condition.name)}</span>
             </h2>
           </div>
           <ul class="flex flex-wrap gap-2.5">
@@ -436,20 +437,20 @@ Astro.response.headers.set(
         >
           <div class="min-w-0">
             <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
-              Specialists
+              {tCnd("specialistsEyebrow")}
             </div>
             <div class="serif mt-1" style="font-size: 21px; line-height: 1.3; color: var(--color-ink);">
-              Doctors who treat {condition.name.toLowerCase()}
+              {tCnd("doctorsWhoTreatPrefix")} {condition.name.toLowerCase()}
             </div>
             <div class="mt-1 text-[12.5px]" style="color: var(--color-ink-subtle);">
-              Cross-hospital roster across {conditionSpecialties.length || 3}+ relevant specialties.
+              {tCnd("crossHospitalRosterPre")} {conditionSpecialties.length || 3}{tCnd("crossHospitalRosterPost")}
             </div>
           </div>
           <span
             class="inline-flex items-center gap-1.5 text-[12px] font-semibold shrink-0"
             style="background: var(--color-ink); color: var(--color-bg); padding: 9px 16px; border-radius: 9999px;"
           >
-            View roster
+            {tCnd("viewRosterBtn")}
             <ChevronRight className="h-3.5 w-3.5 mirror-x" />
           </span>
         </a>
@@ -459,31 +460,33 @@ Astro.response.headers.set(
     {/* Diagnostic workup — what to do BEFORE choosing a treatment */}
     {(() => {
       const tone = severity === "severe"
-        ? { eyebrow: "var(--color-coral)", soft: "var(--color-coral-soft)", urgency: "Severe — workup typically within 48–72 hours" }
+        ? { eyebrow: "var(--color-coral)", soft: "var(--color-coral-soft)", urgency: tCnd("urgencySevere") }
         : severity === "moderate"
-        ? { eyebrow: "var(--color-saffron)", soft: "var(--color-saffron-soft)", urgency: "Moderate — workup within 1–2 weeks" }
-        : { eyebrow: "var(--color-accent)", soft: "var(--color-accent-soft)", urgency: "Elective — workup at your pace" };
+        ? { eyebrow: "var(--color-saffron)", soft: "var(--color-saffron-soft)", urgency: tCnd("urgencyModerate") }
+        : { eyebrow: "var(--color-accent)", soft: "var(--color-accent-soft)", urgency: tCnd("urgencyElective") };
       const primarySpecialty = conditionSpecialties[0]?.specialty;
       const steps = [
         {
           n: "01",
-          title: "Confirm the diagnosis on imaging or labs",
-          body: `For ${condition.name.toLowerCase()}, plan on the workup your home doctor would order anyway — typically a recent specialist consult plus the imaging / labs the destination team will need to quote accurately. Anything older than 90 days usually gets re-done.`,
+          title: tCnd("workupStep1Title"),
+          body: tCnd("workupStep1BodyTemplate").replace("{conditionName}", condition.name.toLowerCase()),
         },
         {
           n: "02",
-          title: primarySpecialty ? `See a ${primarySpecialty.name.toLowerCase()} specialist locally first` : "See the relevant specialist locally first",
-          body: "An in-person clinical exam at home — even a single consult — costs little and dramatically improves the destination plan. Bring back: written impression, recommended procedure, surgical-risk class, and any contra-indications.",
+          title: primarySpecialty
+            ? tCnd("workupStep2TitleWithSpecialty").replace("{specialtyName}", primarySpecialty.name.toLowerCase())
+            : tCnd("workupStep2TitleFallback"),
+          body: tCnd("workupStep2Body"),
         },
         {
           n: "03",
-          title: "Send us the file for a free second opinion",
-          body: "Two surgeons in our medical panel review the workup independently. They tell you whether they'd operate, watch, or refer — even if that means recommending against travel. About 28% of cases we see end up not needing surgery at all.",
+          title: tCnd("workupStep3Title"),
+          body: tCnd("workupStep3Body"),
         },
         {
           n: "04",
-          title: "Pick a path with timeline + cost in writing",
-          body: "Once a treatment is the right call, we line up 2–3 hospital options with itemized quotes, surgeon profiles, and a travel timeline. You hold the file — switch hospitals or step away at any point.",
+          title: tCnd("workupStep4Title"),
+          body: tCnd("workupStep4Body"),
         },
       ];
       return (
@@ -492,18 +495,18 @@ Astro.response.headers.set(
             <div class="grid gap-10 lg:grid-cols-[0.4fr_1fr]">
               <div>
                 <div class="mono uppercase" style={`font-size: 11px; letter-spacing: 0.14em; color: ${tone.eyebrow};`}>
-                  Diagnostic workup
+                  {tCnd("diagnosticWorkupEyebrow")}
                 </div>
                 <h2 class="display mt-3" style="font-size: 30px; letter-spacing: -0.02em; line-height: 1.05;">
-                  Before you pick a hospital,
-                  <span style="font-style: italic; font-weight: 300;"> get the workup right</span>
+                  {tCnd("workupHeadingPre")}
+                  <span style="font-style: italic; font-weight: 300;"> {tCnd("workupHeadingItalic")}</span>
                 </h2>
                 <span
                   class="mono uppercase tnum mt-5 inline-block"
                   style={`font-size: 10px; letter-spacing: 0.12em; padding: 5px 12px; border-radius: 9999px; background: ${tone.soft}; color: ${tone.eyebrow};`}
                 >{tone.urgency}</span>
                 <p class="serif mt-5" style="font-size: 15px; line-height: 1.6; color: var(--color-ink-muted);">
-                  Picking the right treatment is downstream of a complete diagnosis. Skip steps here and the destination surgeon usually re-orders them anyway — at higher cost and another week on the ground.
+                  {tCnd("workupExplainer")}
                 </p>
               </div>
               <ol class="space-y-3">
@@ -529,10 +532,10 @@ Astro.response.headers.set(
           <div class="flex items-end justify-between flex-wrap gap-4 mb-8">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                03 · Treatment paths
+                {tCnd("treatmentPathsEyebrow")}
               </div>
               <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
-                Treatment options
+                {tCnd("treatmentOptionsHeading")}
               </h2>
             </div>
             <a
@@ -540,7 +543,7 @@ Astro.response.headers.set(
               class="mono text-[11px] uppercase tracking-wider hover:text-accent"
               style="color: var(--color-ink-subtle);"
             >
-              All treatments →
+              {tCnd("allTreatmentsLink")}
             </a>
           </div>
           <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -561,9 +564,9 @@ Astro.response.headers.set(
                   </div>
                   {(ct.treatment.hospitalStayDays || ct.treatment.recoveryDays || ct.treatment.successRatePercent) && (
                     <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[12px]" style="color: var(--color-ink-subtle);">
-                      {ct.treatment.hospitalStayDays && <span class="tnum">{ct.treatment.hospitalStayDays}d stay</span>}
-                      {ct.treatment.recoveryDays && <span class="tnum">{ct.treatment.recoveryDays}wk recovery</span>}
-                      {ct.treatment.successRatePercent && <span class="tnum">{Number(ct.treatment.successRatePercent).toFixed(0)}% success</span>}
+                      {ct.treatment.hospitalStayDays && <span class="tnum">{ct.treatment.hospitalStayDays}{tCnd("daySuffix")}</span>}
+                      {ct.treatment.recoveryDays && <span class="tnum">{ct.treatment.recoveryDays}{tCnd("weekRecoverySuffix")}</span>}
+                      {ct.treatment.successRatePercent && <span class="tnum">{Number(ct.treatment.successRatePercent).toFixed(0)}{tCnd("successSuffix")}</span>}
                     </div>
                   )}
                   <div
@@ -571,7 +574,7 @@ Astro.response.headers.set(
                     style="border-top: 1px dashed var(--color-border); margin-top: 16px; padding-top: 12px;"
                   >
                     <span class="mono text-[10px] uppercase tracking-wider" style="color: var(--color-ink-subtle);">
-                      Compare hospitals
+                      {tCnd("compareHospitalsLabel")}
                     </span>
                     <ChevronRight className="h-3.5 w-3.5 mirror-x text-[var(--color-ink-subtle)] group-hover:text-[var(--color-accent)] transition-colors" />
                   </div>
@@ -589,10 +592,10 @@ Astro.response.headers.set(
         <div class="flex items-end justify-between flex-wrap gap-4 mb-7">
           <div>
             <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
-              Where to be treated
+              {tCnd("whereTreatedEyebrow")}
             </div>
             <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
-              {condition.name} treatment <span style="font-style: italic;">by destination</span>
+              {tCnd("whereTreatedHeadingPre").replace("{conditionName}", condition.name)} <span style="font-style: italic;">{tCnd("whereTreatedHeadingItalic")}</span>
             </h2>
           </div>
           <a
@@ -600,20 +603,20 @@ Astro.response.headers.set(
             class="inline-flex items-center gap-1 text-sm"
             style="color: var(--color-accent);"
           >
-            Get a panel match →
+            {tCnd("getPanelMatchLink")}
           </a>
         </div>
         <ul class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
           {[
-            { slug: "india", name: "India", flag: "🇮🇳", note: "Best value · English" },
-            { slug: "turkey", name: "Turkey", flag: "🇹🇷", note: "Cosmetic · cardiac" },
-            { slug: "thailand", name: "Thailand", flag: "🇹🇭", note: "Wellness · dental" },
-            { slug: "uae", name: "UAE", flag: "🇦🇪", note: "Premium · Arabic" },
-            { slug: "germany", name: "Germany", flag: "🇩🇪", note: "Neuro · orthopedics" },
-            { slug: "singapore", name: "Singapore", flag: "🇸🇬", note: "Complex oncology" },
-            { slug: "south-korea", name: "South Korea", flag: "🇰🇷", note: "Aesthetic · stem cell" },
-            { slug: "malaysia", name: "Malaysia", flag: "🇲🇾", note: "Mid-cost Asia" },
-            { slug: "saudi-arabia", name: "Saudi Arabia", flag: "🇸🇦", note: "Gulf patients" },
+            { slug: "india", name: "India", flag: "🇮🇳", note: tCnd("countryNoteIndia") },
+            { slug: "turkey", name: "Turkey", flag: "🇹🇷", note: tCnd("countryNoteTurkey") },
+            { slug: "thailand", name: "Thailand", flag: "🇹🇭", note: tCnd("countryNoteThailand") },
+            { slug: "uae", name: "UAE", flag: "🇦🇪", note: tCnd("countryNoteUae") },
+            { slug: "germany", name: "Germany", flag: "🇩🇪", note: tCnd("countryNoteGermany") },
+            { slug: "singapore", name: "Singapore", flag: "🇸🇬", note: tCnd("countryNoteSingapore") },
+            { slug: "south-korea", name: "South Korea", flag: "🇰🇷", note: tCnd("countryNoteSouthKorea") },
+            { slug: "malaysia", name: "Malaysia", flag: "🇲🇾", note: tCnd("countryNoteMalaysia") },
+            { slug: "saudi-arabia", name: "Saudi Arabia", flag: "🇸🇦", note: tCnd("countryNoteSaudiArabia") },
           ].map((c) => (
             <li>
               <a
@@ -624,7 +627,7 @@ Astro.response.headers.set(
                 <div class="flex items-center justify-between">
                   <span style="font-size: 22px;">{c.flag}</span>
                   <span class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-accent); text-transform: uppercase;">
-                    Open →
+                    {tCnd("openArrow")}
                   </span>
                 </div>
                 <div class="serif mt-3" style="font-size: 17px; font-weight: 500; color: var(--color-ink);">
@@ -646,10 +649,10 @@ Astro.response.headers.set(
           <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                04 · FAQ
+                {tCnd("faqEyebrow")}
               </div>
               <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
-                Common questions about {condition.name.toLowerCase()}
+                {tCnd("faqHeadingPrefix")} {condition.name.toLowerCase()}
               </h2>
             </div>
             <div class="divide-y divide-[var(--color-border-soft)]">
@@ -673,13 +676,13 @@ Astro.response.headers.set(
         <div class="grid gap-8 lg:grid-cols-[1.5fr_1fr] items-end">
           <div>
             <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
-              Not sure which treatment fits
+              {tCnd("ctaEyebrow")}
             </div>
             <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.02; letter-spacing: -0.02em; color: var(--color-bg);">
-              Free second opinion on your <span class="italic-display">{firstWord(condition.name)}</span> case.
+              {tCnd("ctaHeadingPre")} <span class="italic-display">{firstWord(condition.name)}</span> {tCnd("ctaHeadingPost")}
             </h2>
             <p class="serif mt-4 max-w-[42rem]" style="font-size: 17px; line-height: 1.5; color: rgba(246,241,230,0.75);">
-              Share imaging and the current plan. Multidisciplinary board returns a written opinion within 5–10 working days — no obligation to travel.
+              {tCnd("ctaBody")}
             </p>
           </div>
           <div class="flex flex-wrap gap-3 lg:justify-end">
@@ -688,7 +691,7 @@ Astro.response.headers.set(
               class="inline-flex items-center gap-2 font-semibold"
               style="background: var(--color-bg); color: var(--color-ink); padding: 14px 22px; border-radius: 9999px;"
             >
-              Request opinion
+              {tCnd("requestOpinionBtn")}
               <ChevronRight className="h-4 w-4 mirror-x" />
             </a>
             <a
@@ -696,7 +699,7 @@ Astro.response.headers.set(
               class="inline-flex items-center gap-2 font-semibold"
               style="border: 1px solid rgba(246,241,230,0.35); color: var(--color-bg); padding: 13px 22px; border-radius: 9999px;"
             >
-              Get a full quote
+              {tCnd("getFullQuoteBtn")}
             </a>
           </div>
         </div>
@@ -719,37 +722,40 @@ Astro.response.headers.set(
       reviewerCredentials={reviewer?.credentials ?? null}
       reviewerSlug={reviewer?.slug ?? null}
       lastReviewed={reviewer?.reviewedAt ?? conditionRaw.updatedAt}
-      curationNote={`This ${condition.name.toLowerCase()} overview is reviewed against current ${conditionSpecialties[0]?.specialty?.name ?? "specialty"} guidelines and lists ${conditionTreatments.length} treatment options actively offered by accredited hospitals on our network. Clinical descriptions are editorial — your treating clinician confirms what's right for your specific case.`}
+      curationNote={tCnd("curationNoteTemplate")
+        .replace("{conditionName}", condition.name.toLowerCase())
+        .replace("{specialtyName}", conditionSpecialties[0]?.specialty?.name ?? tCnd("exploreEyebrowSpecialty"))
+        .replace("{treatmentCount}", conditionTreatments.length.toString())}
       dataSources={[
-        "Peer-reviewed clinical guidelines (NCCN, ESMO, ESC, AHA, NICE — by indication)",
-        "WHO ICD-11 condition classification",
-        "National medical society treatment protocols",
-        "JCI accreditation registry",
+        tCnd("dataSource1"),
+        tCnd("dataSource2"),
+        tCnd("dataSource3"),
+        tCnd("dataSource4"),
       ]}
     />
 
     <ExploreGrid
       locale={locale}
       eyebrow={`${condition.name}`}
-      heading={`Continue evaluating ${condition.name.toLowerCase()} care`}
-      lede={`Condition overview is one entry. These hubs route the same care decision via specialty, surgeon, treatment, and destination — including the doctors actively treating ${condition.name.toLowerCase()}.`}
+      heading={tCnd("exploreHeadingTemplate").replace("{conditionName}", condition.name.toLowerCase())}
+      lede={tCnd("exploreLedeTemplate").replace("{conditionName}", condition.name.toLowerCase())}
       items={[
-        { eyebrow: "Surgeons", label: `Doctors treating ${condition.name}`, href: `/condition/${conditionRaw.slug}/doctors`, hint: "Volume-ranked specialists across all relevant specialties." },
+        { eyebrow: tCnd("exploreEyebrowSurgeons"), label: tCnd("exploreItemSurgeonsLabel").replace("{conditionName}", condition.name), href: `/condition/${conditionRaw.slug}/doctors`, hint: tCnd("exploreItemSurgeonsHint") },
         ...(conditionSpecialties[0]?.specialty?.slug && conditionSpecialties[0]?.specialty?.name
-          ? [{ eyebrow: "Specialty", label: `${conditionSpecialties[0].specialty.name} hub`, href: `/specialty/${conditionSpecialties[0].specialty.slug}`, hint: `Programs, surgeons, hospitals across ${conditionSpecialties[0].specialty.name.toLowerCase()}.` }] : []),
+          ? [{ eyebrow: tCnd("exploreEyebrowSpecialty"), label: tCnd("exploreItemSpecialtyHubLabel").replace("{specialtyName}", conditionSpecialties[0].specialty.name), href: `/specialty/${conditionSpecialties[0].specialty.slug}`, hint: tCnd("exploreItemSpecialtyHubHint").replace("{specialtyName}", conditionSpecialties[0].specialty.name.toLowerCase()) }] : []),
         ...(conditionSpecialties[1]?.specialty?.slug && conditionSpecialties[1]?.specialty?.name
-          ? [{ eyebrow: "Specialty", label: `${conditionSpecialties[1].specialty.name}`, href: `/specialty/${conditionSpecialties[1].specialty.slug}`, hint: "Alternative specialty involved in care for this condition." }] : []),
+          ? [{ eyebrow: tCnd("exploreEyebrowSpecialty"), label: `${conditionSpecialties[1].specialty.name}`, href: `/specialty/${conditionSpecialties[1].specialty.slug}`, hint: tCnd("exploreItemSpecialtyAltHint") }] : []),
         ...(conditionTreatments[0]?.treatment?.slug && conditionTreatments[0]?.treatment?.name
-          ? [{ eyebrow: "Procedure", label: `${conditionTreatments[0].treatment.name}`, href: `/treatment/${conditionTreatments[0].treatment.slug}`, hint: "First-line treatment with success rates, recovery, hospital pricing." }] : []),
+          ? [{ eyebrow: tCnd("exploreEyebrowProcedure"), label: `${conditionTreatments[0].treatment.name}`, href: `/treatment/${conditionTreatments[0].treatment.slug}`, hint: tCnd("exploreItemTreatment1Hint") }] : []),
         ...(conditionTreatments[1]?.treatment?.slug && conditionTreatments[1]?.treatment?.name
-          ? [{ eyebrow: "Procedure", label: `${conditionTreatments[1].treatment.name}`, href: `/treatment/${conditionTreatments[1].treatment.slug}`, hint: "Alternative treatment path with cost and recovery data." }] : []),
-        { eyebrow: "Browse", label: "All 79 conditions", href: "/conditions", hint: "Map condition → specialty → first-line treatment." },
-        { eyebrow: "Browse", label: "9 destination countries", href: "/countries", hint: "Cost-of-care profiles, hospital programs, visa playbooks." },
-        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, and pricing." },
-        { eyebrow: "Compare", label: "Doctor comparison", href: "/compare/doctors", hint: "Surgeons compared on volume, fees, languages, video-consult availability." },
-        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+          ? [{ eyebrow: tCnd("exploreEyebrowProcedure"), label: `${conditionTreatments[1].treatment.name}`, href: `/treatment/${conditionTreatments[1].treatment.slug}`, hint: tCnd("exploreItemTreatment2Hint") }] : []),
+        { eyebrow: tCnd("exploreEyebrowBrowse"), label: tCnd("exploreItemAllConditionsLabel"), href: "/conditions", hint: tCnd("exploreItemAllConditionsHint") },
+        { eyebrow: tCnd("exploreEyebrowBrowse"), label: tCnd("exploreItemAllCountriesLabel"), href: "/countries", hint: tCnd("exploreItemAllCountriesHint") },
+        { eyebrow: tCnd("exploreEyebrowCompare"), label: tCnd("exploreItemHospitalComparisonLabel"), href: "/compare/hospitals", hint: tCnd("exploreItemHospitalComparisonHint") },
+        { eyebrow: tCnd("exploreEyebrowCompare"), label: tCnd("exploreItemDoctorComparisonLabel"), href: "/compare/doctors", hint: tCnd("exploreItemDoctorComparisonHint") },
+        { eyebrow: tCnd("exploreEyebrowTool"), label: tCnd("exploreItemMatchMeLabel"), href: "/match-me", hint: tCnd("exploreItemMatchMeHint") },
+        { eyebrow: tCnd("exploreEyebrowTool"), label: tCnd("exploreItemCalculatorLabel"), href: "/calculator", hint: tCnd("exploreItemCalculatorHint") },
+        { eyebrow: tCnd("exploreEyebrowAction"), label: tCnd("exploreItemSecondOpinionLabel"), href: "/second-opinion", hint: tCnd("exploreItemSecondOpinionHint") },
       ]}
     />
 
@@ -758,7 +764,7 @@ Astro.response.headers.set(
     <MobileQuoteBar
       locale={locale}
       label={condition.name}
-      sublabel={conditionSpecialties[0]?.specialty.name ? `Care via ${conditionSpecialties[0].specialty.name}` : "Free 2nd opinion"}
+      sublabel={conditionSpecialties[0]?.specialty.name ? `${tCnd("careViaPrefix")} ${conditionSpecialties[0].specialty.name}` : tCnd("free2ndOpinion")}
       whatsapp={{
         page: "specialty",
         slug,

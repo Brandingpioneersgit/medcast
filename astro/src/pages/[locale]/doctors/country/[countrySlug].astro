@@ -65,19 +65,20 @@ const FLAG_MAP: Record<string, string> = {
 const flag = FLAG_MAP[countrySlug] ?? "🌐";
 
 const tc = getTranslator(locale, "common");
+const tDco = getTranslator(locale, "doctorsCountryPage");
 const countText = total.toLocaleString();
 const activeSpecialty = placeSpecialties.find((s) => s.slug === specialtyFilter) ?? null;
 const specialtyLabel = activeSpecialty ? `${activeSpecialty.name} ` : "";
 
 const path = `/doctors/country/${countrySlug}`;
 const seoTitle = activeSpecialty
-  ? `${activeSpecialty.name} doctors in ${country.name} — ${countText} specialists`
-  : `Doctors in ${country.name} — ${countText} verified specialists`;
-const seoDescription =
-  `Browse ${countText} ${specialtyLabel}board-certified doctors and surgeons practising in ${country.name}. Compare experience, sub-specialty, hospital and patient ratings — free human shortlist on request.`.slice(
-    0,
-    160,
-  );
+  ? tDco("seoTitleWithSpecialty").replace("{specialty}", activeSpecialty.name).replace("{country}", country.name).replace("{count}", countText)
+  : tDco("seoTitleDefault").replace("{country}", country.name).replace("{count}", countText);
+const seoDescription = tDco("seoDescription")
+  .replace("{count}", countText)
+  .replace("{specialtyLabel}", specialtyLabel)
+  .replace("{country}", country.name)
+  .slice(0, 160);
 
 // Filtered + paged states are noindex; the clean country URL is the canonical.
 const shouldNoindex = page > 1 || specialtyFilter.length > 0 || total === 0 || isUntranslated(locale, countryMap);
@@ -121,19 +122,19 @@ const prevUrl = page > 1 ? buildHref({ page: page - 1 }) : undefined;
 const nextUrl = page < totalPages ? buildHref({ page: page + 1 }) : undefined;
 
 const SORTS = [
-  { value: "featured", label: "Featured" },
-  { value: "rating", label: "Top rated" },
-  { value: "experience", label: "Most experienced" },
-  { value: "reviews", label: "Most reviewed" },
+  { value: "featured", label: tDco("sortFeatured") },
+  { value: "rating", label: tDco("sortTopRated") },
+  { value: "experience", label: tDco("sortMostExperienced") },
+  { value: "reviews", label: tDco("sortMostReviewed") },
 ];
 
 const stats =
   page === 1 && !specialtyFilter
     ? [
-        { l: "Specialists", v: countText },
-        { l: "Specialties", v: placeSpecialties.length.toLocaleString() },
-        { l: "Destination", v: country.name },
-        { l: "Reply time", v: "9 min" },
+        { l: tDco("statSpecialists"), v: countText },
+        { l: tDco("statSpecialties"), v: placeSpecialties.length.toLocaleString() },
+        { l: tDco("statDestination"), v: country.name },
+        { l: tDco("statReplyTime"), v: tDco("statReplyTimeValue") },
       ]
     : [];
 
@@ -171,7 +172,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
         <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span class="mx-1.5">/</span>
-          <a href={localizedPath(locale, "/doctors")} class="hover:text-ink">Doctors</a>
+          <a href={localizedPath(locale, "/doctors")} class="hover:text-ink">{tDco("breadcrumbDoctors")}</a>
           <span class="mx-1.5">/</span>
           <span style="color: var(--color-ink);">{country.name}</span>
         </nav>
@@ -179,21 +180,21 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
     </div>
 
     <EntityListingHero
-      eyebrow={`${flag} ${countText} specialists · ${country.name}`}
-      h1First="Doctors in"
+      eyebrow={tDco("heroEyebrow").replace("{flag}", flag).replace("{count}", countText).replace("{country}", country.name)}
+      h1First={tDco("heroH1First")}
       h1Italic={country.name}
-      lede={`Every board-certified doctor and surgeon we list at ${country.name} hospitals — ranked by patient volume, sub-specialty fit and hospital credentialing. Tell us your case and we'll narrow it to three names, free.`}
+      lede={tDco("heroLede").replace("{country}", country.name)}
       stats={stats}
       locale={locale}
       image={countryBanner(countrySlug)}
-      imageAlt={`Medical travel to ${country.name}`}
+      imageAlt={tDco("heroImageAlt").replace("{country}", country.name)}
     />
 
     <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-6 pb-20">
       {placeSpecialties.length > 0 && (
         <div class="mb-6 flex flex-wrap items-center gap-2">
           <span class="mono uppercase pe-1" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-            Specialty
+            {tDco("filterSpecialtyLabel")}
           </span>
           <a
             href={buildHref({ specialty: null })}
@@ -202,7 +203,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
               ? "background: var(--color-ink); color: var(--color-bg);"
               : "color: var(--color-ink-muted); border: 1px solid var(--color-border);"}
           >
-            All
+            {tDco("filterAll")}
           </a>
           {placeSpecialties.map((s) => (
             <a
@@ -223,16 +224,16 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
         style="border-bottom: 1px solid var(--color-border);"
       >
         <span class="serif text-[14px]" style="color: var(--color-ink-muted);">
-          <span class="display tnum text-ink">{countText}</span> {activeSpecialty ? `${activeSpecialty.name.toLowerCase()} ` : ""}specialist{total === 1 ? "" : "s"}
+          <span class="display tnum text-ink">{countText}</span> {activeSpecialty ? `${activeSpecialty.name.toLowerCase()} ` : ""}{total === 1 ? tDco("resultsSpecialist") : tDco("resultsSpecialists")}
           {totalPages > 1 && (
             <span class="ms-2 mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-              Page {page} of {totalPages}
+              {tDco("resultsPage")} {page} {tDco("resultsOf")} {totalPages}
             </span>
           )}
         </span>
         <div class="flex items-center gap-1 -mx-1 overflow-x-auto">
           <span class="mono uppercase px-1 whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-            Sort
+            {tDco("sortLabel")}
           </span>
           {SORTS.map((o) => {
             const active = sort === o.value;
@@ -251,26 +252,26 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
         </div>
       </div>
 
-      <h2 class="sr-only">Doctors practising in {country.name}</h2>
+      <h2 class="sr-only">{tDco("srHeading").replace("{country}", country.name)}</h2>
 
       {rows.length === 0 ? (
         <div class="paper text-center py-20" style="color: var(--color-ink-muted);">
-          <p class="serif text-lg mb-3">No doctors listed in {country.name}{activeSpecialty ? ` for ${activeSpecialty.name.toLowerCase()}` : ""} yet.</p>
-          <p class="text-sm mb-5">Our coordinators can still match you to a sub-specialist abroad.</p>
+          <p class="serif text-lg mb-3">{activeSpecialty ? tDco("emptyTitleWithSpecialty").replace("{country}", country.name).replace("{specialty}", activeSpecialty.name.toLowerCase()) : tDco("emptyTitle").replace("{country}", country.name)}</p>
+          <p class="text-sm mb-5">{tDco("emptyBody")}</p>
           <div class="flex items-center justify-center gap-3">
             <a
               href={localizedPath(locale, "/doctors/country/" + countrySlug)}
               class="mono uppercase"
               style="font-size: 11px; letter-spacing: 0.12em; border: 1px solid var(--color-border); padding: 9px 16px; border-radius: 9999px; color: var(--color-ink);"
             >
-              All {country.name} doctors
+              {tDco("emptyAllDoctors").replace("{country}", country.name)}
             </a>
             <a
               href={localizedPath(locale, "/match-me")}
               class="mono uppercase"
               style="font-size: 11px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 9px 16px; border-radius: 9999px;"
             >
-              Match me →
+              {tDco("emptyMatchMe")}
             </a>
           </div>
         </div>
@@ -348,35 +349,35 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
     </section>
 
     <HowItWorks
-      heading={`How to choose a doctor in ${country.name}`}
+      heading={tDco("howHeading").replace("{country}", country.name)}
       italicWord={country.name}
-      eyebrow="Surgeon-evaluation guide"
+      eyebrow={tDco("howEyebrow")}
       steps={[
-        { title: "Match the sub-specialty, not the specialty", description: "Search for the exact procedure family — 'mitral valve repair', not 'cardiac surgery'. Sub-specialty experience predicts outcomes better than the broad specialty label." },
-        { title: "Check personal annual case volume", description: "Ask how many of your specific procedure the doctor performs each year. 100+/year is a meaningful threshold across most surgical fields." },
-        { title: "Verify credentials independently", description: "Board certification, fellowship training, hospital privileges and peer-reviewed publications — cross-check on PubMed, Google Scholar and ORCID." },
-        { title: "Confirm the hospital is credentialed", description: `Every doctor here practises at a ${country.name} hospital in our network. Check the hospital is accredited and credentialed for your specialty before you commit.` },
-        { title: "Have a video consultation first", description: "Talk to your shortlisted doctor directly — 20-30 minutes is enough to judge communication quality and case-specific fit before booking travel." },
+        { title: tDco("howStep1Title"), description: tDco("howStep1Desc") },
+        { title: tDco("howStep2Title"), description: tDco("howStep2Desc") },
+        { title: tDco("howStep3Title"), description: tDco("howStep3Desc") },
+        { title: tDco("howStep4Title"), description: tDco("howStep4Desc").replace("{country}", country.name) },
+        { title: tDco("howStep5Title"), description: tDco("howStep5Desc") },
       ]}
-      outroNote="Confirm before any procedure that the specific doctor you consulted with is the one performing your case."
+      outroNote={tDco("howOutroNote")}
     />
 
     <ExploreGrid
       locale={locale}
-      eyebrow={`${country.name} medical travel`}
-      heading={`Other ways to plan care in ${country.name}`}
-      lede={`The doctor directory is one cut. These hubs let you cut by specialty roster, by hospital, by procedure cost and by visa logistics — so the doctor decision lands inside a real travel plan.`}
+      eyebrow={tDco("exploreEyebrow").replace("{country}", country.name)}
+      heading={tDco("exploreHeading").replace("{country}", country.name)}
+      lede={tDco("exploreLede")}
       items={[
-        { eyebrow: "Surgeons", label: `${country.name} surgeons by specialty`, href: `/surgeons/country/${countrySlug}`, hint: "Volume-ranked surgeon rosters grouped by specialty." },
-        { eyebrow: "Destination", label: `${country.name} hospital hub`, href: `/country/${countrySlug}`, hint: `Featured programs, pricing benchmarks and logistics across ${country.name}.` },
-        { eyebrow: "Hospitals", label: `Hospitals in ${country.name}`, href: `/hospitals/country/${countrySlug}`, hint: "Filter by city, specialty, accreditation, beds and rating." },
-        { eyebrow: "Costs", label: `Treatments in ${country.name}`, href: `/treatments/country/${countrySlug}`, hint: "Per-procedure cost ranges from hospitals in this destination." },
-        { eyebrow: "Visa", label: `${country.name} medical visa`, href: `/visa/${countrySlug}`, hint: "Documents, processing time and embassy guidance." },
-        ...(placeSpecialties[0] ? [{ eyebrow: "Specialty", label: `${placeSpecialties[0].name} hub`, href: `/specialty/${placeSpecialties[0].slug}`, hint: `${placeSpecialties[0].n} doctors listed for this specialty.` }] : []),
-        { eyebrow: "Browse", label: "All doctors", href: "/doctors", hint: "The full multi-country specialist directory with filters." },
-        { eyebrow: "Compare", label: "Doctor comparison", href: "/compare/doctors", hint: "Compare on volume, fees, languages and video-consult availability." },
-        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-doctor shortlist." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+        { eyebrow: tDco("exploreEyebrowSurgeons"), label: tDco("exploreLabelSurgeons").replace("{country}", country.name), href: `/surgeons/country/${countrySlug}`, hint: tDco("exploreHintSurgeons") },
+        { eyebrow: tDco("exploreEyebrowDestination"), label: tDco("exploreLabelDestination").replace("{country}", country.name), href: `/country/${countrySlug}`, hint: tDco("exploreHintDestination").replace("{country}", country.name) },
+        { eyebrow: tDco("exploreEyebrowHospitals"), label: tDco("exploreLabelHospitals").replace("{country}", country.name), href: `/hospitals/country/${countrySlug}`, hint: tDco("exploreHintHospitals") },
+        { eyebrow: tDco("exploreEyebrowCosts"), label: tDco("exploreLabelCosts").replace("{country}", country.name), href: `/treatments/country/${countrySlug}`, hint: tDco("exploreHintCosts") },
+        { eyebrow: tDco("exploreEyebrowVisa"), label: tDco("exploreLabelVisa").replace("{country}", country.name), href: `/visa/${countrySlug}`, hint: tDco("exploreHintVisa") },
+        ...(placeSpecialties[0] ? [{ eyebrow: tDco("exploreEyebrowSpecialty"), label: tDco("exploreLabelSpecialty").replace("{specialty}", placeSpecialties[0].name), href: `/specialty/${placeSpecialties[0].slug}`, hint: tDco("exploreHintSpecialty").replace("{count}", String(placeSpecialties[0].n)) }] : []),
+        { eyebrow: tDco("exploreEyebrowBrowse"), label: tDco("exploreLabelAllDoctors"), href: "/doctors", hint: tDco("exploreHintAllDoctors") },
+        { eyebrow: tDco("exploreEyebrowCompare"), label: tDco("exploreLabelDoctorComparison"), href: "/compare/doctors", hint: tDco("exploreHintDoctorComparison") },
+        { eyebrow: tDco("exploreEyebrowTool"), label: tDco("exploreLabelMatchMe"), href: "/match-me", hint: tDco("exploreHintMatchMe") },
+        { eyebrow: tDco("exploreEyebrowAction"), label: tDco("exploreLabelSecondOpinion"), href: "/second-opinion", hint: tDco("exploreHintSecondOpinion") },
       ]}
     />
 

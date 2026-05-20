@@ -354,7 +354,7 @@ export async function listHospitals({
 
   const cityPredicate = city ? sql`AND ci.slug = ${city}` : sql``;
   const countryPredicate = countriesArr.length > 0
-    ? sql`AND co.slug = ANY(${countriesArr}::text[])`
+    ? sql`AND co.slug IN ${countriesArr}`
     : sql``;
   const ratingPredicate = minRating && minRating > 0
     ? sql`AND h.rating IS NOT NULL AND h.rating::numeric >= ${minRating}`
@@ -374,11 +374,11 @@ export async function listHospitals({
   const verifiedPredicate = verified ? sql`AND h.is_verified = true` : sql``;
   const specialtyJoin = specialtiesArr.length > 0
     ? sql`INNER JOIN hospital_specialties hs ON hs.hospital_id = h.id
-          INNER JOIN specialties sp ON sp.id = hs.specialty_id AND sp.slug = ANY(${specialtiesArr}::text[])`
+          INNER JOIN specialties sp ON sp.id = hs.specialty_id AND sp.slug IN ${specialtiesArr}`
     : sql``;
   const accredJoin = accredArr.length > 0
     ? sql`INNER JOIN hospital_accreditations ha ON ha.hospital_id = h.id
-          INNER JOIN accreditations ac ON ac.id = ha.accreditation_id AND ac.slug = ANY(${accredArr}::text[])`
+          INNER JOIN accreditations ac ON ac.id = ha.accreditation_id AND ac.slug IN ${accredArr}`
     : sql``;
   const orderBy =
     sort === "rating"
@@ -435,7 +435,7 @@ export async function listHospitals({
       countryName: row.country_name,
       countrySlug: row.country_slug,
     })),
-  ).catch(() => []);
+  ).catch((e) => { console.error("[listHospitals rows]", e); return []; });
 
   const countSql = sql`
     SELECT COUNT(DISTINCT h.id)::int AS c
@@ -457,7 +457,7 @@ export async function listHospitals({
 
   const [rows, countRows] = await Promise.all([
     rowsPromise,
-    db.execute<{ c: number }>(countSql).catch(() => [{ c: 0 }] as { c: number }[]),
+    db.execute<{ c: number }>(countSql).catch((e) => { console.error("[listHospitals count]", e); return [{ c: 0 }] as { c: number }[]; }),
   ]);
   const total = Array.from(countRows)[0]?.c ?? 0;
   return {
@@ -493,15 +493,15 @@ export async function getHospitalFilterOptions({
     : sql``;
   const specialtyJoin = specialtiesArr.length > 0
     ? sql`INNER JOIN hospital_specialties hs ON hs.hospital_id = h.id
-          INNER JOIN specialties sp ON sp.id = hs.specialty_id AND sp.slug = ANY(${specialtiesArr}::text[])`
+          INNER JOIN specialties sp ON sp.id = hs.specialty_id AND sp.slug IN ${specialtiesArr}`
     : sql``;
   const accredJoin = accredArr.length > 0
     ? sql`INNER JOIN hospital_accreditations ha ON ha.hospital_id = h.id
-          INNER JOIN accreditations ac ON ac.id = ha.accreditation_id AND ac.slug = ANY(${accredArr}::text[])`
+          INNER JOIN accreditations ac ON ac.id = ha.accreditation_id AND ac.slug IN ${accredArr}`
     : sql``;
   const countryJoin = countriesArr.length > 0
     ? sql`INNER JOIN cities ci ON ci.id = h.city_id
-          INNER JOIN countries co ON co.id = ci.country_id AND co.slug = ANY(${countriesArr}::text[])`
+          INNER JOIN countries co ON co.id = ci.country_id AND co.slug IN ${countriesArr}`
     : sql``;
 
   const [countryRows, specialtyRows, accreditationRows] = await Promise.all([
@@ -604,7 +604,7 @@ export async function listDoctors({
   // Predicates shared between rows + count queries
   const cityPredicate = city ? sql`AND ci.slug = ${city}` : sql``;
   const countryPredicate = countries.length > 0
-    ? sql`AND co.slug = ANY(${countries}::text[])`
+    ? sql`AND co.slug IN ${countries}`
     : sql``;
   const yearsPredicate = minYears && minYears > 0
     ? sql`AND d.experience_years >= ${minYears}`
@@ -631,7 +631,7 @@ export async function listDoctors({
     : sql``;
   const specialtyJoin = specialties.length > 0
     ? sql`INNER JOIN doctor_specialties ds ON ds.doctor_id = d.id
-          INNER JOIN specialties sp ON sp.id = ds.specialty_id AND sp.slug = ANY(${specialties}::text[])`
+          INNER JOIN specialties sp ON sp.id = ds.specialty_id AND sp.slug IN ${specialties}`
     : sql``;
   const orderBy =
     sort === "rating"
@@ -789,7 +789,7 @@ export async function getDoctorFilterOptions({
             INNER JOIN doctors d ON d.hospital_id = h.id AND d.is_active = true
             ${specialties.length > 0
               ? sql`INNER JOIN doctor_specialties ds ON ds.doctor_id = d.id
-                    INNER JOIN specialties sp ON sp.id = ds.specialty_id AND sp.slug = ANY(${specialties}::text[])`
+                    INNER JOIN specialties sp ON sp.id = ds.specialty_id AND sp.slug IN ${specialties}`
               : sql``}
             WHERE 1=1
             ${yearsPredicate}
@@ -813,7 +813,7 @@ export async function getDoctorFilterOptions({
             ${countries.length > 0
               ? sql`INNER JOIN hospitals h ON h.id = d.hospital_id
                     INNER JOIN cities ci ON ci.id = h.city_id
-                    INNER JOIN countries co ON co.id = ci.country_id AND co.slug = ANY(${countries}::text[])`
+                    INNER JOIN countries co ON co.id = ci.country_id AND co.slug IN ${countries}`
               : sql``}
             WHERE sp.is_active = true
             ${yearsPredicate}
@@ -848,10 +848,10 @@ export async function getDoctorFilterOptions({
       LEFT JOIN countries co ON co.id = ci.country_id
       ${specialties.length > 0
         ? sql`INNER JOIN doctor_specialties ds ON ds.doctor_id = d.id
-              INNER JOIN specialties sp ON sp.id = ds.specialty_id AND sp.slug = ANY(${specialties}::text[])`
+              INNER JOIN specialties sp ON sp.id = ds.specialty_id AND sp.slug IN ${specialties}`
         : sql``}
       WHERE d.is_active = true
-      ${countries.length > 0 ? sql`AND co.slug = ANY(${countries}::text[])` : sql``}
+      ${countries.length > 0 ? sql`AND co.slug IN ${countries}` : sql``}
       ${yearsPredicate}
       ${ratingPredicate}
       ${feePredicate}
@@ -2675,7 +2675,7 @@ export async function getConditionPlaceData(conditionSlug: string, placeSlug: st
         INNER JOIN hospitals h ON h.id = ht.hospital_id
         INNER JOIN cities c ON c.id = h.city_id
         INNER JOIN countries co ON co.id = c.country_id
-        WHERE ht.treatment_id = ANY(${treatmentIdsArr}::int[])
+        WHERE ht.treatment_id IN ${treatmentIdsArr}
           AND h.is_active = true
           AND co.slug = ${placeSlug}
         GROUP BY h.id, h.name, h.slug, h.rating, h.bed_capacity, c.name, h.cover_image_url
@@ -2701,7 +2701,7 @@ export async function getConditionPlaceData(conditionSlug: string, placeSlug: st
         FROM hospital_treatments ht
         INNER JOIN hospitals h ON h.id = ht.hospital_id
         INNER JOIN cities c ON c.id = h.city_id
-        WHERE ht.treatment_id = ANY(${treatmentIdsArr}::int[])
+        WHERE ht.treatment_id IN ${treatmentIdsArr}
           AND h.is_active = true
           AND c.slug = ${placeSlug}
         GROUP BY h.id, h.name, h.slug, h.rating, h.bed_capacity, c.name, h.cover_image_url
@@ -2735,7 +2735,7 @@ export async function getConditionPlaceData(conditionSlug: string, placeSlug: st
               AND EXISTS (
                 SELECT 1 FROM hospital_specialties hs
                 WHERE hs.hospital_id = d.hospital_id
-                  AND hs.specialty_id = ANY(${specialtyIdsArr}::int[])
+                  AND hs.specialty_id IN ${specialtyIdsArr}
               )
             ORDER BY d.experience_years DESC NULLS LAST, d.patients_treated DESC NULLS LAST
             LIMIT 8
@@ -2752,7 +2752,7 @@ export async function getConditionPlaceData(conditionSlug: string, placeSlug: st
               AND EXISTS (
                 SELECT 1 FROM hospital_specialties hs
                 WHERE hs.hospital_id = d.hospital_id
-                  AND hs.specialty_id = ANY(${specialtyIdsArr}::int[])
+                  AND hs.specialty_id IN ${specialtyIdsArr}
               )
             ORDER BY d.experience_years DESC NULLS LAST, d.patients_treated DESC NULLS LAST
             LIMIT 8

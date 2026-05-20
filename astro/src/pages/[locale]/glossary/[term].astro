@@ -26,6 +26,7 @@ if (!termSlug) return new Response("Not found", { status: 404 });
 
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tGt = getTranslator(locale, "glossaryTermPage");
 
 type Row = {
   id: number;
@@ -85,14 +86,14 @@ const longDefHtml = longDefParas.length > 0
     ).html
   : "";
 
-const seoTitle = `${term.term} — defined plainly`;
+const seoTitle = `${term.term} ${tGt("seoTitleSuffix")}`;
 const seoDescription = term.short_definition.slice(0, 160);
 const path = `/glossary/${termSlug}`;
 const url = localeUrl(locale, path);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Glossary", url: localeUrl(locale, "/glossary") },
+  { name: tGt("breadcrumbGlossary"), url: localeUrl(locale, "/glossary") },
   { name: term.term, url },
 ]);
 
@@ -123,8 +124,8 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
     <SiteHeader locale={locale} />
 
     <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
-      <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
-        <a href={localizedPath(locale, "/glossary")} class="hover:text-ink">Glossary</a>
+      <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label={tGt("breadcrumbAriaLabel")}>
+        <a href={localizedPath(locale, "/glossary")} class="hover:text-ink">{tGt("breadcrumbGlossary")}</a>
         {term.category && (
           <>
             <span class="mx-1.5">/</span>
@@ -152,7 +153,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
 
         {term.updated_at && (
           <div class="mono mt-4" style="font-size: 11px; letter-spacing: 0.08em; color: var(--color-ink-subtle); text-transform: uppercase;">
-            Last reviewed{" "}
+            {tGt("lastReviewed")}{" "}
             <time datetime={new Date(term.updated_at).toISOString()}>
               {new Date(term.updated_at).toLocaleDateString(locale === "en" ? "en-US" : locale, { month: "short", year: "numeric" })}
             </time>
@@ -170,7 +171,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
         {relatedTerms.length > 0 && (
           <section class="mt-12 pt-10" style="border-top: 1px solid var(--color-border);">
             <h2 class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">
-              See also
+              {tGt("seeAlso")}
             </h2>
             <ul class="mt-5 grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
               {relatedTerms.map((r) => (
@@ -201,17 +202,17 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
           style="background: var(--color-accent-mist); border: 1px solid var(--color-accent-soft); border-radius: var(--radius-lg);"
         >
           <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent); text-transform: uppercase;">
-            Need a plain-English second opinion?
+            {tGt("ctaEyebrow")}
           </div>
           <p class="serif mt-2" style="font-size: 15.5px; line-height: 1.55; color: var(--color-ink);">
-            Medical terminology shouldn't be a language barrier when you're deciding on surgery. Ask us; we explain anything in your case in plain language — your language.
+            {tGt("ctaBody")}
           </p>
           <a
             href={localizedPath(locale, "/contact?topic=explain")}
             class="inline-flex items-center gap-1 mt-3 font-medium"
             style="background: var(--color-accent); color: #FFF; padding: 8px 14px; font-size: 13px; border-radius: 9999px;"
           >
-            Ask a case manager
+            {tGt("ctaButton")}
             <ChevronRight className="h-3.5 w-3.5 mirror-x" />
           </a>
         </section>
@@ -222,22 +223,22 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
 
     <ExploreGrid
       locale={locale}
-      eyebrow="Where this fits"
-      heading="Use this term, find the care"
-      lede="Definitions are useful only if they connect to a real next step. These hubs map this term back to specialties, destinations, accreditation bodies, and decision tools."
+      eyebrow={tGt("exploreEyebrow")}
+      heading={tGt("exploreHeading")}
+      lede={tGt("exploreLede")}
       items={[
-        { eyebrow: "Glossary", label: "All medical-travel terms", href: "/glossary", hint: "Plain-language definitions across 13 categories." },
-        { eyebrow: "Care hub", label: "Browse 15 specialties", href: "/specialties", hint: "Cardiac, oncology, transplant, ortho, ENT, cosmetic — every program we route." },
-        { eyebrow: "Care hub", label: "All 88 procedures", href: "/treatments", hint: "Surgical and non-surgical procedures with success rates and cost ranges." },
-        { eyebrow: "Care hub", label: "79 mapped conditions", href: "/conditions", hint: "From condition to specialty to treatment, in one click." },
-        { eyebrow: "Reference", label: "Accreditation bodies", href: "/accreditation", hint: "JCI, NABH, ISO 9001, KTQ — what each one means clinically." },
-        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions → specialty + destination + 3-hospital shortlist." },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported price bands across 9 destinations." },
-        { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "How we source definitions, review them, and disclose AI use." },
-        { eyebrow: "Trust", label: "Medical board", href: "/medical-board", hint: "Named clinicians who review terminology and treatment content." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review within 48 hours — no charge." },
-        { eyebrow: "Reference", label: "Q&A library", href: "/qa", hint: "30 patient-style questions answered with specific numbers + ranges." },
-        { eyebrow: "Browse", label: "Full sitemap", href: "/sitemap-browse", hint: "Every hub, listing, and tool in one structured index." },
+        { eyebrow: tGt("exploreItem0Eyebrow"), label: tGt("exploreItem0Label"), href: "/glossary", hint: tGt("exploreItem0Hint") },
+        { eyebrow: tGt("exploreItem1Eyebrow"), label: tGt("exploreItem1Label"), href: "/specialties", hint: tGt("exploreItem1Hint") },
+        { eyebrow: tGt("exploreItem2Eyebrow"), label: tGt("exploreItem2Label"), href: "/treatments", hint: tGt("exploreItem2Hint") },
+        { eyebrow: tGt("exploreItem3Eyebrow"), label: tGt("exploreItem3Label"), href: "/conditions", hint: tGt("exploreItem3Hint") },
+        { eyebrow: tGt("exploreItem4Eyebrow"), label: tGt("exploreItem4Label"), href: "/accreditation", hint: tGt("exploreItem4Hint") },
+        { eyebrow: tGt("exploreItem5Eyebrow"), label: tGt("exploreItem5Label"), href: "/match-me", hint: tGt("exploreItem5Hint") },
+        { eyebrow: tGt("exploreItem6Eyebrow"), label: tGt("exploreItem6Label"), href: "/calculator", hint: tGt("exploreItem6Hint") },
+        { eyebrow: tGt("exploreItem7Eyebrow"), label: tGt("exploreItem7Label"), href: "/editorial-policy", hint: tGt("exploreItem7Hint") },
+        { eyebrow: tGt("exploreItem8Eyebrow"), label: tGt("exploreItem8Label"), href: "/medical-board", hint: tGt("exploreItem8Hint") },
+        { eyebrow: tGt("exploreItem9Eyebrow"), label: tGt("exploreItem9Label"), href: "/second-opinion", hint: tGt("exploreItem9Hint") },
+        { eyebrow: tGt("exploreItem10Eyebrow"), label: tGt("exploreItem10Label"), href: "/qa", hint: tGt("exploreItem10Hint") },
+        { eyebrow: tGt("exploreItem11Eyebrow"), label: tGt("exploreItem11Label"), href: "/sitemap-browse", hint: tGt("exploreItem11Hint") },
       ]}
     />
 
@@ -247,11 +248,11 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
       reviewerCredentials={reviewer?.credentials ?? null}
       reviewerSlug={reviewer?.slug ?? null}
       lastReviewed={reviewer?.reviewedAt ?? rawTerm.updated_at ?? null}
-      curationNote={`Glossary entries are written and edited against current peer-reviewed clinical guidelines and translated into eight languages. Definitions are reviewed when the underlying medical guidance changes — typically annually — and are intentionally generalist rather than diagnostic.`}
+      curationNote={tGt("curationNote")}
       dataSources={[
-        "Peer-reviewed clinical guidelines (specialty-specific)",
-        "WHO ICD-11 condition + procedure classifications",
-        "National medical society terminology standards",
+        tGt("dataSource0"),
+        tGt("dataSource1"),
+        tGt("dataSource2"),
       ]}
     />
 
