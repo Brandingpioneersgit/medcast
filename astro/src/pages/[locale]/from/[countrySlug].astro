@@ -21,6 +21,7 @@ if (!isLocale(rawLocale)) return Astro.redirect("/en/from/united-kingdom", 308);
 if (!countrySlug) return new Response("Not found", { status: 404 });
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tFr = getTranslator(locale, "fromCountryPage");
 
 const path = `/from/${countrySlug}`;
 const url = localeUrl(locale, path);
@@ -408,7 +409,7 @@ if (!data) return new Response(`Not found: ${countrySlug}`, { status: 404 });
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: `Medical travel from ${data.name}`, url },
+  { name: tFr("breadcrumbLabel").replace("{country}", data.name), url },
 ]);
 
 const maxWait = 60;
@@ -424,7 +425,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta
-      title={`Medical Travel from ${data.name} — Skip the Wait`}
+      title={tFr("metaTitle").replace("{country}", data.name)}
       description={data.intro.slice(0, 160)}
       path={path}
       locale={locale}
@@ -443,7 +444,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
           <nav class="mono text-[12px] flex items-center gap-2 flex-wrap" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
             <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
             <span aria-hidden="true" class="text-[var(--color-border-strong)]">/</span>
-            <span>Medical travel from {data.name}</span>
+            <span>{tFr("breadcrumbLabel").replace("{country}", data.name)}</span>
           </nav>
         </div>
       </div>
@@ -456,7 +457,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
           <div>
             <p class="mono uppercase inline-flex items-center gap-2" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
               <span>{data.flagEmoji}</span>
-              Medical travel from {data.name}
+              {tFr("heroEyebrow").replace("{country}", data.name)}
             </p>
             <h1 class="display mt-4" style="font-size: clamp(2.25rem, 5vw, 4.25rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em;">
               {data.tagline}
@@ -464,10 +465,10 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
             <p class="serif mt-5 max-w-[44rem]" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">{data.intro}</p>
             <div class="mt-7 flex flex-wrap gap-3">
               <a href={localizedPath(locale, "/contact")} class="inline-flex items-center gap-2 font-semibold px-6 py-3 rounded-full" style="background: var(--color-accent); color: var(--color-bg);">
-                Get a fast quote
+                {tFr("heroCtaPrimary")}
               </a>
               <a href={localizedPath(locale, "/insurance")} class="inline-flex items-center gap-2 font-semibold px-6 py-3 rounded-full border transition-colors hover:border-ink" style="border-color: var(--color-border); color: var(--color-ink);">
-                Check my insurance
+                {tFr("heroCtaSecondary")}
               </a>
             </div>
           </div>
@@ -487,7 +488,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
                 {data.flagEmoji} {data.name} → MedCasts hospitals
               </div>
               <div class="serif" style="font-size: 16px; font-weight: 500; color: #FBF8F1; line-height: 1.3; margin-top: 4px;">
-                Care that doesn't make you wait years.
+                {tFr("imageCaption")}
               </div>
             </div>
           </div>
@@ -498,8 +499,8 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
     <!-- Wait times -->
     <section class="py-14">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-        <p class="mono uppercase mb-3" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">01 · Public wait times</p>
-        <h2 class="display mb-8" style="font-size: 32px; letter-spacing: -0.02em;">{data.name} public system wait times</h2>
+        <p class="mono uppercase mb-3" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">{tFr("waitEyebrow")}</p>
+        <h2 class="display mb-8" style="font-size: 32px; letter-spacing: -0.02em;">{tFr("waitHeading").replace("{country}", data.name)}</h2>
         <ul class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {data.waitStats.map((s) => {
             const pct = Math.min((s.waitWeeks / maxWait) * 100, 100);
@@ -507,7 +508,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
               <li class="paper" style="padding: 20px;">
                 <div class="flex items-baseline justify-between gap-2">
                   <p class="serif text-xl" style="letter-spacing: -0.01em;">{s.procedure}</p>
-                  <p class="mono tnum text-[13px]" style="color: var(--color-accent);">{s.waitWeeks} wks</p>
+                  <p class="mono tnum text-[13px]" style="color: var(--color-accent);">{s.waitWeeks} {tFr("weeksAbbr")}</p>
                 </div>
                 <div class="w-full rounded-full h-2 mt-3" style="background: var(--color-border);">
                   <div class="h-2 rounded-full" style={{width: `${pct}%`, background: "var(--color-accent)"}}></div>
@@ -517,15 +518,15 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
             );
           })}
         </ul>
-        <p class="mt-6 text-[13px]" style="color: var(--color-ink-subtle);">Compare: fly out for most of these procedures and be treated within 2–3 weeks.</p>
+        <p class="mt-6 text-[13px]" style="color: var(--color-ink-subtle);">{tFr("waitCompareNote")}</p>
       </div>
     </section>
 
     <!-- Packages -->
     <section style="background: var(--color-paper); border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border);">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8 py-14">
-        <p class="mono uppercase mb-3" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">02 · Special packages</p>
-        <h2 class="display mb-8" style="font-size: 32px; letter-spacing: -0.02em;">Packages for {data.name} patients</h2>
+        <p class="mono uppercase mb-3" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">{tFr("packagesEyebrow")}</p>
+        <h2 class="display mb-8" style="font-size: 32px; letter-spacing: -0.02em;">{tFr("packagesHeading").replace("{country}", data.name)}</h2>
         <ul class="grid gap-5 md:grid-cols-3">
           {data.packages.map((pkg) => (
             <li class="paper" style={{padding: "24px", borderTop: `3px solid ${tierColors[pkg.tier]}`}}>
@@ -549,16 +550,15 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
     <!-- Insurers -->
     <section class="py-14">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-        <p class="mono uppercase mb-3" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">03 · Insurance</p>
+        <p class="mono uppercase mb-3" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">{tFr("insuranceEyebrow")}</p>
         <div class="grid gap-12 lg:grid-cols-2 lg:items-start">
           <div>
-            <h2 class="display" style="font-size: 32px; letter-spacing: -0.02em;">Outbound insurance companies</h2>
+            <h2 class="display" style="font-size: 32px; letter-spacing: -0.02em;">{tFr("insuranceHeading")}</h2>
             <p class="mt-4 serif max-w-[36rem]" style="font-size: 17px; line-height: 1.5; color: var(--color-ink-muted);">
-              These insurers cover planned medical treatment abroad for {data.name} residents.
-              Coverage depends on your specific policy — we help with pre-authorisation.
+              {tFr("insuranceLede").replace("{country}", data.name)}
             </p>
             <a href={localizedPath(locale, "/insurance")} class="inline-flex items-center gap-2 font-semibold px-6 py-3 rounded-full border mt-7 transition-colors hover:border-ink" style="border-color: var(--color-border); color: var(--color-ink);">
-              See all international insurers we work with
+              {tFr("insuranceLink")}
             </a>
           </div>
           <ul class="space-y-3">

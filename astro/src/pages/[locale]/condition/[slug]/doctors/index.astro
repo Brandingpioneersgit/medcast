@@ -27,6 +27,7 @@ const data = await listConditionDoctors(slug, 30);
 if (!data) return new Response(`Not found: ${slug}`, { status: 404 });
 
 const tc = getTranslator(locale, "common");
+const tCndoc = getTranslator(locale, "conditionDoctorsPage");
 
 const [conditionMap, doctorMap, faqs] = await Promise.all([
   getContent("condition", data.condition.id, locale),
@@ -49,18 +50,22 @@ const byCountry = Array.from(
   ).values(),
 ).sort((a, b) => a.name.localeCompare(b.name));
 
-const seoTitle = `Best Doctors for ${condition.name} — Ranked by Volume`;
-const seoDescription =
-  `Top doctors for ${condition.name.toLowerCase()} — ${data.total.toLocaleString()} specialists across ${data.specialties.length} relevant specialt${data.specialties.length === 1 ? "y" : "ies"}, ranked by patient volume and years of experience. Free case-specific shortlist on request.`.slice(0, 160);
+const seoTitle = tCndoc("seoTitle").replace("{conditionName}", condition.name);
+const seoDescription = tCndoc("seoDescription")
+  .replace("{conditionName}", condition.name.toLowerCase())
+  .replace("{total}", data.total.toLocaleString())
+  .replace("{specialtyCount}", data.specialties.length.toString())
+  .replace("{specialtyWord}", data.specialties.length === 1 ? tCndoc("specialtyWordSingular") : tCndoc("specialtyWordPlural"))
+  .slice(0, 160);
 
 const path = `/condition/${slug}/doctors`;
 const url = localeUrl(locale, path);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Conditions", url: localeUrl(locale, "/conditions") },
+  { name: tCndoc("breadcrumbConditions"), url: localeUrl(locale, "/conditions") },
   { name: condition.name, url: localeUrl(locale, `/condition/${slug}`) },
-  { name: "Doctors", url },
+  { name: tCndoc("breadcrumbDoctors"), url },
 ]);
 
 const itemLd = withProvenance(
@@ -117,11 +122,11 @@ Astro.response.headers.set(
       <div class="mx-auto max-w-7xl px-6 py-3.5 text-sm text-ink-muted overflow-x-auto whitespace-nowrap">
         <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
         <span class="mx-2 text-ink-subtle">/</span>
-        <a href={localizedPath(locale, "/conditions")} class="hover:text-accent">Conditions</a>
+        <a href={localizedPath(locale, "/conditions")} class="hover:text-accent">{tCndoc("breadcrumbConditions")}</a>
         <span class="mx-2 text-ink-subtle">/</span>
         <a href={localizedPath(locale, `/condition/${slug}`)} class="hover:text-accent">{condition.name}</a>
         <span class="mx-2 text-ink-subtle">/</span>
-        <span class="text-ink" aria-current="page">Doctors</span>
+        <span class="text-ink" aria-current="page">{tCndoc("breadcrumbDoctors")}</span>
       </div>
     </nav>
 
@@ -130,10 +135,14 @@ Astro.response.headers.set(
         {condition.name}
       </p>
       <h1 class="mt-2 display display-tight" style="font-size: clamp(2rem, 4.5vw, 3.5rem); letter-spacing: -0.025em; line-height: 1.02;">
-        Best doctors for {condition.name.toLowerCase()}
+        {tCndoc("h1").replace("{conditionName}", condition.name.toLowerCase())}
       </h1>
       <p class="lede mt-5 max-w-[44rem]">
-        {data.total.toLocaleString()} specialists at hospitals credentialed for the {data.specialties.length} specialt{data.specialties.length === 1 ? "y" : "ies"} that commonly handle {condition.name.toLowerCase()} — ranked by volume and experience. These are directory listings; your case may need a sub-specialist we'll surface on request.
+        {tCndoc("lede")
+          .replace("{total}", data.total.toLocaleString())
+          .replace("{specialtyCount}", data.specialties.length.toString())
+          .replace("{specialtyWord}", data.specialties.length === 1 ? tCndoc("specialtyWordSingular") : tCndoc("specialtyWordPlural"))
+          .replace("{conditionName}", condition.name.toLowerCase())}
       </p>
       <div class="mt-5 flex flex-wrap items-center gap-3">
         <LastUpdated updated={new Date()} locale={locale} />
@@ -141,7 +150,7 @@ Astro.response.headers.set(
 
       {data.specialties.length > 0 && (
         <div class="mt-6 flex flex-wrap items-center gap-2">
-          <span class="mono uppercase text-[11px]" style="letter-spacing: 0.12em; color: var(--color-ink-subtle);">Relevant specialties</span>
+          <span class="mono uppercase text-[11px]" style="letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tCndoc("relevantSpecialties")}</span>
           {data.specialties.map((s) => (
             <a
               href={localizedPath(locale, `/surgeons/${s.slug}`)}
@@ -155,7 +164,7 @@ Astro.response.headers.set(
 
       {byCountry.length > 0 && (
         <div class="mt-3 flex flex-wrap items-center gap-2">
-          <span class="mono uppercase text-[11px]" style="letter-spacing: 0.12em; color: var(--color-ink-subtle);">By destination</span>
+          <span class="mono uppercase text-[11px]" style="letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tCndoc("byDestination")}</span>
           {byCountry.map((c) => (
             <a
               href={localizedPath(locale, `/condition/${slug}/doctors/${c.slug}`)}
@@ -171,26 +180,26 @@ Astro.response.headers.set(
     <section style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft); padding: 48px 0;">
       <div class="mx-auto max-w-7xl px-6">
         <div class="mx-auto" style="max-width: 1100px;">
-          <p class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">Finding a doctor for {condition.name.toLowerCase()}</p>
-          <h2 class="display mt-2" style="font-size: clamp(1.5rem, 3vw, 2.25rem); letter-spacing: -0.02em; line-height: 1.15;">What matters most when choosing a {condition.name.toLowerCase()} specialist</h2>
+          <p class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">{tCndoc("findingDoctorEyebrow").replace("{conditionName}", condition.name.toLowerCase())}</p>
+          <h2 class="display mt-2" style="font-size: clamp(1.5rem, 3vw, 2.25rem); letter-spacing: -0.02em; line-height: 1.15;">{tCndoc("choosingSpecialistHeading").replace("{conditionName}", condition.name.toLowerCase())}</h2>
           <div class="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
             <div>
-              <div class="mono" style="font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-subtle);">Sub-specialty match</div>
-              <p class="serif mt-2" style="font-size: 15px; line-height: 1.6; color: var(--color-ink-muted);">{condition.name} has multiple contributing specialties. A cardiologist who sub-specialises in heart failure is better than a general cardiologist for advanced cases — check the doctor's listed focus area.</p>
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-subtle);">{tCndoc("cardSubspecialtyTitle")}</div>
+              <p class="serif mt-2" style="font-size: 15px; line-height: 1.6; color: var(--color-ink-muted);">{tCndoc("cardSubspecialtyBody").replace("{conditionName}", condition.name)}</p>
             </div>
             <div>
-              <div class="mono" style="font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-subtle);">Published outcomes</div>
-              <p class="serif mt-2" style="font-size: 15px; line-height: 1.6; color: var(--color-ink-muted);">Where hospitals publish their complication and readmission rates for {condition.name.toLowerCase()}, we link to them. Self-reported ratings are secondary — we prioritise published clinical data.</p>
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-subtle);">{tCndoc("cardOutcomesTitle")}</div>
+              <p class="serif mt-2" style="font-size: 15px; line-height: 1.6; color: var(--color-ink-muted);">{tCndoc("cardOutcomesBody").replace("{conditionName}", condition.name.toLowerCase())}</p>
             </div>
             <div>
-              <div class="mono" style="font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-subtle);">MDT approach</div>
-              <p class="serif mt-2" style="font-size: 15px; line-height: 1.6; color: var(--color-ink-muted);">Complex {condition.name.toLowerCase()} cases benefit from a multidisciplinary team — not just a single surgeon. Ask whether your hospital runs a formal MDT for your condition before you commit.</p>
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-subtle);">{tCndoc("cardMdtTitle")}</div>
+              <p class="serif mt-2" style="font-size: 15px; line-height: 1.6; color: var(--color-ink-muted);">{tCndoc("cardMdtBody").replace("{conditionName}", condition.name.toLowerCase())}</p>
             </div>
           </div>
           <div class="mt-10 flex flex-col sm:flex-row gap-4 items-start" style="border-top: 1px solid var(--color-border); padding-top: 32px;">
             <div class="flex-1">
-              <p class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">Want a personalised shortlist for {condition.name.toLowerCase()}?</p>
-              <p class="serif mt-2" style="font-size: 15px; line-height: 1.6; color: var(--color-ink-muted);">Tell us your diagnosis, test results, and preferences. We'll match you to 3 specialists with confirmed {condition.name.toLowerCase()} volume, ranked by relevance to your case.</p>
+              <p class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">{tCndoc("shortlistEyebrow").replace("{conditionName}", condition.name.toLowerCase())}</p>
+              <p class="serif mt-2" style="font-size: 15px; line-height: 1.6; color: var(--color-ink-muted);">{tCndoc("shortlistBody").replace("{conditionName}", condition.name.toLowerCase())}</p>
             </div>
             <div class="flex gap-3 shrink-0">
               <a
@@ -198,14 +207,14 @@ Astro.response.headers.set(
                 class="inline-flex items-center gap-2 font-semibold"
                 style="background: var(--color-accent); color: var(--color-accent-contrast); padding: 11px 20px; font-size: 13px; border-radius: 9999px;"
               >
-                Get matched →
+                {tCndoc("ctaGetMatched")}
               </a>
               <a
                 href={localizedPath(locale, "/contact")}
                 class="inline-flex items-center gap-2"
                 style="border: 1px solid var(--color-border); color: var(--color-ink); padding: 11px 20px; font-size: 13px; border-radius: 9999px;"
               >
-                Talk to a case manager
+                {tCndoc("ctaTalkCaseManager")}
               </a>
             </div>
           </div>
@@ -216,13 +225,13 @@ Astro.response.headers.set(
     {doctors.length === 0 ? (
       <section class="mx-auto max-w-3xl px-6 pb-20">
         <div class="paper p-8 text-center" style="color: var(--color-ink-muted);">
-          <p class="serif text-lg mb-3">No doctors on file yet for the specialties that treat this condition.</p>
-          <p class="text-sm mb-5">Ask for a human-curated shortlist instead — our case manager replies within a few hours during business hours.</p>
+          <p class="serif text-lg mb-3">{tCndoc("emptyStateHeading")}</p>
+          <p class="text-sm mb-5">{tCndoc("emptyStateBody")}</p>
           <a
             href={localizedPath(locale, `/contact?condition=${slug}`)}
             class="inline-flex items-center rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover"
           >
-            Request a shortlist →
+            {tCndoc("emptyStateCta")}
           </a>
         </div>
       </section>
@@ -253,7 +262,7 @@ Astro.response.headers.set(
                     {d.qualifications && <span class="mt-1 block text-[12.5px] text-ink-muted line-clamp-1">{d.qualifications}</span>}
                     <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-subtle">
                       {d.experience_years != null && (
-                        <span class="inline-flex items-center gap-1"><Award className="h-3 w-3 text-accent" />{d.experience_years} yrs</span>
+                        <span class="inline-flex items-center gap-1"><Award className="h-3 w-3 text-accent" />{d.experience_years} {tCndoc("yrs")}</span>
                       )}
                       {d.patients_treated != null && d.patients_treated > 0 && (
                         <span class="inline-flex items-center gap-1"><Users className="h-3 w-3 text-accent" />{d.patients_treated.toLocaleString()}</span>
@@ -277,12 +286,12 @@ Astro.response.headers.set(
     <section class="mx-auto max-w-7xl px-6 pb-20">
       <div class="paper p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
         <div class="max-w-[36rem]">
-          <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">Match me to a doctor</p>
+          <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">{tCndoc("matchEyebrow")}</p>
           <h3 class="mt-2 font-display text-2xl md:text-3xl">
-            Want three named specialists picked for your {condition.name.toLowerCase()} case?
+            {tCndoc("matchHeading").replace("{conditionName}", condition.name.toLowerCase())}
           </h3>
           <p class="mt-2 text-sm text-ink-muted">
-            Send your reports — we'll match, confirm availability, and come back with a quote in under a day.
+            {tCndoc("matchBody")}
           </p>
         </div>
         <div class="flex flex-wrap gap-3 shrink-0">
@@ -290,13 +299,13 @@ Astro.response.headers.set(
             href={localizedPath(locale, `/second-opinion`)}
             class="inline-flex items-center rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover"
           >
-            Get a free second opinion
+            {tCndoc("ctaGetSecondOpinion")}
           </a>
           <a
             href={localizedPath(locale, `/condition/${slug}`)}
             class="inline-flex items-center rounded-lg border border-border px-5 py-2.5 text-sm font-semibold hover:border-border-strong"
           >
-            Back to {condition.name}
+            {tCndoc("ctaBackToCondition").replace("{conditionName}", condition.name)}
             <ChevronRight className="ml-1 h-4 w-4" />
           </a>
         </div>

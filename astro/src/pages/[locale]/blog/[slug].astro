@@ -34,6 +34,7 @@ const data = await getBlogPostBySlug(slug);
 if (!data) return new Response(`Not found: ${slug}`, { status: 404 });
 
 const tc = getTranslator(locale, "common");
+const tBp = getTranslator(locale, "blogPostPage");
 const { post: postRaw, related } = data;
 const blogMap = await getContent("blog_post", postRaw.id, locale);
 const post = applyTranslated(postRaw, blogMap, ["title", "excerpt", "content"]);
@@ -102,11 +103,11 @@ const groupedMentions = {
   glossary: mentioned.filter((e) => e.kind === "glossary"),
 };
 const mentionGroupLabels: Record<string, string> = {
-  treatment: "Treatments",
-  hospital: "Hospitals",
-  specialty: "Specialties",
-  condition: "Conditions",
-  glossary: "Glossary",
+  treatment: tBp("mentionTreatments"),
+  hospital: tBp("mentionHospitals"),
+  specialty: tBp("mentionSpecialties"),
+  condition: tBp("mentionConditions"),
+  glossary: tBp("mentionGlossary"),
 };
 const mentionKindOrder: Array<keyof typeof groupedMentions> = [
   "treatment",
@@ -296,7 +297,7 @@ Astro.response.headers.set(
           <span class="mx-1.5">/</span>
           <a href={localizedPath(locale, "/blog")} class="hover:text-ink">Blog</a>
           <span class="mx-1.5">/</span>
-          <span style="color: var(--color-ink);">{post.category ?? "Article"}</span>
+          <span style="color: var(--color-ink);">{post.category ?? tBp("articleFallback")}</span>
         </nav>
       </div>
     </div>
@@ -306,7 +307,7 @@ Astro.response.headers.set(
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
         {post.category && (
           <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
-            {post.category}{readingMinutes ? ` · ${readingMinutes} min read` : ""}
+            {post.category}{readingMinutes ? ` ${tBp("minRead").replace("{n}", String(readingMinutes))}` : ""}
           </p>
         )}
         <h1
@@ -329,34 +330,34 @@ Astro.response.headers.set(
                 <User className="h-4 w-4" />
               </div>
               <div class="min-w-0">
-                <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Author</div>
+                <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">{tBp("labelAuthor")}</div>
                 <div class="serif" style="font-size: 14px; color: var(--color-ink);">{post.authorName}</div>
               </div>
             </div>
           )}
           {post.publishedAt && (
             <div>
-              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Published</div>
+              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">{tBp("labelPublished")}</div>
               <div class="serif tnum" style="font-size: 14px; color: var(--color-ink);">{fmtDate(post.publishedAt)}</div>
             </div>
           )}
           {post.updatedAt && post.updatedAt !== post.publishedAt && (
             <div>
-              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Updated</div>
+              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">{tBp("labelUpdated")}</div>
               <div class="serif tnum" style="font-size: 14px; color: var(--color-ink);">{fmtDate(post.updatedAt)}</div>
             </div>
           )}
           {wordCount && (
             <div>
-              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Length</div>
-              <div class="serif tnum" style="font-size: 14px; color: var(--color-ink);">{wordCount.toLocaleString()} words</div>
+              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">{tBp("labelLength")}</div>
+              <div class="serif tnum" style="font-size: 14px; color: var(--color-ink);">{tBp("wordsCount").replace("{n}", wordCount.toLocaleString())}</div>
             </div>
           )}
         </div>
 
         {keywordList && keywordList.length > 0 && (
           <div class="mt-6 flex flex-wrap items-center gap-2">
-            <span class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Topics</span>
+            <span class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">{tBp("labelTopics")}</span>
             {keywordList.map((tag) => (
               <span
                 class="mono uppercase"
@@ -393,10 +394,10 @@ Astro.response.headers.set(
               <aside
                 class="paper mb-10"
                 style="padding: 22px 26px 24px; border-left: 3px solid var(--color-accent);"
-                aria-label="Key takeaways"
+                aria-label={tBp("keyTakeawaysLabel")}
               >
                 <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
-                  Key takeaways
+                  {tBp("keyTakeawaysLabel")}
                 </div>
                 <ul class="mt-3 space-y-2">
                   {keyTakeaways.map((k, i) => (
@@ -416,9 +417,9 @@ Astro.response.headers.set(
           <aside class="hidden lg:block">
             <div class="lg:sticky lg:top-28 lg:self-start space-y-6">
               {tocEntries.length > 1 && (
-                <nav aria-label="Article contents" style="padding: 18px 0; border-top: 1px solid var(--color-ink);">
+                <nav aria-label={tBp("onThisPage")} style="padding: 18px 0; border-top: 1px solid var(--color-ink);">
                   <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                    On this page
+                    {tBp("onThisPage")}
                   </div>
                   <ol class="mt-3 space-y-1.5">
                     {tocEntries.slice(0, 12).map((t, i) => (
@@ -441,10 +442,10 @@ Astro.response.headers.set(
 
               <div style="padding: 18px 0; border-top: 1px solid var(--color-ink);">
                 <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                  Reviewer desk
+                  {tBp("reviewerDesk")}
                 </div>
                 <div class="serif mt-2" style="font-size: 15px; line-height: 1.4; color: var(--color-ink);">
-                  Reviewed by{" "}
+                  {tBp("reviewedBy")}{" "}
                   {reviewerPanel ? (
                     <a
                       href={`${localizedPath(locale, "/medical-board")}#${reviewerPanel.slug}`}
@@ -459,14 +460,14 @@ Astro.response.headers.set(
                   )}
                 </div>
                 <p class="mono uppercase mt-1" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-                  Named-physician review before publish
+                  {tBp("namedPhysicianReview")}
                 </p>
                 <a
                   href={localizedPath(locale, "/editorial-policy")}
                   class="mono uppercase mt-3 inline-flex items-center gap-1 hover:text-accent transition-colors"
                   style="font-size: 10.5px; letter-spacing: 0.12em; color: var(--color-ink-muted);"
                 >
-                  Editorial policy →
+                  {tBp("editorialPolicy")}
                 </a>
               </div>
 
@@ -476,13 +477,13 @@ Astro.response.headers.set(
                 style="padding: 18px 20px;"
               >
                 <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
-                  Free second opinion
+                  {tBp("freeSecondOpinion")}
                 </div>
                 <div class="serif mt-2" style="font-size: 16px; line-height: 1.3; color: var(--color-ink);">
-                  Send reports, receive <span class="italic-display">clarity</span>.
+                  {tBp("secondOpinionBody")}
                 </div>
                 <div class="mt-3 mono uppercase inline-flex items-center gap-1 group-hover:text-accent transition-colors" style="font-size: 10.5px; letter-spacing: 0.14em; color: var(--color-ink-muted);">
-                  48 hours · $0
+                  {tBp("secondOpinionCta")}
                   <ChevronRight className="h-3 w-3 mirror-x" />
                 </div>
               </a>
@@ -499,10 +500,10 @@ Astro.response.headers.set(
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
           <div class="mb-6">
             <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-              Mentioned in this piece
+              {tBp("mentionedEyebrow")}
             </div>
             <h2 class="display mt-3" style="font-size: 24px; letter-spacing: -0.015em;">
-              Open any of the <span class="italic-display">{mentioned.length}</span> references
+              {tBp("mentionedHeading").replace("{n}", String(mentioned.length))}
             </h2>
           </div>
           <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -547,10 +548,10 @@ Astro.response.headers.set(
           <div class="mb-6 flex items-end justify-between flex-wrap gap-4">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Related reading
+                {tBp("relatedEyebrow")}
               </div>
               <h2 class="display mt-3" style="font-size: 28px; letter-spacing: -0.02em;">
-                More from the <span class="italic-display">desk</span>
+                {tBp("relatedHeading")}
               </h2>
             </div>
             <a
@@ -558,7 +559,7 @@ Astro.response.headers.set(
               class="mono uppercase text-[11px] hover:text-accent"
               style="letter-spacing: 0.14em; color: var(--color-ink-subtle);"
             >
-              All posts →
+              {tBp("allPosts")}
             </a>
           </div>
           <ul class="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -623,22 +624,22 @@ Astro.response.headers.set(
     
     <ExploreGrid
       locale={locale}
-      eyebrow="Continue reading"
-      heading="Where to take this story"
-      lede="An article gives you context. These hubs give you the next decision — destination, surgeon, treatment, cost — and the tools to act on what you just read."
+      eyebrow={tBp("exploreEyebrow")}
+      heading={tBp("exploreHeading")}
+      lede={tBp("exploreLede")}
       items={[
-        { eyebrow: "Library", label: "All blog articles", href: "/blog", hint: "Editorial coverage on costs, recovery, surgeon selection, second opinions." },
-        { eyebrow: "Reference", label: "Q&A library", href: "/qa", hint: "30 patient-style questions with concrete numbers and named-clinician review." },
-        { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure success rates, recovery time, hospital pricing." },
-        { eyebrow: "Browse", label: "15 specialties", href: "/specialties", hint: "Cardiac, oncology, transplant, ortho, fertility — every program." },
-        { eyebrow: "Browse", label: "79 conditions", href: "/conditions", hint: "Map condition → specialty → first-line treatment." },
-        { eyebrow: "Browse", label: "9 destination countries", href: "/countries", hint: "Cost-of-care profiles, hospital programs, visa playbooks." },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
-        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get specialty + destination + 3-hospital shortlist." },
-        { eyebrow: "Compare", label: "Treatments side-by-side", href: "/compare/treatments", hint: "Cost, stay, recovery, success-rate columns across procedures." },
-        { eyebrow: "Reference", label: "Glossary of terms", href: "/glossary", hint: "Plain-language definitions for procedures and travel logistics." },
-        { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "Sourcing, review cadence, AI use disclosure, corrections SLA." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+        { eyebrow: tBp("exploreItem1Eyebrow"), label: tBp("exploreItem1Label"), href: "/blog", hint: tBp("exploreItem1Hint") },
+        { eyebrow: tBp("exploreItem2Eyebrow"), label: tBp("exploreItem2Label"), href: "/qa", hint: tBp("exploreItem2Hint") },
+        { eyebrow: tBp("exploreItem3Eyebrow"), label: tBp("exploreItem3Label"), href: "/treatments", hint: tBp("exploreItem3Hint") },
+        { eyebrow: tBp("exploreItem4Eyebrow"), label: tBp("exploreItem4Label"), href: "/specialties", hint: tBp("exploreItem4Hint") },
+        { eyebrow: tBp("exploreItem5Eyebrow"), label: tBp("exploreItem5Label"), href: "/conditions", hint: tBp("exploreItem5Hint") },
+        { eyebrow: tBp("exploreItem6Eyebrow"), label: tBp("exploreItem6Label"), href: "/countries", hint: tBp("exploreItem6Hint") },
+        { eyebrow: tBp("exploreItem7Eyebrow"), label: tBp("exploreItem7Label"), href: "/calculator", hint: tBp("exploreItem7Hint") },
+        { eyebrow: tBp("exploreItem8Eyebrow"), label: tBp("exploreItem8Label"), href: "/match-me", hint: tBp("exploreItem8Hint") },
+        { eyebrow: tBp("exploreItem9Eyebrow"), label: tBp("exploreItem9Label"), href: "/compare/treatments", hint: tBp("exploreItem9Hint") },
+        { eyebrow: tBp("exploreItem10Eyebrow"), label: tBp("exploreItem10Label"), href: "/glossary", hint: tBp("exploreItem10Hint") },
+        { eyebrow: tBp("exploreItem11Eyebrow"), label: tBp("exploreItem11Label"), href: "/editorial-policy", hint: tBp("exploreItem11Hint") },
+        { eyebrow: tBp("exploreItem12Eyebrow"), label: tBp("exploreItem12Label"), href: "/second-opinion", hint: tBp("exploreItem12Hint") },
       ]}
     />
 

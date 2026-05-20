@@ -25,6 +25,7 @@ if (!code) return new Response("Not found", { status: 404 });
 
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tAcc = getTranslator(locale, "accreditationCodePage");
 
 type AccredRow = {
   id: number;
@@ -96,17 +97,17 @@ const FLAG: Record<string, string> = {
 };
 
 const label = acc.acronym ?? acc.name;
-const seoTitle = `${label}-accredited hospitals — ${hospitals.length} worldwide`;
+const seoTitle = tAcc("seoTitle").replace("{label}", label).replace("{count}", String(hospitals.length));
 const seoDescription = acc.description
-  ? `${acc.description} Browse all ${hospitals.length} ${label}-accredited hospitals across ${byCountry.length} countries.`
-  : `All ${hospitals.length} ${label}-accredited hospitals across ${byCountry.length} countries.`;
+  ? `${acc.description} ${tAcc("seoDescriptionWith").replace("{count}", String(hospitals.length)).replace("{label}", label).replace("{countries}", String(byCountry.length))}`
+  : tAcc("seoDescriptionWithout").replace("{count}", String(hospitals.length)).replace("{label}", label).replace("{countries}", String(byCountry.length));
 
 const path = `/accreditation/${code}`;
 const url = localeUrl(locale, path);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Accreditations", url: localeUrl(locale, "/accreditation") },
+  { name: tAcc("breadcrumbAccreditations"), url: localeUrl(locale, "/accreditation") },
   { name: label, url },
 ]);
 
@@ -150,7 +151,7 @@ Astro.response.headers.set(
       <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
         <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
         <span class="mx-1.5">/</span>
-        <a href={localizedPath(locale, "/accreditation")} class="hover:text-ink">Accreditations</a>
+        <a href={localizedPath(locale, "/accreditation")} class="hover:text-ink">{tAcc("breadcrumbAccreditations")}</a>
         <span class="mx-1.5">/</span>
         <span style="color: var(--color-ink);">{label}</span>
       </nav>
@@ -163,7 +164,7 @@ Astro.response.headers.set(
             <div class="flex items-center gap-3" style="margin-bottom: 4px;">
               <AccreditationLogo code={acc.acronym ?? acc.slug} title={acc.name} size="lg" showText={false} />
               <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
-                Certifying body
+                {tAcc("certifyingBody")}
               </div>
             </div>
             <h1
@@ -188,7 +189,7 @@ Astro.response.headers.set(
                 class="inline-flex items-center gap-1 mt-4"
                 style="font-size: 13px; color: var(--color-accent);"
               >
-                Official body website →
+                {tAcc("officialWebsite")}
               </a>
             )}
 
@@ -197,11 +198,11 @@ Astro.response.headers.set(
               style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); border-top: 1px solid var(--color-ink); border-bottom: 1px solid var(--color-border);"
             >
               <div style="padding-inline: 18px;">
-                <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">Accredited</div>
+                <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">{tAcc("statAccredited")}</div>
                 <div class="display tnum" style="font-size: 28px; margin-top: 4px;">{hospitals.length.toLocaleString()}</div>
               </div>
               <div style="padding-inline: 18px; border-inline-start: 1px solid var(--color-border);">
-                <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">Countries</div>
+                <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">{tAcc("statCountries")}</div>
                 <div class="display tnum" style="font-size: 28px; margin-top: 4px;">{byCountry.length}</div>
               </div>
             </div>
@@ -210,7 +211,7 @@ Astro.response.headers.set(
           <aside>
             <div class="paper" style="padding: 22px;">
               <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">
-                By country
+                {tAcc("byCountry")}
               </div>
               <ul class="mt-3 space-y-2">
                 {byCountry.map((c) => (
@@ -242,7 +243,7 @@ Astro.response.headers.set(
       <section style="padding: 32px 28px 80px; border-top: 1px solid var(--color-border);">
         <div class="mx-auto max-w-[1440px]">
           <h2 class="display" style="font-size: 28px; letter-spacing: -0.02em; margin-bottom: 24px;">
-            Every {label}-accredited hospital in our network
+            {tAcc("hospitalsHeading").replace("{label}", label)}
           </h2>
           <ul class="grid gap-5" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
             {hospitals.map((h) => (
@@ -274,17 +275,17 @@ Astro.response.headers.set(
                         </span>
                       )}
                       {h.bedCapacity && (
-                        <span class="tnum">{h.bedCapacity.toLocaleString()} beds</span>
+                        <span class="tnum">{h.bedCapacity.toLocaleString()} {tAcc("beds")}</span>
                       )}
                       <span class="mono" style="font-size: 10px; color: var(--color-ink-subtle);">
-                        {h.accrCount} accreditations
+                        {h.accrCount} {tAcc("accreditations")}
                       </span>
                     </div>
                     {h.fromUsd && (
                       <div class="flex items-end justify-between mt-4 pt-4" style="border-top: 1px solid var(--color-border-soft);">
                         <div>
                           <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">
-                            From
+                            {tAcc("from")}
                           </div>
                           <div class="display tnum" style="font-size: 20px;">
                             <Price usd={h.fromUsd} />
@@ -294,7 +295,7 @@ Astro.response.headers.set(
                           class="inline-flex items-center gap-1"
                           style="background: var(--color-ink); color: var(--color-bg); padding: 6px 12px; font-size: 12px; font-weight: 500; border-radius: 9999px;"
                         >
-                          View
+                          {tAcc("view")}
                           <ChevronRight className="h-3 w-3 mirror-x" />
                         </span>
                       </div>
@@ -313,10 +314,10 @@ Astro.response.headers.set(
       <section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
           <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-            What this accreditation actually means
+            {tAcc("sectionEyebrow")}
           </div>
           <h2 class="display mb-7" style="font-size: 30px; letter-spacing: -0.02em;">
-            Understanding <span style="font-style: italic;">{acc.acronym ?? acc.name}</span>
+            {tAcc("understandingPrefix")} <span style="font-style: italic;">{acc.acronym ?? acc.name}</span>
           </h2>
 
           {accSections.whatItIs && Array.isArray(accSections.whatItIs) && (
@@ -327,7 +328,7 @@ Astro.response.headers.set(
 
           {accSections.whatItMeansForPatients && accSections.whatItMeansForPatients.length > 0 && (
             <div class="mb-10">
-              <h3 class="display mb-4" style="font-size: 22px;">What it means for patients</h3>
+              <h3 class="display mb-4" style="font-size: 22px;">{tAcc("whatItMeansForPatientsHeading")}</h3>
               <ul class="space-y-3">
                 {accSections.whatItMeansForPatients.map((p: string) => (
                   <li class="flex gap-3 items-start" style="font-size: 15.5px; line-height: 1.55;">
@@ -343,7 +344,7 @@ Astro.response.headers.set(
             {accSections.howItsAwarded && (
               <div class="paper" style="padding: 22px;">
                 <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
-                  How it's awarded
+                  {tAcc("howItsAwardedLabel")}
                 </div>
                 <p style="font-size: 14.5px; line-height: 1.55;">{accSections.howItsAwarded}</p>
               </div>
@@ -352,7 +353,7 @@ Astro.response.headers.set(
             {accSections.signalStrength && (
               <div class="paper" style="padding: 22px;">
                 <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
-                  Signal strength
+                  {tAcc("signalStrengthLabel")}
                 </div>
                 <p style="font-size: 14.5px; line-height: 1.55;">{accSections.signalStrength}</p>
               </div>
@@ -361,7 +362,7 @@ Astro.response.headers.set(
 
           {accSections.limitations && accSections.limitations.length > 0 && (
             <div class="mb-10">
-              <h3 class="display mb-4" style="font-size: 22px;">Honest limitations</h3>
+              <h3 class="display mb-4" style="font-size: 22px;">{tAcc("honestLimitationsHeading")}</h3>
               <ul class="space-y-3">
                 {accSections.limitations.map((l: string) => (
                   <li class="flex gap-3 items-start" style="font-size: 15px; line-height: 1.55; padding: 14px 18px; border: 1px solid var(--color-border-soft); border-inline-start: 3px solid var(--color-coral, #E85A4F); background: white;">
@@ -376,7 +377,7 @@ Astro.response.headers.set(
           {accSections.howToVerify && (
             <div class="paper mb-6" style="padding: 22px;">
               <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
-                How to verify a hospital's claim
+                {tAcc("howToVerifyLabel")}
               </div>
               <p style="font-size: 14.5px; line-height: 1.55;">{accSections.howToVerify}</p>
             </div>
@@ -384,7 +385,7 @@ Astro.response.headers.set(
 
           {accSections.relatedAccreditations && accSections.relatedAccreditations.length > 0 && (
             <div>
-              <h3 class="display mb-4" style="font-size: 20px;">Related certifications</h3>
+              <h3 class="display mb-4" style="font-size: 20px;">{tAcc("relatedCertificationsHeading")}</h3>
               <div class="flex flex-wrap gap-2">
                 {accSections.relatedAccreditations.map((r: string) => (
                   <span class="mono uppercase" style="font-size: 11px; letter-spacing: 0.1em; padding: 6px 12px; border: 1px solid var(--color-border); background: white; color: var(--color-ink);">

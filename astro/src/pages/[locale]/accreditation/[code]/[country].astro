@@ -25,6 +25,7 @@ if (!isLocale(rawLocale)) return Astro.redirect(`/en/accreditation/${code}/${cou
 if (!code || !countryParam) return new Response("Not found", { status: 404 });
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tAccc = getTranslator(locale, "accreditationCountryPage");
 
 type AccredRow = { id: number; slug: string; name: string; acronym: string | null; description: string | null; website: string | null };
 const acc = Array.from(

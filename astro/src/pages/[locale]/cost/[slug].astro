@@ -37,6 +37,7 @@ const data = await getCostOfTreatment(slug);
 if (!data) return new Response(`Not found: ${slug}`, { status: 404 });
 
 const tc = getTranslator(locale, "common");
+const tCost = getTranslator(locale, "costDetailPage");
 
 const treatmentMap = await getContent("treatment", data.treatment.id, locale);
 const treatment = applyTranslated(data.treatment, treatmentMap, ["name", "description"]);
@@ -78,45 +79,58 @@ const loFormatted = loPrice ? await formatUsd(Astro.cookies, loPrice) : null;
 const hiFormatted = hiPrice ? await formatUsd(Astro.cookies, hiPrice) : null;
 
 const stats = [
-  loFormatted ? { l: "Starts from", v: loFormatted } : null,
-  hiFormatted ? { l: "Tops out", v: hiFormatted } : null,
-  { l: "Destinations", v: data.byCountry.length.toString() },
-  { l: "Hospitals priced", v: totalHospitals.toLocaleString() },
+  loFormatted ? { l: tCost("statStartsFrom"), v: loFormatted } : null,
+  hiFormatted ? { l: tCost("statTopsOut"), v: hiFormatted } : null,
+  { l: tCost("statDestinations"), v: data.byCountry.length.toString() },
+  { l: tCost("statHospitalsPriced"), v: totalHospitals.toLocaleString() },
 ].filter(Boolean) as Array<{ l: string; v: string }>;
 
 const COST_FACTORS = [
-  { title: "Surgeon seniority", body: "Senior consultants with 20+ years and high procedure counts command 20-40% above junior attendings for the same operation." },
-  { title: "Hospital tier", body: "Flagship JCI-accredited facilities cost more than local tier-2 hospitals, even for identical procedures. The gap is usually 30-60%." },
-  { title: "Room category", body: "Private-room vs twin-share vs deluxe suite can shift total package cost by 10-25% on longer admissions." },
-  { title: "Implant or device brand", body: "For joint replacement, cardiac valves, or dental implants, the device brand alone can change the bill by $1,500-$4,000." },
-  { title: "Length of stay", body: "Complications or unplanned ICU days are the biggest variance driver. Ask for the per-diem overage rate upfront." },
-  { title: "Pre-op workup", body: "Imaging and labs done overseas aren't always re-done locally. If they are, budget 8-15% extra." },
+  { title: tCost("factorSurgeonSeniorityTitle"), body: tCost("factorSurgeonSeniorityBody") },
+  { title: tCost("factorHospitalTierTitle"), body: tCost("factorHospitalTierBody") },
+  { title: tCost("factorRoomCategoryTitle"), body: tCost("factorRoomCategoryBody") },
+  { title: tCost("factorImplantBrandTitle"), body: tCost("factorImplantBrandBody") },
+  { title: tCost("factorLengthOfStayTitle"), body: tCost("factorLengthOfStayBody") },
+  { title: tCost("factorPreOpWorkupTitle"), body: tCost("factorPreOpWorkupBody") },
 ];
 
 const INCLUDED = [
-  "Surgery + anaesthesia fees",
-  "Standard private or twin-share room",
-  "Standard implants / consumables",
-  "Routine post-op imaging and labs",
-  "Discharge medications for the admission period",
-  "Case coordinator during admission",
+  tCost("includedSurgeryFees"),
+  tCost("includedPrivateRoom"),
+  tCost("includedImplants"),
+  tCost("includedPostOpImaging"),
+  tCost("includedDischargeMeds"),
+  tCost("includedCaseCoordinator"),
 ];
 const NOT_INCLUDED = [
-  "International flights + visa fees",
-  "Hotel before admission / after discharge",
-  "Complications or extended ICU days",
-  "Premium implants (e.g. branded heart valves)",
-  "Long-term medications",
-  "Follow-up teleconsults after the first 30 days",
+  tCost("extraFlightsVisa"),
+  tCost("extraHotel"),
+  tCost("extraComplications"),
+  tCost("extraPremiumImplants"),
+  tCost("extraLongTermMeds"),
+  tCost("extraFollowUpTeleconsults"),
 ];
 
 const FAQS = [
-  { question: `Is ${treatment.name.toLowerCase()} safe in these countries?`, answer: `Yes — at JCI-accredited facilities. The variable isn't country; it's surgeon and hospital. Ask for surgeon-specific procedure volume (aim for 100+ per year for elective work) before booking.` },
-  { question: `How long do I need to stay?`, answer: treatment.hospitalStayDays ? `${treatment.hospitalStayDays} inpatient days is typical${treatment.recoveryDays ? `, plus ~${treatment.recoveryDays} days local recovery before you're cleared to fly.` : "."} Build in a few buffer days in case labs or imaging flag something.` : "Stay length varies by case. Plan around the typical inpatient window plus 3-7 recovery days before your flight home." },
-  { question: `Does my insurance cover treatment abroad?`, answer: `Some international policies (Cigna, Bupa, Allianz, AXA) reimburse at overseas JCI hospitals. Most domestic insurance doesn't. We confirm cashless vs reimbursement before admission — share your policy and we'll verify.` },
-  { question: `What's included in the package price?`, answer: `Typically: surgery fee, anaesthesia, standard room, standard implants, routine post-op imaging. Not typically included: airport transfer, hotel, complications, premium implants, extended ICU days. Quotes always show the split.` },
-  { question: `How do I choose between countries?`, answer: `For routine procedures, go on price + your visa ease. For complex cases, go on surgeon-specific volume and outcome data — which we request from each hospital before presenting quotes.` },
-  { question: `Can I travel home right after?`, answer: `Commercial air travel post-surgery depends on the procedure and the airline's medical-clearance policy. Most cardiac patients fly 10-14 days post-op; orthopedic patients 7-10 days; cosmetic 5-7 days. Your case manager will flag the specifics.` },
+  {
+    question: tCost("faq1Question").replace("{treatment}", treatment.name.toLowerCase()),
+    answer: tCost("faq1Answer"),
+  },
+  {
+    question: tCost("faq2Question"),
+    answer: treatment.hospitalStayDays
+      ? tCost("faq2AnswerWithDays")
+          .replace("{inpatientDays}", String(treatment.hospitalStayDays))
+          .replace(
+            "{recoveryDays}",
+            treatment.recoveryDays ? tCost("faq2RecoveryClause").replace("{recoveryDays}", String(treatment.recoveryDays)) : ".",
+          )
+      : tCost("faq2AnswerNoDays"),
+  },
+  { question: tCost("faq3Question"), answer: tCost("faq3Answer") },
+  { question: tCost("faq4Question"), answer: tCost("faq4Answer") },
+  { question: tCost("faq5Question"), answer: tCost("faq5Answer") },
+  { question: tCost("faq6Question"), answer: tCost("faq6Answer") },
 ];
 
 const currentYearStr = currentYear.toString();
@@ -194,7 +208,7 @@ Astro.response.headers.set(
           <span class="mx-1.5">/</span>
           <a href={localizedPath(locale, `/treatment/${slug}`)} class="hover:text-ink">{treatment.name}</a>
           <span class="mx-1.5">/</span>
-          <span style="color: var(--color-ink);">Cost</span>
+          <span style="color: var(--color-ink);">{tCost("breadcrumbCost")}</span>
         </nav>
       </div>
     </div>
@@ -203,7 +217,7 @@ Astro.response.headers.set(
       <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
         {specialty && (
           <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
-            {specialty.name} · Updated {currentYearStr}
+            {specialty.name} · {tCost("updatedLabel").replace("{year}", currentYearStr)}
           </p>
         )}
         <div class="grid gap-10 lg:grid-cols-[1.5fr_1fr] lg:gap-14 mt-3">
@@ -212,15 +226,15 @@ Astro.response.headers.set(
               class="display display-tight"
               style="font-size: clamp(2.25rem, 5vw, 4.5rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em;"
             >
-              Cost of <span class="italic-display">{firstWord(treatment.name)}{restOfName(treatment.name) ? ` ${restOfName(treatment.name)}` : ""}</span> abroad
+              {tCost("heroHeadingBefore")} <span class="italic-display">{firstWord(treatment.name)}{restOfName(treatment.name) ? ` ${restOfName(treatment.name)}` : ""}</span> {tCost("heroHeadingAfter")}
             </h1>
             {cheapest && loPrice ? (
               <p class="serif mt-5 max-w-[44rem]" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">
-                Starts at <span class="display tnum" style="color: var(--color-ink);"><Price usd={loPrice} /></span> in {cheapest.country_name}. {data.byCountry.length} destinations, {totalHospitals.toLocaleString()} hospital packages tracked. Bands below reflect what's quoted — final amounts shift on surgeon choice, room, and stay length.
+                {tCost("heroLedeStartsAt")} <span class="display tnum" style="color: var(--color-ink);"><Price usd={loPrice} /></span> {tCost("heroLedeIn")} {cheapest.country_name}. {data.byCountry.length} {tCost("heroLedeDestinations")}, {totalHospitals.toLocaleString()} {tCost("heroLedeHospitalPackages")} {tCost("heroLedeBandNote")}
               </p>
             ) : (
               <p class="serif mt-5 max-w-[44rem]" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">
-                No hospital pricing is in our system yet for this procedure. Request a quote and we'll source three from our partner network within 48 hours.
+                {tCost("heroLedeNoPricing")}
               </p>
             )}
             <LastUpdated updated={data.treatment.updatedAt} locale={locale} class="mt-5" />
@@ -246,7 +260,7 @@ Astro.response.headers.set(
 
             {savingsPct && savingsPct > 0 && (
               <p class="mt-5 mono text-[11px] uppercase" style="letter-spacing: 0.12em; color: var(--color-accent);">
-                Up to {savingsPct}% savings vs US average for this procedure
+                {tCost("savingsBadge").replace("{pct}", String(savingsPct))}
               </p>
             )}
           </div>
@@ -254,33 +268,33 @@ Astro.response.headers.set(
           <aside class="lg:sticky lg:top-32 lg:self-start">
             <div class="paper" style="padding: 22px;">
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-                Free quote · 48 hours
+                {tCost("asideEyebrow")}
               </div>
               <div class="display mt-2" style="font-size: 26px; line-height: 1.1; letter-spacing: -0.015em;">
-                Three itemised options, <span class="italic-display">matched to you.</span>
+                {tCost("asideHeadingBefore")} <span class="italic-display">{tCost("asideHeadingAccent")}</span>
               </div>
               <ul class="mt-4 space-y-2.5 text-[13.5px]" style="color: var(--color-ink-muted);">
-                <li class="flex gap-2"><span style="color: var(--color-accent);">→</span><span>Share imaging + case history</span></li>
-                <li class="flex gap-2"><span style="color: var(--color-accent);">→</span><span>We route to 3 surgeons matching your case</span></li>
-                <li class="flex gap-2"><span style="color: var(--color-accent);">→</span><span>Itemised quotes in 48 hours, no fee</span></li>
+                <li class="flex gap-2"><span style="color: var(--color-accent);">→</span><span>{tCost("asideStep1")}</span></li>
+                <li class="flex gap-2"><span style="color: var(--color-accent);">→</span><span>{tCost("asideStep2")}</span></li>
+                <li class="flex gap-2"><span style="color: var(--color-accent);">→</span><span>{tCost("asideStep3")}</span></li>
               </ul>
               <a
                 href={localizedPath(locale, `/contact?treatment=${slug}`)}
                 class="mt-5 block w-full text-center font-semibold"
                 style="background: var(--color-ink); color: var(--color-bg); padding: 12px; border-radius: 9999px;"
               >
-                Request quotes
+                {tCost("btnRequestQuotes")}
               </a>
               <a
                 href={localizedPath(locale, `/treatment/${slug}`)}
                 class="mt-2.5 block w-full text-center font-semibold"
                 style="border: 1px solid var(--color-border); color: var(--color-ink); padding: 11px; border-radius: 9999px;"
               >
-                See hospitals ranked
+                {tCost("btnSeeHospitals")}
               </a>
             </div>
             <p class="mt-3 mono text-[10px] uppercase tracking-wider text-center" style="color: var(--color-ink-subtle);">
-              Coordinators online · replies during business hours
+              {tCost("asideCoordinatorsNote")}
             </p>
           </aside>
         </div>
@@ -294,10 +308,10 @@ Astro.response.headers.set(
           <div class="flex items-end justify-between flex-wrap gap-4 mb-8">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                01 · Country breakdown
+                {tCost("countryEyebrow")}
               </div>
               <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
-                {firstWord(treatment.name)} cost, ranked by destination
+                {firstWord(treatment.name)} {tCost("countryHeadingSuffix")}
               </h2>
             </div>
           </div>
@@ -318,7 +332,7 @@ Astro.response.headers.set(
                   <div class="min-w-0">
                     <div class="serif" style="font-size: 17px; letter-spacing: -0.005em; color: var(--color-ink);">{c.country_name}</div>
                     <div class="mono text-[10.5px] uppercase tracking-wider mt-0.5" style="color: var(--color-ink-subtle);">
-                      {c.hospital_count} hospitals
+                      {c.hospital_count} {tCost("countryRowHospitals")}
                     </div>
                   </div>
                   <div>
@@ -333,7 +347,7 @@ Astro.response.headers.set(
             })}
           </div>
           <p class="mt-4 mono text-[10.5px] uppercase tracking-wider" style="color: var(--color-ink-subtle);">
-            USD · Excludes flights, hotel, follow-up imaging after discharge
+            {tCost("countryFootnote")}
           </p>
         </div>
       </section>
@@ -344,13 +358,13 @@ Astro.response.headers.set(
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
         <div class="mb-8">
           <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-            02 · What moves the price
+            {tCost("factorsEyebrow")}
           </div>
           <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
-            Six levers that shift the quote
+            {tCost("factorsHeading")}
           </h2>
           <p class="serif mt-3 max-w-[48rem]" style="font-size: 16px; line-height: 1.55; color: var(--color-ink-muted);">
-            Two quotes from the same hospital can differ by 40% once you drill into the details below. Ask your case manager to break out each line.
+            {tCost("factorsLede")}
           </p>
         </div>
         <ul class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -376,16 +390,16 @@ Astro.response.headers.set(
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
         <div class="mb-8">
           <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-            03 · What's in the package
+            {tCost("packageEyebrow")}
           </div>
           <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
-            Included, and what isn't
+            {tCost("packageHeading")}
           </h2>
         </div>
         <div class="grid md:grid-cols-2 gap-5">
           <div class="paper" style="padding: 26px 28px;">
             <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
-              Usually included
+              {tCost("packageUsuallyIncluded")}
             </div>
             <ul class="mt-4 space-y-3">
               {INCLUDED.map((line) => (
@@ -398,7 +412,7 @@ Astro.response.headers.set(
           </div>
           <div class="paper" style="padding: 26px 28px;">
             <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-coral);">
-              Usually extra
+              {tCost("packageUsuallyExtra")}
             </div>
             <ul class="mt-4 space-y-3">
               {NOT_INCLUDED.map((line) => (
@@ -419,10 +433,10 @@ Astro.response.headers.set(
         <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
           <div>
             <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-              04 · FAQ
+              {tCost("faqEyebrow")}
             </div>
             <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
-              Questions that come up a lot
+              {tCost("faqHeading")}
             </h2>
           </div>
           <div class="divide-y divide-[var(--color-border-soft)]">
@@ -446,13 +460,13 @@ Astro.response.headers.set(
         <div class="grid gap-8 lg:grid-cols-[1.5fr_1fr] items-end">
           <div>
             <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
-              Need a number tied to your case
+              {tCost("ctaEyebrow")}
             </div>
             <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.02; letter-spacing: -0.02em; color: var(--color-bg);">
-              Three itemised <span class="italic-display">{firstWord(treatment.name)}</span> quotes in 48 hours.
+              {tCost("ctaHeadingBefore")} <span class="italic-display">{firstWord(treatment.name)}</span> {tCost("ctaHeadingAfter")}
             </h2>
             <p class="serif mt-4 max-w-[42rem]" style="font-size: 17px; line-height: 1.5; color: rgba(246,241,230,0.75);">
-              Share recent imaging and reports. Within 48 hours we come back with 3 line-itemised quotes from hospitals matching your budget and timing. No fee, no obligation.
+              {tCost("ctaLede")}
             </p>
           </div>
           <div class="flex flex-wrap gap-3 lg:justify-end">
