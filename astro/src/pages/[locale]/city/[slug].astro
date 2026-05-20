@@ -387,7 +387,7 @@ Astro.response.headers.set(
               class="mono text-[11px] uppercase tracking-wider hover:text-accent"
               style="color: var(--color-ink-subtle);"
             >
-              All specialties →
+              {tCty("allSpecialtiesLink")}
             </a>
           </div>
           <ul class="flex flex-wrap gap-2.5">
@@ -416,10 +416,10 @@ Astro.response.headers.set(
           <div class="flex items-end justify-between flex-wrap gap-4 mb-8">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                02 · Top-rated
+                {tCty("topRatedEyebrow")}
               </div>
               <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
-                Leading hospitals in {city.name}
+                {tCty("leadingHospitalsHeading").replace("{city}", city.name)}
               </h2>
             </div>
           </div>
@@ -458,14 +458,14 @@ Astro.response.headers.set(
                           </span>
                         )}
                         {h.bedCapacity && (
-                          <span class="tnum">{h.bedCapacity.toLocaleString()} beds</span>
+                          <span class="tnum">{h.bedCapacity.toLocaleString()} {tCty("bedsLabel")}</span>
                         )}
                       </div>
                       <span
                         class="inline-flex items-center gap-1 text-[12px] font-semibold"
                         style="background: var(--color-ink); color: var(--color-bg); padding: 6px 12px; border-radius: 9999px;"
                       >
-                        View
+                        {tCty("viewLabel")}
                         <ChevronRight className="h-3 w-3 mirror-x" />
                       </span>
                     </div>
@@ -483,10 +483,10 @@ Astro.response.headers.set(
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
           <div class="mb-6">
             <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-              03 · Full directory
+              {tCty("fullDirectoryEyebrow")}
             </div>
             <h2 class="display mt-3" style="font-size: 28px; letter-spacing: -0.02em;">
-              All hospitals in {city.name}
+              {tCty("allHospitalsHeading").replace("{city}", city.name)}
             </h2>
           </div>
           <ul>
@@ -509,7 +509,7 @@ Astro.response.headers.set(
                   {h.rating && Number(h.rating) > 0 && (
                     <span><span style="color: var(--color-saffron);">★</span> {Number(h.rating).toFixed(1)}</span>
                   )}
-                  {h.bedCapacity && <span>{h.bedCapacity} beds</span>}
+                  {h.bedCapacity && <span>{h.bedCapacity} {tCty("bedsLabel")}</span>}
                 </div>
                 <ChevronRight className="h-3.5 w-3.5 mirror-x text-[var(--color-ink-subtle)]" />
               </li>
@@ -526,15 +526,15 @@ Astro.response.headers.set(
           <div class="flex items-end justify-between flex-wrap gap-4 mb-8">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                More in {country.name}
+                {tCty("moreInCountryEyebrow").replace("{country}", country.name)}
               </div>
               <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
-                Other hospital cities in <span class="italic-display">{country.name}</span>
+                {tCty("otherCitiesHeading").replace("{country}", country.name)}
               </h2>
               <p class="serif mt-3 max-w-[44rem]" style="font-size: 16px; line-height: 1.5; color: var(--color-ink-muted);">
                 {isThinCityHub
-                  ? `${city.name} has one accredited hospital on our network. Many patients also weigh up the larger medical centres elsewhere in ${country.name}.`
-                  : `Compare ${city.name} against the other medical-travel cities in ${country.name}.`}
+                  ? tCty("thinHubLede").replace("{city}", city.name).replace("{country}", country.name)
+                  : tCty("compareCitiesLede").replace("{city}", city.name).replace("{country}", country.name)}
               </p>
             </div>
             <a
@@ -542,7 +542,7 @@ Astro.response.headers.set(
               class="mono text-[11px] uppercase tracking-wider hover:text-accent"
               style="color: var(--color-ink-subtle);"
             >
-              {country.name} hub →
+              {tCty("countryHubLink").replace("{country}", country.name)}
             </a>
           </div>
           <ul class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
@@ -581,10 +581,10 @@ Astro.response.headers.set(
       <section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
           <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-            Practical city guide
+            {tCty("practicalCityGuideEyebrow")}
           </div>
           <h2 class="display mb-10" style="font-size: 32px; letter-spacing: -0.02em;">
-            Practical guide to <span style="font-style: italic;">{city.name}</span>
+            {tCty("practicalGuideHeading").replace("{city}", city.name)}
           </h2>
 
           {cityOverviewHtml && (
@@ -593,7 +593,7 @@ Astro.response.headers.set(
 
           {citySections.hospitalClusters && citySections.hospitalClusters.length > 0 && (
             <div class="mb-10">
-              <h3 class="display mb-4" style="font-size: 22px;">Hospital clusters by neighborhood</h3>
+              <h3 class="display mb-4" style="font-size: 22px;">{tCty("hospitalClustersHeading")}</h3>
               <div class="grid gap-4 md:grid-cols-2">
                 {citySections.hospitalClusters.map((c: any) => (
                   <div class="paper" style="padding: 20px;">
@@ -611,9 +611,9 @@ Astro.response.headers.set(
             {citySections.airportAndTransit && (
               <div class="paper" style="padding: 22px;">
                 <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
-                  Airport + transit
+                  {tCty("airportTransitLabel")}
                 </div>
-                {citySections.airportAndTransit.airport && <p class="mb-1.5" style="font-size: 14.5px;"><strong>Airport:</strong> {citySections.airportAndTransit.airport}</p>}
+                {citySections.airportAndTransit.airport && <p class="mb-1.5" style="font-size: 14.5px;"><strong>{tCty("airportStrongLabel")}</strong> {citySections.airportAndTransit.airport}</p>}
                 {citySections.airportAndTransit.transitTime && <p class="mb-1.5" style="font-size: 14.5px; line-height: 1.5;">{citySections.airportAndTransit.transitTime}</p>}
                 {citySections.airportAndTransit.notes && <p style="font-size: 13.5px; line-height: 1.5; color: var(--color-ink-muted);">{citySections.airportAndTransit.notes}</p>}
               </div>
@@ -622,7 +622,7 @@ Astro.response.headers.set(
             {citySections.climateNotes && (
               <div class="paper" style="padding: 22px;">
                 <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
-                  Climate
+                  {tCty("climateLabel")}
                 </div>
                 <p style="font-size: 14.5px; line-height: 1.55;">{citySections.climateNotes}</p>
               </div>
@@ -631,7 +631,7 @@ Astro.response.headers.set(
 
           {citySections.recoveryFriendlyAreas && citySections.recoveryFriendlyAreas.length > 0 && (
             <div class="mb-10">
-              <h3 class="display mb-4" style="font-size: 22px;">Where to stay during recovery</h3>
+              <h3 class="display mb-4" style="font-size: 22px;">{tCty("whereToStayHeading")}</h3>
               <div class="grid gap-4 md:grid-cols-2">
                 {citySections.recoveryFriendlyAreas.map((a: any) => (
                   <div class="paper" style="padding: 20px;">
@@ -647,7 +647,7 @@ Astro.response.headers.set(
 
           {citySections.thingsToDoConvalescing && citySections.thingsToDoConvalescing.length > 0 && (
             <div class="mb-10">
-              <h3 class="display mb-4" style="font-size: 22px;">Recovery-friendly activities</h3>
+              <h3 class="display mb-4" style="font-size: 22px;">{tCty("recoveryActivitiesHeading")}</h3>
               <ul class="grid gap-2.5 md:grid-cols-2">
                 {citySections.thingsToDoConvalescing.map((t: string) => (
                   <li class="flex gap-3" style="font-size: 14.5px; line-height: 1.5;">
@@ -662,17 +662,17 @@ Astro.response.headers.set(
           {citySections.foodAndAccommodation && (
             <div class="paper mb-6" style="padding: 22px;">
               <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
-                Food + accommodation
+                {tCty("foodAccommodationLabel")}
               </div>
-              {citySections.foodAndAccommodation.food && <p class="mb-2" style="font-size: 14.5px; line-height: 1.55;"><strong>Food:</strong> {citySections.foodAndAccommodation.food}</p>}
-              {citySections.foodAndAccommodation.accommodation && <p style="font-size: 14.5px; line-height: 1.55;"><strong>Accommodation:</strong> {citySections.foodAndAccommodation.accommodation}</p>}
+              {citySections.foodAndAccommodation.food && <p class="mb-2" style="font-size: 14.5px; line-height: 1.55;"><strong>{tCty("foodStrongLabel")}</strong> {citySections.foodAndAccommodation.food}</p>}
+              {citySections.foodAndAccommodation.accommodation && <p style="font-size: 14.5px; line-height: 1.55;"><strong>{tCty("accommodationStrongLabel")}</strong> {citySections.foodAndAccommodation.accommodation}</p>}
             </div>
           )}
 
           {citySections.safetyAndPracticals && (
             <div class="paper" style="padding: 22px;">
               <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
-                Practical notes
+                {tCty("practicalNotesLabel")}
               </div>
               <p style="font-size: 14.5px; line-height: 1.55;">{citySections.safetyAndPracticals}</p>
             </div>
@@ -683,9 +683,9 @@ Astro.response.headers.set(
 
     {/* EEAT signals */}
     <MethodologyBlock locale={locale}
-      curationNote={`This ${city.name} medical-tourism overview is rebuilt from the city's currently-active accredited hospitals, surgeon credential checks, and verified flight-connectivity data. Climate and recovery-window guidance is informed by case-manager experience moving patients in and out of ${city.name} year-round.`}
+      curationNote={tCty("methodologyCurationNote").replace("{city}", city.name).replace("{city}", city.name)}
       dataSources={[
-        ...(country ? [`${country.name} ministry of health`] : []),
+        ...(country ? [tCty("methodologyDataSourceMinistry").replace("{country}", country.name)] : []),
         "JCI accreditation registry",
         "International airport authority data",
       ]}
@@ -696,13 +696,13 @@ Astro.response.headers.set(
         <div class="grid gap-8 lg:grid-cols-[1.5fr_1fr] items-end">
           <div>
             <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
-              Travelling to {city.name}
+              {tCty("travellingToEyebrow").replace("{city}", city.name)}
             </div>
             <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.02; letter-spacing: -0.02em; color: var(--color-bg);">
-              Shortlist 3 hospitals in <span class="italic-display">{city.name}</span>, 48 hours.
+              {tCty("ctaHeading").replace("{city}", city.name)}
             </h2>
             <p class="serif mt-4 max-w-[42rem]" style="font-size: 17px; line-height: 1.5; color: rgba(246,241,230,0.75);">
-              Tell us your procedure, budget, and preferred dates. Our coordinators return itemised quotes from matched hospitals — no fee, no obligation.
+              {tCty("ctaBody")}
             </p>
           </div>
           <div class="flex flex-wrap gap-3 lg:justify-end">
@@ -711,7 +711,7 @@ Astro.response.headers.set(
               class="inline-flex items-center gap-2 font-semibold"
               style="background: var(--color-bg); color: var(--color-ink); padding: 14px 22px; border-radius: 9999px;"
             >
-              Request quotes
+              {tCty("requestQuotes")}
               <ChevronRight className="h-4 w-4 mirror-x" />
             </a>
             {country && (
@@ -720,7 +720,7 @@ Astro.response.headers.set(
                 class="inline-flex items-center gap-2 font-semibold"
                 style="border: 1px solid rgba(246,241,230,0.35); color: var(--color-bg); padding: 13px 22px; border-radius: 9999px;"
               >
-                {country.name} guide
+                {tCty("countryGuideButton").replace("{country}", country.name)}
               </a>
             )}
           </div>
@@ -731,22 +731,22 @@ Astro.response.headers.set(
     
     <ExploreGrid
       locale={locale}
-      eyebrow={`${city.name} medical travel`}
-      heading={`Browse ${city.name} the way that fits your case`}
-      lede={`Same hospitals, different cuts. Pick the lens that matches what you're deciding on — destination, specialty, surgeon, or visa logistics.`}
+      eyebrow={tCty("exploreEyebrow").replace("{city}", city.name)}
+      heading={tCty("exploreHeading").replace("{city}", city.name)}
+      lede={tCty("exploreLede")}
       items={[
-        { eyebrow: "Hospitals", label: `All hospitals in ${city.name}`, href: `/hospitals/city/${city.slug}`, hint: `${hospitals.length} programs in ${city.name}, with photos and pricing.` },
-        ...(country?.slug && country?.name ? [{ eyebrow: "Destination", label: `${country.name} hospital hub`, href: `/country/${country.slug}`, hint: `Featured programs and pricing benchmarks across ${country.name}.` }] : []),
-        ...(country?.slug && country?.name ? [{ eyebrow: "Visa", label: `${country.name} medical visa`, href: `/visa/${country.slug}`, hint: "Documents, processing time, embassy guidance." }] : []),
-        ...(specialtyCounts[0] ? [{ eyebrow: "Specialty", label: `${specialtyCounts[0].name} in ${city.name}`, href: `/specialty/${specialtyCounts[0].slug}`, hint: `${specialtyCounts[0].hospital_count} hospitals credentialed for ${specialtyCounts[0].name.toLowerCase()}.` }] : []),
-        ...(specialtyCounts[1] ? [{ eyebrow: "Specialty", label: `${specialtyCounts[1].name} care`, href: `/specialty/${specialtyCounts[1].slug}`, hint: `${specialtyCounts[1].hospital_count} hospitals priced for this specialty.` }] : []),
-        ...(specialtyCounts[2] ? [{ eyebrow: "Specialty", label: `${specialtyCounts[2].name} hub`, href: `/specialty/${specialtyCounts[2].slug}`, hint: `${specialtyCounts[2].hospital_count} programs with relevant credentials.` }] : []),
-        { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Cost ranges, recovery time, and success rates per procedure." },
-        { eyebrow: "Browse", label: "All destinations", href: "/countries", hint: "Compare 9 medical-travel destination countries." },
-        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, and pricing." },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
-        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+        { eyebrow: tCty("exploreItemHospitalsEyebrow"), label: tCty("exploreItemHospitalsLabel").replace("{city}", city.name), href: `/hospitals/city/${city.slug}`, hint: tCty("exploreItemHospitalsHint").replace("{count}", hospitals.length.toString()).replace("{city}", city.name) },
+        ...(country?.slug && country?.name ? [{ eyebrow: tCty("exploreItemDestinationEyebrow"), label: tCty("exploreItemCountryHubLabel").replace("{country}", country.name), href: `/country/${country.slug}`, hint: tCty("exploreItemCountryHubHint").replace("{country}", country.name) }] : []),
+        ...(country?.slug && country?.name ? [{ eyebrow: tCty("exploreItemVisaEyebrow"), label: tCty("exploreItemVisaLabel").replace("{country}", country.name), href: `/visa/${country.slug}`, hint: tCty("exploreItemVisaHint") }] : []),
+        ...(specialtyCounts[0] ? [{ eyebrow: tCty("exploreItemSpecialtyEyebrow"), label: tCty("exploreItemSpecialty1Label").replace("{specialty}", specialtyCounts[0].name).replace("{city}", city.name), href: `/specialty/${specialtyCounts[0].slug}`, hint: tCty("exploreItemSpecialty1Hint").replace("{count}", (specialtyCounts[0].hospital_count ?? 0).toString()).replace("{specialtyLower}", specialtyCounts[0].name.toLowerCase()) }] : []),
+        ...(specialtyCounts[1] ? [{ eyebrow: tCty("exploreItemSpecialtyEyebrow"), label: tCty("exploreItemSpecialty2Label").replace("{specialty}", specialtyCounts[1].name), href: `/specialty/${specialtyCounts[1].slug}`, hint: tCty("exploreItemSpecialty2Hint").replace("{count}", (specialtyCounts[1].hospital_count ?? 0).toString()) }] : []),
+        ...(specialtyCounts[2] ? [{ eyebrow: tCty("exploreItemSpecialtyEyebrow"), label: tCty("exploreItemSpecialty3Label").replace("{specialty}", specialtyCounts[2].name), href: `/specialty/${specialtyCounts[2].slug}`, hint: tCty("exploreItemSpecialty3Hint").replace("{count}", (specialtyCounts[2].hospital_count ?? 0).toString()) }] : []),
+        { eyebrow: tCty("exploreItemBrowseEyebrow"), label: tCty("exploreItemProceduresLabel"), href: "/treatments", hint: tCty("exploreItemProceduresHint") },
+        { eyebrow: tCty("exploreItemBrowseEyebrow"), label: tCty("exploreItemDestinationsLabel"), href: "/countries", hint: tCty("exploreItemDestinationsHint") },
+        { eyebrow: tCty("exploreItemCompareEyebrow"), label: tCty("exploreItemCompareLabel"), href: "/compare/hospitals", hint: tCty("exploreItemCompareHint") },
+        { eyebrow: tCty("exploreItemToolEyebrow"), label: tCty("exploreItemCalculatorLabel"), href: "/calculator", hint: tCty("exploreItemCalculatorHint") },
+        { eyebrow: tCty("exploreItemToolEyebrow"), label: tCty("exploreItemMatchLabel"), href: "/match-me", hint: tCty("exploreItemMatchHint") },
+        { eyebrow: tCty("exploreItemActionEyebrow"), label: tCty("exploreItemOpinionLabel"), href: "/second-opinion", hint: tCty("exploreItemOpinionHint") },
       ]}
     />
 
