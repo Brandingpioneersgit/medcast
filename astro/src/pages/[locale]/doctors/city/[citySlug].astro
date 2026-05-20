@@ -3,6 +3,7 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import WhatsAppDoctorCta from "@/components/WhatsAppDoctorCta.astro";
 import EntityListingHero from "@/components/EntityListingHero.astro";
 import Pagination from "@/components/Pagination.astro";
 import PageCta from "@/components/PageCta.astro";
@@ -12,8 +13,9 @@ import { listDoctors, listDoctorSpecialtiesForPlace, getGeoCity } from "@/lib/qu
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, collectionPageJsonLd, withProvenance } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
+import { getContent, getContentBatch, applyTranslated, isUntranslated } from "@/lib/translate";
 import { ChevronRight } from "lucide-react";
-import { doctorPortrait } from "@/lib/images";
+import { doctorPortrait, countryBanner } from "@/lib/images";
 
 export const prerender = false;
 
@@ -25,7 +27,12 @@ const locale = rawLocale as Locale;
 
 const city = await getGeoCity(citySlug);
 if (!city) return new Response(`Not found: ${citySlug}`, { status: 404 });
-const country = city.country ?? null;
+
+// Localize the parent country (city names have no DB translations — proper
+// nouns, left as-is). getContent returns {} on `en`, so this is a no-op there.
+const rawCountry = city.country ?? null;
+const countryMap = rawCountry ? await getContent("country", rawCountry.id, locale) : {};
+const country = rawCountry ? applyTranslated(rawCountry, countryMap, ["name"]) : null;
 
 const url = new URL(Astro.request.url);
 const pageParam = parseInt(url.searchParams.get("page") ?? "1", 10);
@@ -37,7 +44,7 @@ const sort: "featured" | "rating" | "experience" | "reviews" =
     : "featured";
 const specialtyFilter = url.searchParams.get("specialty")?.trim() || "";
 
-const [{ rows, total, totalPages }, placeSpecialties] = await Promise.all([
+const [{ rows: rawRows, total, totalPages }, rawSpecialties] = await Promise.all([
   listDoctors({
     page,
     sort,
@@ -46,6 +53,12 @@ const [{ rows, total, totalPages }, placeSpecialties] = await Promise.all([
   }),
   listDoctorSpecialtiesForPlace({ citySlug }),
 ]);
+
+// Localize doctor + specialty DB content for non-default locales (no-op on `en`).
+const doctorTx = await getContentBatch("doctor", rawRows.map((d) => d.id), locale);
+const rows = rawRows.map((d) => applyTranslated(d, doctorTx[d.id] ?? {}, ["name", "qualifications"]));
+const specialtyTx = await getContentBatch("specialty", rawSpecialties.map((s) => s.id), locale);
+const placeSpecialties = rawSpecialties.map((s) => applyTranslated(s, specialtyTx[s.id] ?? {}, ["name"]));
 
 // Inventory floor: a city with fewer than 3 listed doctors isn't worth its own
 // indexable page — send it up to the country directory. Skip the redirect when
@@ -70,7 +83,11 @@ const seoDescription =
     160,
   );
 
-const shouldNoindex = page > 1 || specialtyFilter.length > 0 || total === 0;
+const shouldNoindex =
+  page > 1 ||
+  specialtyFilter.length > 0 ||
+  total === 0 ||
+  (country ? isUntranslated(locale, countryMap) : false);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
@@ -179,6 +196,9 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
       h1Italic={city.name}
       lede={`Board-certified doctors and surgeons practising at hospitals in ${placeLabel}, ranked by patient volume and sub-specialty fit. Send your reports and we'll shortlist three for your case — free.`}
       stats={stats}
+      locale={locale}
+      image={countryBanner(country?.slug)}
+      imageAlt={`Medical travel to ${city.name}`}
     />
 
     <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-6 pb-20">
@@ -270,10 +290,10 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
           {rows.map((d) => {
             const clean = cleanName(d.name);
             return (
-              <li>
+              <li class="flex flex-col gap-2.5">
                 <a
                   href={localizedPath(locale, `/doctor/${d.slug}`)}
-                  class="paper group flex h-full flex-col overflow-hidden transition hover:-translate-y-0.5"
+                  class="paper group flex flex-1 flex-col overflow-hidden transition hover:-translate-y-0.5"
                   style="padding: 0;"
                 >
                   <div class="w-full overflow-hidden" style="aspect-ratio: 4/5; background: linear-gradient(135deg, #0A5D54 0%, #0D7C70 60%, #1C2A25 100%);">
@@ -328,6 +348,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
                     </div>
                   </div>
                 </a>
+                <WhatsAppDoctorCta doctorName={d.name} doctorSlug={d.slug} hospitalName={d.hospitalName} />
               </li>
             );
           })}

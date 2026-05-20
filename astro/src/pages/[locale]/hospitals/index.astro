@@ -101,6 +101,7 @@ const FLAG_MAP: Record<string, string> = {
 function countryFlag(s: string | null | undefined): string { return s ? (FLAG_MAP[s] ?? "🌐") : "🌐"; }
 
 const tc = getTranslator(locale, "common");
+const tH = getTranslator(locale, "hospitalsPage");
 const { bindChromeT } = await import("@/lib/chrome-i18n");
 const ct = bindChromeT(locale);
 const countText = total > 0 ? total.toLocaleString() : "All";
@@ -161,10 +162,10 @@ function buildHref(patch: Patch = {}): string {
 }
 
 const SORTS = [
-  { value: "featured", label: "Featured" },
-  { value: "rating", label: "Top rated" },
-  { value: "reviews", label: "Most reviewed" },
-  { value: "beds", label: "Largest" },
+  { value: "featured", label: tH("sortFeatured") },
+  { value: "rating", label: tH("sortTopRated") },
+  { value: "reviews", label: tH("sortMostReviewed") },
+  { value: "beds", label: tH("sortLargest") },
 ];
 
 const activeChips: Array<{ label: string; remove: string }> = [];
@@ -190,28 +191,34 @@ for (const slug of accredFilters) {
   });
 }
 if (minRating > 0) activeChips.push({ label: `${minRating.toFixed(1)}★ +`, remove: buildHref({ minRating: 0 }) });
-if (minBeds > 0) activeChips.push({ label: `${minBeds.toLocaleString()}+ beds`, remove: buildHref({ minBeds: 0 }) });
-if (establishedAfter > 0) activeChips.push({ label: `Built after ${establishedAfter}`, remove: buildHref({ establishedAfter: 0 }) });
-if (airportTransfer) activeChips.push({ label: "Airport transfer", remove: buildHref({ airportTransfer: false }) });
-if (hasVirtualTour) activeChips.push({ label: "Virtual tour", remove: buildHref({ hasVirtualTour: false }) });
-if (verifiedOnly) activeChips.push({ label: "Verified", remove: buildHref({ verified: false }) });
+if (minBeds > 0) activeChips.push({ label: tH("chipMinBeds").replace("{n}", minBeds.toLocaleString()), remove: buildHref({ minBeds: 0 }) });
+if (establishedAfter > 0) activeChips.push({ label: tH("chipBuiltAfter").replace("{year}", String(establishedAfter)), remove: buildHref({ establishedAfter: 0 }) });
+if (airportTransfer) activeChips.push({ label: tH("chipAirportTransfer"), remove: buildHref({ airportTransfer: false }) });
+if (hasVirtualTour) activeChips.push({ label: tH("chipVirtualTour"), remove: buildHref({ hasVirtualTour: false }) });
+if (verifiedOnly) activeChips.push({ label: tH("chipVerified"), remove: buildHref({ verified: false }) });
 
 // Smart relax suggestions for empty results.
 const relaxSuggestions: Array<{ label: string; href: string }> = [];
 if (rows.length === 0) {
   if (countryFilters.length > 0 && specialtyFilters.length > 0) {
+    const placesLabel = countryFilters.length === 1
+      ? (options.countries.find((x) => x.slug === countryFilters[0])?.name ?? countryFilters[0])
+      : `${countryFilters.length} ${tH("statCountries").toLowerCase()}`;
+    const specLabel = specialtyFilters.length === 1
+      ? (options.specialties.find((x) => x.slug === specialtyFilters[0])?.name ?? specialtyFilters[0])
+      : `${specialtyFilters.length} ${tH("filterSpecialty").toLowerCase()}`;
     relaxSuggestions.push({
-      label: `Hospitals in ${countryFilters.length === 1 ? (options.countries.find((x) => x.slug === countryFilters[0])?.name ?? countryFilters[0]) : `${countryFilters.length} countries`} — any specialty`,
+      label: tH("relaxAnySpecialty").replace("{places}", placesLabel),
       href: buildHref({ specialties: [] }),
     });
     relaxSuggestions.push({
-      label: `${specialtyFilters.length === 1 ? (options.specialties.find((x) => x.slug === specialtyFilters[0])?.name ?? specialtyFilters[0]) : `${specialtyFilters.length} specialties`} — anywhere`,
+      label: tH("relaxAnywhere").replace("{specialties}", specLabel),
       href: buildHref({ countries: [] }),
     });
   }
-  if (accredFilters.length > 0) relaxSuggestions.push({ label: "Drop accreditation filter", href: buildHref({ accreditations: [] }) });
-  if (minRating > 0) relaxSuggestions.push({ label: "Drop minimum rating", href: buildHref({ minRating: 0 }) });
-  if (minBeds > 0) relaxSuggestions.push({ label: "Drop minimum beds", href: buildHref({ minBeds: 0 }) });
+  if (accredFilters.length > 0) relaxSuggestions.push({ label: tH("dropAccreditation"), href: buildHref({ accreditations: [] }) });
+  if (minRating > 0) relaxSuggestions.push({ label: tH("dropMinRating"), href: buildHref({ minRating: 0 }) });
+  if (minBeds > 0) relaxSuggestions.push({ label: tH("dropMinBeds"), href: buildHref({ minBeds: 0 }) });
 }
 
 const paginationBase = buildHref({});
@@ -246,10 +253,10 @@ const prevUrl = page > 1 ? pageHref(page - 1) : undefined;
 const nextUrl = page < totalPages ? pageHref(page + 1) : undefined;
 
 const stats = page === 1 && !hasAnyFilter ? [
-  { l: "Accredited", v: total.toLocaleString() },
-  { l: "Countries", v: options.countries.length.toString() },
-  { l: "Specialties", v: options.specialties.length.toString() },
-  { l: "Reply time", v: "9 min" },
+  { l: tH("statAccredited"), v: total.toLocaleString() },
+  { l: tH("statCountries"), v: options.countries.length.toString() },
+  { l: tH("statSpecialties"), v: options.specialties.length.toString() },
+  { l: tH("statReplyTime"), v: tH("statReplyTimeVal") },
 ] : [];
 
 // Always render every currently-selected facet — even if cross-facet counts dropped to 0.
@@ -271,60 +278,60 @@ const accredsWithLogo = allAccredOptions.map((a) => ({ ...a, logoCode: a.slug })
 const facets: FacetSpec[] = [
   {
     kind: "toggle",
-    label: "Quick filters",
+    label: tH("quickFilters"),
     toggles: [
-      { name: "verified",        label: "Editorial verified",     selected: verifiedOnly,    hint: "checked by our team" },
-      { name: "airportTransfer", label: "Airport transfer",       selected: airportTransfer, hint: "included with stay" },
-      { name: "hasVirtualTour",  label: "Virtual tour available", selected: hasVirtualTour,  hint: "see the facility online" },
+      { name: "verified",        label: tH("toggleVerified"),     selected: verifiedOnly,    hint: tH("toggleVerifiedHint") },
+      { name: "airportTransfer", label: tH("toggleAirportTransfer"),       selected: airportTransfer, hint: tH("toggleAirportTransferHint") },
+      { name: "hasVirtualTour",  label: tH("toggleVirtualTour"), selected: hasVirtualTour,  hint: tH("toggleVirtualTourHint") },
     ],
   },
   {
     kind: "checkbox",
-    label: "Country",
+    label: tH("filterCountry"),
     name: "country",
     options: countriesWithFlag,
     selected: countryFilters,
   },
   {
     kind: "checkbox",
-    label: "Specialty",
+    label: tH("filterSpecialty"),
     name: "specialty",
     options: allSpecialtyOptions,
     selected: specialtyFilters,
   },
   {
     kind: "checkbox",
-    label: "Accreditation",
+    label: tH("filterAccreditation"),
     name: "accreditation",
     options: accredsWithLogo,
     selected: accredFilters,
   },
   {
     kind: "range",
-    label: "Min rating",
+    label: tH("filterMinRating"),
     name: "minRating",
     min: 0, max: 5, step: 0.5,
     value: minRating,
-    readout: minRating > 0 ? `${minRating.toFixed(1)}★` : "Any",
-    marks: ["Any", "3.0", "5.0"],
+    readout: minRating > 0 ? `${minRating.toFixed(1)}★` : tH("rangeAny"),
+    marks: [tH("rangeAny"), "3.0", "5.0"],
   },
   {
     kind: "range",
-    label: "Min beds",
+    label: tH("filterMinBeds"),
     name: "minBeds",
     min: 0, max: 1000, step: 50,
     value: minBeds,
-    readout: minBeds > 0 ? `${minBeds.toLocaleString()}+ beds` : "Any",
-    marks: ["Any", "500", "1000+"],
+    readout: minBeds > 0 ? tH("chipMinBeds").replace("{n}", minBeds.toLocaleString()) : tH("rangeAny"),
+    marks: [tH("rangeAny"), "500", "1000+"],
   },
   {
     kind: "range",
-    label: "Established after",
+    label: tH("filterEstablishedAfter"),
     name: "establishedAfter",
     min: 0, max: 2020, step: 10,
     value: establishedAfter,
-    readout: establishedAfter > 0 ? `After ${establishedAfter}` : "Any",
-    marks: ["Any", "1990", "2020"],
+    readout: establishedAfter > 0 ? `After ${establishedAfter}` : tH("rangeAny"),
+    marks: [tH("rangeAny"), "1990", "2020"],
   },
 ];
 ---
@@ -353,7 +360,7 @@ const facets: FacetSpec[] = [
         <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span class="mx-1.5">/</span>
-          <span style="color: var(--color-ink);">Hospitals</span>
+          <span style="color: var(--color-ink);">{tH("breadcrumbHospitals")}</span>
         </nav>
       </div>
     </div>
@@ -390,22 +397,22 @@ const facets: FacetSpec[] = [
               class="mono uppercase w-full mt-4"
               style="font-size: 11px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 10px 16px; border-radius: 9999px; border: 0;"
             >
-              Apply filters
+              {tH("applyFilters")}
             </button>
           </noscript>
         </aside>
 
         <div class="min-w-0">
-          <h2 class="sr-only">Browse hospitals{hasAnyFilter ? " — filtered" : ""}</h2>
+          <h2 class="sr-only">{hasAnyFilter ? tH("browseHospitalsFiltered") : tH("browseHospitals")}</h2>
           <div
             class="mb-6 flex flex-wrap items-center justify-between gap-3 pb-4"
             style="border-bottom: 1px solid var(--color-border);"
           >
             <span class="serif text-[14px]" style="color: var(--color-ink-muted);">
-              <span class="display tnum text-ink">{total.toLocaleString()}</span> hospital{total === 1 ? "" : "s"}
+              <span class="display tnum text-ink">{total.toLocaleString()}</span> {tH("labelHospitals")}
               {hasAnyFilter && rows.length > 0 && (
                 <span class="ms-2 mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-                  Page {page} of {totalPages}
+                  {tH("pageOf").replace("{page}", String(page)).replace("{total}", String(totalPages))}
                 </span>
               )}
             </span>
@@ -420,11 +427,11 @@ const facets: FacetSpec[] = [
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                 <path d="M2 4h12M4 8h8M6 12h4" stroke-linecap="round" />
               </svg>
-              <span>Filter{filterCount > 0 ? ` · ${filterCount}` : "s"}</span>
+              <span>{filterCount > 0 ? tH("mobileFilterBtnActive").replace("{n}", String(filterCount)) : tH("mobileFilterBtn")}</span>
             </button>
             <div class="flex items-center gap-1 -mx-1 overflow-x-auto">
               <span class="mono uppercase px-1 whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Sort
+                {tH("filterSort")}
               </span>
               {SORTS.map((o) => {
                 const active = sort === o.value;
@@ -460,15 +467,15 @@ const facets: FacetSpec[] = [
                 class="mono text-[10px] uppercase tracking-wider hover:text-ink"
                 style="color: var(--color-ink-muted);"
               >
-                Clear all →
+                {tH("clearAll")}
               </a>
             </div>
           )}
 
           {rows.length === 0 ? (
             <div class="paper text-center py-20" style="color: var(--color-ink-muted);">
-              <p class="serif text-lg mb-3">No hospitals match these filters.</p>
-              <p class="text-sm mb-5">Try relaxing one constraint — accreditation requirements are usually the strictest.</p>
+              <p class="serif text-lg mb-3">{tH("noMatchHeading")}</p>
+              <p class="text-sm mb-5">{tH("noMatchHint")}</p>
               {relaxSuggestions.length > 0 && (
                 <ul class="flex flex-wrap items-center justify-center gap-2 mb-5" style="list-style: none; padding: 0;">
                   {relaxSuggestions.map((s) => (
@@ -489,7 +496,7 @@ const facets: FacetSpec[] = [
                 class="inline-block mt-2 mono uppercase text-[11px]"
                 style="color: var(--color-accent); letter-spacing: 0.12em;"
               >
-                Clear all filters →
+                {tH("clearAllFilters")}
               </a>
             </div>
           ) : (
@@ -547,9 +554,9 @@ const facets: FacetSpec[] = [
                           style="border-top: 1px dashed var(--color-border); margin-top: 14px; padding-top: 12px;"
                         >
                           <div class="flex items-center gap-3 text-[12px]" style="color: var(--color-ink-muted);">
-                            {h.bedCapacity && <span class="tnum">{h.bedCapacity.toLocaleString()} beds</span>}
+                            {h.bedCapacity && <span class="tnum">{h.bedCapacity.toLocaleString()} {tH("labelBeds")}</span>}
                             {h.reviewCount && h.reviewCount > 0 && (
-                              <span class="tnum">{h.reviewCount.toLocaleString()} reviews</span>
+                              <span class="tnum">{tH("reviewsLabel").replace("{n}", h.reviewCount.toLocaleString())}</span>
                             )}
                           </div>
                           <ChevronRight className="h-3.5 w-3.5 mirror-x text-[var(--color-ink-subtle)] group-hover:text-[var(--color-accent)] transition-colors" />
@@ -575,22 +582,22 @@ const facets: FacetSpec[] = [
       id="hospital-filter-drawer"
       class="mc-hospital-drawer lg:hidden"
       data-mc-hospital-drawer
-      aria-label="Filter hospitals"
+      aria-label={tH("browseHospitals")}
     >
       <div class="mc-hospital-drawer-panel">
         <div class="mc-hospital-drawer-head">
           <div>
             <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-              Filter
+              {tH("filterLabel")}
             </div>
             <div class="serif" style="font-size: 17px; letter-spacing: -0.005em;">
-              {total.toLocaleString()} hospital{total === 1 ? "" : "s"}
+              {total.toLocaleString()} {tH("labelHospitals")}
             </div>
           </div>
           <button
             type="button"
             data-mc-hospital-close
-            aria-label="Close filters"
+            aria-label={tH("closeFilters")}
             class="mono"
             style="width: 38px; height: 38px; line-height: 1; font-size: 22px; background: none; border: 1px solid var(--color-border); border-radius: 9999px; color: var(--color-ink); cursor: pointer;"
           >×</button>
@@ -604,7 +611,7 @@ const facets: FacetSpec[] = [
               href={localizedPath(locale, path)}
               class="mono uppercase"
               style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-ink-muted); padding: 12px 16px; border: 1px solid var(--color-border); border-radius: 9999px;"
-            >Clear all</a>
+            >{tH("clearAllDrawer")}</a>
           ) : (
             <span></span>
           )}
@@ -613,35 +620,35 @@ const facets: FacetSpec[] = [
             form="hospital-filters"
             class="font-semibold"
             style="background: var(--color-ink); color: var(--color-bg); padding: 13px 22px; border-radius: 9999px; font-size: 14px; border: 0; cursor: pointer;"
-          >Show {total.toLocaleString()} result{total === 1 ? "" : "s"}</button>
+          >{total === 1 ? tH("showResults").replace("{n}", total.toLocaleString()) : tH("showResultsPlural").replace("{n}", total.toLocaleString())}</button>
         </div>
       </div>
     </dialog>
 
     <HowItWorks
-      heading="How to use this hospital directory"
-      italicWord="directory"
-      eyebrow="Buyer's guide"
+      heading={tH("howHeading")}
+      italicWord={tH("howItalicWord")}
+      eyebrow={tH("howEyebrow")}
       steps={[
-        { title: "Filter by destination", description: "9 active destination countries. India for highest volume + value, Turkey for cosmetic/dental/bariatric, Thailand for service experience, Germany/Korea for complex cases, UAE for premium." },
-        { title: "Filter by accreditation", description: "JCI is the strongest international signal. Combined with country-specific accreditations (NABH, HA, KOIHA) is stronger still. Don't filter purely on accreditation — combine with surgeon volume." },
-        { title: "Compare top 3 candidates", description: "Use the compare tool to put 3 hospitals side-by-side. Look at: bed count, established year, accreditations, specialty count, sample pricing." },
-        { title: "Drill into the specialty", description: "Click into the hospital's specific department for your case. Hospital-wide reputation matters less than department-specific volume on your procedure." },
-        { title: "Request itemized quote", description: "Request quotes from your top 2-3 programs. Itemized quotes (not package marketing) are what enables real comparison." },
+        { title: tH("howStep1Title"), description: tH("howStep1Desc") },
+        { title: tH("howStep2Title"), description: tH("howStep2Desc") },
+        { title: tH("howStep3Title"), description: tH("howStep3Desc") },
+        { title: tH("howStep4Title"), description: tH("howStep4Desc") },
+        { title: tH("howStep5Title"), description: tH("howStep5Desc") },
       ]}
-      outroNote="The directory contains 9,254 hospitals across 9 destinations. Most patients narrow to 3-5 candidates within 30 minutes."
+      outroNote={tH("howOutroNote")}
     />
 
     <WhatToExpect
-      heading="What separates a good hospital from a great one"
-      italicWord="great one"
+      heading={tH("whatHeading")}
+      italicWord={tH("whatItalicWord")}
       items={[
-        { label: "Surgeon volume on your procedure", description: "Institutional reputation can hide wide variation between surgeons. Ask for the specific surgeon's annual case volume on your exact procedure." },
-        { label: "Multiple accreditations", description: "JCI + country-specific (NABH/HA/KOIHA) + ISO 9001 is a triangulated quality signal. Single accreditation is a baseline." },
-        { label: "Transparent outcome data", description: "Programs that publish 30-day mortality, revision rates, and complication rates are typically the strongest." },
-        { label: "ICU + intensivist availability", description: "For complex procedures, ICU step-down with cardiac/neuro intensivist on call 24/7 makes the difference between safe and risky." },
-        { label: "International patient infrastructure", description: "Multilingual coordinators, dedicated international wings, post-discharge telemedicine — these aren't luxury; they're risk management." },
-        { label: "Honest about case selection", description: "The best programs decline cases that don't fit them. A program willing to take any case is sometimes a program operating at the margin." },
+        { label: tH("whatItem1Label"), description: tH("whatItem1Desc") },
+        { label: tH("whatItem2Label"), description: tH("whatItem2Desc") },
+        { label: tH("whatItem3Label"), description: tH("whatItem3Desc") },
+        { label: tH("whatItem4Label"), description: tH("whatItem4Desc") },
+        { label: tH("whatItem5Label"), description: tH("whatItem5Desc") },
+        { label: tH("whatItem6Label"), description: tH("whatItem6Desc") },
       ]}
     />
 

@@ -5,12 +5,14 @@ import McLogo from "@/components/McLogo.astro";
 import { getTreatmentBySlug, getHospitalsForCompare } from "@/lib/queries";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { localeUrl, SITE_URL } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
 
 export const prerender = false;
 
 const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect("/en/quote-plan", 308);
 const locale = rawLocale as Locale;
+const tQp = getTranslator(locale, "quotePlanPage");
 
 const url = new URL(Astro.request.url);
 const treatmentSlug = url.searchParams.get("t") ?? "";
@@ -75,53 +77,53 @@ const now = new Date();
 // Specialty-keyed "questions to ask your surgeon" checklist.
 const SPECIALTY_QUESTIONS: Record<string, string[]> = {
   "cardiac-surgery": [
-    "How many of this procedure have you personally performed in the last 12 months?",
-    "What is your hospital's 30-day mortality rate for this procedure?",
-    "Will I be on cardiopulmonary bypass, and for roughly how long?",
-    "Who runs the ICU post-op, and what is the nurse-to-patient ratio overnight?",
-    "What anti-coagulation regimen will I be on, and for how long?",
-    "What is the re-intervention rate and how is it tracked?",
+    tQp("cardiacQ1"),
+    tQp("cardiacQ2"),
+    tQp("cardiacQ3"),
+    tQp("cardiacQ4"),
+    tQp("cardiacQ5"),
+    tQp("cardiacQ6"),
   ],
   oncology: [
-    "Was my case discussed at a multidisciplinary tumor board?",
-    "What is the evidence grade for the specific protocol you're proposing?",
-    "Will I be treated with curative or palliative intent — and what does that mean here?",
-    "Are there clinical trials I qualify for at this centre or nearby?",
-    "How will response be measured, and at what intervals?",
-    "What are the expected short-term and long-term side effects?",
+    tQp("oncologyQ1"),
+    tQp("oncologyQ2"),
+    tQp("oncologyQ3"),
+    tQp("oncologyQ4"),
+    tQp("oncologyQ5"),
+    tQp("oncologyQ6"),
   ],
   orthopedics: [
-    "How many of this specific implant / approach have you done personally?",
-    "What implant manufacturer and model will be used, and why?",
-    "What is the expected recovery timeline — bear weight, drive, return to work?",
-    "What's your centre's infection rate and revision rate at 1 year?",
-    "What physical therapy protocol will I follow post-discharge?",
-    "What would trigger a revision surgery down the line?",
+    tQp("orthoQ1"),
+    tQp("orthoQ2"),
+    tQp("orthoQ3"),
+    tQp("orthoQ4"),
+    tQp("orthoQ5"),
+    tQp("orthoQ6"),
   ],
   "organ-transplant": [
-    "What is my MELD/status score, and how does that affect timing?",
-    "Do you accept my preferred donor type (living / cadaveric / related)?",
-    "What is the 1-year and 5-year graft survival rate at this centre?",
-    "What immunosuppression protocol will I follow, and for how long?",
-    "What is the expected total stay — pre-op workup, op, acute, rehab?",
-    "What happens if I have a rejection episode after I fly home?",
+    tQp("transplantQ1"),
+    tQp("transplantQ2"),
+    tQp("transplantQ3"),
+    tQp("transplantQ4"),
+    tQp("transplantQ5"),
+    tQp("transplantQ6"),
   ],
   "neurology-neurosurgery": [
-    "How many of this procedure have you personally done, and with what outcome profile?",
-    "What imaging will you use intraoperatively?",
-    "What are the specific risks for my lesion location / pathology?",
-    "What is the expected cognitive recovery timeline?",
-    "Will I need post-op radiation, chemo, or AED therapy — for how long?",
-    "What is the follow-up imaging protocol after I fly home?",
+    tQp("neuroQ1"),
+    tQp("neuroQ2"),
+    tQp("neuroQ3"),
+    tQp("neuroQ4"),
+    tQp("neuroQ5"),
+    tQp("neuroQ6"),
   ],
 };
 const DEFAULT_QUESTIONS = [
-  "How many of this specific procedure have you personally performed in the last year?",
-  "What is the success rate at your centre, and how is it measured?",
-  "What exactly is included in the quoted price, and what isn't?",
-  "Who manages my care overnight and on weekends?",
-  "What does the worst-case complication pathway look like?",
-  "What follow-up do I need once I fly home — and for how long?",
+  tQp("defaultQ1"),
+  tQp("defaultQ2"),
+  tQp("defaultQ3"),
+  tQp("defaultQ4"),
+  tQp("defaultQ5"),
+  tQp("defaultQ6"),
 ];
 const questions = (() => {
   if (!treatment?.specialty) return DEFAULT_QUESTIONS;
@@ -130,19 +132,20 @@ const questions = (() => {
 })();
 
 const LOGISTICS = [
-  "Check medical visa requirements with the country embassy 3–4 weeks before travel.",
-  "Plan for 1–2 attendants and request visa-attendant endorsements at the same time.",
-  "Ask the hospital to itemise any exclusions (imaging, blood bank, implants, extended ICU).",
-  "Confirm post-op medication will be available in your home country (brand names differ).",
-  "Arrange a written discharge summary + medication list + follow-up imaging plan in English.",
-  "Keep 10–15% of the quote as buffer for small overages — most cases settle within range.",
+  tQp("logistics1"),
+  tQp("logistics2"),
+  tQp("logistics3"),
+  tQp("logistics4"),
+  tQp("logistics5"),
+  tQp("logistics6"),
 ];
 
 const seoTitle = treatment
-  ? `Your ${treatment.name} treatment plan${countryName ? ` in ${countryName}` : ""}`
-  : "Your treatment plan";
-const seoDescription =
-  "Personalised treatment plan — procedure, destination, hospital shortlist, and questions to ask your surgeon. Print or save as PDF.";
+  ? tQp("seoTitleWith")
+      .replace("{treatment}", treatment.name)
+      .replace("{country}", countryName ? ` ${tQp("seoTitleIn").replace("{country}", countryName)}` : "")
+  : tQp("seoTitleFallback");
+const seoDescription = tQp("seoDescription");
 const path = "/quote-plan";
 
 Astro.response.headers.set("Cache-Control", "private, no-store");
@@ -167,19 +170,19 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
             href={localizedPath(locale, "/contact")}
             class="inline-flex items-center rounded-lg border border-border px-3 py-2 text-[12.5px] font-semibold hover:border-border-strong"
           >
-            ← Back to case
+            {tQp("backToCase")}
           </a>
           <button
             type="button"
             id="print-plan"
             class="inline-flex items-center rounded-lg bg-accent px-4 py-2 text-[12.5px] font-semibold text-accent-contrast hover:bg-accent-hover"
           >
-            Print / Save as PDF
+            {tQp("printSavePdf")}
           </button>
         </div>
       </div>
       <p class="mx-auto max-w-4xl px-6 pb-3 text-[11.5px] text-ink-subtle">
-        Tip: Press <kbd class="rounded border border-border bg-bg px-1">Ctrl/⌘</kbd> + <kbd class="rounded border border-border bg-bg px-1">P</kbd>, then "Save as PDF" in the destination dropdown.
+        {tQp("printTipBefore")} <kbd class="rounded border border-border bg-bg px-1">Ctrl/⌘</kbd> + <kbd class="rounded border border-border bg-bg px-1">P</kbd>{tQp("printTipAfter")}
       </p>
     </div>
 
@@ -192,12 +195,12 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
             <span class="font-display text-xl">medcasts<span class="text-coral">.</span></span>
           </div>
           <p class="mt-2 mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-            Medical travel plan · prepared {fmtDate(now)}
+            {tQp("headerLabel").replace("{date}", fmtDate(now))}
           </p>
         </div>
         <div class="text-end">
           <p class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-            Desk
+            {tQp("deskLabel")}
           </p>
           <p class="mt-1 text-[13px] text-ink">medcastsdigital@gmail.com</p>
           <p class="text-[13px] text-ink">+91 800 621 000 (24/7)</p>
@@ -209,19 +212,19 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
         <section class="mt-8 grid grid-cols-3 gap-6">
           {patientName && (
             <div>
-              <p class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Prepared for</p>
+              <p class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">{tQp("preparedFor")}</p>
               <p class="mt-1 font-display text-lg">{patientName}</p>
             </div>
           )}
           {fromCountry && (
             <div>
-              <p class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Travelling from</p>
+              <p class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">{tQp("travellingFrom")}</p>
               <p class="mt-1 font-display text-lg">{fromCountry}</p>
             </div>
           )}
           {timeline && (
             <div>
-              <p class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Timeline</p>
+              <p class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">{tQp("timelineLabel")}</p>
               <p class="mt-1 font-display text-lg">{timeline}</p>
             </div>
           )}
@@ -233,11 +236,11 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
         <h1 class="display display-tight" style="font-size: clamp(1.75rem, 3vw, 2.75rem); letter-spacing: -0.02em; line-height: 1.05;">
           {treatment ? (
             <>
-              Your plan for <span class="italic-display">{treatment.name}</span>
-              {countryName ? <> in {countryName}</> : null}
+              {tQp("h1PlanFor")} <span class="italic-display">{treatment.name}</span>
+              {countryName ? <> {tQp("h1In")} {countryName}</> : null}
             </>
           ) : (
-            "Your treatment plan"
+            tQp("h1Fallback")
           )}
         </h1>
         {treatment?.description && (
@@ -250,7 +253,7 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
           {priceBand && (
             <div class="p-4 md:p-5 border-inline-end border-ink">
               <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-                Estimate
+                {tQp("statEstimate")}
               </div>
               <div class="display tnum mt-1.5" style="font-size: 22px;">
                 {money(priceBand.lo)}–{money(priceBand.hi)}
@@ -260,7 +263,7 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
           {treatment?.hospitalStayDays && (
             <div class="p-4 md:p-5 border-inline-end border-ink">
               <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-                Hospital stay
+                {tQp("statHospitalStay")}
               </div>
               <div class="display tnum mt-1.5" style="font-size: 22px;">{treatment.hospitalStayDays}d</div>
             </div>
@@ -268,7 +271,7 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
           {treatment?.recoveryDays && (
             <div class="p-4 md:p-5 border-inline-end border-ink">
               <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-                Recovery
+                {tQp("statRecovery")}
               </div>
               <div class="display tnum mt-1.5" style="font-size: 22px;">{treatment.recoveryDays}d</div>
             </div>
@@ -276,7 +279,7 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
           {treatment?.successRatePercent && (
             <div class="p-4 md:p-5">
               <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-                Success rate
+                {tQp("statSuccessRate")}
               </div>
               <div class="display tnum mt-1.5" style="font-size: 22px;">{treatment.successRatePercent}%</div>
             </div>
@@ -288,10 +291,12 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
       {hospitals.length > 0 && (
         <section class="mt-10">
           <p class="mono uppercase" style="font-size: 10.5px; letter-spacing: 0.14em; color: var(--color-accent);">
-            Your shortlist
+            {tQp("shortlistEyebrow")}
           </p>
           <h2 class="display mt-1" style="font-size: 24px; letter-spacing: -0.02em;">
-            {hospitals.length} hospital{hospitals.length === 1 ? "" : "s"} we'd start with
+            {hospitals.length === 1
+              ? tQp("shortlistHeadingSingular").replace("{n}", String(hospitals.length))
+              : tQp("shortlistHeadingPlural").replace("{n}", String(hospitals.length))}
           </h2>
 
           <ol class="mt-5 space-y-4">
@@ -312,7 +317,7 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
                     </div>
                     {lo && (
                       <div class="shrink-0 text-end">
-                        <div class="mono uppercase" style="font-size: 9px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Range</div>
+                        <div class="mono uppercase" style="font-size: 9px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tQp("rangeLabel")}</div>
                         <div class="tnum mt-0.5 text-[13.5px] text-ink">
                           {money(lo)}{hi && hi !== lo ? `–${money(hi)}` : ""}
                         </div>
@@ -322,13 +327,13 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
                   <div class="mt-3 grid grid-cols-2 gap-3 text-[12.5px]">
                     {h.accreditations.length > 0 && (
                       <div>
-                        <div class="mono uppercase" style="font-size: 9px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Accreditations</div>
+                        <div class="mono uppercase" style="font-size: 9px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tQp("accreditationsLabel")}</div>
                         <div class="mt-0.5">{h.accreditations.slice(0, 5).join(", ")}</div>
                       </div>
                     )}
                     {h.specialties.length > 0 && (
                       <div>
-                        <div class="mono uppercase" style="font-size: 9px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Specialties</div>
+                        <div class="mono uppercase" style="font-size: 9px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tQp("specialtiesLabel")}</div>
                         <div class="mt-0.5">{h.specialties.slice(0, 6).map((s) => s.name).join(", ")}</div>
                       </div>
                     )}
@@ -346,13 +351,13 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
       {/* Questions to ask — page break before for long plans */}
       <section class="mt-10 page-break-before">
         <p class="mono uppercase" style="font-size: 10.5px; letter-spacing: 0.14em; color: var(--color-accent);">
-          Bring these to your consultation
+          {tQp("questionsEyebrow")}
         </p>
         <h2 class="display mt-1" style="font-size: 24px; letter-spacing: -0.02em;">
-          Questions to ask the surgeon
+          {tQp("questionsHeading")}
         </h2>
         <p class="mt-2 text-sm text-ink-muted max-w-[42rem]">
-          Print this page and hand it to the treating physician — or email ahead. Better answers correlate with surgeons who welcome detailed questions.
+          {tQp("questionsSubtitle")}
         </p>
         <ol class="mt-5 space-y-2.5">
           {questions.map((q, i) => (
@@ -367,10 +372,10 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
       {/* Travel logistics */}
       <section class="mt-10">
         <p class="mono uppercase" style="font-size: 10.5px; letter-spacing: 0.14em; color: var(--color-accent);">
-          Don't forget
+          {tQp("logisticsEyebrow")}
         </p>
         <h2 class="display mt-1" style="font-size: 24px; letter-spacing: -0.02em;">
-          Travel + logistics checklist
+          {tQp("logisticsHeading")}
         </h2>
         <ul class="mt-5 space-y-2.5">
           {LOGISTICS.map((l) => (
@@ -385,22 +390,22 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
       {/* Case manager contact */}
       <section class="mt-10 rounded-xl border-2 border-ink p-5 avoid-break">
         <p class="mono uppercase" style="font-size: 10.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-          Next step — talk to your case manager
+          {tQp("caseManagerEyebrow")}
         </p>
         <p class="mt-2 font-display text-lg leading-snug">
-          Reply to this plan on WhatsApp and we'll confirm surgeon availability, finalise the quote, and walk you through the visa + travel stack.
+          {tQp("caseManagerBody")}
         </p>
         <div class="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4 text-[13px]">
           <div>
-            <div class="mono uppercase" style="font-size: 9px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">WhatsApp</div>
+            <div class="mono uppercase" style="font-size: 9px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tQp("contactWhatsapp")}</div>
             <div class="mt-0.5 tnum">+91 9643 452 714</div>
           </div>
           <div>
-            <div class="mono uppercase" style="font-size: 9px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Email</div>
+            <div class="mono uppercase" style="font-size: 9px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tQp("contactEmail")}</div>
             <div class="mt-0.5">medcastsdigital@gmail.com</div>
           </div>
           <div>
-            <div class="mono uppercase" style="font-size: 9px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Emergency 24/7</div>
+            <div class="mono uppercase" style="font-size: 9px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tQp("contactEmergency")}</div>
             <div class="mt-0.5 tnum">+91 800 621 000</div>
           </div>
         </div>
@@ -409,10 +414,9 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
       {/* Footer */}
       <footer class="mt-10 border-t border-border pt-5 text-[11px] text-ink-subtle leading-relaxed">
         <p>
-          This plan is a starting point prepared on {fmtDate(now)} from {SITE_URL} — it is not medical advice. The
-          treating physician is the source of truth for surgery risk, prognosis, and medication. Price ranges are
-          hospital-reported and case-specific; final quotes depend on your reports, comorbidities, implant brand,
-          room tier, and length of stay. See {SITE_URL}/editorial-policy for sourcing and review details.
+          {tQp("footerDisclaimer")
+            .replace("{date}", fmtDate(now))
+            .replace("{siteUrl}", SITE_URL)}
         </p>
       </footer>
     </article>

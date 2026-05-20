@@ -19,6 +19,8 @@ const tc = getTranslator(locale, "common");
 const tr = getTranslator(locale, "referralPage");
 
 const path = "/referral";
+// Inquiry endpoint redirects back here with ?sent=1 after a successful submit.
+const sent = new URL(Astro.request.url).searchParams.get("sent") === "1";
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
@@ -77,18 +79,32 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
           {tr("lede")}
         </p>
 
-        <form action={localizedPath(locale, "/contact")} method="get" class="paper mt-10" style="padding: 32px; box-shadow: var(--shadow-md);">
+        {sent ? (
+          <div class="paper mt-10" style="padding: 32px; box-shadow: var(--shadow-md);">
+            <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent); text-transform: uppercase;">Referral received</div>
+            <h2 class="display mt-3" style="font-size: 26px; letter-spacing: -0.02em; line-height: 1.15;">Thank you — we'll take it from here</h2>
+            <p class="serif mt-3" style="font-size: 16px; line-height: 1.55; color: var(--color-ink-muted);">
+              A senior coordinator will contact the patient within 24 hours. With their consent, we'll keep you posted as the case progresses — and there's never a referral fee.
+            </p>
+            <div class="mt-6 flex flex-wrap gap-3">
+              <a href={localizedPath(locale, "/referral")} class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; border: 1px solid var(--color-border); padding: 10px 18px; border-radius: 9999px; color: var(--color-ink);">Refer another patient</a>
+              <a href={localizedPath(locale, "/services")} class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 10px 18px; border-radius: 9999px;">How we handle the case →</a>
+            </div>
+          </div>
+        ) : (
+        <form action="/api/v1/inquiry" method="post" class="paper mt-10" style="padding: 32px; box-shadow: var(--shadow-md);">
           <input type="hidden" name="topic" value="referral" />
+          <input type="hidden" name="locale" value={locale} />
 
           <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent); text-transform: uppercase;">{tr("sectionYourDetails")}</div>
           <div class="grid gap-4 md:grid-cols-2 mt-3">
             <label class="block">
               <span class="block mb-1.5" style="font-size: 12.5px; color: var(--color-ink-subtle);">{tr("labelYourName")}</span>
-              <input name="referrer_name" required placeholder={tr("placeholderYourName")} class="w-full" style="padding: 11px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;" />
+              <input name="referrerName" required placeholder={tr("placeholderYourName")} class="w-full" style="padding: 11px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;" />
             </label>
             <label class="block">
               <span class="block mb-1.5" style="font-size: 12.5px; color: var(--color-ink-subtle);">{tr("labelYourRelationship")}</span>
-              <select name="referrer_role" required class="w-full" style="padding: 11px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;">
+              <select name="referrerRole" required class="w-full" style="padding: 11px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;">
                 <option value="">— Select —</option>
                 <option value="doctor">{tr("selectDoctor")}</option>
                 <option value="family">{tr("selectFamily")}</option>
@@ -100,7 +116,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
           </div>
           <label class="block mt-4">
             <span class="block mb-1.5" style="font-size: 12.5px; color: var(--color-ink-subtle);">{tr("labelYourEmail")}</span>
-            <input name="referrer_email" type="email" required placeholder={tr("placeholderYourEmail")} class="w-full" style="padding: 11px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;" />
+            <input name="referrerEmail" type="email" required placeholder={tr("placeholderYourEmail")} class="w-full" style="padding: 11px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;" />
           </label>
 
           <hr style="margin-top: 28px; margin-bottom: 24px; border: 0; border-top: 1px solid var(--color-border-soft);" />
@@ -122,7 +138,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
           </label>
           <label class="block mt-4">
             <span class="block mb-1.5" style="font-size: 12.5px; color: var(--color-ink-subtle);">{tr("labelClinicalSituation")}</span>
-            <textarea name="description" rows="4" required placeholder={tr("placeholderClinicalSituation")} class="w-full" style="padding: 11px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
+            <textarea name="message" rows="4" required placeholder={tr("placeholderClinicalSituation")} class="w-full" style="padding: 11px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
           </label>
 
           <label class="block mt-4" style="font-size: 13px; color: var(--color-ink-muted);">
@@ -138,6 +154,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
             {tr("footerNote")}
           </p>
         </form>
+        )}
       </div>
     </section>
 

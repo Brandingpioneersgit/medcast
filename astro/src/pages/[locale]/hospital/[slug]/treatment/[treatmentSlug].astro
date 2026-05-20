@@ -32,6 +32,7 @@ if (!data) return new Response(`Not found: ${slug}/${treatmentSlug}`, { status: 
 const { hospital, treatment, offer, doctors: doctorRows, siblings } = data;
 
 const tc = getTranslator(locale, "common");
+const tHt = getTranslator(locale, "hospitalTreatmentPage");
 
 const [hMap, tMap, doctorMap] = await Promise.all([
   getContent("hospital", hospital.id, locale),
@@ -51,16 +52,22 @@ const countrySlug = hospital.city?.country?.slug ?? null;
 const locationLabel = [cityName, countryName].filter(Boolean).join(", ");
 
 const year = new Date().getFullYear();
-const seoTitle = `${treatmentT.name} at ${hospitalName} — Cost & Details (${year})`;
-const seoDescription =
-  `${treatmentT.name} at ${hospitalName}${locationLabel ? `, ${locationLabel}` : ""} — hospital-reported pricing, recovery, the specialists who perform it, and how it compares. Free itemised quote.`.slice(0, 160);
+const seoTitle = tHt("seoTitle")
+  .replace("{treatmentName}", treatmentT.name)
+  .replace("{hospitalName}", hospitalName)
+  .replace("{year}", String(year));
+const seoDescription = (tHt("seoDescription")
+  .replace("{treatmentName}", treatmentT.name)
+  .replace("{hospitalName}", hospitalName)
+  .replace("{locationLabel}", locationLabel ? `, ${locationLabel}` : ""))
+  .slice(0, 160);
 
 const path = `/hospital/${slug}/treatment/${treatmentSlug}`;
 const url = localeUrl(locale, path);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Hospitals", url: localeUrl(locale, "/hospitals") },
+  { name: tHt("breadcrumbHospitals"), url: localeUrl(locale, "/hospitals") },
   { name: hospitalName, url: localeUrl(locale, `/hospital/${slug}`) },
   { name: treatmentT.name, url },
 ]);
@@ -69,15 +76,15 @@ const descLede = (treatmentT.description ?? "").split(/\n\s*\n/)[0]?.trim() ?? n
 
 const facts = [
   treatment.hospitalStayDays != null
-    ? { l: "Hospital stay", v: treatment.hospitalStayDays === 0 ? "Day case" : `${treatment.hospitalStayDays} night${treatment.hospitalStayDays === 1 ? "" : "s"}` }
+    ? { l: tHt("factHospitalStay"), v: treatment.hospitalStayDays === 0 ? tHt("factDayCase") : tHt(treatment.hospitalStayDays === 1 ? "factNightSingular" : "factNightPlural").replace("{n}", String(treatment.hospitalStayDays)) }
     : null,
   treatment.recoveryDays != null
-    ? { l: "Recovery", v: `${treatment.recoveryDays} day${treatment.recoveryDays === 1 ? "" : "s"}` }
+    ? { l: tHt("factRecovery"), v: tHt(treatment.recoveryDays === 1 ? "factDaySingular" : "factDayPlural").replace("{n}", String(treatment.recoveryDays)) }
     : null,
   treatment.successRatePercent
-    ? { l: "Reported success", v: `${Number(treatment.successRatePercent).toFixed(0)}%` }
+    ? { l: tHt("factReportedSuccess"), v: `${Number(treatment.successRatePercent).toFixed(0)}%` }
     : null,
-  { l: "Specialists here", v: doctors.length > 0 ? `${doctors.length}` : "On request" },
+  { l: tHt("factSpecialistsHere"), v: doctors.length > 0 ? `${doctors.length}` : tHt("onRequest") },
 ].filter(Boolean) as Array<{ l: string; v: string }>;
 
 const untranslated = isUntranslated(locale, hMap);
@@ -98,7 +105,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
       <div class="mx-auto max-w-7xl px-6 py-3.5 text-sm text-ink-muted overflow-x-auto whitespace-nowrap">
         <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
         <span class="mx-2 text-ink-subtle">/</span>
-        <a href={localizedPath(locale, "/hospitals")} class="hover:text-accent">Hospitals</a>
+        <a href={localizedPath(locale, "/hospitals")} class="hover:text-accent">{tHt("breadcrumbHospitals")}</a>
         <span class="mx-2 text-ink-subtle">/</span>
         <a href={localizedPath(locale, `/hospital/${slug}`)} class="hover:text-accent">{hospitalName}</a>
         <span class="mx-2 text-ink-subtle">/</span>
@@ -131,27 +138,27 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
         {/* Pricing panel */}
         <aside class="paper p-6">
           <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.13em; color: var(--color-ink-subtle);">
-            {hospitalName} — estimate
+            {hospitalName} — {tHt("estimate")}
           </div>
           <div class="display tnum mt-2" style="font-size: 32px; letter-spacing: -0.02em;">
             {offer.costMinUsd != null
               ? <PriceRange min={offer.costMinUsd} max={offer.costMaxUsd} />
-              : "On request"}
+              : tHt("onRequest")}
           </div>
           <p class="mt-2 text-[12.5px]" style="color: var(--color-ink-muted);">
-            Hospital-reported, all-in and case-specific. Your final quote depends on surgeon, room class and complexity.
+            {tHt("priceDisclaimer")}
           </p>
           <a
             href={localizedPath(locale, `/contact?hospital=${slug}&treatment=${treatmentSlug}`)}
             class="mt-4 inline-flex w-full items-center justify-center rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover"
           >
-            Get an itemised quote
+            {tHt("getItemisedQuote")}
           </a>
           <a
             href={localizedPath(locale, `/treatment/${treatmentSlug}`)}
             class="mt-2 inline-flex w-full items-center justify-center rounded-lg border border-border px-5 py-2.5 text-sm font-semibold hover:border-border-strong"
           >
-            {treatmentT.name} overview
+            {tHt("treatmentOverview").replace("{treatmentName}", treatmentT.name)}
           </a>
         </aside>
       </div>
@@ -161,7 +168,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
     {doctors.length > 0 && (
       <section class="mx-auto max-w-7xl px-6 pb-10 border-t border-border-soft pt-8">
         <h2 class="display-tight mb-5" style="font-size: clamp(1.4rem, 3vw, 2rem); letter-spacing: -0.02em;">
-          {treatment.specialty?.name ?? "Specialists"} at {hospitalName}
+          {tHt("doctorsSectionHeading").replace("{specialtyOrFallback}", treatment.specialty?.name ?? tHt("specialistsFallback")).replace("{hospitalName}", hospitalName)}
         </h2>
         <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {doctors.map((d) => {
@@ -187,7 +194,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
                     {d.qualifications && <span class="mt-1 block text-[12.5px] text-ink-muted line-clamp-1">{d.qualifications}</span>}
                     <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-subtle">
                       {d.experience_years != null && (
-                        <span class="inline-flex items-center gap-1"><Award className="h-3 w-3 text-accent" />{d.experience_years} yrs</span>
+                        <span class="inline-flex items-center gap-1"><Award className="h-3 w-3 text-accent" />{d.experience_years} {tHt("yrs")}</span>
                       )}
                       {d.patients_treated != null && d.patients_treated > 0 && (
                         <span class="inline-flex items-center gap-1"><Users className="h-3 w-3 text-accent" />{d.patients_treated.toLocaleString()}</span>
@@ -209,7 +216,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
     {siblings.length > 0 && countryName && (
       <section class="mx-auto max-w-7xl px-6 pb-12 border-t border-border-soft pt-8">
         <h2 class="display-tight mb-5" style="font-size: clamp(1.4rem, 3vw, 2rem); letter-spacing: -0.02em;">
-          {treatmentT.name} at other {countryName} hospitals
+          {tHt("siblingsHeading").replace("{treatmentName}", treatmentT.name).replace("{countryName}", countryName!)}
         </h2>
         <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {siblings.map((s) => (
@@ -238,21 +245,21 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
     <ExploreGrid
       locale={locale}
       eyebrow={`${treatmentT.name} · ${hospitalName}`}
-      heading="Take this further"
-      lede="A hospital-specific procedure page is one cut. These hubs cover the procedure across destinations, the hospital's other departments, and the comparison tools."
+      heading={tHt("exploreHeading")}
+      lede={tHt("exploreLede")}
       items={[
-        { eyebrow: "Procedure", label: `${treatmentT.name} — cost & hospitals`, href: `/treatment/${treatmentSlug}`, hint: "Pricing, recovery, ranked hospitals across all destinations." },
+        { eyebrow: tHt("exploreEyebrowProcedure"), label: tHt("exploreLabelTreatmentCost").replace("{treatmentName}", treatmentT.name), href: `/treatment/${treatmentSlug}`, hint: tHt("exploreHintTreatmentCost") },
         ...(countrySlug
-          ? [{ eyebrow: "Cost", label: `${treatmentT.name} cost in ${countryName}`, href: `/treatment/${treatmentSlug}/${countrySlug}`, hint: `Country-level pricing benchmark for ${treatmentT.name.toLowerCase()}.` }]
+          ? [{ eyebrow: tHt("exploreEyebrowCost"), label: tHt("exploreLabelCountryCost").replace("{treatmentName}", treatmentT.name).replace("{countryName}", countryName!), href: `/treatment/${treatmentSlug}/${countrySlug}`, hint: tHt("exploreHintCountryCost").replace("{treatmentName}", treatmentT.name.toLowerCase()) }]
           : []),
-        { eyebrow: "Hospital", label: `${hospitalName} overview`, href: `/hospital/${slug}`, hint: "Accreditations, all departments, location and contact." },
-        { eyebrow: "Hospital", label: `Doctors at ${hospitalName}`, href: `/hospital/${slug}/doctors`, hint: "The full specialist roster." },
+        { eyebrow: tHt("exploreEyebrowHospital"), label: tHt("exploreLabelHospitalOverview").replace("{hospitalName}", hospitalName), href: `/hospital/${slug}`, hint: tHt("exploreHintHospitalOverview") },
+        { eyebrow: tHt("exploreEyebrowHospital"), label: tHt("exploreLabelDoctors").replace("{hospitalName}", hospitalName), href: `/hospital/${slug}/doctors`, hint: tHt("exploreHintDoctors") },
         ...(treatment.specialty
-          ? [{ eyebrow: "Department", label: `${treatment.specialty.name} at ${hospitalName}`, href: `/hospital/${slug}/${treatment.specialty.slug}`, hint: "The department, its doctors and pricing." }]
+          ? [{ eyebrow: tHt("exploreEyebrowDepartment"), label: tHt("exploreLabelDepartment").replace("{specialtyName}", treatment.specialty.name).replace("{hospitalName}", hospitalName), href: `/hospital/${slug}/${treatment.specialty.slug}`, hint: tHt("exploreHintDepartment") }]
           : []),
-        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Put up to 4 hospitals side by side." },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures and destinations." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours." },
+        { eyebrow: tHt("exploreEyebrowCompare"), label: tHt("exploreLabelCompare"), href: "/compare/hospitals", hint: tHt("exploreHintCompare") },
+        { eyebrow: tHt("exploreEyebrowTool"), label: tHt("exploreLabelCalculator"), href: "/calculator", hint: tHt("exploreHintCalculator") },
+        { eyebrow: tHt("exploreEyebrowAction"), label: tHt("exploreLabelSecondOpinion"), href: "/second-opinion", hint: tHt("exploreHintSecondOpinion") },
       ]}
     />
 

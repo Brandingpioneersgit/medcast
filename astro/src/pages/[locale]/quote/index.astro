@@ -38,6 +38,8 @@ const preTreatment = url.searchParams.get("treatment") ?? "";
 const preCountry = url.searchParams.get("country") ?? "";
 
 const path = "/quote";
+// /api/v1/inquiry redirects back here with ?sent=1 after a successful submit.
+const sent = url.searchParams.get("sent") === "1";
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
@@ -156,12 +158,27 @@ const whyStats = [
 
     <section style="padding: 24px 0 56px;">
       <div class="mx-auto w-full max-w-[62rem] px-5 md:px-8">
+        {sent ? (
+          <div class="paper" style="padding: 32px;">
+            <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent); text-transform: uppercase;">Quote request received</div>
+            <h2 class="display mt-3" style="font-size: 26px; letter-spacing: -0.02em; line-height: 1.15;">Thank you — your quote is in motion</h2>
+            <p class="serif mt-3" style="font-size: 16px; line-height: 1.55; color: var(--color-ink-muted);">
+              A senior coordinator will review your case and reply within a few hours during business hours. Keep an eye on your phone and email.
+            </p>
+            <div class="mt-6 flex flex-wrap gap-3">
+              <a href={localizedPath(locale, "/calculator")} class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; border: 1px solid var(--color-border); padding: 10px 18px; border-radius: 9999px; color: var(--color-ink);">Estimate costs meanwhile</a>
+              <a href={localizedPath(locale, "/countries")} class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 10px 18px; border-radius: 9999px;">Explore destinations →</a>
+            </div>
+          </div>
+        ) : (
         <form
-          action={localizedPath(locale, "/contact")}
-          method="get"
+          action="/api/v1/inquiry"
+          method="post"
           class="paper"
           style="padding: 32px;"
         >
+          <input type="hidden" name="topic" value="quote" />
+          <input type="hidden" name="locale" value={locale} />
           <div class="flex items-baseline justify-between flex-wrap gap-2">
             <div class="serif" style="font-size: 26px; letter-spacing: -0.015em;">
               {tq("formStepLabel")} · <span class="italic-display">{tq("formStepItalic")}</span>
@@ -207,7 +224,7 @@ const whyStats = [
           <label class="block mt-4">
             <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">{tq("labelDescribe")}</span>
             <textarea
-              name="description"
+              name="message"
               rows="4"
               placeholder={tq("placeholderDescription")}
               class="w-full serif"
@@ -297,6 +314,7 @@ const whyStats = [
             {tq("footerNote")}
           </div>
         </form>
+        )}
       </div>
     </section>
 

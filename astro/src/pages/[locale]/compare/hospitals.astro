@@ -40,19 +40,20 @@ const hospitals = hospitalsRaw.map((h) => ({
 }));
 
 const tc = getTranslator(locale, "common");
+const tCh = getTranslator(locale, "compareHospitalsPage");
 
 const seoTitle = hospitals.length > 0
   ? `Compare ${hospitals.map((h) => h.name).join(" vs ")}`
-  : "Compare hospitals side-by-side";
+  : tCh("seoTitle");
 const seoDescription = hospitals.length > 0
-  ? `Side-by-side comparison of ${hospitals.length} hospitals — specialties, beds, accreditations, and pricing ranges.`
-  : "Shortlist up to 4 hospitals, then compare specialties, beds, accreditations and pricing side-by-side.";
+  ? tCh("seoDescWithCount").replace("{count}", String(hospitals.length))
+  : tCh("seoDescription");
 const path = "/compare/hospitals";
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
   { name: tc("hospitals"), url: localeUrl(locale, "/hospitals") },
-  { name: "Compare", url: localeUrl(locale, path) },
+  { name: tCh("breadcrumbCompare"), url: localeUrl(locale, path) },
 ]);
 
 // Never cache — result depends on user's slug list
@@ -77,44 +78,44 @@ type Row = {
 const rows: Row[] = [
   {
     key: "location",
-    label: "Location",
+    label: tCh("rowLocation"),
     render: (h) => `${h.cityName}, ${h.countryName}`,
   },
   {
     key: "rating",
-    label: "Rating",
+    label: tCh("rowRating"),
     render: (h) => h.rating && Number(h.rating) > 0
       ? `★ ${Number(h.rating).toFixed(1)}${h.reviewCount ? ` (${h.reviewCount.toLocaleString()})` : ""}`
       : "—",
   },
   {
     key: "accreditations",
-    label: "Accreditations",
+    label: tCh("rowAccreditations"),
     render: (h) => (h.accreditations.length > 0 ? h.accreditations.join(", ") : "—"),
   },
   {
     key: "beds",
-    label: "Beds",
+    label: tCh("rowBeds"),
     render: (h) => h.bedCapacity ? h.bedCapacity.toLocaleString() : "—",
   },
   {
     key: "established",
-    label: "Established",
+    label: tCh("rowEstablished"),
     render: (h) => h.establishedYear ? String(h.establishedYear) : "—",
   },
   {
     key: "airport",
-    label: "Airport distance",
+    label: tCh("rowAirportDistance"),
     render: (h) => h.airportDistanceKm != null ? `${h.airportDistanceKm} km` : "—",
   },
   {
     key: "pricing",
-    label: "Treatment pricing",
+    label: tCh("rowTreatmentPricing"),
     render: (h) => pricingByHospital.get(h.id) ?? "—",
   },
   {
     key: "specialties",
-    label: "Specialties",
+    label: tCh("rowSpecialties"),
     render: (h) => h.specialties.length > 0
       ? h.specialties.slice(0, 10).map((s) => s.name).join(", ")
       : "—",
@@ -137,21 +138,21 @@ const rows: Row[] = [
         <span class="mx-2 text-ink-subtle">/</span>
         <a href={localizedPath(locale, "/hospitals")} class="hover:text-accent">{tc("hospitals")}</a>
         <span class="mx-2 text-ink-subtle">/</span>
-        <span class="text-ink" aria-current="page">Compare</span>
+        <span class="text-ink" aria-current="page">{tCh("breadcrumbCompare")}</span>
       </div>
     </nav>
 
     <section class="mx-auto max-w-7xl px-6 pt-10 md:pt-14 pb-6">
       <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.18em; color: var(--color-accent);">
-        Side by side
+        {tCh("eyebrowSideBySide")}
       </p>
       <h1 class="mt-2 display display-tight" style="font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -0.025em;">
-        Compare hospitals
+        {tCh("h1")}
       </h1>
       <p class="lede mt-4 max-w-[42rem]">
         {hospitals.length > 0
-          ? `Reviewing ${hospitals.length} hospitals side by side. Pricing is the range across all procedures we have on record for each hospital.`
-          : "Add hospitals to your shortlist from any hospital card around the site, then return here."}
+          ? tCh("ledeWithCount").replace("{count}", String(hospitals.length))
+          : tCh("ledeEmpty")}
       </p>
 
       {hospitals.length > 0 && (
@@ -170,7 +171,7 @@ const rows: Row[] = [
             style="color: var(--color-ink);"
           >
             <span aria-hidden="true">✉</span>
-            Email me this list
+            {tCh("emailThisList")}
           </a>
           <button
             type="button"
@@ -180,7 +181,7 @@ const rows: Row[] = [
             style="color: var(--color-ink); background: none; cursor: pointer;"
           >
             <span aria-hidden="true">🔗</span>
-            Copy link
+            {tCh("copyLink")}
           </button>
         </div>
       )}
@@ -209,15 +210,15 @@ const rows: Row[] = [
     {hospitals.length === 0 && (
       <section class="mx-auto max-w-3xl px-6 pb-20">
         <div class="paper p-8 text-center" style="color: var(--color-ink-muted);">
-          <p class="serif text-lg mb-3">Your comparison list is empty.</p>
+          <p class="serif text-lg mb-3">{tCh("emptyHeading")}</p>
           <p class="text-sm mb-5">
-            Browse hospitals and click the "Compare" chip on any card to shortlist up to four.
+            {tCh("emptyBody")}
           </p>
           <a
             href={localizedPath(locale, "/hospitals")}
             class="inline-flex items-center rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover"
           >
-            Browse hospitals →
+            {tCh("emptyBrowseCta")}
           </a>
         </div>
       </section>
@@ -227,7 +228,7 @@ const rows: Row[] = [
       <section class="mx-auto max-w-7xl px-4 md:px-6 pb-20">
         <div class="overflow-x-auto -mx-4 md:mx-0">
           <table class="min-w-full border-separate" style="border-spacing: 0;">
-            <caption class="sr-only">Comparison of hospitals</caption>
+            <caption class="sr-only">{tCh("tableCaption")}</caption>
             <thead>
               <tr>
                 <th scope="col" class="w-36 md:w-44 text-start align-top p-3 md:p-4"></th>
@@ -250,13 +251,13 @@ const rows: Row[] = [
                             href={localizedPath(locale, `/hospital/${h.slug}`)}
                             class="inline-flex items-center rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-accent-contrast hover:bg-accent-hover"
                           >
-                            Open
+                            {tCh("cardOpen")}
                           </a>
                           <a
                             href={localizedPath(locale, `/contact?hospital=${h.slug}`)}
                             class="inline-flex items-center rounded-lg border border-border px-3 py-1.5 text-[12px] font-semibold hover:border-border-strong"
                           >
-                            Quote
+                            {tCh("cardQuote")}
                           </a>
                         </div>
                       </div>
@@ -285,37 +286,37 @@ const rows: Row[] = [
         </div>
 
         <p class="mt-8 text-[12.5px] text-ink-subtle">
-          Need help narrowing down?{" "}
-          <a href={localizedPath(locale, "/calculator")} class="underline hover:text-accent">Run the quote calculator</a>{" "}
-          or{" "}
-          <a href={localizedPath(locale, "/contact")} class="underline hover:text-accent">request a human shortlist</a>{" "}
-          — we'll match you with a case manager who knows these hospitals first-hand.
+          {tCh("footerNeedHelp")}{" "}
+          <a href={localizedPath(locale, "/calculator")} class="underline hover:text-accent">{tCh("footerRunCalculator")}</a>{" "}
+          {tCh("footerOr")}{" "}
+          <a href={localizedPath(locale, "/contact")} class="underline hover:text-accent">{tCh("footerRequestShortlist")}</a>{" "}
+          {tCh("footerCaseManager")}
         </p>
       </section>
     )}
 
     <HowItWorks
-      heading="How to compare hospitals effectively"
-      italicWord="effectively"
-      eyebrow="Hospital comparison"
+      heading={tCh("howItWorksHeading")}
+      italicWord={tCh("howItWorksItalic")}
+      eyebrow={tCh("howItWorksEyebrow")}
       steps={[
-        { title: "Match procedure first", description: "Hospital reputation varies by department. A hospital that's strong on cardiac may be average on orthopedics. Compare on your specific procedure, not general reputation." },
-        { title: "Volume on your procedure", description: "Ask each hospital for surgeon's annual case volume on the specific procedure. Compare numbers, not adjectives." },
-        { title: "Compare accreditation depth", description: "JCI is baseline for international care. Combined with country-specific (NABH, HA, KOIHA) is stronger. Look for specialty-specific accreditations where they exist." },
-        { title: "Itemized quotes for same scope", description: "Same procedure, same implant brand, same hospital stay length, same PT inclusion. Equalize before comparing prices." },
-        { title: "Communication quality", description: "Response time, depth of answers, willingness to share data. The hospital's communication during quote phase predicts their communication during your stay." },
+        { title: tCh("howStep1Title"), description: tCh("howStep1Desc") },
+        { title: tCh("howStep2Title"), description: tCh("howStep2Desc") },
+        { title: tCh("howStep3Title"), description: tCh("howStep3Desc") },
+        { title: tCh("howStep4Title"), description: tCh("howStep4Desc") },
+        { title: tCh("howStep5Title"), description: tCh("howStep5Desc") },
       ]}
     />
 
     <WhatToExpect
-      heading="What separates a good hospital from a great one"
-      italicWord="great one"
+      heading={tCh("whatHeading")}
+      italicWord={tCh("whatItalic")}
       items={[
-        { label: "Specialty-specific volume", description: "The strongest hospitals have specific specialties where they're at top tier. A hospital with 5 strong departments outperforms one claiming 20 'comprehensive' departments." },
-        { label: "Subspecialist depth", description: "For complex cases, you want subspecialists in specific procedures, not generalists. Confirm at the department level." },
-        { label: "Multidisciplinary infrastructure", description: "Tumor boards, heart teams, spine conferences. Recurring multidisciplinary review changes outcomes for complex cases." },
-        { label: "ICU + emergency capability", description: "Step-down ICU, intensivist on call 24/7, emergency response infrastructure. For complex cases this is risk management." },
-        { label: "International patient services", description: "Multilingual coordination, dedicated international wings, post-discharge telemedicine, complications protocol — these are quality signals for medical-tourism programs." },
+        { label: tCh("whatLabel1"), description: tCh("whatDesc1") },
+        { label: tCh("whatLabel2"), description: tCh("whatDesc2") },
+        { label: tCh("whatLabel3"), description: tCh("whatDesc3") },
+        { label: tCh("whatLabel4"), description: tCh("whatDesc4") },
+        { label: tCh("whatLabel5"), description: tCh("whatDesc5") },
       ]}
     />
 

@@ -5,6 +5,7 @@ import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { localeUrl } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
 import { db } from "@/lib/db";
 import {
   appointments, hospitals, doctors, treatments,
@@ -21,6 +22,8 @@ if (!code) return Astro.redirect(localizedPath(rawLocale as Locale, "/portal"), 
 
 const locale = rawLocale as Locale;
 const upperCode = code.toUpperCase();
+
+const tPc = getTranslator(locale, "portalCodePage");
 
 // Look up the real appointment by code (case-insensitive).
 // Codes are short alphanumeric strings issued at booking time.
@@ -86,39 +89,39 @@ function stagesFor(s: string | null | undefined, hasConfirmed: boolean): Stage[]
   const status = (s ?? "requested").toLowerCase();
   if (status === "cancelled") {
     return [
-      { label: "Inquiry submitted", description: "We received your request.", state: "done" },
-      { label: "Cancelled", description: "This appointment is no longer active.", state: "active" },
+      { label: tPc("stageInquiryLabel"), description: tPc("stageInquiryCancelledDesc"), state: "done" },
+      { label: tPc("stageCancelledLabel"), description: tPc("stageCancelledDesc"), state: "active" },
     ];
   }
   return [
     {
-      label: "Inquiry submitted",
-      description: "We received your request and your coordinator was notified.",
+      label: tPc("stageInquiryLabel"),
+      description: tPc("stageInquiryDesc"),
       state: "done",
     },
     {
-      label: hasConfirmed ? "Consultation confirmed" : "Awaiting confirmation",
+      label: hasConfirmed ? tPc("stageConfirmedLabel") : tPc("stageAwaitingLabel"),
       description: hasConfirmed
-        ? "Your slot is booked. You'll receive a reminder + joining details ahead of the date."
-        : "Your coordinator is matching you to the right specialist. Typically within 24 hours.",
+        ? tPc("stageConfirmedDesc")
+        : tPc("stageAwaitingDesc"),
       state: status === "requested" ? "active" : "done",
     },
     {
-      label: status === "rescheduled" ? "Rescheduled" : "Consultation",
+      label: status === "rescheduled" ? tPc("stageRescheduledLabel") : tPc("stageConsultationLabel"),
       description:
         status === "completed"
-          ? "Consultation complete. Continue with your coordinator for hospital quotes + travel planning."
+          ? tPc("stageConsultationCompletedDesc")
           : status === "rescheduled"
-            ? "We had to move your slot. New date in your email + below."
-            : "Held on the date below.",
+            ? tPc("stageRescheduledDesc")
+            : tPc("stageConsultationPendingDesc"),
       state: status === "completed" ? "done" : status === "rescheduled" || hasConfirmed ? "active" : "pending",
     },
     {
-      label: "Next steps",
+      label: tPc("stageNextStepsLabel"),
       description:
         status === "completed"
-          ? "Hospital quotes, surgeon shortlist, visa + travel coordination — your coordinator drives this."
-          : "Quotes + visa + travel get planned after the consultation.",
+          ? tPc("stageNextStepsCompletedDesc")
+          : tPc("stageNextStepsPendingDesc"),
       state: status === "completed" ? "active" : "pending",
     },
   ];
@@ -149,8 +152,8 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta
-      title={appt ? `Case ${upperCode} — ${appt.patientName}` : `Case ${upperCode} not found`}
-      description={appt ? `Status of case ${upperCode}` : `Case ${upperCode} not recognised`}
+      title={appt ? `${tPc("metaTitleCase")} ${upperCode} — ${appt.patientName}` : `${tPc("metaTitleCase")} ${upperCode} ${tPc("metaTitleNotFound")}`}
+      description={appt ? tPc("metaDescFound").replace("{code}", upperCode) : tPc("metaDescNotFound").replace("{code}", upperCode)}
       path={path}
       locale={locale}
       noindex
@@ -162,7 +165,7 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
 
     <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
       <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
-        <a href={localizedPath(locale, "/portal")} class="hover:text-ink">Portal</a>
+        <a href={localizedPath(locale, "/portal")} class="hover:text-ink">{tPc("breadcrumbPortal")}</a>
         <span class="mx-1.5">/</span>
         <span style="color: var(--color-ink);" class="mono tnum">{upperCode}</span>
       </nav>
@@ -171,23 +174,23 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
     {!appt && (
       <section style="padding: 56px 28px;">
         <div class="mx-auto max-w-[640px]">
-          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-coral);">Not found</div>
+          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-coral);">{tPc("notFoundBadge")}</div>
           <h1 class="display display-tight mt-3" style="font-size: clamp(2rem, 4.5vw, 3rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;">
-            We couldn't find case <span class="mono tnum" style="font-size: 0.7em; letter-spacing: 0.05em; color: var(--color-coral);">{upperCode}</span>
+            {tPc("notFoundHeading")} <span class="mono tnum" style="font-size: 0.7em; letter-spacing: 0.05em; color: var(--color-coral);">{upperCode}</span>
           </h1>
           <p class="serif mt-5" style="font-size: 17px; line-height: 1.5; color: var(--color-ink-muted);">
-            Double-check the code in your confirmation email — codes are case-insensitive and around 6 characters. If you can't find it, your coordinator can recover it from your phone or email.
+            {tPc("notFoundBody")}
           </p>
 
           <div class="mt-7 paper" style="padding: 22px 24px;">
             <div class="flex items-start gap-3">
               <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" style={{color: "var(--color-coral)"}} />
               <div>
-                <div class="serif" style="font-size: 15.5px; color: var(--color-ink);">A few things to try</div>
+                <div class="serif" style="font-size: 15.5px; color: var(--color-ink);">{tPc("notFoundTipsHeading")}</div>
                 <ul class="mt-2 serif" style="font-size: 14px; line-height: 1.55; color: var(--color-ink-muted);">
-                  <li>· Search your inbox for "MedCasts" — your code is on the booking confirmation.</li>
-                  <li>· If you booked from a destination's portal, the code may differ from your inquiry reference.</li>
-                  <li>· Need help? Recover it via the link below.</li>
+                  <li>· {tPc("notFoundTip1")}</li>
+                  <li>· {tPc("notFoundTip2")}</li>
+                  <li>· {tPc("notFoundTip3")}</li>
                 </ul>
               </div>
             </div>
@@ -199,14 +202,14 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
               class="inline-flex items-center gap-2"
               style="border: 1px solid var(--color-border); color: var(--color-ink); padding: 11px 18px; font-size: 14px; border-radius: 9999px;"
             >
-              Try a different code
+              {tPc("btnTryDifferentCode")}
             </a>
             <a
               href={localizedPath(locale, `/contact?topic=code-recovery&code=${upperCode}`)}
               class="inline-flex items-center gap-2 font-semibold"
               style="background: var(--color-accent); color: #FFF; padding: 11px 18px; font-size: 14px; border-radius: 9999px;"
             >
-              Recover my code <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+              {tPc("btnRecoverCode")} <ChevronRight className="h-3.5 w-3.5 mirror-x" />
             </a>
           </div>
         </div>
@@ -217,7 +220,7 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
       <section style="padding: 56px 28px;">
         <div class="mx-auto max-w-[960px]">
           <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
-            Case · {appt.status === "cancelled" ? "Cancelled" : appt.status === "completed" ? "Completed" : appt.status === "confirmed" ? "Confirmed" : appt.status === "rescheduled" ? "Rescheduled" : "In progress"}
+            {tPc("casePrefix")} {appt.status === "cancelled" ? tPc("statusCancelled") : appt.status === "completed" ? tPc("statusCompleted") : appt.status === "confirmed" ? tPc("statusConfirmed") : appt.status === "rescheduled" ? tPc("statusRescheduled") : tPc("statusInProgress")}
           </div>
           <h1 class="display display-tight mt-3" style="font-size: clamp(2rem, 4.5vw, 3rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;">
             <span class="italic-display">{appt.patientName}</span>
@@ -227,21 +230,21 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
           {/* Consultation summary block */}
           <div class="mt-7 paper grid gap-6 md:grid-cols-2" style="padding: 26px 28px;">
             <div>
-              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-ink-subtle);">Consultation</div>
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-ink-subtle);">{tPc("labelConsultation")}</div>
               <div class="serif mt-1.5" style="font-size: 17px; color: var(--color-ink);">
                 {appt.confirmedDate ? fmtDate(appt.confirmedDate) : fmtDate(appt.preferredDate)}
               </div>
               <div class="mono mt-0.5 tnum" style="font-size: 13px; color: var(--color-ink-muted);">
-                {appt.confirmedDate ? fmtTime(appt.confirmedDate) : fmtTime(appt.preferredDate)} · {appt.consultationType ?? "in-person"}
+                {appt.confirmedDate ? fmtTime(appt.confirmedDate) : fmtTime(appt.preferredDate)} · {appt.consultationType ?? tPc("consultationTypeDefault")}
               </div>
               {!appt.confirmedDate && (
                 <div class="mono mt-2" style="font-size: 11px; color: var(--color-accent);">
-                  ● Awaiting confirmation
+                  ● {tPc("awaitingConfirmationInline")}
                 </div>
               )}
             </div>
             <div>
-              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-ink-subtle);">Care team</div>
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-ink-subtle);">{tPc("labelCareTeam")}</div>
               {appt.doctorName && appt.doctorSlug && (
                 <div class="serif mt-1.5">
                   <a
@@ -254,17 +257,17 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
               )}
               {appt.hospitalName && appt.hospitalSlug && (
                 <div class="mt-1" style="font-size: 13.5px; color: var(--color-ink-muted);">
-                  at <a href={localizedPath(locale, `/hospital/${appt.hospitalSlug}`)} class="hover:text-accent" style="color: var(--color-ink-muted); text-decoration: underline; text-decoration-color: var(--color-border); text-underline-offset: 3px;">{appt.hospitalName}</a>
+                  {tPc("prepositionAt")} <a href={localizedPath(locale, `/hospital/${appt.hospitalSlug}`)} class="hover:text-accent" style="color: var(--color-ink-muted); text-decoration: underline; text-decoration-color: var(--color-border); text-underline-offset: 3px;">{appt.hospitalName}</a>
                 </div>
               )}
               {appt.treatmentName && appt.treatmentSlug && (
                 <div class="mt-1" style="font-size: 13.5px; color: var(--color-ink-muted);">
-                  for <a href={localizedPath(locale, `/treatment/${appt.treatmentSlug}`)} class="hover:text-accent" style="color: var(--color-ink-muted); text-decoration: underline; text-decoration-color: var(--color-border); text-underline-offset: 3px;">{appt.treatmentName}</a>
+                  {tPc("prepositionFor")} <a href={localizedPath(locale, `/treatment/${appt.treatmentSlug}`)} class="hover:text-accent" style="color: var(--color-ink-muted); text-decoration: underline; text-decoration-color: var(--color-border); text-underline-offset: 3px;">{appt.treatmentName}</a>
                 </div>
               )}
               {appt.assignedTo && (
                 <div class="mono mt-3" style="font-size: 11px; letter-spacing: 0.04em; color: var(--color-ink-subtle);">
-                  Coordinator · <span style="color: var(--color-ink);">{appt.assignedTo}</span>
+                  {tPc("labelCoordinator")} · <span style="color: var(--color-ink);">{appt.assignedTo}</span>
                 </div>
               )}
             </div>
@@ -272,7 +275,7 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
 
           {appt.cancellationReason && (
             <div class="mt-5 paper" style="padding: 18px 22px; border-color: var(--color-coral); background: rgba(232, 90, 79, 0.06);">
-              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-coral);">Cancellation reason</div>
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-coral);">{tPc("labelCancellationReason")}</div>
               <p class="serif mt-1.5" style="font-size: 14.5px; color: var(--color-ink); line-height: 1.5;">
                 {appt.cancellationReason}
               </p>
@@ -281,7 +284,7 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
 
           {appt.notes && (
             <div class="mt-5 paper" style="padding: 18px 22px;">
-              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-ink-subtle);">Coordinator notes</div>
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-ink-subtle);">{tPc("labelCoordinatorNotes")}</div>
               <p class="serif mt-1.5" style="font-size: 14.5px; color: var(--color-ink-muted); line-height: 1.55; white-space: pre-line;">
                 {appt.notes}
               </p>
@@ -290,7 +293,7 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
 
           {/* Timeline */}
           <section class="mt-10">
-            <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Status</div>
+            <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">{tPc("timelineHeading")}</div>
             <ol class="mt-4">
               {stages.map((s, i) => (
                 <li
@@ -308,7 +311,7 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
                     {s.state === "active" && (
                       <div class="mono mt-2 inline-flex items-center gap-1.5" style="font-size: 11px; color: var(--color-accent);">
                         <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--color-accent); display: inline-block;"></span>
-                        Current step
+                        {tPc("currentStep")}
                       </div>
                     )}
                   </div>
@@ -319,11 +322,11 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
 
           {/* Support */}
           <section class="mt-10 paper" style="padding: 28px;">
-            <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Need help?</div>
+            <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">{tPc("supportHeading")}</div>
             <p class="serif mt-2" style="font-size: 16.5px; line-height: 1.5;">
               {appt.assignedTo
-                ? `${appt.assignedTo} has the full picture on your case — WhatsApp is usually fastest.`
-                : "Your coordinator has the full picture — WhatsApp is usually fastest."}
+                ? tPc("supportBodyNamed").replace("{name}", appt.assignedTo)
+                : tPc("supportBodyGeneric")}
             </p>
             <div class="flex flex-wrap gap-3 mt-4">
               <a
@@ -331,20 +334,20 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
                 class="inline-flex items-center gap-2 font-semibold"
                 style="background: var(--color-accent); color: #FFF; padding: 11px 18px; font-size: 14px; border-radius: 9999px;"
               >
-                Message coordinator <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+                {tPc("btnMessageCoordinator")} <ChevronRight className="h-3.5 w-3.5 mirror-x" />
               </a>
               <a
                 href={localizedPath(locale, "/emergency")}
                 class="inline-flex items-center gap-2 font-semibold"
                 style="background: transparent; color: var(--color-coral); border: 1px solid var(--color-coral); padding: 11px 18px; font-size: 14px; border-radius: 9999px;"
               >
-                Emergency desk
+                {tPc("btnEmergencyDesk")}
               </a>
             </div>
           </section>
 
           <div class="mt-8 text-center" style="font-size: 12.5px; color: var(--color-ink-subtle);">
-            Wrong case? <a href={localizedPath(locale, "/portal")} class="underline">Look up a different code</a>
+            {tPc("wrongCase")} <a href={localizedPath(locale, "/portal")} class="underline">{tPc("lookUpDifferentCode")}</a>
           </div>
         </div>
       </section>

@@ -28,15 +28,15 @@ const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect("/en/privacy-policy", 308);
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tPv = getTranslator(locale, "privacyPage");
 
-const seoTitle = "Privacy Policy";
-const seoDescription =
-  "How MedCasts collects, uses, and protects your personal and medical information. GDPR-aligned, HIPAA-informed. No data sold, ever.";
+const seoTitle = tPv("seoTitle");
+const seoDescription = tPv("seoDescription");
 const path = "/privacy-policy";
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Privacy policy", url: localeUrl(locale, path) },
+  { name: tPv("breadcrumbPrivacy"), url: localeUrl(locale, path) },
 ]);
 
 Astro.response.headers.set(
@@ -60,119 +60,119 @@ const sections: Section[] = [
   {
     id: "what-we-collect",
     icon: Database,
-    title: "What we collect",
-    intro: "When you request a quote, second opinion, or speak with a case manager, we collect:",
+    title: tPv("s1Title"),
+    intro: tPv("s1Intro"),
     bullets: [
-      "**Identity:** name, country of residence, date of birth when relevant to clinical matching.",
-      "**Contact:** email, phone, WhatsApp, preferred language.",
-      "**Clinical:** medical reports, imaging, diagnoses, current medications — only what you explicitly share with us.",
-      "**Usage:** pages viewed, approximate location from IP, device type. Never tied to named individuals unless you log in.",
+      tPv("s1B1"),
+      tPv("s1B2"),
+      tPv("s1B3"),
+      tPv("s1B4"),
     ],
   },
   {
     id: "what-we-do",
     icon: Workflow,
-    title: "What we do with it",
+    title: tPv("s2Title"),
     bullets: [
-      "Route your case to 1–3 matching hospitals and coordinate itemized quotes.",
-      "Facilitate communication between you, the hospital's international desk, and your case manager.",
-      "Send transactional updates about your case (quote, visa, travel).",
-      "Improve the service: anonymized usage patterns, never individual browsing histories.",
+      tPv("s2B1"),
+      tPv("s2B2"),
+      tPv("s2B3"),
+      tPv("s2B4"),
     ],
   },
   {
     id: "what-we-never-do",
     icon: ShieldOff,
-    title: "What we never do",
+    title: tPv("s3Title"),
     tone: "warn",
     bullets: [
-      "Sell your data. Not to insurers, pharma, or marketers.",
-      "Share your clinical records outside hospitals you've explicitly authorised.",
-      "Run targeted advertising based on medical history.",
-      "Store financial data — all payments go through regulated processors (Stripe, PayTabs, bank wires) with no card details stored on our servers.",
+      tPv("s3B1"),
+      tPv("s3B2"),
+      tPv("s3B3"),
+      tPv("s3B4"),
     ],
   },
   {
     id: "who-sees",
     icon: Eye,
-    title: "Who sees your data",
+    title: tPv("s4Title"),
     bullets: [
-      "**You and your case manager** — always.",
-      "**Hospital international desks** you've been matched to — only the specific hospitals, only the records you've authorised.",
-      "**Medical panel for second opinions** — your case, de-identified where possible, shared with the specific panel member reviewing it.",
-      "**Service providers:** our hosting (Supabase, Cloudflare), email (Resend), upload (Cloudflare R2), SMS/WhatsApp gateway. Each is bound by data-processing agreements.",
+      tPv("s4B1"),
+      tPv("s4B2"),
+      tPv("s4B3"),
+      tPv("s4B4"),
     ],
     paras: [
-      "We publish a list of sub-processors on request. Email medcastsdigital@gmail.com.",
+      tPv("s4P1"),
     ],
   },
   {
     id: "rights",
     icon: KeyRound,
-    title: "Your rights (GDPR, UK GDPR, and beyond)",
+    title: tPv("s5Title"),
     tone: "accent",
     bullets: [
-      "**Access:** ask for a copy of everything we hold about you.",
-      "**Correct:** fix inaccuracies.",
-      "**Delete:** we delete all identifiable records within 30 days of request, except where legal retention applies (billing records, minimum 7 years in most jurisdictions).",
-      "**Portability:** export your clinical uploads in original format at any time.",
-      "**Withdraw consent:** at any time, for any purpose. Stops active processing; past actions (already-sent quotes) stand.",
+      tPv("s5B1"),
+      tPv("s5B2"),
+      tPv("s5B3"),
+      tPv("s5B4"),
+      tPv("s5B5"),
     ],
     paras: [
-      "To exercise any of these: email medcastsdigital@gmail.com from the email address on file. We respond within 5 working days.",
+      tPv("s5P1"),
     ],
   },
   {
     id: "retention",
     icon: Clock,
-    title: "Retention",
+    title: tPv("s6Title"),
     bullets: [
-      "**Active case data:** retained while your case is open and 12 months after last contact.",
-      "**Medical records you uploaded:** deleted from our systems within 90 days of case closure unless you request extended retention.",
-      "**Transactional records (quotes, invoices):** 7 years, required by most tax authorities.",
-      "**Anonymized analytics:** indefinite, but never re-identifiable.",
+      tPv("s6B1"),
+      tPv("s6B2"),
+      tPv("s6B3"),
+      tPv("s6B4"),
     ],
   },
   {
     id: "transfers",
     icon: Globe2,
-    title: "International transfers",
+    title: tPv("s7Title"),
     paras: [
-      "Your clinical data may transit to hospitals outside your home country — that's the nature of medical travel. Standard Contractual Clauses (SCCs) apply to EU and UK data subjects; adequacy frameworks apply where available. You always see and approve which hospitals receive your records before we send anything.",
+      tPv("s7P1"),
     ],
   },
   {
     id: "security",
     icon: Lock,
-    title: "Security",
+    title: tPv("s8Title"),
     paras: [
-      "Encryption in transit (TLS 1.3) and at rest (AES-256 at the storage layer). Upload vault is on Cloudflare R2 with pre-signed URLs expiring in 7 days. Case managers access via SSO with 2FA. We run quarterly penetration tests and disclose breaches to affected users within 72 hours, per GDPR Article 33.",
+      tPv("s8P1"),
     ],
   },
   {
     id: "children",
     icon: Baby,
-    title: "Children",
+    title: tPv("s9Title"),
     paras: [
-      `Where you're arranging medical travel for a minor, we require explicit documentation of parental responsibility. We don't hold direct accounts for under-18s.`,
+      tPv("s9P1"),
     ],
   },
   {
     id: "contact",
     icon: Mail,
-    title: "Contact",
+    title: tPv("s10Title"),
     bullets: [
-      "**Data Protection Officer:** medcastsdigital@gmail.com",
-      "**EU/UK representative:** via the same address; response in-language for 8 locales.",
-      "**Regulatory contact:** if we don't resolve your concern, you can file with your national data-protection authority.",
+      tPv("s10B1"),
+      tPv("s10B2"),
+      tPv("s10B3"),
     ],
   },
   {
     id: "changes",
     icon: RefreshCw,
-    title: "Changes to this policy",
+    title: tPv("s11Title"),
     paras: [
-      `We'll update this page when material changes happen and notify active case clients by email. The date at the top of this page reflects the current version.`,
+      tPv("s11P1"),
     ],
   },
 ];
@@ -195,45 +195,45 @@ function renderInline(s: string): string {
       <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
         <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
         <span class="mx-1.5">/</span>
-        <span style="color: var(--color-ink);">Privacy policy</span>
+        <span style="color: var(--color-ink);">{tPv("breadcrumbPrivacy")}</span>
       </nav>
     </div>
 
     <section style="padding: 64px 28px 32px;">
       <div class="mx-auto w-full max-w-[1120px]">
         <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
-          Legal · Last updated {LAST_UPDATED}
+          {tPv("legal")} · {tPv("lastUpdated")} {LAST_UPDATED}
         </div>
         <h1
           class="display display-tight mt-3"
           style="font-size: clamp(2.25rem, 5vw, 3.5rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;"
         >
-          Privacy <span class="italic-display">policy</span>
+          {tPv("h1Main")} <span class="italic-display">{tPv("h1Italic")}</span>
         </h1>
         <p class="serif mt-5" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted); max-width: 720px;">
-          How we collect, use, and protect your personal and medical information. Plain-language version below.
+          {tPv("ledePage")}
         </p>
 
         <div class="mt-8 grid gap-4 md:grid-cols-3">
           <div class="paper flex items-start gap-3" style="padding: 18px 20px;">
             <span class="shrink-0 mt-0.5" style="color: var(--color-coral, #E85A4F);"><ShieldOff className="h-5 w-5" /></span>
             <div>
-              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Promise 01</div>
-              <div class="serif mt-1" style="font-size: 14.5px; line-height: 1.4; color: var(--color-ink);">We never sell your data.</div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tPv("promise01Tag")}</div>
+              <div class="serif mt-1" style="font-size: 14.5px; line-height: 1.4; color: var(--color-ink);">{tPv("promise01Text")}</div>
             </div>
           </div>
           <div class="paper flex items-start gap-3" style="padding: 18px 20px;">
             <span class="shrink-0 mt-0.5" style="color: var(--color-accent);"><Lock className="h-5 w-5" /></span>
             <div>
-              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Promise 02</div>
-              <div class="serif mt-1" style="font-size: 14.5px; line-height: 1.4; color: var(--color-ink);">TLS 1.3 in transit, AES-256 at rest.</div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tPv("promise02Tag")}</div>
+              <div class="serif mt-1" style="font-size: 14.5px; line-height: 1.4; color: var(--color-ink);">{tPv("promise02Text")}</div>
             </div>
           </div>
           <div class="paper flex items-start gap-3" style="padding: 18px 20px;">
             <span class="shrink-0 mt-0.5" style="color: var(--color-accent);"><KeyRound className="h-5 w-5" /></span>
             <div>
-              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Promise 03</div>
-              <div class="serif mt-1" style="font-size: 14.5px; line-height: 1.4; color: var(--color-ink);">Delete on request, 5-day SLA.</div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tPv("promise03Tag")}</div>
+              <div class="serif mt-1" style="font-size: 14.5px; line-height: 1.4; color: var(--color-ink);">{tPv("promise03Text")}</div>
             </div>
           </div>
         </div>
@@ -272,7 +272,7 @@ function renderInline(s: string): string {
                   </div>
                   <div class="min-w-0 flex-1">
                     <div class="mono tnum" style="font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">
-                      Section {num}
+                      {tPv("sectionLabel")} {num}
                     </div>
                     <h2
                       class="display mt-1.5"
@@ -308,11 +308,9 @@ function renderInline(s: string): string {
             <span class="shrink-0 mt-0.5" style="color: var(--color-accent);"><Mail className="h-5 w-5" /></span>
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
-                Privacy questions?
+                {tPv("privacyQuestionsLabel")}
               </div>
-              <p class="mt-2 serif" style="font-size: 15.5px; line-height: 1.5; color: var(--color-ink-muted);">
-                We answer in plain language within 5 working days. Email <a href="mailto:medcastsdigital@gmail.com" style="color: var(--color-ink);" class="underline">medcastsdigital@gmail.com</a> or talk to your case manager.
-              </p>
+              <p class="mt-2 serif" style="font-size: 15.5px; line-height: 1.5; color: var(--color-ink-muted);" set:html={tPv("privacyQuestionsBody").replace("medcastsdigital@gmail.com", '<a href="mailto:medcastsdigital@gmail.com" style="color: var(--color-ink);" class="underline">medcastsdigital@gmail.com</a>')} />
             </div>
           </div>
         </div>
@@ -324,7 +322,7 @@ function renderInline(s: string): string {
               style="padding: 18px 0; border-top: 1px solid var(--color-ink);"
             >
               <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                On this page
+                {tPv("onThisPage")}
               </div>
               <ol class="mt-3 space-y-2 tnum">
                 {sections.map((s, i) => (
@@ -348,13 +346,11 @@ function renderInline(s: string): string {
               style="padding: 18px 20px;"
             >
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
-                Terms of service
+                {tPv("termsOfServiceLabel")}
               </div>
-              <div class="serif mt-2" style="font-size: 16px; line-height: 1.3; color: var(--color-ink);">
-                The honest <span class="italic-display">boundaries.</span>
-              </div>
+              <div class="serif mt-2" style="font-size: 16px; line-height: 1.3; color: var(--color-ink);" set:html={tPv("termsTagline")} />
               <div class="mt-3 mono uppercase inline-flex items-center gap-1 group-hover:text-accent transition-colors" style="font-size: 10.5px; letter-spacing: 0.14em; color: var(--color-ink-muted);">
-                Read terms
+                {tPv("termsReadLink")}
                 <ChevronRight className="h-3 w-3 mirror-x" />
               </div>
             </a>
@@ -365,18 +361,18 @@ function renderInline(s: string): string {
 
     <ExploreGrid
       locale={locale}
-      eyebrow="Adjacent policies"
-      heading="Other things to know about how we operate"
-      lede="Privacy is one slice of the trust layer. The pages below cover the rest — terms, editorial process, security, and how we accept reports."
+      eyebrow={tPv("exploreEyebrow")}
+      heading={tPv("exploreHeading")}
+      lede={tPv("exploreLede")}
       items={[
-        { eyebrow: "Legal", label: "Terms of service", href: "/terms", hint: "Coordinator scope, payment, refunds, dispute resolution." },
-        { eyebrow: "Process", label: "Editorial + corrections policy", href: "/editorial-policy", hint: "Sourcing, AI use, corrections SLA." },
-        { eyebrow: "Trust", label: "Security disclosure", href: "/security", hint: "How we accept reports from researchers." },
-        { eyebrow: "Action", label: "Report a safety incident", href: "/incident-report", hint: "Anonymous channel for clinical concerns." },
-        { eyebrow: "Reviewers", label: "Medical board", href: "/medical-board", hint: "Clinicians behind specialty + condition pages." },
-        { eyebrow: "Quality", label: "Accreditation registry", href: "/accreditation", hint: "JCI, NABH, ISO and 10 others." },
-        { eyebrow: "About", label: "Who we are", href: "/about", hint: "Coordinator-not-clinician scope." },
-        { eyebrow: "Contact", label: "Contact us", href: "/contact", hint: "Data subject access requests + corrections." },
+        { eyebrow: tPv("exploreItem1Eyebrow"), label: tPv("exploreItem1Label"), href: "/terms", hint: tPv("exploreItem1Hint") },
+        { eyebrow: tPv("exploreItem2Eyebrow"), label: tPv("exploreItem2Label"), href: "/editorial-policy", hint: tPv("exploreItem2Hint") },
+        { eyebrow: tPv("exploreItem3Eyebrow"), label: tPv("exploreItem3Label"), href: "/security", hint: tPv("exploreItem3Hint") },
+        { eyebrow: tPv("exploreItem4Eyebrow"), label: tPv("exploreItem4Label"), href: "/incident-report", hint: tPv("exploreItem4Hint") },
+        { eyebrow: tPv("exploreItem5Eyebrow"), label: tPv("exploreItem5Label"), href: "/medical-board", hint: tPv("exploreItem5Hint") },
+        { eyebrow: tPv("exploreItem6Eyebrow"), label: tPv("exploreItem6Label"), href: "/accreditation", hint: tPv("exploreItem6Hint") },
+        { eyebrow: tPv("exploreItem7Eyebrow"), label: tPv("exploreItem7Label"), href: "/about", hint: tPv("exploreItem7Hint") },
+        { eyebrow: tPv("exploreItem8Eyebrow"), label: tPv("exploreItem8Label"), href: "/contact", hint: tPv("exploreItem8Hint") },
       ]}
     />
 

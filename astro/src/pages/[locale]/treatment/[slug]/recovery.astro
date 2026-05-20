@@ -34,6 +34,7 @@ if (t.recoveryDays == null) {
 }
 
 const tc = getTranslator(locale, "common");
+const tTr = getTranslator(locale, "treatmentRecoveryPage");
 const tMap = await getContent("treatment", t.id, locale);
 const treatment = applyTranslated(t, tMap, ["name", "description"]);
 const R = t.recoveryDays;
@@ -43,34 +44,43 @@ const dayCase = H === 0;
 
 // Recovery phases — computed from the hospital stay + recovery window so the
 // timeline is honest to this procedure rather than a generic template.
-const wk = (d: number) => (d <= 13 ? `Day ${d}` : `Week ${Math.round(d / 7)}`);
+const wk = (d: number) =>
+  d <= 13
+    ? tTr("windowDay").replace("{d}", String(d))
+    : tTr("windowWeek").replace("{w}", String(Math.round(d / 7)));
 const phases = [
   {
-    label: dayCase ? "Procedure day" : `In hospital · ${H} ${H === 1 ? "night" : "nights"}`,
-    window: dayCase ? "Day 0" : `Day 0–${H}`,
+    label: dayCase
+      ? tTr("phase1LabelDayCase")
+      : tTr("phase1LabelHospital")
+          .replace("{H}", String(H))
+          .replace("{nights}", H === 1 ? tTr("statNightSingular") : tTr("statNightPlural")),
+    window: dayCase
+      ? tTr("phase1WindowDayCase")
+      : tTr("phase1WindowHospital").replace("{H}", String(H)),
     body: dayCase
-      ? "Day-case procedure — you go home the same day once observation clears. Expect monitored recovery from anaesthesia, pain control, and discharge instructions before you leave."
-      : "Monitored recovery: pain control, wound and vital-sign checks, and early mobilisation. The care team confirms you can eat, move and manage pain before discharge.",
+      ? tTr("phase1BodyDayCase")
+      : tTr("phase1BodyHospital"),
   },
   {
-    label: "First days near the hospital",
-    window: `Day ${H + 1}–${H + 5}`,
-    body: "International patients stay near the hospital for the first post-discharge review. Wound checks, medication adjustment, and the green light before any longer travel happen in this window.",
+    label: tTr("phase2Label"),
+    window: `${tTr("windowDay").replace("{d}", String(H + 1))}–${tTr("windowDay").replace("{d}", String(H + 5))}`,
+    body: tTr("phase2Body"),
   },
   {
-    label: "Early recovery",
+    label: tTr("phase3Label"),
     window: `${wk(H + 6)}–${wk(Math.max(H + 7, Math.round(R * 0.5)))}`,
-    body: `Gradual return of energy and mobility. Light daily activity resumes; strenuous activity, heavy lifting and driving are still restricted. Most discomfort settles across this phase.`,
+    body: tTr("phase3Body"),
   },
   {
-    label: "Back to normal activity",
+    label: tTr("phase4Label"),
     window: `Around day ${R}`,
-    body: `By about day ${R}, most patients are back to desk work and routine daily life. Your surgeon's specific clearance — not the calendar — is what matters; follow their sign-off.`,
+    body: tTr("phase4Body").replace("{R}", String(R)),
   },
   {
-    label: "Full recovery",
+    label: tTr("phase5Label"),
     window: `Beyond day ${R}`,
-    body: "Full strength, final result and complete tissue healing continue past the return-to-normal point — often several more weeks. Keep follow-up appointments and report anything unexpected.",
+    body: tTr("phase5Body"),
   },
 ];
 
@@ -95,26 +105,39 @@ const redFlags = RED_FLAGS[specialtySlug] ?? [
 const flyHomeFrom = Math.max(H + 3, 7);
 const flyHomeTo = Math.max(flyHomeFrom + 4, Math.round(R * 0.4));
 
+const nightsStr = H === 1 ? tTr("statNightSingular") : tTr("statNightPlural");
 const faqs = [
   {
-    question: `How long is recovery after ${treatment.name.toLowerCase()}?`,
-    answer: `Most patients are back to routine daily activity around day ${R}. ${dayCase ? "It is a day-case procedure" : `The hospital stay is about ${H} ${H === 1 ? "night" : "nights"}`}, followed by a staged return over the following weeks. Full strength and the final result continue beyond day ${R}. Your surgeon's clearance — not the calendar — is the real signal.`,
+    question: tTr("faqQ1").replace("{treatmentName}", treatment.name.toLowerCase()),
+    answer: dayCase
+      ? tTr("faqA1DayCase")
+          .replace("{R}", String(R))
+          .replace("{R}", String(R))
+      : tTr("faqA1Hospital")
+          .replace("{R}", String(R))
+          .replace("{H}", String(H))
+          .replace("{nights}", nightsStr)
+          .replace("{R}", String(R)),
   },
   {
-    question: `When can I fly home after ${treatment.name.toLowerCase()}?`,
-    answer: `Most international patients are cleared to fly roughly ${flyHomeFrom}–${flyHomeTo} days after the procedure, once the first post-discharge review is done. Long-haul flights carry a clot risk during recovery — get explicit fit-to-fly sign-off from your treating surgeon before booking, and plan accommodation near the hospital until then.`,
+    question: tTr("faqQ2").replace("{treatmentName}", treatment.name.toLowerCase()),
+    answer: tTr("faqA2")
+      .replace("{from}", String(flyHomeFrom))
+      .replace("{to}", String(flyHomeTo)),
   },
   {
-    question: `When can I return to work?`,
-    answer: `Desk or light work is usually possible around day ${R}; physically demanding work takes longer and depends on your surgeon's clearance. Build a buffer into your plans rather than booking to the minimum.`,
+    question: tTr("faqQ3"),
+    answer: tTr("faqA3").replace("{R}", String(R)),
   },
   {
-    question: `Will recovery be painful?`,
-    answer: `Some discomfort is normal and is managed with prescribed medication that is stepped down as you heal. Pain that worsens, or isn't controlled by your medication, is not normal — contact your care team.`,
+    question: tTr("faqQ4"),
+    answer: tTr("faqA4"),
   },
   {
-    question: `What follow-up will I need back home?`,
-    answer: `Before you leave, get a full discharge summary, imaging, and a medication list to hand to your local doctor. ${treatment.specialty?.name ? `Arrange ${treatment.specialty.name.toLowerCase()} follow-up locally` : "Arrange specialist follow-up locally"} for ongoing checks. We help coordinate this handover.`,
+    question: tTr("faqQ5"),
+    answer: treatment.specialty?.name
+      ? tTr("faqA5WithSpecialty").replace("{specialtyName}", treatment.specialty.name.toLowerCase())
+      : tTr("faqA5NoSpecialty"),
   },
 ];
 
@@ -127,9 +150,9 @@ const url = localeUrl(locale, path);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Treatments", url: localeUrl(locale, "/treatments") },
+  { name: tTr("breadcrumbTreatments"), url: localeUrl(locale, "/treatments") },
   { name: treatment.name, url: localeUrl(locale, `/treatment/${slug}`) },
-  { name: "Recovery", url },
+  { name: tTr("breadcrumbRecovery"), url },
 ]);
 const faqLd = faqJsonLd(faqs);
 const pageLd = {
@@ -163,41 +186,41 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
       <div class="mx-auto max-w-5xl px-6 py-3.5 text-sm text-ink-muted overflow-x-auto whitespace-nowrap">
         <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
         <span class="mx-2 text-ink-subtle">/</span>
-        <a href={localizedPath(locale, "/treatments")} class="hover:text-accent">Treatments</a>
+        <a href={localizedPath(locale, "/treatments")} class="hover:text-accent">{tTr("breadcrumbTreatments")}</a>
         <span class="mx-2 text-ink-subtle">/</span>
         <a href={localizedPath(locale, `/treatment/${slug}`)} class="hover:text-accent">{treatment.name}</a>
         <span class="mx-2 text-ink-subtle">/</span>
-        <span class="text-ink" aria-current="page">Recovery</span>
+        <span class="text-ink" aria-current="page">{tTr("breadcrumbRecovery")}</span>
       </div>
     </nav>
 
     <section class="mx-auto max-w-5xl px-6 pt-10 md:pt-14 pb-8">
       <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.18em; color: var(--color-accent);">
-        Recovery guide
+        {tTr("eyebrowRecoveryGuide")}
       </p>
       <h1 class="mt-2 display display-tight" style="font-size: clamp(2rem, 4.5vw, 3.3rem); letter-spacing: -0.025em; line-height: 1.04;">
-        {treatment.name} recovery — week by week
+        {treatment.name}{tTr("h1Suffix")}
       </h1>
       <p class="lede mt-5 max-w-[44rem]">
-        What to expect after {treatment.name.toLowerCase()}: hospital stay, the days near the hospital, when it's safe to fly home, and the return to normal life around day {R}. A timeline to plan around — your surgeon's clearance is always the final word.
+        {tTr("ledePara").replace("{treatmentName}", treatment.name.toLowerCase()).replace("{R}", String(R))}
       </p>
       <div class="mt-5"><LastUpdated updated={new Date()} locale={locale} showPolicyLink /></div>
 
       <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div class="rounded-lg border border-border bg-surface p-3">
-          <div class="mono uppercase text-[10px]" style="letter-spacing: 0.1em; color: var(--color-ink-subtle);">Hospital stay</div>
-          <div class="display tnum mt-1" style="font-size: 20px;">{dayCase ? "Day case" : `${H} night${H === 1 ? "" : "s"}`}</div>
+          <div class="mono uppercase text-[10px]" style="letter-spacing: 0.1em; color: var(--color-ink-subtle);">{tTr("statHospitalStay")}</div>
+          <div class="display tnum mt-1" style="font-size: 20px;">{dayCase ? tTr("statDayCase") : `${H} ${H === 1 ? tTr("statNightSingular") : tTr("statNightPlural")}`}</div>
         </div>
         <div class="rounded-lg border border-border bg-surface p-3">
-          <div class="mono uppercase text-[10px]" style="letter-spacing: 0.1em; color: var(--color-ink-subtle);">Back to normal</div>
+          <div class="mono uppercase text-[10px]" style="letter-spacing: 0.1em; color: var(--color-ink-subtle);">{tTr("statBackToNormal")}</div>
           <div class="display tnum mt-1" style="font-size: 20px;">~{R} days</div>
         </div>
         <div class="rounded-lg border border-border bg-surface p-3">
-          <div class="mono uppercase text-[10px]" style="letter-spacing: 0.1em; color: var(--color-ink-subtle);">Fly home</div>
+          <div class="mono uppercase text-[10px]" style="letter-spacing: 0.1em; color: var(--color-ink-subtle);">{tTr("statFlyHome")}</div>
           <div class="display tnum mt-1" style="font-size: 20px;">{flyHomeFrom}–{flyHomeTo} days</div>
         </div>
         <div class="rounded-lg border border-border bg-surface p-3">
-          <div class="mono uppercase text-[10px]" style="letter-spacing: 0.1em; color: var(--color-ink-subtle);">Specialty</div>
+          <div class="mono uppercase text-[10px]" style="letter-spacing: 0.1em; color: var(--color-ink-subtle);">{tTr("statSpecialty")}</div>
           <div class="mt-1" style="font-size: 14px; font-weight: 600;">{t.specialty?.name ?? "—"}</div>
         </div>
       </div>
@@ -206,7 +229,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
     {/* Timeline */}
     <section class="mx-auto max-w-5xl px-6 pb-12">
       <h2 class="display-tight mb-6" style="font-size: clamp(1.4rem, 3vw, 2rem); letter-spacing: -0.02em;">
-        The recovery timeline
+        {tTr("timelineH2")}
       </h2>
       <ol class="relative space-y-5 border-s-2 border-border ps-6">
         {phases.map((p, i) => (
@@ -232,10 +255,10 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
     {/* When to fly home callout */}
     <section class="mx-auto max-w-5xl px-6 pb-12">
       <div class="paper p-6" style="border-inline-start: 3px solid var(--color-accent);">
-        <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.13em; color: var(--color-accent);">Fit to fly</div>
-        <h3 class="font-display text-xl mt-2">Plan your flight home for day {flyHomeFrom}–{flyHomeTo}, not earlier</h3>
+        <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.13em; color: var(--color-accent);">{tTr("fitToFlyEyebrow")}</div>
+        <h3 class="font-display text-xl mt-2">{tTr("fitToFlyH3").replace("{from}", String(flyHomeFrom)).replace("{to}", String(flyHomeTo))}</h3>
         <p class="serif mt-2" style="font-size: 14.5px; line-height: 1.6; color: var(--color-ink-muted);">
-          Long-haul flights raise clot risk during recovery, and cabin pressure can affect healing tissue and air-containing spaces. Book a flexible return ticket, keep accommodation near the hospital until the first review, and get written fit-to-fly clearance from your treating surgeon before you travel.
+          {tTr("fitToFlyBody")}
         </p>
       </div>
     </section>
@@ -243,8 +266,8 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
     {/* Red flags */}
     <section class="mx-auto max-w-5xl px-6 pb-12">
       <div class="paper p-6" style="border-inline-start: 3px solid var(--color-coral, #E85A4F);">
-        <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.13em; color: var(--color-coral, #E85A4F);">Seek help immediately if</div>
-        <h3 class="font-display text-xl mt-2">Recovery red flags</h3>
+        <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.13em; color: var(--color-coral, #E85A4F);">{tTr("redFlagsEyebrow")}</div>
+        <h3 class="font-display text-xl mt-2">{tTr("redFlagsH3")}</h3>
         <ul class="mt-3 space-y-2">
           {redFlags.map((f) => (
             <li class="flex gap-2.5 items-start" style="font-size: 14.5px; line-height: 1.55;">
@@ -254,7 +277,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
           ))}
         </ul>
         <p class="mt-3 text-[13px]" style="color: var(--color-ink-subtle);">
-          This is general guidance, not medical advice — your discharge instructions and surgeon override anything here. When in doubt, contact your care team or local emergency services.
+          {tTr("redFlagsDisclaimer")}
         </p>
       </div>
     </section>
@@ -262,7 +285,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
     {/* FAQ */}
     <section class="mx-auto max-w-5xl px-6 pb-12">
       <h2 class="display-tight mb-5" style="font-size: clamp(1.4rem, 3vw, 2rem); letter-spacing: -0.02em;">
-        Recovery questions
+        {tTr("faqH2")}
       </h2>
       <div class="divide-y divide-border-soft border-y border-border-soft">
         {faqs.map((f) => (
@@ -281,34 +304,64 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
     <section class="mx-auto max-w-5xl px-6 pb-16">
       <div class="paper p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
         <div class="max-w-[34rem]">
-          <h3 class="font-display text-xl md:text-2xl">Planning {treatment.name.toLowerCase()} abroad?</h3>
+          <h3 class="font-display text-xl md:text-2xl">{tTr("ctaH3").replace("{treatmentName}", treatment.name.toLowerCase())}</h3>
           <p class="mt-1.5 text-sm text-ink-muted">
-            We build the recovery and travel plan into your quote — hospital stay, accommodation near the hospital, fit-to-fly timing and the follow-up handover to your doctor back home.
+            {tTr("ctaBody")}
           </p>
         </div>
         <a
           href={localizedPath(locale, `/treatment/${slug}`)}
           class="inline-flex shrink-0 items-center rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover"
         >
-          {treatment.name} cost & hospitals
+          {tTr("ctaButton").replace("{treatmentName}", treatment.name)}
         </a>
       </div>
     </section>
 
     <ExploreGrid
       locale={locale}
-      eyebrow={`${treatment.name} recovery`}
-      heading="Plan the rest of the journey"
-      lede="Recovery is one piece. These hubs cover the cost, the hospitals, the comparison and the logistics."
+      eyebrow={tTr("exploreEyebrow").replace("{treatmentName}", treatment.name)}
+      heading={tTr("exploreHeading")}
+      lede={tTr("exploreLede")}
       items={[
-        { eyebrow: "Procedure", label: `${treatment.name} — cost & hospitals`, href: `/treatment/${slug}`, hint: "Pricing, ranked hospitals and outcomes across all destinations." },
+        {
+          eyebrow: tTr("exploreItem1Eyebrow"),
+          label: tTr("exploreItem1Label").replace("{treatmentName}", treatment.name),
+          href: `/treatment/${slug}`,
+          hint: tTr("exploreItem1Hint"),
+        },
         ...(t.specialty
-          ? [{ eyebrow: "Specialty", label: `${t.specialty.name} hub`, href: `/specialty/${t.specialty.slug}`, hint: `All programs and surgeons in ${t.specialty.name.toLowerCase()}.` }]
+          ? [{
+              eyebrow: tTr("exploreItem2Eyebrow"),
+              label: tTr("exploreItem2Label").replace("{specialtyName}", t.specialty.name),
+              href: `/specialty/${t.specialty.slug}`,
+              hint: tTr("exploreItem2Hint").replace("{specialtyNameLower}", t.specialty.name.toLowerCase()),
+            }]
           : []),
-        { eyebrow: "Tool", label: "Quote-as-PDF plan", href: "/quote-plan", hint: "A branded treatment plan you can forward to family or carry to a consult." },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures and destinations." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
-        { eyebrow: "Reference", label: "Medical glossary", href: "/glossary", hint: "Plain-language definitions for recovery, procedure and logistics terms." },
+        {
+          eyebrow: tTr("exploreItem3Eyebrow"),
+          label: tTr("exploreItem3Label"),
+          href: "/quote-plan",
+          hint: tTr("exploreItem3Hint"),
+        },
+        {
+          eyebrow: tTr("exploreItem4Eyebrow"),
+          label: tTr("exploreItem4Label"),
+          href: "/calculator",
+          hint: tTr("exploreItem4Hint"),
+        },
+        {
+          eyebrow: tTr("exploreItem5Eyebrow"),
+          label: tTr("exploreItem5Label"),
+          href: "/second-opinion",
+          hint: tTr("exploreItem5Hint"),
+        },
+        {
+          eyebrow: tTr("exploreItem6Eyebrow"),
+          label: tTr("exploreItem6Label"),
+          href: "/glossary",
+          hint: tTr("exploreItem6Hint"),
+        },
       ]}
     />
 

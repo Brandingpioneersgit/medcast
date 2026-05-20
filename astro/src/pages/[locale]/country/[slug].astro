@@ -45,6 +45,7 @@ const [data, heroOverride, linkables] = await Promise.all([
 if (!data) return new Response(`Not found: ${slug}`, { status: 404 });
 
 const tc = getTranslator(locale, "common");
+const tCdt = getTranslator(locale, "countryDetailPage");
 
 const rawData = data;
 const [countryMap, faqRows, countryContentRow, hospitalMap, treatmentMap] = await Promise.all([
@@ -208,7 +209,7 @@ const url = localeUrl(locale, path);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Destinations", url: localeUrl(locale, "/countries") },
+  { name: tCdt("breadcrumbDestinations"), url: localeUrl(locale, "/countries") },
   { name: country.name, url },
 ]);
 
@@ -261,7 +262,7 @@ Astro.response.headers.set(
       <div class="mx-auto max-w-7xl px-6 py-3.5 text-sm text-ink-muted">
         <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
         <span class="mx-2 text-ink-subtle">/</span>
-        <a href={localizedPath(locale, "/countries")} class="hover:text-accent">Destinations</a>
+        <a href={localizedPath(locale, "/countries")} class="hover:text-accent">{tCdt("breadcrumbDestinations")}</a>
         <span class="mx-2 text-ink-subtle">/</span>
         <span class="text-ink" aria-current="page">{country.name}</span>
       </div>
@@ -271,7 +272,7 @@ Astro.response.headers.set(
     <section class="relative overflow-hidden" style="height: 360px;">
       <img
         src={countryBanner(country.slug, 1600, 720, heroOverride?.url)}
-        alt={heroOverride?.altText ?? `${country.name} skyline — medical travel destination`}
+        alt={heroOverride?.altText ?? `${country.name} ${tCdt("heroImgAltSuffix")}`}
         width="1600"
         height="720"
         loading="eager"
@@ -288,13 +289,13 @@ Astro.response.headers.set(
       />
       <div class="relative mx-auto max-w-7xl px-6 h-full flex flex-col justify-end pb-10">
         <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/80">
-          Destination
+          {tCdt("heroEyebrow")}
         </p>
         <h1 class="mt-2 font-display text-3xl md:text-5xl leading-[1.05] text-white">
-          Medical travel to {country.name}
+          {tCdt("heroHeading").replace("{country}", country.name)}
         </h1>
         <p class="mt-3 text-white/85 text-sm md:text-base max-w-2xl">
-          {hospitalCount.toLocaleString()} accredited hospitals · {doctorCount.toLocaleString()} specialists
+          {hospitalCount.toLocaleString()} {tCdt("heroStatHospitals")} · {doctorCount.toLocaleString()} {tCdt("heroStatSpecialists")}
         </p>
       </div>
     </section>
@@ -303,44 +304,44 @@ Astro.response.headers.set(
     <section class="mx-auto max-w-7xl px-6 pt-10 md:pt-14 pb-10">
       <div class="lede max-w-3xl" set:html={ctx?.intro
           ? linkifyText(ctx.intro)
-          : `<p>${country.name} is a destination for international medical care. ${hospitalCount.toLocaleString()} hospitals across ${cityCount} cities handle overseas patients.</p>`} />
+          : `<p>${tCdt("introFallback").replace("{country}", country.name).replace("{hospitalCount}", hospitalCount.toLocaleString()).replace("{cityCount}", String(cityCount))}</p>`} />
       {ctx && (
         <div class="mt-8 grid md:grid-cols-2 gap-4 max-w-4xl">
           <div class="rounded-xl border border-border bg-surface p-5">
-            <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">What it's known for</p>
+            <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">{tCdt("knownForEyebrow")}</p>
             <div class="mt-2 text-sm text-ink-muted" set:html={linkifyText(ctx.strength)} />
           </div>
           <div class="rounded-xl border border-amber-300/60 bg-amber-50/60 dark:border-amber-700/40 dark:bg-amber-950/20 p-5">
-            <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-400">Before you book</p>
+            <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-400">{tCdt("beforeYouBook")}</p>
             <div class="mt-2 text-sm text-ink-muted" set:html={linkifyText(ctx.watchOut)} />
           </div>
         </div>
       )}
       <LastUpdated
         updated={new Date()}
-        note={`Data sampled from ${hospitalCount.toLocaleString()} active hospital records.`}
+        note={tCdt("introLastUpdatedNote").replace("{hospitalCount}", hospitalCount.toLocaleString())}
       />
 
       <div class="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
         <div class="rounded-xl border border-border bg-surface p-5">
           <Building2 className="h-5 w-5 text-accent" />
           <p class="mt-3 font-display text-2xl">{hospitalCount.toLocaleString()}</p>
-          <p class="text-xs text-ink-subtle uppercase tracking-wider">Hospitals</p>
+          <p class="text-xs text-ink-subtle uppercase tracking-wider">{tCdt("statHospitals")}</p>
         </div>
         <div class="rounded-xl border border-border bg-surface p-5">
           <Users className="h-5 w-5 text-accent" />
           <p class="mt-3 font-display text-2xl">{doctorCount.toLocaleString()}</p>
-          <p class="text-xs text-ink-subtle uppercase tracking-wider">Specialists</p>
+          <p class="text-xs text-ink-subtle uppercase tracking-wider">{tCdt("statSpecialists")}</p>
         </div>
         <div class="rounded-xl border border-border bg-surface p-5">
           <MapPin className="h-5 w-5 text-accent" />
           <p class="mt-3 font-display text-2xl">{cityCount.toLocaleString()}</p>
-          <p class="text-xs text-ink-subtle uppercase tracking-wider">Cities</p>
+          <p class="text-xs text-ink-subtle uppercase tracking-wider">{tCdt("statCities")}</p>
         </div>
         <div class="rounded-xl border border-border bg-surface p-5">
           <Globe className="h-5 w-5 text-accent" />
           <p class="mt-3 font-display text-2xl">{topTreatments.length}+</p>
-          <p class="text-xs text-ink-subtle uppercase tracking-wider">Treatments</p>
+          <p class="text-xs text-ink-subtle uppercase tracking-wider">{tCdt("statTreatments")}</p>
         </div>
       </div>
 
@@ -351,8 +352,8 @@ Astro.response.headers.set(
         class="mt-6 inline-flex items-center gap-2 group"
         style="font-size: 14px; color: var(--color-accent);"
       >
-        <span class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em;">Planning the trip?</span>
-        <span class="serif font-medium group-hover:underline">{country.name} medical visa guide</span>
+        <span class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em;">{tCdt("visaLinkEyebrow")}</span>
+        <span class="serif font-medium group-hover:underline">{tCdt("visaLinkText").replace("{country}", country.name)}</span>
         <ChevronRight className="h-3.5 w-3.5 mirror-x" />
       </a>
     </section>
@@ -361,19 +362,19 @@ Astro.response.headers.set(
     <section class="border-t border-border" style="background: var(--color-paper);">
       <div class="mx-auto max-w-7xl px-6 py-12 md:py-14">
         <div class="mono uppercase mb-6" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
-          Who travels to {country.name}
+          {tCdt("whoTravelsEyebrow").replace("{country}", country.name)}
         </div>
         <ul class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
           {[
-            { region: "africa" as const, label: "Sub-Saharan Africa", origins: "Nigeria · Kenya · Ghana" },
-            { region: "middle_east" as const, label: "Gulf & Levant", origins: "Saudi · UAE · Iraq" },
-            { region: "cis" as const, label: "CIS & Caucasus", origins: "Russia · Kazakhstan · Uzbekistan" },
-            { region: "south_asia" as const, label: "South Asia", origins: "Bangladesh · Pakistan · Nepal" },
+            { region: "africa" as const, label: tCdt("originAfricaLabel"), origins: tCdt("originAfricaOrigins") },
+            { region: "middle_east" as const, label: tCdt("originMiddleEastLabel"), origins: tCdt("originMiddleEastOrigins") },
+            { region: "cis" as const, label: tCdt("originCisLabel"), origins: tCdt("originCisOrigins") },
+            { region: "south_asia" as const, label: tCdt("originSouthAsiaLabel"), origins: tCdt("originSouthAsiaOrigins") },
           ].map((p, i) => (
             <li class="relative paper-flat overflow-hidden" style="aspect-ratio: 4/5; border-radius: var(--radius-lg);">
               <img
                 src={patientHero(`${slug}-${p.region}-${i}`, p.region, 480)}
-                alt={`Patients from ${p.label} travelling to ${country.name}`}
+                alt={tCdt("originImgAlt").replace("{region}", p.label).replace("{country}", country.name)}
                 width="480"
                 height="600"
                 loading="lazy"
@@ -401,18 +402,18 @@ Astro.response.headers.set(
       <div class="mx-auto max-w-7xl px-6 py-12 md:py-14">
         <div class="grid gap-8 lg:grid-cols-[0.45fr_1fr] lg:gap-12 items-start">
           <div>
-            <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">Safety & accreditation</div>
+            <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">{tCdt("safetyEyebrow")}</div>
             <h2 class="display mt-2" style="font-size: 28px; line-height: 1.05; letter-spacing: -0.02em;">
-              Verify before
-              <span style="font-style: italic; font-weight: 300;"> you commit</span>
+              {tCdt("safetyHeading")}
+              <span style="font-style: italic; font-weight: 300;"> {tCdt("safetyHeadingItalic")}</span>
             </h2>
             <p class="serif mt-3" style="font-size: 15px; line-height: 1.55; color: var(--color-ink-muted);">
-              Every hospital we shortlist in {country.name} is checked against the public registers below. They're free to access — and we encourage patients to verify any quote independently before traveling.
+              {tCdt("safetyBody").replace("{country}", country.name)}
             </p>
             <ul class="mt-5 grid gap-1.5 text-sm" style="color: var(--color-ink-muted);">
-              <li class="flex gap-2"><span style="color: var(--color-accent);">→</span> Active accreditation, not lapsed</li>
-              <li class="flex gap-2"><span style="color: var(--color-accent);">→</span> Treating physician's license verified by name + ID</li>
-              <li class="flex gap-2"><span style="color: var(--color-accent);">→</span> Re-checked quarterly · last sweep stamped on every hospital page</li>
+              <li class="flex gap-2"><span style="color: var(--color-accent);">→</span> {tCdt("safetyCheck1")}</li>
+              <li class="flex gap-2"><span style="color: var(--color-accent);">→</span> {tCdt("safetyCheck2")}</li>
+              <li class="flex gap-2"><span style="color: var(--color-accent);">→</span> {tCdt("safetyCheck3")}</li>
             </ul>
           </div>
           <ul class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
@@ -423,7 +424,7 @@ Astro.response.headers.set(
                     <div class="serif" style="font-size: 14.5px; font-weight: 500; line-height: 1.3; color: var(--color-ink);">{l.label}</div>
                     <div class="mono uppercase mt-1" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">{l.sub}</div>
                   </div>
-                  <span class="mono uppercase shrink-0 group-hover:text-accent transition-colors" style="font-size: 10px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">Open ↗</span>
+                  <span class="mono uppercase shrink-0 group-hover:text-accent transition-colors" style="font-size: 10px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">{tCdt("safetyLinkOpen")}</span>
                 </a>
               </li>
             ))}
@@ -436,8 +437,8 @@ Astro.response.headers.set(
     {hospitalsXl.length > 0 && (
       <section class="border-t border-border bg-surface-muted py-12">
         <div class="mx-auto max-w-7xl px-6">
-          <h2 class="font-display text-2xl md:text-3xl mb-2">Top hospitals in {country.name}</h2>
-          <p class="text-sm text-ink-muted mb-8">Curated by patient rating and review volume.</p>
+          <h2 class="font-display text-2xl md:text-3xl mb-2">{tCdt("hospitalsHeading").replace("{country}", country.name)}</h2>
+          <p class="text-sm text-ink-muted mb-8">{tCdt("hospitalsCurated")}</p>
           <ul class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {hospitalsXl.map((h) => (
               <li class="relative">
@@ -474,7 +475,7 @@ Astro.response.headers.set(
                     {h.rating && Number(h.rating) > 0 && (
                       <p class="mt-3 text-xs text-ink-muted">
                         <span class="text-gold-500">★</span> {Number(h.rating).toFixed(1)}
-                        {h.reviewCount ? ` · ${h.reviewCount} reviews` : ""}
+                        {h.reviewCount ? ` · ${h.reviewCount} ${tCdt("reviews")}` : ""}
                       </p>
                     )}
                   </div>
@@ -487,7 +488,7 @@ Astro.response.headers.set(
               href={localizedPath(locale, `/hospitals/country/${country.slug}`)}
               class="inline-flex items-center gap-2 text-sm font-semibold text-accent hover:text-accent-hover"
             >
-              See all {hospitalCount.toLocaleString()} hospitals in {country.name}
+              {tCdt("hospitalsViewAll").replace("{count}", hospitalCount.toLocaleString()).replace("{country}", country.name)}
               <ChevronRight className="h-4 w-4 mirror-x" />
             </a>
           </div>
@@ -501,19 +502,19 @@ Astro.response.headers.set(
         <div class="paper" style="padding: 28px 28px 26px; display: grid; gap: 24px; grid-template-columns: 1fr; align-items: center; border-left: 3px solid var(--color-accent);">
           <div>
             <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
-              Free quote · {country.name}
+              {tCdt("midCtaEyebrow").replace("{country}", country.name)}
             </div>
             <h2 class="display mt-2" style="font-size: clamp(1.6rem, 3.5vw, 2rem); line-height: 1.1; letter-spacing: -0.02em;">
-              Three itemised quotes from {country.name},
-              <span style="font-style: italic; font-weight: 300;"> in 48 hours.</span>
+              {tCdt("midCtaHeading").replace("{country}", country.name)}
+              <span style="font-style: italic; font-weight: 300;"> {tCdt("midCtaHeadingItalic")}</span>
             </h2>
             <p class="serif mt-3" style="font-size: 15.5px; line-height: 1.55; color: var(--color-ink-muted); max-width: 560px;">
-              Send a one-line description plus your reports. A named case manager replies in ~9 minutes during working hours and lines up surgeon options before you commit.
+              {tCdt("midCtaBody")}
             </p>
             <ul class="mt-4 grid gap-1.5 text-sm" style="color: var(--color-ink-muted);">
-              <li class="flex items-center gap-2"><span style="color: var(--color-accent);">✓</span> No payment until you're sitting with the surgeon</li>
-              <li class="flex items-center gap-2"><span style="color: var(--color-accent);">✓</span> Visa, attendant + airport pickup arranged</li>
-              <li class="flex items-center gap-2"><span style="color: var(--color-accent);">✓</span> Walk away anytime — your file is your file</li>
+              <li class="flex items-center gap-2"><span style="color: var(--color-accent);">✓</span> {tCdt("midCtaCheck1")}</li>
+              <li class="flex items-center gap-2"><span style="color: var(--color-accent);">✓</span> {tCdt("midCtaCheck2")}</li>
+              <li class="flex items-center gap-2"><span style="color: var(--color-accent);">✓</span> {tCdt("midCtaCheck3")}</li>
             </ul>
           </div>
           <div class="flex flex-wrap gap-3">
@@ -522,7 +523,7 @@ Astro.response.headers.set(
               class="inline-flex items-center gap-2 font-semibold"
               style="background: var(--color-ink); color: var(--color-bg); padding: 13px 22px; border-radius: 9999px; font-size: 14.5px;"
             >
-              Get free quote
+              {tCdt("midCtaBtnQuote")}
               <ChevronRight className="h-4 w-4 mirror-x" />
             </a>
             <a
@@ -530,7 +531,7 @@ Astro.response.headers.set(
               class="inline-flex items-center gap-2"
               style="background: transparent; color: var(--color-ink); border: 1px solid var(--color-ink); padding: 13px 22px; border-radius: 9999px; font-size: 14.5px; font-weight: 500;"
             >
-              Free 2nd opinion
+              {tCdt("midCtaBtnSecondOpinion")}
             </a>
           </div>
         </div>
@@ -541,8 +542,8 @@ Astro.response.headers.set(
     {treatmentsXl.length > 0 && (
       <section class="border-t border-border py-12">
         <div class="mx-auto max-w-7xl px-6">
-          <h2 class="font-display text-2xl md:text-3xl mb-2">Surgeons in {country.name} by specialty</h2>
-          <p class="text-sm text-ink-muted mb-8">Ranked by volume and years in practice — auto-populated from active hospital rosters.</p>
+          <h2 class="font-display text-2xl md:text-3xl mb-2">{tCdt("surgeonsHeading").replace("{country}", country.name)}</h2>
+          <p class="text-sm text-ink-muted mb-8">{tCdt("surgeonsSubtitle")}</p>
           <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from(
               new Map(
@@ -560,7 +561,7 @@ Astro.response.headers.set(
                   >
                     <span class="min-w-0">
                       <span class="mono uppercase block" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                        Surgeons
+                        {tCdt("surgeonsCardLabel")}
                       </span>
                       <span class="mt-1 block font-medium text-ink group-hover:text-accent">{s.name} · {country.name}</span>
                     </span>
@@ -577,8 +578,8 @@ Astro.response.headers.set(
     {treatmentsXl.length > 0 && (
       <section class="border-t border-border py-12">
         <div class="mx-auto max-w-7xl px-6">
-          <h2 class="font-display text-2xl md:text-3xl mb-2">Popular treatments in {country.name}</h2>
-          <p class="text-sm text-ink-muted mb-8">Price ranges across active hospital partners.</p>
+          <h2 class="font-display text-2xl md:text-3xl mb-2">{tCdt("treatmentsHeading").replace("{country}", country.name)}</h2>
+          <p class="text-sm text-ink-muted mb-8">{tCdt("treatmentsSubtitle")}</p>
           <ul class="grid grid-cols-1 gap-3 md:grid-cols-2">
             {treatmentsXl.map((t) => (
               <li>
@@ -593,7 +594,7 @@ Astro.response.headers.set(
                     {t.specialty && (
                       <p class="text-xs text-ink-subtle mt-0.5">{t.specialty}</p>
                     )}
-                    <p class="text-xs text-ink-subtle mt-0.5">{t.hospital_count} hospitals</p>
+                    <p class="text-xs text-ink-subtle mt-0.5">{t.hospital_count} {tCdt("treatmentsHospitalCount")}</p>
                   </div>
                   {t.lo && (
                     <p class="font-display text-base text-ink shrink-0">
@@ -612,21 +613,21 @@ Astro.response.headers.set(
     {cityList.length > 0 && (
       <section class="border-t border-border bg-surface-muted py-12">
         <div class="mx-auto max-w-7xl px-6">
-          <h2 class="font-display text-2xl md:text-3xl mb-8">Cities in {country.name}</h2>
+          <h2 class="font-display text-2xl md:text-3xl mb-8">{tCdt("citiesHeading").replace("{country}", country.name)}</h2>
           <ul class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
             {cityList.map((c) => (
               <li>
                 <a
                   href={localizedPath(locale, `/city/${c.slug}`)}
                   class="group flex items-center justify-between rounded-lg border border-border bg-surface p-3 transition hover:border-border-strong"
-                  title={`Hospitals in ${c.name}, ${country.name}`}
-                  aria-label={`Hospitals in ${c.name}, ${country.name}`}
+                  title={tCdt("citiesCardTitle").replace("{city}", c.name).replace("{country}", country.name)}
+                  aria-label={tCdt("citiesCardTitle").replace("{city}", c.name).replace("{country}", country.name)}
                 >
                   <div class="min-w-0">
                     <p class="font-medium text-ink group-hover:text-accent transition-colors truncate">
-                      Hospitals in {c.name}
+                      {tCdt("citiesCardLabel").replace("{city}", c.name)}
                     </p>
-                    <p class="text-xs text-ink-subtle mt-0.5">{c.hospital_count} programs · {country.name}</p>
+                    <p class="text-xs text-ink-subtle mt-0.5">{c.hospital_count} {tCdt("citiesCardStat").replace("{country}", country.name)}</p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-ink-subtle shrink-0 mirror-x" />
                 </a>
@@ -642,9 +643,9 @@ Astro.response.headers.set(
       <section style="padding: 56px 28px; border-top: 1px solid var(--color-border);">
         <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[0.35fr_1fr]">
           <div>
-            <div class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">FAQ</div>
+            <div class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">{tCdt("faqEyebrow")}</div>
             <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
-              Common questions about {country.name}
+              {tCdt("faqHeading").replace("{country}", country.name)}
             </h2>
           </div>
           <div class="divide-y" style="border-color: var(--color-border-soft);">
@@ -667,12 +668,12 @@ Astro.response.headers.set(
       <div class="mx-auto max-w-7xl px-6">
         <div class="rounded-2xl border border-border bg-surface p-8 md:p-10 grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
           <div>
-            <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-subtle">Considering {country.name}?</p>
+            <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-subtle">{tCdt("ctaEyebrow").replace("{country}", country.name)}</p>
             <h2 class="mt-2 font-display text-2xl md:text-3xl leading-tight">
-              Compare {country.name} hospitals on price and surgeon volume
+              {tCdt("ctaHeading").replace("{country}", country.name)}
             </h2>
             <p class="mt-3 text-ink-muted leading-relaxed max-w-2xl">
-              Send us your case — imaging, current plan, treatment needed. We'll shortlist 3 hospitals with transparent pricing and tell you honestly which is the best fit. No obligation to travel.
+              {tCdt("ctaBody")}
             </p>
           </div>
           <div class="flex flex-wrap gap-3">
@@ -680,14 +681,14 @@ Astro.response.headers.set(
               href={localizedPath(locale, `/contact?country=${country.slug}`)}
               class="inline-flex items-center gap-2 rounded-lg bg-accent text-accent-contrast font-semibold px-5 py-3 hover:bg-accent-hover transition-colors"
             >
-              Request quotes
+              {tCdt("ctaBtnRequestQuotes")}
               <ChevronRight className="h-4 w-4 mirror-x" />
             </a>
             <a
               href={localizedPath(locale, "/second-opinion")}
               class="inline-flex items-center gap-2 rounded-lg border border-border-strong text-ink font-semibold px-5 py-3 hover:bg-surface-muted transition-colors"
             >
-              Second opinion
+              {tCdt("ctaBtnSecondOpinion")}
             </a>
           </div>
         </div>
@@ -697,7 +698,7 @@ Astro.response.headers.set(
     <div class="mx-auto max-w-7xl px-6 pb-10">
       <LastUpdated
         updated="2026-04-20"
-        note="Hospital counts and pricing ranges updated monthly from our partner network."
+        note={tCdt("bottomLastUpdatedNote")}
       />
     </div>
 
@@ -712,23 +713,23 @@ Astro.response.headers.set(
       <section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
           <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-            Practical destination guide
+            {tCdt("guideEyebrow")}
           </div>
           <h2 class="display mb-10" style="font-size: 32px; letter-spacing: -0.02em;">
-            Travelling to <span style="font-style: italic;">{country.name}</span> for treatment
+            {tCdt("guideHeading").replace("{country}", country.name)}
           </h2>
 
           <div class="grid gap-6 md:grid-cols-2">
             {countrySections.bestMonthsToTravel && (
               <div class="paper" style="padding: 24px;">
                 <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
-                  Best months
+                  {tCdt("guideBestMonths")}
                 </div>
                 {countrySections.bestMonthsToTravel.peak && (
-                  <p class="mb-2" style="font-size: 15px;"><strong>Peak:</strong> {countrySections.bestMonthsToTravel.peak.join(", ")}</p>
+                  <p class="mb-2" style="font-size: 15px;"><strong>{tCdt("guidePeak")}:</strong> {countrySections.bestMonthsToTravel.peak.join(", ")}</p>
                 )}
                 {countrySections.bestMonthsToTravel.avoid && countrySections.bestMonthsToTravel.avoid.length > 0 && (
-                  <p class="mb-2" style="font-size: 15px;"><strong>Avoid:</strong> {countrySections.bestMonthsToTravel.avoid.join(", ")}</p>
+                  <p class="mb-2" style="font-size: 15px;"><strong>{tCdt("guideAvoid")}:</strong> {countrySections.bestMonthsToTravel.avoid.join(", ")}</p>
                 )}
                 {countrySections.bestMonthsToTravel.notes && (
                   <p style="font-size: 14.5px; line-height: 1.55; color: var(--color-ink-muted);">{countrySections.bestMonthsToTravel.notes}</p>
@@ -739,16 +740,16 @@ Astro.response.headers.set(
             {countrySections.paymentLogistics && (
               <div class="paper" style="padding: 24px;">
                 <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
-                  Payment logistics
+                  {tCdt("guidePaymentLogistics")}
                 </div>
                 {countrySections.paymentLogistics.currency && (
-                  <p class="mb-1.5" style="font-size: 14.5px;"><strong>Currency:</strong> {countrySections.paymentLogistics.currency}</p>
+                  <p class="mb-1.5" style="font-size: 14.5px;"><strong>{tCdt("guideCurrency")}:</strong> {countrySections.paymentLogistics.currency}</p>
                 )}
                 {countrySections.paymentLogistics.exchange && (
                   <p class="mb-1.5" style="font-size: 14.5px; line-height: 1.5;">{countrySections.paymentLogistics.exchange}</p>
                 )}
                 {countrySections.paymentLogistics.deposits && (
-                  <p class="mb-1.5" style="font-size: 14.5px; line-height: 1.5;"><strong>Deposits:</strong> {countrySections.paymentLogistics.deposits}</p>
+                  <p class="mb-1.5" style="font-size: 14.5px; line-height: 1.5;"><strong>{tCdt("guideDeposits")}:</strong> {countrySections.paymentLogistics.deposits}</p>
                 )}
                 {countrySections.paymentLogistics.notes && (
                   <p style="font-size: 13.5px; line-height: 1.5; color: var(--color-ink-muted);">{countrySections.paymentLogistics.notes}</p>
@@ -759,16 +760,16 @@ Astro.response.headers.set(
             {countrySections.attendantLogistics && (
               <div class="paper" style="padding: 24px;">
                 <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
-                  Visa + attendant
+                  {tCdt("guideVisaAttendant")}
                 </div>
                 {countrySections.attendantLogistics.visa && (
-                  <p class="mb-2" style="font-size: 14.5px; line-height: 1.5;"><strong>Visa:</strong> {countrySections.attendantLogistics.visa}</p>
+                  <p class="mb-2" style="font-size: 14.5px; line-height: 1.5;"><strong>{tCdt("guideVisa")}:</strong> {countrySections.attendantLogistics.visa}</p>
                 )}
                 {countrySections.attendantLogistics.accommodation && (
-                  <p class="mb-2" style="font-size: 14.5px; line-height: 1.5;"><strong>Accommodation:</strong> {countrySections.attendantLogistics.accommodation}</p>
+                  <p class="mb-2" style="font-size: 14.5px; line-height: 1.5;"><strong>{tCdt("guideAccommodation")}:</strong> {countrySections.attendantLogistics.accommodation}</p>
                 )}
                 {countrySections.attendantLogistics.roomingIn && (
-                  <p style="font-size: 14.5px; line-height: 1.5;"><strong>Rooming-in:</strong> {countrySections.attendantLogistics.roomingIn}</p>
+                  <p style="font-size: 14.5px; line-height: 1.5;"><strong>{tCdt("guideRoomingIn")}:</strong> {countrySections.attendantLogistics.roomingIn}</p>
                 )}
               </div>
             )}
@@ -776,16 +777,16 @@ Astro.response.headers.set(
             {countrySections.airportTransit && (
               <div class="paper" style="padding: 24px;">
                 <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
-                  Airport + transit
+                  {tCdt("guideAirportTransit")}
                 </div>
                 {countrySections.airportTransit.majorAirports && (
-                  <p class="mb-2" style="font-size: 14.5px; line-height: 1.5;"><strong>Airports:</strong> {countrySections.airportTransit.majorAirports}</p>
+                  <p class="mb-2" style="font-size: 14.5px; line-height: 1.5;"><strong>{tCdt("guideAirports")}:</strong> {countrySections.airportTransit.majorAirports}</p>
                 )}
                 {countrySections.airportTransit.hospitalTransfer && (
                   <p class="mb-2" style="font-size: 14.5px; line-height: 1.5;">{countrySections.airportTransit.hospitalTransfer}</p>
                 )}
                 {countrySections.airportTransit.averageTransitTime && (
-                  <p style="font-size: 14.5px; line-height: 1.5;"><strong>Transit:</strong> {countrySections.airportTransit.averageTransitTime}</p>
+                  <p style="font-size: 14.5px; line-height: 1.5;"><strong>{tCdt("guideTransit")}:</strong> {countrySections.airportTransit.averageTransitTime}</p>
                 )}
               </div>
             )}
@@ -793,7 +794,7 @@ Astro.response.headers.set(
 
           {countrySections.whatToPack && countrySections.whatToPack.length > 0 && (
             <div class="mt-8">
-              <h3 class="display mb-4" style="font-size: 22px;">What to pack</h3>
+              <h3 class="display mb-4" style="font-size: 22px;">{tCdt("guideWhatToPack")}</h3>
               <ul class="grid gap-2 md:grid-cols-2">
                 {countrySections.whatToPack.map((item) => (
                   <li class="flex gap-2.5" style="font-size: 14.5px; line-height: 1.5;">
@@ -808,21 +809,21 @@ Astro.response.headers.set(
           {countrySections.afterYouFly && (
             <div class="mt-8 paper" style="padding: 24px;">
               <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
-                After you fly home
+                {tCdt("guideAfterFlyHome")}
               </div>
-              {countrySections.afterYouFly.followUp && <p class="mb-2" style="font-size: 14.5px; line-height: 1.55;"><strong>Follow-up:</strong> {countrySections.afterYouFly.followUp}</p>}
-              {countrySections.afterYouFly.medications && <p class="mb-2" style="font-size: 14.5px; line-height: 1.55;"><strong>Medications:</strong> {countrySections.afterYouFly.medications}</p>}
-              {countrySections.afterYouFly.homeCoordination && <p style="font-size: 14.5px; line-height: 1.55;"><strong>Home coordination:</strong> {countrySections.afterYouFly.homeCoordination}</p>}
+              {countrySections.afterYouFly.followUp && <p class="mb-2" style="font-size: 14.5px; line-height: 1.55;"><strong>{tCdt("guideFollowUp")}:</strong> {countrySections.afterYouFly.followUp}</p>}
+              {countrySections.afterYouFly.medications && <p class="mb-2" style="font-size: 14.5px; line-height: 1.55;"><strong>{tCdt("guideMedications")}:</strong> {countrySections.afterYouFly.medications}</p>}
+              {countrySections.afterYouFly.homeCoordination && <p style="font-size: 14.5px; line-height: 1.55;"><strong>{tCdt("guideHomeCoordination")}:</strong> {countrySections.afterYouFly.homeCoordination}</p>}
             </div>
           )}
 
           {countrySections.emergencyInfo && (
             <div class="mt-6" style="padding: 20px 24px; border: 1px solid var(--color-border-soft); border-inline-start: 3px solid var(--color-coral, var(--color-coral)); background: white;">
               <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-coral, var(--color-coral)); margin-bottom: 8px;">
-                Emergency info
+                {tCdt("guideEmergencyInfo")}
               </div>
-              {countrySections.emergencyInfo.nationalEmergency && <p style="font-size: 14.5px;"><strong>National emergency:</strong> {countrySections.emergencyInfo.nationalEmergency}</p>}
-              {countrySections.emergencyInfo.ambulance && <p style="font-size: 14.5px;"><strong>Ambulance:</strong> {countrySections.emergencyInfo.ambulance}</p>}
+              {countrySections.emergencyInfo.nationalEmergency && <p style="font-size: 14.5px;"><strong>{tCdt("guideNationalEmergency")}:</strong> {countrySections.emergencyInfo.nationalEmergency}</p>}
+              {countrySections.emergencyInfo.ambulance && <p style="font-size: 14.5px;"><strong>{tCdt("guideAmbulance")}:</strong> {countrySections.emergencyInfo.ambulance}</p>}
               {countrySections.emergencyInfo.keyHospitals && <p class="mt-2" style="font-size: 14px; line-height: 1.5;">{countrySections.emergencyInfo.keyHospitals}</p>}
             </div>
           )}
@@ -832,41 +833,41 @@ Astro.response.headers.set(
 
     {/* EEAT signals */}
     <MethodologyBlock locale={locale}
-      curationNote={`This ${country.name} destination overview is rebuilt from our active partner network of accredited hospitals in the country, plus government regulatory data and verified flight-connectivity research. Surgeon credentials, hospital accreditation, and pricing ranges are refreshed quarterly.`}
+      curationNote={tCdt("methodologyCurationNote").replace("{country}", country.name)}
       dataSources={[
-        `${country.name} ministry of health licensing register`,
-        "JCI accreditation registry",
-        "International airport authority data",
-        "Hospital itemised quote sheets",
+        tCdt("methodologySource1").replace("{country}", country.name),
+        tCdt("methodologySource2"),
+        tCdt("methodologySource3"),
+        tCdt("methodologySource4"),
       ]}
     />
 
     <ExploreGrid
       locale={locale}
-      eyebrow={`${country.name} medical travel`}
-      heading={`Other lenses on ${country.name}`}
-      lede={`The destination hub gives you the overview. These hubs cut the same data by city, by procedure, by specialty, and by visa logistics — so you can decide what matters most for your case.`}
+      eyebrow={tCdt("exploreEyebrow").replace("{country}", country.name)}
+      heading={tCdt("exploreHeading").replace("{country}", country.name)}
+      lede={tCdt("exploreLede")}
       items={[
-        { eyebrow: "Hospitals", label: `All ${country.name} hospitals`, href: `/hospitals/country/${slug}`, hint: `Filter by city, specialty, accreditation across ${hospitalCount.toLocaleString()} programs.` },
-        { eyebrow: "Doctors", label: `${country.name} surgeons`, href: `/doctors/country/${slug}`, hint: `Volume-ranked physician directory across ${doctorCount.toLocaleString()} surgeons.` },
-        ...(topTreatments[0] ? [{ eyebrow: "Procedure", label: `${topTreatments[0].name} in ${country.name}`, href: `/treatment/${topTreatments[0].slug}/${slug}`, hint: "Most-priced procedure for this destination — full cost breakdown." }] : []),
-        ...(topTreatments[1] ? [{ eyebrow: "Procedure", label: `${topTreatments[1].name} cost in ${country.name}`, href: `/treatment/${topTreatments[1].slug}/${slug}`, hint: "Per-hospital pricing and recovery timeline." }] : []),
-        ...(topTreatments[2] ? [{ eyebrow: "Procedure", label: `${topTreatments[2].name} in ${country.name}`, href: `/treatment/${topTreatments[2].slug}/${slug}`, hint: "Top hospitals priced for this procedure." }] : []),
+        { eyebrow: tCdt("exploreEyebrowHospitals"), label: tCdt("exploreLabelAllHospitals").replace("{country}", country.name), href: `/hospitals/country/${slug}`, hint: tCdt("exploreHintHospitals").replace("{count}", hospitalCount.toLocaleString()) },
+        { eyebrow: tCdt("exploreEyebrowDoctors"), label: tCdt("exploreLabelSurgeons").replace("{country}", country.name), href: `/doctors/country/${slug}`, hint: tCdt("exploreHintDoctors").replace("{count}", doctorCount.toLocaleString()) },
+        ...(topTreatments[0] ? [{ eyebrow: tCdt("exploreEyebrowProcedure"), label: `${topTreatments[0].name} in ${country.name}`, href: `/treatment/${topTreatments[0].slug}/${slug}`, hint: tCdt("exploreHintProcedure1") }] : []),
+        ...(topTreatments[1] ? [{ eyebrow: tCdt("exploreEyebrowProcedure"), label: `${topTreatments[1].name} cost in ${country.name}`, href: `/treatment/${topTreatments[1].slug}/${slug}`, hint: tCdt("exploreHintProcedure2") }] : []),
+        ...(topTreatments[2] ? [{ eyebrow: tCdt("exploreEyebrowProcedure"), label: `${topTreatments[2].name} in ${country.name}`, href: `/treatment/${topTreatments[2].slug}/${slug}`, hint: tCdt("exploreHintProcedure3") }] : []),
         ...cityList.slice(0, 6).map((c) => ({
-          eyebrow: "City",
-          label: `Hospitals in ${c.name}`,
+          eyebrow: tCdt("exploreEyebrowCity"),
+          label: tCdt("exploreLabelCity").replace("{city}", c.name),
           href: `/city/${c.slug}`,
-          hint: `${c.hospital_count} programs in ${c.name}, ${country.name}.`,
+          hint: tCdt("exploreHintCity").replace("{count}", String(c.hospital_count)).replace("{city}", c.name).replace("{country}", country.name),
         })),
-        { eyebrow: "Visa", label: `${country.name} medical visa`, href: `/visa/${slug}`, hint: `Documents, processing time, embassy guidance for ${country.name}.` },
-        { eyebrow: "From UK", label: `Travelling from the UK to ${country.name}`, href: "/from/united-kingdom", hint: "NHS waitlist relief, insurer compatibility, payment routes." },
-        { eyebrow: "From USA", label: `Travelling from the US to ${country.name}`, href: "/from/usa", hint: "Cost-vs-domestic, insurer reimbursement, Cigna/Aetna/Blue Shield routes." },
-        { eyebrow: "From Canada", label: `Travelling from Canada to ${country.name}`, href: "/from/canada", hint: "Provincial wait times, OHIP/MSP coordination, repatriation support." },
-        { eyebrow: "From Australia", label: `Travelling from Australia to ${country.name}`, href: "/from/australia", hint: "Medicare overseas exclusions, private health interaction, flights." },
-        { eyebrow: "Compare", label: "Destination shootout", href: "/compare/countries", hint: `Hospitals, doctors, treatments — compared across all destinations.` },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
-        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get specialty + destination + 3 hospitals." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+        { eyebrow: tCdt("exploreEyebrowVisa"), label: tCdt("exploreLabelVisa").replace("{country}", country.name), href: `/visa/${slug}`, hint: tCdt("exploreHintVisa").replace("{country}", country.name) },
+        { eyebrow: tCdt("exploreEyebrowFromUK"), label: tCdt("exploreLabelFromUK").replace("{country}", country.name), href: "/from/united-kingdom", hint: tCdt("exploreHintFromUK") },
+        { eyebrow: tCdt("exploreEyebrowFromUSA"), label: tCdt("exploreLabelFromUSA").replace("{country}", country.name), href: "/from/usa", hint: tCdt("exploreHintFromUSA") },
+        { eyebrow: tCdt("exploreEyebrowFromCanada"), label: tCdt("exploreLabelFromCanada").replace("{country}", country.name), href: "/from/canada", hint: tCdt("exploreHintFromCanada") },
+        { eyebrow: tCdt("exploreEyebrowFromAustralia"), label: tCdt("exploreLabelFromAustralia").replace("{country}", country.name), href: "/from/australia", hint: tCdt("exploreHintFromAustralia") },
+        { eyebrow: tCdt("exploreEyebrowCompare"), label: tCdt("exploreLabelCompare"), href: "/compare/countries", hint: tCdt("exploreHintCompare") },
+        { eyebrow: tCdt("exploreEyebrowTool"), label: tCdt("exploreLabelCalculator"), href: "/calculator", hint: tCdt("exploreHintCalculator") },
+        { eyebrow: tCdt("exploreEyebrowTool"), label: tCdt("exploreLabelMatchMe"), href: "/match-me", hint: tCdt("exploreHintMatchMe") },
+        { eyebrow: tCdt("exploreEyebrowAction"), label: tCdt("exploreLabelSecondOpinion"), href: "/second-opinion", hint: tCdt("exploreHintSecondOpinion") },
       ]}
     />
 
@@ -874,8 +875,8 @@ Astro.response.headers.set(
     <EngagementFab locale={locale} />
     <MobileQuoteBar
       locale={locale}
-      label={`Care in ${country.name}`}
-      sublabel="Hospitals · surgeons · visa help"
+      label={tCdt("mobileBarLabel").replace("{country}", country.name)}
+      sublabel={tCdt("mobileBarSublabel")}
       whatsapp={{
         page: "country",
         slug,

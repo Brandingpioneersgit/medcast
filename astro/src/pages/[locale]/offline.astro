@@ -2,11 +2,13 @@
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { getTranslator } from "@/lib/messages";
 
 export const prerender = false;
 
 const rawLocale = Astro.params.locale ?? "en";
 const locale = (isLocale(rawLocale) ? rawLocale : "en") as Locale;
+const tOf = getTranslator(locale, "offlinePage");
 
 Astro.response.headers.set("Cache-Control", "public, max-age=0, must-revalidate");
 ---
@@ -14,8 +16,8 @@ Astro.response.headers.set("Cache-Control", "public, max-age=0, must-revalidate"
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta
-      title="You're offline"
-      description="No connection. The page you visited will reload as soon as you're back online."
+      title={tOf("metaTitle")}
+      description={tOf("metaDescription")}
       path="/offline"
       locale={locale}
       noindex
@@ -28,20 +30,19 @@ Astro.response.headers.set("Cache-Control", "public, max-age=0, must-revalidate"
         class="mono uppercase"
         style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-coral);"
       >
-        No connection
+        {tOf("noConnection")}
       </p>
       <h1
         class="display display-tight mt-3"
         style="font-size: clamp(2rem, 4.5vw, 3.5rem); line-height: 1.02; letter-spacing: -0.03em;"
       >
-        You're <span class="italic-display">offline.</span>
+        {tOf("headingPrefix")} <span class="italic-display">{tOf("headingSuffix")}</span>
       </h1>
       <p
         class="serif mt-5"
         style="font-size: 17px; line-height: 1.5; color: var(--color-ink-muted);"
       >
-        The page you visited is cached and will load fresh as soon as you're back online.
-        For urgent help, our 24/7 desk is reachable on WhatsApp.
+        {tOf("bodyText")}
       </p>
       <div class="mt-8 flex flex-wrap justify-center gap-3">
         <a
@@ -49,14 +50,14 @@ Astro.response.headers.set("Cache-Control", "public, max-age=0, must-revalidate"
           class="inline-flex items-center font-semibold"
           style="background: var(--color-ink); color: var(--color-bg); padding: 12px 22px; border-radius: 9999px;"
         >
-          Try home again
+          {tOf("tryHomeButton")}
         </a>
         <a
           href="https://wa.me/918006210000"
           class="inline-flex items-center font-semibold"
           style="background: #25D366; color: #FFF; padding: 12px 22px; border-radius: 9999px;"
         >
-          WhatsApp 24/7
+          {tOf("whatsappButton")}
         </a>
       </div>
     </div>

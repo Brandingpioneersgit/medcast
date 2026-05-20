@@ -29,6 +29,7 @@ if (!data) return new Response(`Not found: ${slug}/${specialtySlug}/doctors`, { 
 if (data.doctors.length === 0) return new Response(`No doctors listed`, { status: 404 });
 
 const tc = getTranslator(locale, "common");
+const tHsd = getTranslator(locale, "hospitalSpecialtyDoctorsPage");
 
 const [hMap, sMap, faqs] = await Promise.all([
   getContent("hospital", data.hospital.id, locale),
@@ -51,9 +52,14 @@ const citySlug = hospital.city?.slug ?? null;
 const countrySlug = hospital.city?.country?.slug ?? null;
 
 const specialistNoun = surgeonNoun(specialtySlug, specialty.name);
-const seoTitle = `Best ${titleCase(specialistNoun)} at ${hospital.name}`;
-const seoDescription =
-  `${doctors.length} ${specialistNoun} practising at ${hospital.name}${cityName ? ` in ${cityName}` : ""}. Experience, patient volume, and video-consult availability.`.slice(0, 160);
+const seoTitle = tHsd("seoTitle").replace("{specialistNoun}", titleCase(specialistNoun)).replace("{hospitalName}", hospital.name);
+const seoDescription = (
+  tHsd("seoDescription")
+    .replace("{count}", String(doctors.length))
+    .replace("{specialistNoun}", specialistNoun)
+    .replace("{hospitalName}", hospital.name)
+    .replace("{cityFragment}", cityName ? tHsd("seoDescriptionCityFragment").replace("{cityName}", cityName) : "")
+).slice(0, 160);
 
 const path = `/hospital/${slug}/${specialtySlug}/doctors`;
 const url = localeUrl(locale, path);
@@ -63,7 +69,7 @@ const crumbs = breadcrumbJsonLd([
   { name: tc("hospitals"), url: localeUrl(locale, "/hospitals") },
   { name: hospital.name, url: localeUrl(locale, `/hospital/${slug}`) },
   { name: specialty.name, url: localeUrl(locale, `/hospital/${slug}/${specialtySlug}`) },
-  { name: "Doctors", url },
+  { name: tHsd("breadcrumbDoctors"), url },
 ]);
 
 const itemLd = withProvenance(
@@ -136,7 +142,7 @@ Astro.response.headers.set(
         <span class="mx-2 text-ink-subtle">/</span>
         <a href={localizedPath(locale, `/hospital/${slug}/${specialtySlug}`)} class="hover:text-accent">{specialty.name}</a>
         <span class="mx-2 text-ink-subtle">/</span>
-        <span class="text-ink" aria-current="page">Doctors</span>
+        <span class="text-ink" aria-current="page">{tHsd("breadcrumbDoctors")}</span>
       </div>
     </nav>
 
@@ -145,10 +151,14 @@ Astro.response.headers.set(
         {specialty.name} · {hospital.name}
       </p>
       <h1 class="mt-2 display display-tight" style="font-size: clamp(2rem, 4.5vw, 3.5rem); letter-spacing: -0.025em; line-height: 1.02;">
-        Best {specialistNoun} at {hospital.name}
+        {tHsd("h1").replace("{specialistNoun}", specialistNoun).replace("{hospitalName}", hospital.name)}
       </h1>
       <p class="lede mt-5 max-w-[44rem]">
-        {doctors.length} specialist{doctors.length === 1 ? "" : "s"} listed on the {hospital.name}{cityName ? `, ${cityName}` : ""} roster for {specialty.name.toLowerCase()}. Not every doctor practices this specialty exclusively — our case manager narrows to the right surgeon for your condition.
+        {tHsd("ledeParagraph")
+          .replace("{count}", String(doctors.length))
+          .replace("{hospitalName}", hospital.name)
+          .replace("{cityFragment}", cityName ? `, ${cityName}` : "")
+          .replace("{specialtyName}", specialty.name.toLowerCase())}
       </p>
       <div class="mt-5 flex flex-wrap items-center gap-3">
         <LastUpdated updated={data.hospital.updatedAt} locale={locale} />
@@ -181,7 +191,7 @@ Astro.response.headers.set(
                   {d.qualifications && <span class="mt-1 block text-[12.5px] text-ink-muted line-clamp-2">{d.qualifications}</span>}
                   <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-subtle">
                     {d.experience_years != null && (
-                      <span class="inline-flex items-center gap-1"><Award className="h-3 w-3 text-accent" />{d.experience_years} yrs</span>
+                      <span class="inline-flex items-center gap-1"><Award className="h-3 w-3 text-accent" />{d.experience_years} {tHsd("yrsAbbr")}</span>
                     )}
                     {d.patients_treated != null && d.patients_treated > 0 && (
                       <span class="inline-flex items-center gap-1"><Users className="h-3 w-3 text-accent" />{d.patients_treated.toLocaleString()}</span>
@@ -199,15 +209,15 @@ Astro.response.headers.set(
     </section>
 
     <section class="mx-auto max-w-7xl px-6 pb-20">
-      <h2 class="sr-only">Get a personal surgeon shortlist</h2>
+      <h2 class="sr-only">{tHsd("matchSectionSrOnly")}</h2>
       <div class="paper p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
         <div class="max-w-[36rem]">
-          <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">Match me to a doctor</p>
+          <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">{tHsd("matchEyebrow")}</p>
           <h3 class="mt-2 font-display text-2xl md:text-3xl">
-            Want one surgeon shortlisted for your case?
+            {tHsd("matchHeading")}
           </h3>
           <p class="mt-2 text-sm text-ink-muted">
-            Send your reports; we'll come back with who at {hospital.name} we'd pick, their next availability, and a quote.
+            {tHsd("matchBody").replace("{hospitalName}", hospital.name)}
           </p>
         </div>
         <div class="flex flex-wrap gap-3 shrink-0">
@@ -215,48 +225,48 @@ Astro.response.headers.set(
             href={localizedPath(locale, `/contact?hospital=${hospital.slug}&specialty=${specialtySlug}`)}
             class="inline-flex items-center rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover"
           >
-            Request a match
+            {tHsd("matchCta")}
           </a>
           <a
             href={localizedPath(locale, `/hospital/${slug}/${specialtySlug}`)}
             class="inline-flex items-center rounded-lg border border-border px-5 py-2.5 text-sm font-semibold hover:border-border-strong"
           >
-            Back to department
+            {tHsd("backToDepartment")}
           </a>
         </div>
       </div>
     </section>
 
     <HowItWorks
-      heading='How to choose between department specialists'
-      italicWord='department specialists'
-      eyebrow='Surgeon selection'
+      heading={tHsd("howHeading")}
+      italicWord={tHsd("howItalicWord")}
+      eyebrow={tHsd("howEyebrow")}
       steps={[
-        { title: 'Match sub-specialty', description: 'Within the department, surgeons often have different sub-specialty focuses. Match your specific procedure to a sub-specialist.' },
-        { title: 'Personal annual volume', description: 'Personal volume on your procedure matters more than department-wide volume.' },
-        { title: 'Communication style', description: 'Schedule consultations to assess fit. Communication quality predicts post-op coordination quality.' },
-        { title: 'Confirm assignment', description: "Before booking, confirm the specific surgeon you've consulted with is the one performing the case — not handoff to junior staff." },
+        { title: tHsd("howStep1Title"), description: tHsd("howStep1Desc") },
+        { title: tHsd("howStep2Title"), description: tHsd("howStep2Desc") },
+        { title: tHsd("howStep3Title"), description: tHsd("howStep3Desc") },
+        { title: tHsd("howStep4Title"), description: tHsd("howStep4Desc") },
       ]}
     />
     
     <ExploreGrid
       locale={locale}
       eyebrow={`${hospital.name} · ${specialty.name}`}
-      heading="Other ways to evaluate this team"
-      lede="Doctor list is one slice. These hubs cross-reference the department, alternative hospitals, the underlying specialty, and the destination context."
+      heading={tHsd("exploreHeading")}
+      lede={tHsd("exploreLede")}
       items={[
-        { eyebrow: "Department", label: `${specialty.name} department`, href: `/hospital/${slug}/${specialtySlug}`, hint: `Programs, sub-specialties, equipment at ${hospital.name}.` },
-        { eyebrow: "Hospital", label: `${hospital.name} profile`, href: `/hospital/${slug}`, hint: "All specialties, accreditation, surgeons, pricing across this hospital." },
-        { eyebrow: "Specialty", label: `${specialty.name} hub`, href: `/specialty/${specialtySlug}`, hint: `All ${specialty.name.toLowerCase()} programs across destinations.` },
-        { eyebrow: "Surgeons", label: `All ${specialty.name.toLowerCase()} surgeons`, href: `/surgeons/${specialtySlug}`, hint: "Volume-ranked physician directory across all hospitals." },
-        ...(countrySlug && countryName ? [{ eyebrow: "Surgeons", label: `${specialty.name} surgeons in ${countryName}`, href: `/surgeons/${specialtySlug}/${countrySlug}`, hint: `Filtered to ${countryName}-based programs only.` }] : []),
-        ...(citySlug && cityName ? [{ eyebrow: "City", label: `Hospitals in ${cityName}`, href: `/hospitals/city/${citySlug}`, hint: `Other ${cityName} programs offering ${specialty.name.toLowerCase()}.` }] : []),
-        ...(countrySlug && countryName ? [{ eyebrow: "Destination", label: `${countryName} hospital hub`, href: `/country/${countrySlug}`, hint: `Featured programs across ${countryName}.` }] : []),
-        ...(countrySlug ? [{ eyebrow: "Best of", label: `Best ${specialty.name} in ${countryName}`, href: `/best/${specialtySlug}-in-${countrySlug}`, hint: "Editorially ranked programs with methodology disclosed." }] : []),
-        { eyebrow: "Compare", label: "Doctor comparison", href: "/compare/doctors", hint: "Surgeons compared on volume, fees, languages, video-consult availability." },
-        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+        { eyebrow: tHsd("exploreEyebrowDepartment"), label: tHsd("exploreItemDeptLabel").replace("{specialtyName}", specialty.name), href: `/hospital/${slug}/${specialtySlug}`, hint: tHsd("exploreItemDeptHint").replace("{hospitalName}", hospital.name) },
+        { eyebrow: tHsd("exploreEyebrowHospital"), label: tHsd("exploreItemHospitalLabel").replace("{hospitalName}", hospital.name), href: `/hospital/${slug}`, hint: tHsd("exploreItemHospitalHint") },
+        { eyebrow: tHsd("exploreEyebrowSpecialty"), label: tHsd("exploreItemSpecialtyLabel").replace("{specialtyName}", specialty.name), href: `/specialty/${specialtySlug}`, hint: tHsd("exploreItemSpecialtyHint").replace("{specialtyName}", specialty.name.toLowerCase()) },
+        { eyebrow: tHsd("exploreEyebrowSurgeons"), label: tHsd("exploreItemAllSurgeonsLabel").replace("{specialtyName}", specialty.name.toLowerCase()), href: `/surgeons/${specialtySlug}`, hint: tHsd("exploreItemAllSurgeonsHint") },
+        ...(countrySlug && countryName ? [{ eyebrow: tHsd("exploreEyebrowSurgeons"), label: tHsd("exploreItemCountrySurgeonsLabel").replace("{specialtyName}", specialty.name).replace("{countryName}", countryName), href: `/surgeons/${specialtySlug}/${countrySlug}`, hint: tHsd("exploreItemCountrySurgeonsHint").replace("{countryName}", countryName) }] : []),
+        ...(citySlug && cityName ? [{ eyebrow: tHsd("exploreEyebrowCity"), label: tHsd("exploreItemCityLabel").replace("{cityName}", cityName), href: `/hospitals/city/${citySlug}`, hint: tHsd("exploreItemCityHint").replace("{cityName}", cityName).replace("{specialtyName}", specialty.name.toLowerCase()) }] : []),
+        ...(countrySlug && countryName ? [{ eyebrow: tHsd("exploreEyebrowDestination"), label: tHsd("exploreItemDestinationLabel").replace("{countryName}", countryName), href: `/country/${countrySlug}`, hint: tHsd("exploreItemDestinationHint").replace("{countryName}", countryName) }] : []),
+        ...(countrySlug ? [{ eyebrow: tHsd("exploreEyebrowBestOf"), label: tHsd("exploreItemBestLabel").replace("{specialtyName}", specialty.name).replace("{countryName}", countryName ?? ""), href: `/best/${specialtySlug}-in-${countrySlug}`, hint: tHsd("exploreItemBestHint") }] : []),
+        { eyebrow: tHsd("exploreEyebrowCompare"), label: tHsd("exploreItemCompareLabel"), href: "/compare/doctors", hint: tHsd("exploreItemCompareHint") },
+        { eyebrow: tHsd("exploreEyebrowTool"), label: tHsd("exploreItemMatchLabel"), href: "/match-me", hint: tHsd("exploreItemMatchHint") },
+        { eyebrow: tHsd("exploreEyebrowTool"), label: tHsd("exploreItemCalcLabel"), href: "/calculator", hint: tHsd("exploreItemCalcHint") },
+        { eyebrow: tHsd("exploreEyebrowAction"), label: tHsd("exploreItemOpinionLabel"), href: "/second-opinion", hint: tHsd("exploreItemOpinionHint") },
       ]}
     />
 

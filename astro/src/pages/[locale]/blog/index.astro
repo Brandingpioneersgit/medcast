@@ -21,6 +21,7 @@ const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect(`/en/blog`, 308);
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tB = getTranslator(locale, "blogPage");
 
 const url = new URL(Astro.request.url);
 const page = Number(url.searchParams.get("page") ?? 1);
@@ -53,13 +54,13 @@ const nextUrl = page < totalPages ? pageUrl(page + 1) : undefined;
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Blog", url: canonicalUrl },
+  { name: tB("breadcrumbBlog"), url: canonicalUrl },
 ]);
 
 const collectionLd = page === 1 && rows.length > 0
   ? collectionPageJsonLd({
-      name: "MedCasts editorial blog",
-      description: "Patient stories, treatment guides, and destination research.",
+      name: tB("collectionName"),
+      description: tB("collectionDescription"),
       url: canonicalUrl,
       items: rows.map((p) => ({ name: p.title, url: localeUrl(locale, `/blog/${p.slug}`) })),
     })
@@ -86,18 +87,18 @@ function withoutLastWord(s: string) {
 }
 
 const stats = page === 1 && !categoryFilter ? [
-  { l: "Total posts", v: total.toString() },
-  { l: "Categories", v: categoryRows.length.toString() },
-  { l: "Reply time", v: "9 min" },
-  { l: "Reviewer desk", v: "Editorial" },
+  { l: tB("statTotalPosts"), v: total.toString() },
+  { l: tB("statCategories"), v: categoryRows.length.toString() },
+  { l: tB("statReplyTime"), v: tB("statReplyTimeVal") },
+  { l: tB("statReviewerDesk"), v: tB("statReviewerDeskVal") },
 ] : [];
 ---
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta
-      title="Medical Travel Blog"
-      description="Patient stories, treatment guides, and destination research for international medical travel. Written by our case-management and clinical teams."
+      title={tB("seoTitle")}
+      description={tB("seoDescription")}
       path={path}
       locale={locale}
       translatedLocales={["en"]}
@@ -117,16 +118,16 @@ const stats = page === 1 && !categoryFilter ? [
         <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span class="mx-1.5">/</span>
-          <span style="color: var(--color-ink);">Blog</span>
+          <span style="color: var(--color-ink);">{tB("breadcrumbBlog")}</span>
         </nav>
       </div>
     </div>
 
     <EntityListingHero
-      eyebrow={`Medical travel · Editorial${categoryFilter ? ` · ${categoryFilter}` : ""}`}
-      h1First={categoryFilter ? categoryFilter : "Medical travel"}
-      h1Italic={categoryFilter ? "dispatches" : "blog"}
-      lede="Patient stories, treatment guides, and destination research — written by our case-management and clinical teams. Every post is reviewed by a named physician before publish."
+      eyebrow={categoryFilter ? `${tB("heroEyebrow")} · ${categoryFilter}` : tB("heroEyebrow")}
+      h1First={categoryFilter ? categoryFilter : tB("heroH1First")}
+      h1Italic={categoryFilter ? tB("heroH1ItalicFiltered") : tB("heroH1Italic")}
+      lede={tB("heroLede")}
       stats={stats}
     />
 
@@ -137,13 +138,13 @@ const stats = page === 1 && !categoryFilter ? [
           <div class="flex flex-wrap items-center gap-x-10 gap-y-3 justify-between">
             <div class="flex flex-wrap items-center gap-x-7 gap-y-2">
               <span class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
-                Editorial desk
+                {tB("editorialDeskLabel")}
               </span>
               {[
-                { v: "Named-physician review", k: "Every post signed off by a board-certified specialist" },
-                { v: "Sources cited inline", k: "Peer-reviewed studies + hospital data, never marketing collateral" },
-                { v: "Updated, not archived", k: "Re-checked when guidelines change · last-reviewed stamped" },
-                { v: "No sponsored content", k: "Coordinator fee is paid by hospitals after admission" },
+                { v: tB("editorialTrustV1"), k: tB("editorialTrustK1") },
+                { v: tB("editorialTrustV2"), k: tB("editorialTrustK2") },
+                { v: tB("editorialTrustV3"), k: tB("editorialTrustK3") },
+                { v: tB("editorialTrustV4"), k: tB("editorialTrustK4") },
               ].map((p) => (
                 <span class="flex items-start gap-2 text-[13px]" style="color: var(--color-ink);">
                   <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="var(--color-accent)" stroke-width="2.4" aria-hidden="true" style="margin-top: 5px; flex-shrink: 0;">
@@ -161,7 +162,7 @@ const stats = page === 1 && !categoryFilter ? [
               class="mono uppercase text-[10.5px] hover:text-accent shrink-0"
               style="letter-spacing: 0.12em; color: var(--color-ink-muted);"
             >
-              Editorial policy →
+              {tB("editorialPolicyLink")}
             </a>
           </div>
         </div>
@@ -173,8 +174,8 @@ const stats = page === 1 && !categoryFilter ? [
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8 text-center">
           <p class="serif" style="font-size: 18px; color: var(--color-ink-muted);">
             {categoryFilter
-              ? `No posts in "${categoryFilter}" yet.`
-              : "New posts coming soon. Check back next week."}
+              ? tB("emptyStateCategory").replace("{category}", categoryFilter)
+              : tB("emptyStateGeneral")}
           </p>
           {categoryFilter && (
             <a
@@ -182,7 +183,7 @@ const stats = page === 1 && !categoryFilter ? [
               class="mt-4 inline-flex items-center gap-1.5 mono uppercase"
               style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent);"
             >
-              ← Back to all posts
+              {tB("backToAllPosts")}
             </a>
           )}
         </div>
@@ -193,7 +194,7 @@ const stats = page === 1 && !categoryFilter ? [
           <section style="padding: 28px 0 0;">
             <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
               <p class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Filter by category
+                {tB("filterByCategory")}
               </p>
               <ul class="flex flex-wrap gap-2">
                 <li>
@@ -204,7 +205,7 @@ const stats = page === 1 && !categoryFilter ? [
                       ? "font-size: 10.5px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 7px 14px; border-radius: 9999px;"
                       : "font-size: 10.5px; letter-spacing: 0.12em; border: 1px solid var(--color-border); background: var(--color-paper); color: var(--color-ink-muted); padding: 7px 14px; border-radius: 9999px;"}
                   >
-                    All <span class="tnum opacity-70">· {total}</span>
+                    {tB("filterAll")} <span class="tnum opacity-70">· {total}</span>
                   </a>
                 </li>
                 {categoryRows.map((cat) => {
@@ -248,7 +249,7 @@ const stats = page === 1 && !categoryFilter ? [
                   <div class="p-8 md:p-10 flex flex-col justify-center">
                     {featured.category && (
                       <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
-                        Featured · {featured.category}
+                        {tB("featuredEyebrow")} · {featured.category}
                       </div>
                     )}
                     <h2
@@ -277,7 +278,7 @@ const stats = page === 1 && !categoryFilter ? [
                       class="mt-6 inline-flex items-center gap-1.5 self-start text-[13px] font-semibold"
                       style="background: var(--color-ink); color: var(--color-bg); padding: 9px 18px; border-radius: 9999px;"
                     >
-                      Read the piece
+                      {tB("readThePiece")}
                       <ChevronRight className="h-3.5 w-3.5 mirror-x" />
                     </span>
                   </div>
@@ -291,10 +292,12 @@ const stats = page === 1 && !categoryFilter ? [
           <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
             <div class="mb-6 flex items-end justify-between">
               <h3 class="display" style="font-size: 24px; letter-spacing: -0.015em;">
-                {page === 1 ? "More dispatches" : `Page ${page}`}
+                {page === 1 ? tB("moreDispatches") : tB("pageOf").replace("{page}", page.toString())}
               </h3>
               <span class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                {rest.length} piece{rest.length === 1 ? "" : "s"}
+                {rest.length === 1
+                  ? tB("piecesSingular").replace("{n}", rest.length.toString())
+                  : tB("piecesPlural").replace("{n}", rest.length.toString())}
               </span>
             </div>
             <ul class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -320,7 +323,7 @@ const stats = page === 1 && !categoryFilter ? [
                           </p>
                         )}
                         <p class="mono uppercase tnum" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-                          {readMins(p.excerpt)} min read
+                          {tB("minRead").replace("{n}", readMins(p.excerpt).toString())}
                         </p>
                       </div>
                       <h4 class="mt-2 serif group-hover:text-accent transition-colors" style="font-size: 19px; line-height: 1.25; letter-spacing: -0.005em; color: var(--color-ink);">
@@ -362,26 +365,26 @@ const stats = page === 1 && !categoryFilter ? [
     )}
 
     <HowItWorks
-      heading='How to use the blog'
-      italicWord='the blog'
-      eyebrow='Editorial'
+      heading={tB("howHeading")}
+      italicWord={tB("howItalicWord")}
+      eyebrow={tB("howEyebrow")}
       steps={[
-        { title: 'Money posts', description: 'Cost breakdowns by procedure and destination, hidden-fees analyses, insurance/payment guides. Read these before getting quotes.' },
-        { title: 'Decision-frame posts', description: 'When to get a second opinion, do you actually need this procedure, which destination for X. Read these before committing.' },
-        { title: 'Logistics posts', description: "Pre-trip preparation, what to pack, attendant guides, recovery day-by-day. Read these once you've decided to travel." },
-        { title: 'Patient stories', description: 'Real-feeling case timelines with outcomes at 6/12 months. Useful for understanding what realistic recovery looks like.' },
-      ]},
-      outroNote='All posts have named-physician reviewer bylines where clinical claims are made. Editorial team reviews coordination and travel claims.'
+        { title: tB("howStep1Title"), description: tB("howStep1Desc") },
+        { title: tB("howStep2Title"), description: tB("howStep2Desc") },
+        { title: tB("howStep3Title"), description: tB("howStep3Desc") },
+        { title: tB("howStep4Title"), description: tB("howStep4Desc") },
+      ]}
+      outroNote={tB("howOutroNote")}
     />
 
     <WhatToExpect
-      heading='Editorial principles'
-      italicWord='principles'
+      heading={tB("principlesHeading")}
+      italicWord={tB("principlesItalicWord")}
       items={[
-        { label: 'Specifics over generalities', description: 'Every cost claim has a number. Every recovery claim has a timeline. Every recommendation has a rationale.' },
-        { label: 'Honest about trade-offs', description: "We don't whitewash. If a destination has a downside, we say so. If a procedure isn't right for everyone, we frame the alternative." },
-        { label: 'Evidence-based where possible', description: 'Clinical claims sourced from peer-reviewed literature, society guidelines, or program-published outcome data.' },
-        { label: 'Cited reviewers', description: 'Major clinical posts have named physician reviewers. Coordination posts are reviewed by the editorial desk.' },
+        { label: tB("principles1Label"), description: tB("principles1Desc") },
+        { label: tB("principles2Label"), description: tB("principles2Desc") },
+        { label: tB("principles3Label"), description: tB("principles3Desc") },
+        { label: tB("principles4Label"), description: tB("principles4Desc") },
       ]}
     />
     

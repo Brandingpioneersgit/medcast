@@ -22,6 +22,7 @@ const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect(`/en/compare/treatments`, 308);
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tCtr = getTranslator(locale, "compareTreatmentsPage");
 
 const rows = await compareTreatments();
 
@@ -30,7 +31,7 @@ const url = localeUrl(locale, path);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Compare treatments", url },
+  { name: tCtr("breadcrumbCompareTreatments"), url },
 ]);
 
 Astro.response.headers.set(
@@ -52,10 +53,10 @@ const avgSuccess = withSuccess.length > 0
 const lowestFromFormatted = lowestFrom ? await formatUsd(Astro.cookies, lowestFrom) : null;
 
 const stats = [
-  { l: "Procedures", v: rows.length.toString() },
-  { l: "Specialties", v: specialtyCount.toString() },
-  lowestFromFormatted ? { l: "From", v: lowestFromFormatted } : null,
-  avgSuccess ? { l: "Avg success", v: `${avgSuccess.toFixed(0)}%` } : null,
+  { l: tCtr("statProcedures"), v: rows.length.toString() },
+  { l: tCtr("statSpecialties"), v: specialtyCount.toString() },
+  lowestFromFormatted ? { l: tCtr("statFrom"), v: lowestFromFormatted } : null,
+  avgSuccess ? { l: tCtr("statAvgSuccess"), v: `${avgSuccess.toFixed(0)}%` } : null,
 ].filter(Boolean) as Array<{ l: string; v: string }>;
 
 // Success-rate color thresholds — calibrated against the surgical-travel
@@ -74,8 +75,8 @@ function successTone(pct: number | null): string {
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta
-      title="Compare Medical Treatments"
-      description="Side-by-side comparison of surgical treatments: cost ranges, hospital stay, recovery time, success rate, and hospital coverage across 9 countries."
+      title={tCtr("seoTitle")}
+      description={tCtr("seoDescription")}
       path={path}
       locale={locale}
     />
@@ -90,16 +91,16 @@ function successTone(pct: number | null): string {
         <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span class="mx-1.5">/</span>
-          <span style="color: var(--color-ink);">Compare treatments</span>
+          <span style="color: var(--color-ink);">{tCtr("breadcrumbCompareTreatments")}</span>
         </nav>
       </div>
     </div>
 
     <EntityListingHero
-      eyebrow={`Compare · ${rows.length} procedures`}
-      h1First="Treatments"
-      h1Italic="side-by-side"
-      lede={`Cost, stay, recovery, and success-rate data for ${rows.length} surgical treatments, aggregated across partner hospitals. Open any row for the full page.`}
+      eyebrow={tCtr("heroEyebrow").replace("{count}", rows.length.toString())}
+      h1First={tCtr("heroH1First")}
+      h1Italic={tCtr("heroH1Italic")}
+      lede={tCtr("heroLede").replace("{count}", rows.length.toString())}
       stats={stats}
     />
 
@@ -129,18 +130,20 @@ function successTone(pct: number | null): string {
                 {/* Price range — most-prominent metric */}
                 <div class="mt-4 pt-4" style="border-top: 1px dashed var(--color-border);">
                   <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-                    Package range
+                    {tCtr("cardPackageRange")}
                   </div>
                   <div class="display tnum mt-1" style="font-size: 22px; line-height: 1; letter-spacing: -0.015em; color: var(--color-ink);">
                     {r.lo ? (
                       <PriceRange min={r.lo} max={r.hi} />
                     ) : (
-                      <span style="color: var(--color-ink-subtle); font-size: 17px;">Not yet priced</span>
+                      <span style="color: var(--color-ink-subtle); font-size: 17px;">{tCtr("cardNotYetPriced")}</span>
                     )}
                   </div>
                   {r.hospital_count > 0 && (
                     <div class="mono mt-1" style="font-size: 10.5px; color: var(--color-ink-subtle);">
-                      Across {r.hospital_count.toLocaleString()} hospital{r.hospital_count === 1 ? "" : "s"}
+                      {r.hospital_count === 1
+                        ? tCtr("cardAcrossHospitalSingular").replace("{count}", r.hospital_count.toLocaleString())
+                        : tCtr("cardAcrossHospitalPlural").replace("{count}", r.hospital_count.toLocaleString())}
                     </div>
                   )}
                 </div>
@@ -149,7 +152,7 @@ function successTone(pct: number | null): string {
                 <div class="mt-4 grid grid-cols-3 gap-3">
                   <div>
                     <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
-                      Stay
+                      {tCtr("cardStay")}
                     </div>
                     <div class="tnum mt-0.5" style="font-size: 15px; color: var(--color-ink);">
                       {r.hospital_stay_days != null ? `${r.hospital_stay_days}d` : "—"}
@@ -157,7 +160,7 @@ function successTone(pct: number | null): string {
                   </div>
                   <div>
                     <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
-                      Recovery
+                      {tCtr("cardRecovery")}
                     </div>
                     <div class="tnum mt-0.5" style="font-size: 15px; color: var(--color-ink);">
                       {r.recovery_days ? `${r.recovery_days}d` : "—"}
@@ -165,7 +168,7 @@ function successTone(pct: number | null): string {
                   </div>
                   <div>
                     <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
-                      Success
+                      {tCtr("cardSuccess")}
                     </div>
                     <div class="tnum mt-0.5" style={`font-size: 15px; ${r.success_rate_percent != null ? successTone(Number(r.success_rate_percent)) : "color: var(--color-ink-subtle);"}`}>
                       {r.success_rate_percent != null ? `${Number(r.success_rate_percent).toFixed(0)}%` : "—"}
@@ -178,51 +181,51 @@ function successTone(pct: number | null): string {
         </ul>
 
         <p class="mt-6 mono uppercase" style="font-size: 10.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-          USD · Aggregated from partner hospital quote sheets · Excludes flights + hotel
+          {tCtr("footerNote")}
         </p>
       </div>
     </section>
 
     <HowItWorks
-      heading="How to compare procedures"
-      italicWord="procedures"
-      eyebrow="Treatment comparison"
+      heading={tCtr("howHeading")}
+      italicWord={tCtr("howItalicWord")}
+      eyebrow={tCtr("howEyebrow")}
       steps={[
-        { title: "Compare apples-to-apples", description: "Same procedure name across programs, same implant brand where relevant, same scope of inclusion (PT, follow-up, ICU). Itemized quotes enable real comparison." },
-        { title: "Look beyond price", description: "Cheapest quote often excludes things (extended PT, follow-up imaging, premium implants). Normalize scope before comparing prices." },
-        { title: "Account for total trip cost", description: "Procedure cost is typically 60-75% of total trip cost. Add flights, accommodation, meals, travel insurance, contingency." },
-        { title: "Compare on volume + outcomes", description: "Surgeon's annual volume on the specific procedure is the strongest outcome predictor. Two programs at the same price can have very different outcome data." },
+        { title: tCtr("howStep1Title"), description: tCtr("howStep1Desc") },
+        { title: tCtr("howStep2Title"), description: tCtr("howStep2Desc") },
+        { title: tCtr("howStep3Title"), description: tCtr("howStep3Desc") },
+        { title: tCtr("howStep4Title"), description: tCtr("howStep4Desc") },
       ]}
     />
 
     <WhatToExpect
-      heading="The 7 line items that matter"
-      italicWord="matter"
+      heading={tCtr("wteHeading")}
+      italicWord={tCtr("wteItalicWord")}
       items={[
-        { label: "Surgeon fee", description: "Senior surgeons cost 20-40% more than junior. Pay for the surgeon, not the brand." },
-        { label: "Implant or device", description: "Brand and model affect both cost and durability. Generic ≠ branded for many implants. Get specifics." },
-        { label: "Hospital stay", description: "Per-day rate × days. Extended stays add up; clarify per-diem rate for if recovery extends." },
-        { label: "Anesthesia", description: "Anesthesiologist (MD) vs CRNA. For complex cases, MD oversight matters." },
-        { label: "ICU step-down", description: "Per-day rate if needed. For complex procedures, factor probability of ICU stay." },
-        { label: "Inpatient PT + follow-up", description: "Most packages include 2-5 days. Outpatient PT (4-12 weeks) typically extra." },
-        { label: "Implant warranty + revision policy", description: "What happens if surgical failure or implant defect? In writing before booking." },
+        { label: tCtr("wteItem1Label"), description: tCtr("wteItem1Desc") },
+        { label: tCtr("wteItem2Label"), description: tCtr("wteItem2Desc") },
+        { label: tCtr("wteItem3Label"), description: tCtr("wteItem3Desc") },
+        { label: tCtr("wteItem4Label"), description: tCtr("wteItem4Desc") },
+        { label: tCtr("wteItem5Label"), description: tCtr("wteItem5Desc") },
+        { label: tCtr("wteItem6Label"), description: tCtr("wteItem6Desc") },
+        { label: tCtr("wteItem7Label"), description: tCtr("wteItem7Desc") },
       ]}
     />
 
     <ExploreGrid
       locale={locale}
-      eyebrow="Refine the comparison"
-      heading="Other ways to compare"
-      lede="Comparing procedures alone won't tell you everything. The pages below pull in destination, surgeon, and cost dimensions."
+      eyebrow={tCtr("exploreEyebrow")}
+      heading={tCtr("exploreHeading")}
+      lede={tCtr("exploreLede")}
       items={[
-        { eyebrow: "Compare", label: "Compare hospitals", href: "/compare/hospitals", hint: "Side-by-side on rating, accreditations, cost." },
-        { eyebrow: "Compare", label: "Compare doctors", href: "/compare/doctors", hint: "Years, patients treated, languages, fee." },
-        { eyebrow: "Compare", label: "Compare countries", href: "/compare/countries", hint: "Cost band, surgeon density, top specialties." },
-        { eyebrow: "Cost", label: "Cost calculator", href: "/calculator", hint: "Procedure × country × budget → 3 hospital shortlist." },
-        { eyebrow: "Cost", label: "Pricing matrix", href: "/pricing-index", hint: "All 88 treatments × 9 destinations." },
-        { eyebrow: "Browse", label: "All treatments", href: "/treatments", hint: "Filter by specialty, recovery, cost band." },
-        { eyebrow: "Browse", label: "All specialties", href: "/specialties", hint: "Cardiac, oncology, ortho, transplant, more." },
-        { eyebrow: "Match", label: "Match Me quiz", href: "/match-me", hint: "Concern + budget → recommended path in 60s." },
+        { eyebrow: tCtr("exploreItem1Eyebrow"), label: tCtr("exploreItem1Label"), href: "/compare/hospitals", hint: tCtr("exploreItem1Hint") },
+        { eyebrow: tCtr("exploreItem2Eyebrow"), label: tCtr("exploreItem2Label"), href: "/compare/doctors", hint: tCtr("exploreItem2Hint") },
+        { eyebrow: tCtr("exploreItem3Eyebrow"), label: tCtr("exploreItem3Label"), href: "/compare/countries", hint: tCtr("exploreItem3Hint") },
+        { eyebrow: tCtr("exploreItem4Eyebrow"), label: tCtr("exploreItem4Label"), href: "/calculator", hint: tCtr("exploreItem4Hint") },
+        { eyebrow: tCtr("exploreItem5Eyebrow"), label: tCtr("exploreItem5Label"), href: "/pricing-index", hint: tCtr("exploreItem5Hint") },
+        { eyebrow: tCtr("exploreItem6Eyebrow"), label: tCtr("exploreItem6Label"), href: "/treatments", hint: tCtr("exploreItem6Hint") },
+        { eyebrow: tCtr("exploreItem7Eyebrow"), label: tCtr("exploreItem7Label"), href: "/specialties", hint: tCtr("exploreItem7Hint") },
+        { eyebrow: tCtr("exploreItem8Eyebrow"), label: tCtr("exploreItem8Label"), href: "/match-me", hint: tCtr("exploreItem8Hint") },
       ]}
     />
 

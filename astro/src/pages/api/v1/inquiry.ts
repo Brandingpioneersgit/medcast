@@ -41,6 +41,7 @@ async function readBody(request: Request): Promise<Fields> {
  */
 const INTENT_LABELS: Record<string, string> = {
   "second-opinion": "Free second opinion request",
+  quote: "Free quote request",
   partnership: "Hospital partnership inquiry",
   insurance: "Insurance & coverage question",
   referral: "Patient referral",
@@ -72,6 +73,10 @@ export const POST: APIRoute = async ({ request, clientAddress, redirect }) => {
   const message = clean(body.message);
   const treatmentInput = clean(body.treatment);
   const condition = clean(body.condition);
+  // Patient-referral forms also carry the referrer's own contact details.
+  const referrerName = clean(body.referrerName);
+  const referrerRole = clean(body.referrerRole);
+  const referrerEmail = clean(body.referrerEmail);
   const intentType = clean(body.type);
   const intentTopic = clean(body.topic);
   const intent = intentType || intentTopic;
@@ -112,12 +117,21 @@ export const POST: APIRoute = async ({ request, clientAddress, redirect }) => {
   // Compose message body — prepend intent label so coordinators see it first.
   const messageParts: string[] = [];
   if (intentLabel) messageParts.push(`Intent: ${intentLabel}`);
+  if (referrerName || referrerEmail) {
+    const rRole = referrerRole ? ` (${referrerRole})` : "";
+    const rMail = referrerEmail ? ` — ${referrerEmail}` : "";
+    messageParts.push(`Referred by: ${referrerName || "Unnamed referrer"}${rRole}${rMail}`);
+  }
   if (clean(body.code)) messageParts.push(`Tracking code: ${clean(body.code)}`);
   if (clean(body.specialty)) messageParts.push(`Specialty: ${clean(body.specialty)}`);
   if (clean(body.city)) messageParts.push(`City: ${clean(body.city)}`);
   if (clean(body.country)) messageParts.push(`Destination: ${clean(body.country)}`);
   if (treatmentInput && !treatmentRow) messageParts.push(`Treatment input: ${treatmentInput}`);
   if (condition) messageParts.push(`Condition: ${condition}`);
+  if (clean(body.budget)) messageParts.push(`Budget: ${clean(body.budget)}`);
+  if (clean(body.language)) messageParts.push(`Preferred language: ${clean(body.language)}`);
+  if (clean(body.surgeon)) messageParts.push(`Preferred surgeon: ${clean(body.surgeon)}`);
+  if (clean(body.dates)) messageParts.push(`Preferred dates: ${clean(body.dates)}`);
   if (message) messageParts.push(message);
   const fullMessage = messageParts.join("\n");
 

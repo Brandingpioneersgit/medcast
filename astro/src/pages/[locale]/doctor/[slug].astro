@@ -19,6 +19,7 @@ import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { doctorJsonLd, breadcrumbJsonLd, localeUrl, SITE_URL, withProvenance } from "@/lib/seo";
 import LastUpdated from "@/components/LastUpdated.astro";
 import ContactDoctor from "@/components/ContactDoctor.tsx";
+import WhatsAppDoctorCta from "@/components/WhatsAppDoctorCta.astro";
 import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
 import ExploreGrid from "@/components/ExploreGrid.astro";
 import MobileQuoteBar from "@/components/MobileQuoteBar.astro";
@@ -31,7 +32,6 @@ import {
   ChevronRight,
   Globe as GlobeIcon,
   MapPin,
-  MessageCircle,
   Users,
   Video,
 } from "lucide-react";
@@ -112,18 +112,18 @@ const primarySpecNameForLink = docSpecialties[0]?.specialty?.name ?? null;
 
 type ExploreItem = { eyebrow?: string; label: string; href: string; hint?: string };
 const exploreItems: ExploreItem[] = [
-  ...(hospSlug && hospName ? [{ eyebrow: "Hospital", label: `${hospName} profile`, href: `/hospital/${hospSlug}`, hint: "Programs, accreditation, surgeons, pricing across all specialties." }] : []),
-  ...(primarySpecSlug && primarySpecNameForLink ? [{ eyebrow: "Specialty", label: `${primarySpecNameForLink} hub`, href: `/specialty/${primarySpecSlug}`, hint: `All ${primarySpecNameForLink.toLowerCase()} programs across destinations.` }] : []),
-  ...(primarySpecSlug && primarySpecNameForLink ? [{ eyebrow: "Surgeons", label: `Other ${primarySpecNameForLink.toLowerCase()} surgeons`, href: `/surgeons/${primarySpecSlug}`, hint: "Volume-ranked physician directory." }] : []),
-  ...(primarySpecSlug && countrySlug && primarySpecNameForLink && countryName ? [{ eyebrow: "Surgeons", label: `${primarySpecNameForLink} surgeons in ${countryName}`, href: `/surgeons/${primarySpecSlug}/${countrySlug}`, hint: `Filtered to ${countryName}-based programs only.` }] : []),
-  ...(citySlug && cityName ? [{ eyebrow: "Destination", label: `Hospitals in ${cityName}`, href: `/hospitals/city/${citySlug}`, hint: "Same-city options for context." }] : []),
-  ...(countrySlug && countryName ? [{ eyebrow: "Destination", label: `${countryName} hospital hub`, href: `/country/${countrySlug}`, hint: `Featured programs and pricing in ${countryName}.` }] : []),
-  { eyebrow: "Compare", label: "Doctor comparison", href: "/compare/doctors", hint: "Surgeons compared on volume, fees, languages, video-consult availability." },
-  { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, pricing for up to 4 hospitals." },
-  { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get specialty + destination + 3 hospitals." },
-  { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
-  { eyebrow: "Reference", label: "Glossary of terms", href: "/glossary", hint: "Plain-language definitions for credentials, procedures, logistics." },
-  { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "How we verify physician credentials and source of practice records." },
+  ...(hospSlug && hospName ? [{ eyebrow: td("exploreEyebrowHospital"), label: td("exploreHospitalLabel").replace("{name}", hospName), href: `/hospital/${hospSlug}`, hint: td("exploreHospitalHint") }] : []),
+  ...(primarySpecSlug && primarySpecNameForLink ? [{ eyebrow: td("exploreEyebrowSpecialty"), label: td("exploreSpecialtyLabel").replace("{name}", primarySpecNameForLink), href: `/specialty/${primarySpecSlug}`, hint: td("exploreSpecialtyHint").replace("{name}", primarySpecNameForLink.toLowerCase()) }] : []),
+  ...(primarySpecSlug && primarySpecNameForLink ? [{ eyebrow: td("exploreEyebrowSurgeons"), label: td("exploreOtherSurgeonsLabel").replace("{name}", primarySpecNameForLink.toLowerCase()), href: `/surgeons/${primarySpecSlug}`, hint: td("exploreOtherSurgeonsHint") }] : []),
+  ...(primarySpecSlug && countrySlug && primarySpecNameForLink && countryName ? [{ eyebrow: td("exploreEyebrowSurgeons"), label: td("exploreSurgeonsCountryLabel").replace("{spec}", primarySpecNameForLink).replace("{country}", countryName), href: `/surgeons/${primarySpecSlug}/${countrySlug}`, hint: td("exploreSurgeonsCountryHint").replace("{country}", countryName) }] : []),
+  ...(citySlug && cityName ? [{ eyebrow: td("exploreEyebrowDestination"), label: td("exploreCityHospitalsLabel").replace("{city}", cityName), href: `/hospitals/city/${citySlug}`, hint: td("exploreCityHospitalsHint") }] : []),
+  ...(countrySlug && countryName ? [{ eyebrow: td("exploreEyebrowDestination"), label: td("exploreCountryHubLabel").replace("{country}", countryName), href: `/country/${countrySlug}`, hint: td("exploreCountryHubHint").replace("{country}", countryName) }] : []),
+  { eyebrow: td("exploreEyebrowCompare"), label: td("exploreDoctorComparison"), href: "/compare/doctors", hint: td("exploreDoctorComparisonHint") },
+  { eyebrow: td("exploreEyebrowCompare"), label: td("exploreHospitalComparison"), href: "/compare/hospitals", hint: td("exploreHospitalComparisonHint") },
+  { eyebrow: td("exploreEyebrowTool"), label: td("exploreMatchMe"), href: "/match-me", hint: td("exploreMatchMeHint") },
+  { eyebrow: td("exploreEyebrowTool"), label: td("exploreCostCalculator"), href: "/calculator", hint: td("exploreCostCalculatorHint") },
+  { eyebrow: td("exploreEyebrowReference"), label: td("exploreGlossary"), href: "/glossary", hint: td("exploreGlossaryHint") },
+  { eyebrow: td("exploreEyebrowTrust"), label: td("exploreEditorialPolicy"), href: "/editorial-policy", hint: td("exploreEditorialPolicyHint") },
 ];
 
 const whatsappUrl = whatsappFor({
@@ -173,9 +173,9 @@ const pubmedUrl = `https://pubmed.ncbi.nlm.nih.gov/?term=${pubmedQuery}&filter=y
 const scholarUrl = `https://scholar.google.com/scholar?q=${encodeURIComponent(`"${cleanDocName}"`)}+${encodeURIComponent(docSpecialties[0]?.specialty.name ?? "")}`;
 const orcidUrl = `https://orcid.org/orcid-search/search?searchQuery=${encodeURIComponent(cleanDocName)}`;
 const researchLinks = [
-  { label: "PubMed", sub: "Peer-reviewed (last 10y)", url: pubmedUrl },
-  { label: "Google Scholar", sub: "Citations + co-authors", url: scholarUrl },
-  { label: "ORCID", sub: "Researcher ID lookup", url: orcidUrl },
+  { label: "PubMed", sub: td("pubmedSub"), url: pubmedUrl },
+  { label: "Google Scholar", sub: td("scholarSub"), url: scholarUrl },
+  { label: "ORCID", sub: td("orcidSub"), url: orcidUrl },
 ];
 
 // Local-SEO title: "{Dr.} — {Specialty} in {City}, {Country}" — matches
@@ -258,25 +258,25 @@ const timelineEntries: TimelineEntry[] = (() => {
   if (yrs > 0) {
     out.push({
       year: String(start),
-      title: "Began practice",
-      body: "Completed residency training and began clinical practice.",
+      title: td("beganPractice"),
+      body: td("beganPracticeBody"),
     });
   }
   if (yrs > 5) {
     out.push({
       year: String(mid),
-      title: "Mid-career milestone",
+      title: td("midCareerMilestone"),
       body: patients > 0
-        ? `Passed ${Math.floor(patients / 2).toLocaleString()}+ patients treated, began leading complex cases.`
-        : "Began leading complex cases and specialty referrals.",
+        ? td("midCareerPatients").replace("{n}", Math.floor(patients / 2).toLocaleString())
+        : td("midCareerComplex"),
     });
   }
   out.push({
     year: String(thisYear),
-    title: hospital ? `Currently at ${hospital.name}` : "Today",
+    title: hospital ? td("currentlyAt").replace("{name}", hospital.name) : td("today"),
     body: patients > 0
-      ? `${patients.toLocaleString()}+ patients treated across career.`
-      : "Accepting new international patients.",
+      ? td("patientsTreatedCareer").replace("{n}", patients.toLocaleString())
+      : td("acceptingPatients"),
   });
   return out;
 })();
@@ -396,10 +396,10 @@ Astro.response.headers.set(
               style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); border-top: 1px solid var(--color-ink); border-bottom: 1px solid var(--color-border);"
             >
               {[
-                doctor.experienceYears != null && { l: "Years practising", v: `${doctor.experienceYears}` },
-                doctor.patientsTreated != null && { l: "Patients treated", v: doctor.patientsTreated > 1000 ? `${Math.floor(doctor.patientsTreated / 1000)}k+` : doctor.patientsTreated.toLocaleString() },
-                doctor.rating && Number(doctor.rating) > 0 && { l: "Rating", v: `${Number(doctor.rating).toFixed(1)}/5` },
-                doctor.consultationFeeUsd != null && { l: "Consultation", v: await formatUsd(Astro.cookies, Number(doctor.consultationFeeUsd)) },
+                doctor.experienceYears != null && { l: td("yearsPractising"), v: `${doctor.experienceYears}` },
+                doctor.patientsTreated != null && { l: td("patientsTreated"), v: doctor.patientsTreated > 1000 ? `${Math.floor(doctor.patientsTreated / 1000)}k+` : doctor.patientsTreated.toLocaleString() },
+                doctor.rating && Number(doctor.rating) > 0 && { l: td("rating"), v: `${Number(doctor.rating).toFixed(1)}/5` },
+                doctor.consultationFeeUsd != null && { l: td("consultation"), v: await formatUsd(Astro.cookies, Number(doctor.consultationFeeUsd)) },
               ].filter(Boolean).map((s: any, i: number) => (
                 <div style={`padding-inline: 18px; ${i > 0 ? "border-inline-start: 1px solid var(--color-border);" : ""}`}>
                   <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">{s.l}</div>
@@ -412,7 +412,7 @@ Astro.response.headers.set(
             {(expertise.length > 0 || docSpecialties.length > 0) && (
               <div class="mt-6">
                 <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">
-                  {expertise.length > 0 ? "Expertise" : "Specialties"}
+                  {expertise.length > 0 ? td("expertiseLabel") : td("specialtiesLabel")}
                 </div>
                 <div class="flex flex-wrap gap-1.5 mt-2.5">
                   {(expertise.length > 0 ? expertise.slice(0, 8) : docSpecialties.slice(0, 8)).map((item: any) => (
@@ -433,13 +433,13 @@ Astro.response.headers.set(
           <aside>
             <div class="paper" style="padding: 22px;">
               <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">
-                Book a consultation
+                {td("bookConsultationEyebrow")}
               </div>
               <div class="display mt-2" style="font-size: 22px; letter-spacing: -0.02em; line-height: 1.2;">
-                Coordinator confirms <span class="serif" style="font-style: italic;">within 24 hours</span>
+                {td("coordinatorConfirmsPrefix")}<span class="serif" style="font-style: italic;">{td("within24Hours")}</span>
               </div>
               <p class="serif mt-3" style="font-size: 13.5px; line-height: 1.5; color: var(--color-ink-muted);">
-                Pick a preferred date + format. You'll get an appointment code immediately; {doctor.name.split(/\s+/).slice(0, 1).join(" ")}'s team confirms availability within a business day.
+                {td("bookingPanelBody").replace("{firstName}", doctor.name.split(/\s+/).slice(0, 1).join(" "))}
               </p>
 
               <div class="mt-4 grid grid-cols-3 gap-1.5">
@@ -447,18 +447,18 @@ Astro.response.headers.set(
                   href={localizedPath(locale, `/book/${doctor.slug}?type=in-person`)}
                   class="text-center text-[12px] font-medium"
                   style="padding: 10px 6px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface-elevated); color: var(--color-ink);"
-                >In&nbsp;person</a>
+                >{td("inPerson")}</a>
                 <a
                   href={localizedPath(locale, `/book/${doctor.slug}?type=video`)}
                   class="text-center text-[12px] font-medium"
                   style={`padding: 10px 6px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface-elevated); color: var(--color-ink); ${doctor.availableForVideoConsult ? "" : "opacity: 0.45; pointer-events: none;"}`}
                   aria-disabled={!doctor.availableForVideoConsult ? "true" : undefined}
-                >Video</a>
+                >{td("video")}</a>
                 <a
                   href={localizedPath(locale, `/book/${doctor.slug}?type=phone`)}
                   class="text-center text-[12px] font-medium"
                   style="padding: 10px 6px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface-elevated); color: var(--color-ink);"
-                >Phone</a>
+                >{td("phone")}</a>
               </div>
 
               <a
@@ -473,35 +473,34 @@ Astro.response.headers.set(
                 )}
               </a>
 
-              <a
-                href={whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="inline-flex items-center justify-center gap-2 w-full mt-2 font-medium"
-                style="background: transparent; color: var(--color-ink); border: 1px solid var(--color-border); padding: 10px 18px; font-size: 14px; border-radius: 9999px;"
-              >
-                <MessageCircle className="h-3.5 w-3.5" />
-                {tc("whatsapp")}
-              </a>
+              <div class="mt-2">
+                <WhatsAppDoctorCta
+                  variant="panel"
+                  doctorName={doctor.name}
+                  doctorSlug={doctor.slug}
+                  hospitalName={hospital?.name ?? null}
+                  specialtyName={primarySpecName ?? null}
+                />
+              </div>
 
               {doctor.availableForVideoConsult && (
                 <p class="mt-3 flex items-center gap-1.5" style="font-size: 12px; color: var(--color-accent);">
                   <Video className="h-3.5 w-3.5" />
-                  Video consult available
+                  {td("videoConsultAvailable")}
                 </p>
               )}
 
               <div class="mt-4 pt-4" style="border-top: 1px dashed var(--color-border);">
-                <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">Or, free</div>
+                <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">{td("orFree")}</div>
                 <div class="mt-1.5" style="font-size: 13.5px;">
-                  Upload reports — {fullName.split(/\s+/).slice(0, 2).join(" ")}'s team replies in 48 hr with a written opinion.
+                  {td("uploadReportsBody").replace("{name}", fullName.split(/\s+/).slice(0, 2).join(" "))}
                 </div>
                 <a
                   href={localizedPath(locale, "/second-opinion")}
                   class="inline-flex items-center justify-center gap-1.5 w-full mt-3 font-medium"
                   style="background: var(--color-surface-elevated); color: var(--color-ink); border: 1px solid var(--color-border); padding: 9px 14px; font-size: 13px; border-radius: 9999px;"
                 >
-                  Get free 2nd opinion →
+                  {td("getFreeSecondOpinion")}
                 </a>
               </div>
 
@@ -509,7 +508,7 @@ Astro.response.headers.set(
                 <div class="mt-4 pt-4" style="border-top: 1px solid var(--color-border);">
                   <p class="mono flex items-center gap-1.5 mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">
                     <GlobeIcon className="h-3.5 w-3.5" />
-                    Speaks
+                    {td("speaks")}
                   </p>
                   <p style="color: var(--color-ink-muted); font-size: 13.5px;">{languages.join(", ")}</p>
                 </div>
@@ -526,7 +525,7 @@ Astro.response.headers.set(
         <div>
           {hospital && (
             <div class="rounded-xl border p-5" style="border-color: var(--color-border); background: var(--color-surface-muted);">
-              <p class="mono mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Practices at</p>
+              <p class="mono mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">{td("practicesAt")}</p>
               <a
                 href={localizedPath(locale, `/hospital/${hospital.slug}`)}
                 class="inline-flex items-center gap-2 font-display text-xl text-ink hover:text-accent transition-colors"
@@ -545,7 +544,7 @@ Astro.response.headers.set(
 
           {doctor.bio && (
             <div class="mt-8 prose-editorial">
-              <h2 class="font-display text-2xl">About {doctor.name.split(" ").slice(0, 2).join(" ")}</h2>
+              <h2 class="font-display text-2xl">{td("aboutHeading").replace("{name}", doctor.name.split(" ").slice(0, 2).join(" "))}</h2>
               <p>{doctor.bio}</p>
             </div>
           )}
@@ -554,16 +553,16 @@ Astro.response.headers.set(
           {creds.length > 0 && (
             <div class="mt-10">
               <p class="mono uppercase mb-3" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
-                Credentials & research
+                {td("credentialsEyebrow")}
               </p>
               <h2 class="display mb-5" style="font-size: 26px; letter-spacing: -0.015em;">
-                Verifiable
-                <span style="font-style: italic; font-weight: 300;"> training</span>
+                {td("verifiableHeading")}
+                <span style="font-style: italic; font-weight: 300;"> {td("trainingWord")}</span>
               </h2>
               <div class="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
                 <div>
                   <p class="mono uppercase mb-3" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                    Qualifications
+                    {td("qualifications")}
                   </p>
                   <ul class="flex flex-wrap gap-2">
                     {creds.map((c) => (
@@ -582,18 +581,18 @@ Astro.response.headers.set(
                     ))}
                   </ul>
                   <p class="mt-3 mono uppercase" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-                    Cross-checked against national medical-council registers · re-verified annually
+                    {td("crossCheckedNote")}
                   </p>
                 </div>
                 <div class="paper" style="padding: 18px 20px;">
                   <p class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
-                    Publications & profile
+                    {td("publicationsEyebrow")}
                   </p>
                   <div class="serif mt-2" style="font-size: 16px; line-height: 1.3; font-weight: 500;">
-                    Look up {doctor.name.split(" ").slice(0, 2).join(" ")}'s research independently
+                    {td("lookUpResearch").replace("{name}", doctor.name.split(" ").slice(0, 2).join(" "))}
                   </div>
                   <p class="serif mt-2" style="font-size: 13.5px; line-height: 1.55; color: var(--color-ink-muted);">
-                    We don't pay surgeons to feature here, so we link out to neutral indexes you can verify yourself.
+                    {td("neutralIndexNote")}
                   </p>
                   <ul class="mt-3.5 space-y-1.5">
                     {researchLinks.map((l) => (
@@ -609,7 +608,7 @@ Astro.response.headers.set(
                             <span class="serif" style="font-size: 13.5px; font-weight: 500; color: var(--color-ink);">{l.label}</span>
                             <span class="mono uppercase ms-2" style="font-size: 9px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">{l.sub}</span>
                           </span>
-                          <span class="mono uppercase shrink-0 group-hover:text-accent transition-colors" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">Open ↗</span>
+                          <span class="mono uppercase shrink-0 group-hover:text-accent transition-colors" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">{td("openLink")}</span>
                         </a>
                       </li>
                     ))}
@@ -622,7 +621,7 @@ Astro.response.headers.set(
           {/* Linked specialty-hub tags (if >8, expose more here) */}
           {docSpecialties.length > 8 && (
             <div class="mt-10">
-              <h2 class="font-display text-2xl mb-4">Specialty hubs</h2>
+              <h2 class="font-display text-2xl mb-4">{td("specialtyHubs")}</h2>
               <ul class="flex flex-wrap gap-2">
                 {docSpecialties.map((ds) => (
                   <li>
@@ -645,10 +644,10 @@ Astro.response.headers.set(
                 class="mono uppercase mb-3"
                 style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);"
               >
-                Timeline
+                {td("timelineEyebrow")}
               </p>
               <h2 class="display mb-6" style="font-size: 26px; letter-spacing: -0.015em;">
-                Career at a glance
+                {td("careerAtGlance")}
               </h2>
               <ol class="paper overflow-hidden" style="padding: 0;">
                 {timelineEntries.map((entry, i) => (
@@ -684,7 +683,7 @@ Astro.response.headers.set(
                   class="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold hover:opacity-80"
                   style="color: var(--color-accent);"
                 >
-                  View {hospital.name}
+                  {td("viewHospital").replace("{name}", hospital.name)}
                   <ChevronRight className="h-4 w-4 mirror-x" />
                 </a>
               )}
@@ -708,7 +707,7 @@ Astro.response.headers.set(
         <aside class="md:sticky md:top-24 md:self-start">
           {hospital && (
             <div class="paper" style="padding: 22px;">
-              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Currently at</div>
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">{td("currentlyAtLabel")}</div>
               <div class="serif mt-2" style="font-size: 22px; font-weight: 500;">{hospital.name}</div>
               <div style="font-size: 13px; color: var(--color-ink-subtle); margin-top: 4px;">
                 {cityName}{countryName && `, ${countryName}`}
@@ -718,7 +717,7 @@ Astro.response.headers.set(
                 class="inline-flex items-center justify-center gap-1.5 w-full mt-4 font-medium"
                 style="background: transparent; color: var(--color-ink); border: 1px solid var(--color-ink); padding: 9px 14px; font-size: 13px; border-radius: 9999px;"
               >
-                View hospital →
+                {td("viewHospitalLink")}
               </a>
             </div>
           )}
@@ -731,14 +730,14 @@ Astro.response.headers.set(
       <section class="border-t border-border bg-surface-muted py-12">
         <div class="mx-auto max-w-7xl px-6">
           <h2 class="font-display text-2xl md:text-3xl mb-6">
-            Other specialists{hospital ? ` at ${hospital.name}` : ""}
+            {hospital ? td("otherSpecialistsAt").replace("{name}", hospital.name) : td("otherSpecialists")}
           </h2>
           <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {relatedDoctors.map((r) => (
-              <li>
+              <li class="flex flex-col gap-2">
                 <a
                   href={localizedPath(locale, r.href)}
-                  class="group flex items-center justify-between rounded-lg border border-border bg-surface p-4 transition-colors hover:border-border-strong"
+                  class="group flex flex-1 items-center justify-between rounded-lg border border-border bg-surface p-4 transition-colors hover:border-border-strong"
                 >
                   <span class="min-w-0">
                     <span class="block font-medium text-ink group-hover:text-accent transition-colors truncate">
@@ -748,6 +747,7 @@ Astro.response.headers.set(
                   </span>
                   <ChevronRight className="h-4 w-4 text-ink-subtle mirror-x shrink-0 ms-3" />
                 </a>
+                <WhatsAppDoctorCta doctorName={r.name} doctorSlug={r.href.split("/").pop()} />
               </li>
             ))}
           </ul>
@@ -760,15 +760,15 @@ Astro.response.headers.set(
       <section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
           <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-            Evaluating this surgeon
+            {td("evaluatingEyebrow")}
           </div>
           <h2 class="display mb-7" style="font-size: 28px; letter-spacing: -0.02em;">
-            How to evaluate a <span style="font-style: italic;">{primarySpecName.toLowerCase()}</span> specialist
+            {td("howToEvaluate").replace("{specialty}", primarySpecName.toLowerCase())}
           </h2>
 
           {primarySpecSections.surgeonVolumeThresholds && primarySpecSections.surgeonVolumeThresholds.length > 0 && (
             <div class="mb-10">
-              <h3 class="display mb-4" style="font-size: 22px;">Volume benchmarks for this specialty</h3>
+              <h3 class="display mb-4" style="font-size: 22px;">{td("volumeBenchmarks")}</h3>
               <div class="paper overflow-hidden" style="padding: 0;">
                 {primarySpecSections.surgeonVolumeThresholds.map((t: any, i: number) => (
                   <div
@@ -781,14 +781,14 @@ Astro.response.headers.set(
                 ))}
               </div>
               <p class="mt-3 mono" style="font-size: 12px; color: var(--color-ink-subtle); line-height: 1.5;">
-                Ask {doctor.name.split(" ").slice(-1)[0]}'s practice for their personal annual case volume on the specific procedure you need — institutional volume varies widely from individual surgeon volume.
+                {td("askCaseVolumeNote").replace("{lastName}", doctor.name.split(" ").slice(-1)[0])}
               </p>
             </div>
           )}
 
           {primarySpecSections.questionsForProgram && primarySpecSections.questionsForProgram.length > 0 && (
             <div class="mb-10">
-              <h3 class="display mb-4" style="font-size: 22px;">Questions to ask in your consultation</h3>
+              <h3 class="display mb-4" style="font-size: 22px;">{td("questionsToAsk")}</h3>
               <ol class="space-y-3">
                 {primarySpecSections.questionsForProgram.map((q: string, i: number) => (
                   <li class="flex gap-4 items-start paper" style="padding: 16px 22px;">
@@ -804,7 +804,7 @@ Astro.response.headers.set(
 
           {primarySpecSections.programQualitySignals && primarySpecSections.programQualitySignals.length > 0 && (
             <div>
-              <h3 class="display mb-4" style="font-size: 22px;">What to look for in a {primarySpecName.toLowerCase()} program</h3>
+              <h3 class="display mb-4" style="font-size: 22px;">{td("whatToLookFor").replace("{specialty}", primarySpecName.toLowerCase())}</h3>
               <ul class="space-y-3">
                 {primarySpecSections.programQualitySignals.map((s: string) => (
                   <li class="flex gap-3 items-start" style="font-size: 15.5px; line-height: 1.55;">

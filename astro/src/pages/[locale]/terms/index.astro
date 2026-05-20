@@ -33,15 +33,15 @@ const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect("/en/terms", 308);
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tTm = getTranslator(locale, "termsPage");
 
-const seoTitle = "Terms of Service";
-const seoDescription =
-  "MedCasts terms: who we are, what we do and don't do, how we're paid, and the honest boundaries of a medical-travel coordinator.";
+const seoTitle = tTm("seoTitle");
+const seoDescription = tTm("seoDescription");
 const path = "/terms";
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Terms of service", url: localeUrl(locale, path) },
+  { name: tTm("breadcrumbTerms"), url: localeUrl(locale, path) },
 ]);
 
 Astro.response.headers.set(
@@ -65,145 +65,120 @@ const sections: Section[] = [
   {
     id: "who-we-are",
     icon: Building2,
-    title: "Who we are",
-    paras: [
-      `MedCasts ("we", "us", "our") operates a medical-travel coordination platform connecting international patients with accredited hospitals. We are coordinators, not clinicians. We don't practice medicine, diagnose conditions, or prescribe treatment.`,
-    ],
+    title: tTm("title1"),
+    paras: [tTm("body1")],
   },
   {
     id: "what-we-do",
     icon: Briefcase,
-    title: "What we do",
+    title: tTm("title2"),
     bullets: [
-      "Match you to 1–3 hospitals appropriate for your clinical situation and budget.",
-      "Coordinate itemized quotes, treatment plans, and surgeon communications.",
-      "Handle visa invitation letters, travel logistics, accommodation, and interpreter support.",
-      "Provide a named case manager from first contact through 90-day post-op follow-up.",
-      "Coordinate free second opinions from our medical panel of senior specialists.",
+      tTm("bullets2Item1"),
+      tTm("bullets2Item2"),
+      tTm("bullets2Item3"),
+      tTm("bullets2Item4"),
+      tTm("bullets2Item5"),
     ],
   },
   {
     id: "what-we-dont",
     icon: ShieldOff,
-    title: "What we don't do",
+    title: tTm("title3"),
     tone: "warn",
     bullets: [
-      "**We don't practice medicine.** Our case managers, researchers, and the information on this site are not a substitute for a doctor-patient relationship.",
-      "**We don't prescribe.** No medication recommendations, dosages, or clinical judgments.",
-      "**We don't guarantee outcomes.** Every surgery has risk. We surface hospitals with strong track records; we can't promise results.",
-      "**We don't replace your local doctor.** You should keep your local physician informed throughout.",
+      tTm("bullets3Item1"),
+      tTm("bullets3Item2"),
+      tTm("bullets3Item3"),
+      tTm("bullets3Item4"),
     ],
   },
   {
     id: "how-paid",
     icon: CircleDollarSign,
-    title: "How we're paid",
+    title: tTm("title4"),
     tone: "accent",
-    paras: [
-      "Hospitals pay us a coordination fee after you choose to proceed — typically 5–15% of the hospital's gross invoice. This is disclosed on every quote we send. You don't pay us anything directly. Second opinions, quote preparation, and pre-travel coordination are free to you whether or not you book.",
-      `This means: our incentive to send you to a hospital increases with the hospital's invoice. We counter this structurally by (a) running an independent medical panel whose second-opinion compensation is flat per case, and (b) publishing our editorial policy including the 28% of oncology cases where we recommend against surgery.`,
-    ],
+    paras: [tTm("body4Para1"), tTm("body4Para2")],
   },
   {
     id: "responsibilities",
     icon: CheckCircle2,
-    title: "Your responsibilities",
+    title: tTm("title5"),
     bullets: [
-      "Give us accurate clinical information. Omissions (prior surgery, current medications, allergies) can directly affect your safety.",
-      "Verify your visa eligibility, passport validity, and any travel restrictions before booking flights.",
-      "Maintain appropriate medical insurance. Most plans don't cover elective international care.",
-      "Pay hospitals directly. We never handle clinical payments ourselves.",
+      tTm("bullets5Item1"),
+      tTm("bullets5Item2"),
+      tTm("bullets5Item3"),
+      tTm("bullets5Item4"),
     ],
   },
   {
     id: "quote-validity",
     icon: FileCheck,
-    title: "Quote validity",
-    paras: [
-      "Quotes are indicative until the destination hospital has reviewed your medical records in full. Final prices may adjust based on findings during pre-operative workup (imaging in-country, blood work, cardiac clearance, etc.). Any material change of ≥5% to the quote must be disclosed in writing before you commit.",
-    ],
+    title: tTm("title6"),
+    paras: [tTm("body6")],
   },
   {
     id: "hospital-independence",
     icon: Hospital,
-    title: "Hospital independence",
-    paras: [
-      "We're a coordinator; we are not the operating entity. Your clinical contract is between you and the destination hospital. Their malpractice coverage, complication indemnity, and dispute-resolution processes apply. We disclose these terms on every hospital we match you to.",
-    ],
+    title: tTm("title7"),
+    paras: [tTm("body7")],
   },
   {
     id: "second-opinions",
     icon: Stethoscope,
-    title: "Second opinions",
-    paras: [
-      "Second opinions are reviews of submitted records by senior specialists on our panel. They are for your consideration and do not constitute treatment or a substitute for an in-person consultation. Decisions to proceed, modify, or decline treatment remain yours in consultation with your treating doctor.",
-    ],
+    title: tTm("title8"),
+    paras: [tTm("body8")],
   },
   {
     id: "cancellation",
     icon: Undo2,
-    title: "Cancellation and refunds",
-    paras: [
-      "We don't charge you deposits. Any deposits paid to hospitals follow that hospital's refund policy, which we require in writing before you pay. Typical terms: full refund if cancelled >14 days before surgery (less processing fee), 50–70% refund 3–14 days before, case-by-case within 72 hours. Medical-reason cancellations (fever, abnormal labs) are typically handled without penalty — get this specific language in writing.",
-    ],
+    title: tTm("title9"),
+    paras: [tTm("body9")],
   },
   {
     id: "liability",
     icon: Scale,
-    title: "Limitation of liability",
-    paras: [
-      `We provide coordination services on an "as is" basis. Our maximum aggregate liability to you is limited to the coordination fee we received from the hospital for your case, or US$1,000, whichever is greater. This does not limit our liability for gross negligence, wilful misconduct, or death and personal injury under applicable law.`,
-    ],
+    title: tTm("title10"),
+    paras: [tTm("body10")],
   },
   {
     id: "indemnification",
     icon: ShieldCheck,
-    title: "Indemnification",
-    paras: [
-      "You agree to indemnify us against third-party claims arising from inaccurate information you provided or activities clearly outside the scope of our coordination services.",
-    ],
+    title: tTm("title11"),
+    paras: [tTm("body11")],
   },
   {
     id: "governing-law",
     icon: Gavel,
-    title: "Governing law and disputes",
-    paras: [
-      "These terms are governed by the laws of Delaware, USA, where MedCasts is incorporated. Disputes go first to good-faith negotiation, then mediation, then binding arbitration under AAA rules. You retain the right to bring claims before your local consumer-protection body where applicable law permits.",
-    ],
+    title: tTm("title12"),
+    paras: [tTm("body12")],
   },
   {
     id: "ip",
     icon: Copyright,
-    title: "Content and intellectual property",
-    paras: [
-      "Content on this site (editorial articles, hospital descriptions, medical panel reviews, data compilations) is our intellectual property. You may share individual articles for non-commercial personal use. Republishing at scale, scraping, or retraining AI models on this content requires written permission.",
-    ],
+    title: tTm("title13"),
+    paras: [tTm("body13")],
   },
   {
     id: "medical-disclaimer",
     icon: AlertTriangle,
-    title: "Medical information disclaimer",
+    title: tTm("title14"),
     tone: "warn",
-    paras: [
-      "Information here — hospital descriptions, treatment guides, cost ranges, blog posts — is educational, not medical advice. It doesn't establish a doctor-patient relationship. Before acting on anything: consult your doctor.",
-    ],
+    paras: [tTm("body14")],
   },
   {
     id: "changes",
     icon: RefreshCw,
-    title: "Changes to these terms",
-    paras: [
-      "We update terms when materially necessary. Active case clients are notified by email. Continued use after notification constitutes acceptance.",
-    ],
+    title: tTm("title15"),
+    paras: [tTm("body15")],
   },
   {
     id: "contact",
     icon: Mail,
-    title: "Contact",
+    title: tTm("title16"),
     bullets: [
-      "**Legal:** medcastsdigital@gmail.com",
-      "**Editorial or clinical concerns:** medcastsdigital@gmail.com",
-      "**Everything else:** your case manager.",
+      tTm("bullets16Item1"),
+      tTm("bullets16Item2"),
+      tTm("bullets16Item3"),
     ],
   },
 ];
@@ -227,23 +202,23 @@ function renderInline(s: string): string {
       <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
         <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
         <span class="mx-1.5">/</span>
-        <span style="color: var(--color-ink);">Terms of service</span>
+        <span style="color: var(--color-ink);">{tTm("breadcrumbTerms")}</span>
       </nav>
     </div>
 
     <section style="padding: 64px 28px 32px;">
       <div class="mx-auto w-full max-w-[1120px]">
         <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
-          Legal · Last updated {LAST_UPDATED}
+          {tTm("legalLastUpdated").replace("{date}", LAST_UPDATED)}
         </div>
         <h1
           class="display display-tight mt-3"
           style="font-size: clamp(2.25rem, 5vw, 3.5rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;"
         >
-          Terms of <span class="italic-display">service</span>
+          {tTm("h1Prefix")} <span class="italic-display">{tTm("h1Italic")}</span>
         </h1>
         <p class="serif mt-5" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted); max-width: 720px;">
-          The honest boundaries of what a medical-travel coordinator can and cannot do for you. Read before you engage our case managers.
+          {tTm("lede")}
         </p>
       </div>
     </section>
@@ -280,7 +255,7 @@ function renderInline(s: string): string {
                   </div>
                   <div class="min-w-0 flex-1">
                     <div class="mono tnum" style={`font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);`}>
-                      Section {num}
+                      {tTm("sectionLabel")} {num}
                     </div>
                     <h2
                       class="display mt-1.5"
@@ -316,10 +291,10 @@ function renderInline(s: string): string {
             <span class="shrink-0 mt-0.5" style="color: var(--color-accent);"><Mail className="h-5 w-5" /></span>
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
-                Questions about these terms?
+                {tTm("questionsHeading")}
               </div>
               <p class="mt-2 serif" style="font-size: 15.5px; line-height: 1.5; color: var(--color-ink-muted);">
-                Email <a href="mailto:medcastsdigital@gmail.com" style="color: var(--color-ink);" class="underline">medcastsdigital@gmail.com</a> — we respond within 5 working days.
+                {tTm("questionsBodyPre")}<a href="mailto:medcastsdigital@gmail.com" style="color: var(--color-ink);" class="underline">medcastsdigital@gmail.com</a>{tTm("questionsBodyPost")}
               </p>
             </div>
           </div>
@@ -332,7 +307,7 @@ function renderInline(s: string): string {
               style="padding: 18px 0; border-top: 1px solid var(--color-ink);"
             >
               <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                On this page
+                {tTm("onThisPage")}
               </div>
               <ol class="mt-3 space-y-2 tnum">
                 {sections.map((s, i) => (
@@ -356,13 +331,13 @@ function renderInline(s: string): string {
               style="padding: 18px 20px;"
             >
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
-                Privacy policy
+                {tTm("privacyLabel")}
               </div>
               <div class="serif mt-2" style="font-size: 16px; line-height: 1.3; color: var(--color-ink);">
-                How we handle your <span class="italic-display">medical data.</span>
+                {tTm("privacyTeaserPre")}<span class="italic-display">{tTm("privacyTeaserItalic")}</span>
               </div>
               <div class="mt-3 mono uppercase inline-flex items-center gap-1 group-hover:text-accent transition-colors" style="font-size: 10.5px; letter-spacing: 0.14em; color: var(--color-ink-muted);">
-                Read privacy
+                {tTm("readPrivacy")}
                 <ChevronRight className="h-3 w-3 mirror-x" />
               </div>
             </a>
@@ -373,18 +348,18 @@ function renderInline(s: string): string {
 
     <ExploreGrid
       locale={locale}
-      eyebrow="Adjacent policies"
-      heading="Other terms + policies"
-      lede="Terms is one slice of how we operate. The pages below cover the rest — privacy, editorial, security, and how we accept reports."
+      eyebrow={tTm("exploreEyebrow")}
+      heading={tTm("exploreHeading")}
+      lede={tTm("exploreLede")}
       items={[
-        { eyebrow: "Legal", label: "Privacy policy", href: "/privacy-policy", hint: "What we collect, retention, GDPR rights." },
-        { eyebrow: "Process", label: "Editorial + corrections policy", href: "/editorial-policy", hint: "Sourcing, AI use, corrections SLA." },
-        { eyebrow: "Trust", label: "Security disclosure", href: "/security", hint: "How we accept reports from researchers." },
-        { eyebrow: "Action", label: "Report a safety incident", href: "/incident-report", hint: "Anonymous channel for clinical concerns." },
-        { eyebrow: "Reviewers", label: "Medical board", href: "/medical-board", hint: "Clinicians behind specialty + condition pages." },
-        { eyebrow: "Quality", label: "Accreditation registry", href: "/accreditation", hint: "JCI, NABH, ISO and 10 others." },
-        { eyebrow: "About", label: "Who we are", href: "/about", hint: "Coordinator-not-clinician scope." },
-        { eyebrow: "Contact", label: "Contact us", href: "/contact", hint: "Disputes, refunds, escalations." },
+        { eyebrow: tTm("exploreItem1Eyebrow"), label: tTm("exploreItem1Label"), href: "/privacy-policy", hint: tTm("exploreItem1Hint") },
+        { eyebrow: tTm("exploreItem2Eyebrow"), label: tTm("exploreItem2Label"), href: "/editorial-policy", hint: tTm("exploreItem2Hint") },
+        { eyebrow: tTm("exploreItem3Eyebrow"), label: tTm("exploreItem3Label"), href: "/security", hint: tTm("exploreItem3Hint") },
+        { eyebrow: tTm("exploreItem4Eyebrow"), label: tTm("exploreItem4Label"), href: "/incident-report", hint: tTm("exploreItem4Hint") },
+        { eyebrow: tTm("exploreItem5Eyebrow"), label: tTm("exploreItem5Label"), href: "/medical-board", hint: tTm("exploreItem5Hint") },
+        { eyebrow: tTm("exploreItem6Eyebrow"), label: tTm("exploreItem6Label"), href: "/accreditation", hint: tTm("exploreItem6Hint") },
+        { eyebrow: tTm("exploreItem7Eyebrow"), label: tTm("exploreItem7Label"), href: "/about", hint: tTm("exploreItem7Hint") },
+        { eyebrow: tTm("exploreItem8Eyebrow"), label: tTm("exploreItem8Label"), href: "/contact", hint: tTm("exploreItem8Hint") },
       ]}
     />
 

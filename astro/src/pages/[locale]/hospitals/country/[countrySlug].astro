@@ -16,8 +16,9 @@ import { sql } from "drizzle-orm";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, collectionPageJsonLd, withProvenance } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
+import { getContent, getContentBatch, applyTranslated, isUntranslated } from "@/lib/translate";
 import { ChevronRight } from "lucide-react";
-import { hospitalCover } from "@/lib/images";
+import { hospitalCover, countryBanner } from "@/lib/images";
 
 export const prerender = false;
 
@@ -27,8 +28,8 @@ if (!countrySlug) return new Response("Not found", { status: 404 });
 if (!isLocale(rawLocale)) return Astro.redirect(`/en/hospitals/country/${countrySlug}`, 308);
 const locale = rawLocale as Locale;
 
-const country = await getGeoCountry(countrySlug);
-if (!country) return new Response(`Not found: ${countrySlug}`, { status: 404 });
+const countryRow = await getGeoCountry(countrySlug);
+if (!countryRow) return new Response(`Not found: ${countrySlug}`, { status: 404 });
 
 const url = new URL(Astro.request.url);
 const pageParam = parseInt(url.searchParams.get("page") ?? "1", 10);
@@ -39,7 +40,14 @@ const sort: "featured" | "rating" | "reviews" | "beds" =
     ? sortParam
     : "featured";
 
-const { rows, total, totalPages } = await listHospitals({ page, sort, country: [countrySlug] });
+const { rows: rawRows, total, totalPages } = await listHospitals({ page, sort, country: [countrySlug] });
+
+// Localize DB content for non-default locales (getContent/getContentBatch
+// return {} on `en`, so applyTranslated is a no-op there).
+const countryMap = await getContent("country", countryRow.id, locale);
+const country = applyTranslated(countryRow, countryMap, ["name"]);
+const hospitalTx = await getContentBatch("hospital", rawRows.map((h) => h.id), locale);
+const rows = rawRows.map((h) => applyTranslated(h, hospitalTx[h.id] ?? {}, ["name"]));
 
 // Batch-fetch accreditation chips for the visible rows.
 const hospitalIds = rows.map((h) => h.id);
@@ -76,7 +84,7 @@ const seoDescription =
     160,
   );
 
-const shouldNoindex = page > 1 || total === 0;
+const shouldNoindex = page > 1 || total === 0 || isUntranslated(locale, countryMap);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
@@ -169,6 +177,9 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
       h1Italic={country.name}
       lede={`Every accredited hospital we list in ${country.name}, with ratings, specialties and accreditation badges. Continuously re-vetted by our medical panel.`}
       stats={stats}
+      locale={locale}
+      image={countryBanner(countrySlug)}
+      imageAlt={`Accredited hospitals in ${country.name}`}
     />
 
     <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-8 pb-12">

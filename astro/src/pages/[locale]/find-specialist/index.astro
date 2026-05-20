@@ -25,6 +25,7 @@ const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect("/en/find-specialist", 308);
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tFs = getTranslator(locale, "findSpecialistPage");
 
 const [specialties, countries, conditions] = await Promise.all([
   db.select({ slug: specialtiesTbl.slug, name: specialtiesTbl.name }).from(specialtiesTbl).where(eq(specialtiesTbl.isActive, true)).orderBy(asc(specialtiesTbl.name)),
@@ -32,13 +33,15 @@ const [specialties, countries, conditions] = await Promise.all([
   db.select({ slug: conditionsTbl.slug, name: conditionsTbl.name }).from(conditionsTbl).orderBy(asc(conditionsTbl.name)),
 ]);
 
-const seoTitle = "Find a specialist — matched to your condition";
-const seoDescription = "Tell us your condition or specialty and preferred destination; we shortlist 3 surgeons with volume + rating + language match, free.";
+const seoTitle = tFs("seoTitle");
+const seoDescription = tFs("seoDescription");
 const path = "/find-specialist";
+// /api/v1/inquiry redirects back here with ?sent=1 after a successful submit.
+const sent = new URL(Astro.request.url).searchParams.get("sent") === "1";
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Find a specialist", url: localeUrl(locale, path) },
+  { name: tFs("breadcrumb"), url: localeUrl(locale, path) },
 ]);
 
 const contactPageLd = {
@@ -85,7 +88,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
       <nav class="mono mx-auto max-w-[1440px] flex items-center gap-2 flex-wrap" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
         <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
         <span aria-hidden="true" class="text-[var(--color-border-strong)]">/</span>
-        <span style="color: var(--color-ink);">Find a specialist</span>
+        <span style="color: var(--color-ink);">{tFs("breadcrumb")}</span>
       </nav>
     </div>
 
@@ -93,18 +96,18 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
       <div class="mx-auto" style="max-width: 1120px;">
         <div class="grid gap-10 lg:grid-cols-[1fr_0.6fr] lg:items-center">
           <div>
-            <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">Matching</div>
+            <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">{tFs("heroEyebrow")}</div>
             <h1 class="display display-tight mt-3" style="font-size: clamp(2.25rem, 5vw, 3.5rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;">
-              Find the right <span class="italic-display">specialist</span>
+              {tFs("heroHeadingMain")} <span class="italic-display">{tFs("heroHeadingItalic")}</span>
             </h1>
             <p class="serif mt-5" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">
-              Tell us your condition or the specialty you need and (optionally) where you'd like to go. We shortlist 3 surgeons: volume + rating + language + program depth considered. Free.
+              {tFs("heroBody")}
             </p>
           </div>
           <div class="relative paper-flat overflow-hidden" style="aspect-ratio: 4/5; border-radius: var(--radius-lg);">
             <img
               src={heroImage("find-specialist")}
-              alt="Specialist matching consultation"
+              alt={tFs("heroImageAlt")}
               width="600"
               height="750"
               loading="eager"
@@ -113,51 +116,65 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
             />
             <div class="image-veil" />
             <div class="absolute" style="inset-inline-start: 16px; inset-block-end: 16px; inset-inline-end: 16px;">
-              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: rgba(251,248,241,0.78);">Volume + rating + language + depth</div>
-              <div class="serif" style="font-size: 16px; font-weight: 500; color: #FBF8F1; line-height: 1.3; margin-top: 4px;">3 surgeons. Honest match.</div>
+              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: rgba(251,248,241,0.78);">{tFs("imageOverlaySub")}</div>
+              <div class="serif" style="font-size: 16px; font-weight: 500; color: #FBF8F1; line-height: 1.3; margin-top: 4px;">{tFs("imageOverlayMain")}</div>
             </div>
           </div>
         </div>
       </div>
       <div class="mx-auto mt-12" style="max-width: 800px;">
 
+        {sent ? (
+          <div class="paper mt-10" style="padding: 32px; box-shadow: var(--shadow-md);">
+            <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent); text-transform: uppercase;">Request received</div>
+            <h2 class="display mt-3" style="font-size: 26px; letter-spacing: -0.02em; line-height: 1.15;">Thank you — we're matching your case</h2>
+            <p class="serif mt-3" style="font-size: 16px; line-height: 1.55; color: var(--color-ink-muted);">
+              A senior coordinator will shortlist sub-specialists for your condition and reach out within a few hours during business hours.
+            </p>
+            <div class="mt-6 flex flex-wrap gap-3">
+              <a href={localizedPath(locale, "/surgeons")} class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; border: 1px solid var(--color-border); padding: 10px 18px; border-radius: 9999px; color: var(--color-ink);">Browse surgeons meanwhile</a>
+              <a href={localizedPath(locale, "/second-opinion")} class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 10px 18px; border-radius: 9999px;">Free second opinion →</a>
+            </div>
+          </div>
+        ) : (
         <form
-          action={localizedPath(locale, "/contact")}
-          method="get"
+          action="/api/v1/inquiry"
+          method="post"
           class="paper mt-10"
           style="padding: 0; box-shadow: var(--shadow-md); overflow: hidden;"
         >
           <input type="hidden" name="topic" value="specialist-match" />
+          <input type="hidden" name="locale" value={locale} />
 
           {/* Section 1 — clinical */}
           <fieldset class="border-0 m-0" style="padding: 28px 32px;">
             <legend class="contents">
               <div class="mono uppercase tnum" style="font-size: 10px; letter-spacing: 0.16em; color: var(--color-accent);">
-                01 · What you need
+                {tFs("section1Eyebrow")}
               </div>
               <div class="serif mt-1" style="font-size: 18px; line-height: 1.3; color: var(--color-ink); font-weight: 500;">
-                The condition or specialty you're seeking care for
+                {tFs("section1Legend")}
               </div>
             </legend>
             <div class="grid gap-4 md:grid-cols-2 mt-5">
               <label class="block">
-                <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Specialty</span>
+                <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">{tFs("labelSpecialty")}</span>
                 <select name="specialty" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;">
-                  <option value="">— Any / recommend for me —</option>
+                  <option value="">{tFs("specialtyDefault")}</option>
                   {specialties.map((s) => (<option value={s.slug}>{s.name}</option>))}
                 </select>
               </label>
               <label class="block">
-                <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Condition <span style="color: var(--color-ink-subtle); text-transform: none; letter-spacing: 0.02em;">(optional)</span></span>
+                <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">{tFs("labelCondition")} <span style="color: var(--color-ink-subtle); text-transform: none; letter-spacing: 0.02em;">({tFs("optionalParens")})</span></span>
                 <select name="condition" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;">
-                  <option value="">— Skip if unsure —</option>
+                  <option value="">{tFs("conditionDefault")}</option>
                   {conditions.map((c) => (<option value={c.slug}>{c.name}</option>))}
                 </select>
               </label>
             </div>
             <label class="block mt-4">
-              <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Details <span style="color: var(--color-ink-subtle); text-transform: none; letter-spacing: 0.02em;">(age, prior treatment, specific concerns)</span></span>
-              <textarea name="description" rows="4" placeholder="e.g. 58yo, 3-vessel CAD on angiogram, diabetic, ejection fraction 40%. Home cardiologist recommended CABG." class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
+              <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">{tFs("labelDetails")} <span style="color: var(--color-ink-subtle); text-transform: none; letter-spacing: 0.02em;">({tFs("detailsHint")})</span></span>
+              <textarea name="message" rows="4" placeholder={tFs("detailsPlaceholder")} class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px; font-family: inherit; resize: vertical;"></textarea>
             </label>
           </fieldset>
 
@@ -165,24 +182,24 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
           <fieldset class="border-0 m-0" style="padding: 28px 32px; background: var(--color-paper); border-top: 1px dashed var(--color-border);">
             <legend class="contents">
               <div class="mono uppercase tnum" style="font-size: 10px; letter-spacing: 0.16em; color: var(--color-accent);">
-                02 · Where & how <span style="color: var(--color-ink-subtle); text-transform: none; letter-spacing: 0.02em;">(optional)</span>
+                {tFs("section2Eyebrow")} <span style="color: var(--color-ink-subtle); text-transform: none; letter-spacing: 0.02em;">({tFs("optionalParens")})</span>
               </div>
               <div class="serif mt-1" style="font-size: 18px; line-height: 1.3; color: var(--color-ink); font-weight: 500;">
-                Destination and language preferences
+                {tFs("section2Legend")}
               </div>
             </legend>
             <div class="grid gap-4 md:grid-cols-2 mt-5">
               <label class="block">
-                <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Preferred destination</span>
+                <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">{tFs("labelDestination")}</span>
                 <select name="country" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14px;">
-                  <option value="">Anywhere — optimise for fit</option>
+                  <option value="">{tFs("destinationDefault")}</option>
                   {countries.map((c) => (<option value={c.slug}>{c.name}</option>))}
                 </select>
               </label>
               <label class="block">
-                <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Preferred language</span>
+                <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">{tFs("labelLanguage")}</span>
                 <select name="language" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14px;">
-                  <option value="">English (default)</option>
+                  <option value="">{tFs("languageDefault")}</option>
                   <option value="ar">العربية</option>
                   <option value="ru">Русский</option>
                   <option value="fr">Français</option>
@@ -199,75 +216,76 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
           <fieldset class="border-0 m-0" style="padding: 28px 32px; border-top: 1px dashed var(--color-border);">
             <legend class="contents">
               <div class="mono uppercase tnum" style="font-size: 10px; letter-spacing: 0.16em; color: var(--color-accent);">
-                03 · How we reach you
+                {tFs("section3Eyebrow")}
               </div>
               <div class="serif mt-1" style="font-size: 18px; line-height: 1.3; color: var(--color-ink); font-weight: 500;">
-                Name and a number we can WhatsApp
+                {tFs("section3Legend")}
               </div>
             </legend>
             <div class="grid gap-4 md:grid-cols-2 mt-5">
               <label class="block">
-                <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Your name</span>
-                <input name="name" required placeholder="Full name" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;" />
+                <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">{tFs("labelYourName")}</span>
+                <input name="name" required placeholder={tFs("namePlaceholder")} class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;" />
               </label>
               <label class="block">
-                <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">WhatsApp / phone</span>
+                <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">{tFs("labelWhatsapp")}</span>
                 <input name="phone" required placeholder="+91 98765 43210" class="w-full" style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface-elevated); font-size: 14px;" />
               </label>
             </div>
 
             <button type="submit" class="inline-flex items-center justify-center gap-2 w-full mt-6 font-semibold" style="background: var(--color-ink); color: var(--color-bg); padding: 14px 22px; font-size: 15px; border-radius: 9999px;">
-              Shortlist 3 specialists <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+              {tFs("submitBtn")} <ChevronRight className="h-3.5 w-3.5 mirror-x" />
             </button>
 
             <p class="mono mt-4 text-center" style="font-size: 11px; color: var(--color-ink-subtle);">
-              Free · no obligation · case manager replies in ~9 min (business hours)
+              {tFs("submitNote")}
             </p>
           </fieldset>
         </form>
+        )}
       </div>
     </section>
 
     <HowItWorks
-      heading="How specialist matching works"
-      italicWord="works"
+      heading={tFs("howHeading")}
+      italicWord={tFs("howItalicWord")}
       steps={[
-        { title: "Tell us your case", description: "Submit the form: specialty, condition, language preference, country, contact details. The more clinical detail you share (recent imaging, prior treatments tried, current medications), the better we can match." },
-        { title: "Case review", description: "A senior coordinator reviews your case within 24 hours, identifies 3-5 potential specialists across our network, and validates surgeon volume and outcome data on your specific procedure." },
-        { title: "Specialist outreach", description: "We approach the top candidates. Some take new international cases; some are at capacity. We confirm availability before presenting options to you." },
-        { title: "Presentation", description: "You receive 2-4 specialist options with: surgeon background, annual case volume on your procedure, expected timeline, indicative cost range, and our specific recommendation." },
-        { title: "Direct consultation", description: "You schedule a video consultation with the surgeon(s) you want to evaluate. No commitment yet; this is for you to decide if the surgeon and program fit." },
-        { title: "Decision support", description: "If you want a second opinion, we help arrange one. If you have questions about logistics, visa, or recovery, we work through them. No pressure to commit." },
+        { title: tFs("step1Title"), description: tFs("step1Desc") },
+        { title: tFs("step2Title"), description: tFs("step2Desc") },
+        { title: tFs("step3Title"), description: tFs("step3Desc") },
+        { title: tFs("step4Title"), description: tFs("step4Desc") },
+        { title: tFs("step5Title"), description: tFs("step5Desc") },
+        { title: tFs("step6Title"), description: tFs("step6Desc") },
       ]}
-      outroNote="No upfront fees. Specialist matching is free; we're paid by hospitals only after you choose to proceed with treatment."
+      outroNote={tFs("howOutroNote")}
     />
 
     <WhatToExpect
-      heading="What good specialist matching looks like"
-      italicWord="looks like"
+      heading={tFs("wteHeading")}
+      italicWord={tFs("wteItalicWord")}
       items={[
-        { label: "Multiple options, not one", description: "A reputable matching service presents 2-4 candidates with rationale, not a single 'we recommend Dr. X' without alternatives." },
-        { label: "Surgeon-specific data", description: "Annual case volume on your specific procedure — not just institutional volume — is the metric that matters most." },
-        { label: "Direct surgeon access", description: "Pre-treatment video consultation directly with the surgeon, not just sales/coordinators. You should hear their voice and ask hard questions." },
-        { label: "Honest about gaps", description: "If your case is rare and most programs don't see enough volume, the matching service should say so — and propose specialists who do." },
-        { label: "No pressure tactics", description: "Reputable services give you time to compare, second-opinion, and decide. Pressure to commit quickly is a quality signal." },
+        { label: tFs("wte1Label"), description: tFs("wte1Desc") },
+        { label: tFs("wte2Label"), description: tFs("wte2Desc") },
+        { label: tFs("wte3Label"), description: tFs("wte3Desc") },
+        { label: tFs("wte4Label"), description: tFs("wte4Desc") },
+        { label: tFs("wte5Label"), description: tFs("wte5Desc") },
       ]}
     />
 
     <ExploreGrid
       locale={locale}
-      eyebrow="Other ways to find the right surgeon"
-      heading="Or browse our network directly"
-      lede="If you'd rather skip the form, the entry points below let you compare specialists, get a free second opinion, or estimate cost up front."
+      eyebrow={tFs("exploreEyebrow")}
+      heading={tFs("exploreHeading")}
+      lede={tFs("exploreLede")}
       items={[
-        { eyebrow: "Browse", label: "Surgeons by specialty", href: "/surgeons", hint: "15 specialties, 9 destinations, ranked by case volume." },
-        { eyebrow: "Browse", label: "All specialties", href: "/specialties", hint: "Cardiac, oncology, ortho — pick by clinical area." },
-        { eyebrow: "Compare", label: "Compare doctors side-by-side", href: "/compare/doctors", hint: "Years, patients treated, languages, fee." },
-        { eyebrow: "Quote", label: "Get a free quote", href: "/quote", hint: "5-minute form — we send 3 surgeon options + cost." },
-        { eyebrow: "Match", label: "Match Me quiz", href: "/match-me", hint: "3-step concern → destination → budget → shortlist." },
-        { eyebrow: "Trust", label: "Free second opinion", href: "/second-opinion", hint: "Independent review of your existing surgical plan." },
-        { eyebrow: "Process", label: "How it works", href: "/services", hint: "What our case managers do — and don't do." },
-        { eyebrow: "Talk", label: "Talk to a coordinator", href: "/contact", hint: "Real person, no forms." },
+        { eyebrow: tFs("exploreItem1Eyebrow"), label: tFs("exploreItem1Label"), href: "/surgeons", hint: tFs("exploreItem1Hint") },
+        { eyebrow: tFs("exploreItem2Eyebrow"), label: tFs("exploreItem2Label"), href: "/specialties", hint: tFs("exploreItem2Hint") },
+        { eyebrow: tFs("exploreItem3Eyebrow"), label: tFs("exploreItem3Label"), href: "/compare/doctors", hint: tFs("exploreItem3Hint") },
+        { eyebrow: tFs("exploreItem4Eyebrow"), label: tFs("exploreItem4Label"), href: "/quote", hint: tFs("exploreItem4Hint") },
+        { eyebrow: tFs("exploreItem5Eyebrow"), label: tFs("exploreItem5Label"), href: "/match-me", hint: tFs("exploreItem5Hint") },
+        { eyebrow: tFs("exploreItem6Eyebrow"), label: tFs("exploreItem6Label"), href: "/second-opinion", hint: tFs("exploreItem6Hint") },
+        { eyebrow: tFs("exploreItem7Eyebrow"), label: tFs("exploreItem7Label"), href: "/services", hint: tFs("exploreItem7Hint") },
+        { eyebrow: tFs("exploreItem8Eyebrow"), label: tFs("exploreItem8Label"), href: "/contact", hint: tFs("exploreItem8Hint") },
       ]}
     />
 

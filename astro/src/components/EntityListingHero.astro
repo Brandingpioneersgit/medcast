@@ -1,8 +1,11 @@
 ---
 // Shared editorial hero for listing pages (specialties, countries, doctors,
-// treatments, conditions, blog, hospitals). Renders eyebrow + italic display
-// H1 + serif lede + optional 4-up stat ribbon. Width + breadcrumb come from
-// the parent page so each listing can tune crumbs and max-width independently.
+// treatments, conditions, blog, hospitals). Renders a banner image + eyebrow +
+// italic display H1 + serif lede + an editorial-desk trust strip + optional
+// 4-up stat ribbon. Width + breadcrumb come from the parent page.
+import { careTeam } from "@/lib/images";
+import { localizedPath, defaultLocale, type Locale } from "@/lib/i18n";
+
 interface Stat { l: string; v: string }
 interface Props {
   eyebrow: string;
@@ -11,6 +14,12 @@ interface Props {
   lede?: string | null;
   stats?: Stat[];
   maxWidth?: string;
+  /** Banner image URL. Falls back to a deterministic care-team photo. */
+  image?: string | null;
+  imageAlt?: string;
+  locale?: Locale;
+  /** Set false to hide the editorial-desk trust strip. */
+  trust?: boolean;
 }
 const {
   eyebrow,
@@ -19,12 +28,36 @@ const {
   lede = null,
   stats = [],
   maxWidth = "90rem",
+  image = null,
+  imageAlt,
+  locale = defaultLocale,
+  trust = true,
 } = Astro.props;
+
+const bannerSrc = image ?? careTeam(`${h1First}-${h1Italic}`);
+const bannerAlt = imageAlt ?? "MedCasts — accredited hospitals and specialists abroad";
+
+const reviewed = new Date();
+const reviewedLabel = reviewed.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+const reviewedIso = reviewed.toISOString().slice(0, 10);
 ---
 
-<section class="pt-12 md:pt-16 pb-8">
+<section class="pt-7 md:pt-9 pb-8">
   <div class="mx-auto w-full px-5 md:px-8" style={`max-width: ${maxWidth};`}>
-    <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
+    <div class="elh-banner">
+      <img
+        src={bannerSrc}
+        alt={bannerAlt}
+        loading="eager"
+        decoding="async"
+        fetchpriority="high"
+        width="1600"
+        height="420"
+      />
+      <span class="elh-banner-tint" aria-hidden="true"></span>
+    </div>
+
+    <p class="mono uppercase mt-7" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
       {eyebrow}
     </p>
     <h1
@@ -37,6 +70,31 @@ const {
       <p class="serif mt-5 max-w-[48rem]" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">
         {lede}
       </p>
+    )}
+
+    {trust && (
+      <div
+        class="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1"
+        style="font-size: 12px; color: var(--color-ink-subtle);"
+      >
+        <span class="inline-flex items-center gap-1.5">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true" style="color: var(--color-accent);">
+            <path d="M20 6 9 17l-5-5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          Compiled &amp; maintained by the
+          <a
+            href={localizedPath(locale, "/editorial-policy")}
+            style="color: var(--color-ink-muted); text-decoration: underline; text-underline-offset: 2px;"
+          >MedCasts editorial desk</a>
+        </span>
+        <span aria-hidden="true" style="opacity: 0.4;">·</span>
+        <span>Reviewed <time datetime={reviewedIso}>{reviewedLabel}</time></span>
+        <span aria-hidden="true" style="opacity: 0.4;">·</span>
+        <a
+          href={localizedPath(locale, "/medical-board")}
+          style="color: var(--color-ink-subtle); text-decoration: underline; text-underline-offset: 2px;"
+        >Medical board</a>
+      </div>
     )}
 
     {stats.length > 0 && (
@@ -60,3 +118,27 @@ const {
     <slot />
   </div>
 </section>
+
+<style>
+  .elh-banner {
+    position: relative;
+    width: 100%;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    background: var(--color-paper);
+  }
+  .elh-banner img {
+    width: 100%;
+    height: clamp(150px, 25vw, 270px);
+    object-fit: cover;
+    display: block;
+  }
+  /* Quiet wash so the cream page edge meets the photo without a hard seam. */
+  .elh-banner-tint {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(14,23,19,0) 55%, rgba(14,23,19,0.16) 100%);
+  }
+</style>

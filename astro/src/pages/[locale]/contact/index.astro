@@ -153,6 +153,8 @@ const prefillHospital = reqUrl.searchParams.get("hospital") ?? "";
 const prefillCondition = reqUrl.searchParams.get("condition") ?? "";
 const prefillDoctor = reqUrl.searchParams.get("doctor") ?? "";
 const prefillCode = reqUrl.searchParams.get("code") ?? "";
+const prefillSurgeon = reqUrl.searchParams.get("surgeon") ?? "";
+const prefillDates = reqUrl.searchParams.get("dates") ?? "";
 
 const prefillContext =
   prefillTreatment ||
@@ -322,6 +324,8 @@ Astro.response.headers.set(
               {prefillHospital && <input type="hidden" name="hospital" value={prefillHospital} />}
               {prefillCondition && <input type="hidden" name="condition" value={prefillCondition} />}
               {prefillDoctor && <input type="hidden" name="doctor" value={prefillDoctor} />}
+              {prefillSurgeon && <input type="hidden" name="surgeon" value={prefillSurgeon} />}
+              {prefillDates && <input type="hidden" name="dates" value={prefillDates} />}
 
               {/* Step 2 — visible but visually softer (optional, not collapsed) */}
               {!intent?.hideStep2 && (

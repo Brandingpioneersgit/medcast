@@ -20,13 +20,14 @@ const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect(`/en/for-hospitals`, 308);
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tFh = getTranslator(locale, "forHospitalsPage");
 
 const path = "/for-hospitals";
 const url = localeUrl(locale, path);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "For hospitals", url },
+  { name: tFh("forHospitalsBreadcrumb"), url },
 ]);
 
 Astro.response.headers.set(
@@ -35,42 +36,42 @@ Astro.response.headers.set(
 );
 
 const stats = [
-  { l: "Pre-qualified", v: "34%" },
-  { l: "Languages", v: "8" },
-  { l: "Commission on", v: "Admission" },
-  { l: "Retainer", v: "$0" },
+  { l: tFh("statLabelPrequalified"), v: "34%" },
+  { l: tFh("statLabelLanguages"), v: "8" },
+  { l: tFh("statLabelCommissionOn"), v: tFh("statValueCommission") },
+  { l: tFh("statLabelRetainer"), v: tFh("statValueRetainer") },
 ];
 
 const PROMISES = [
-  { eyebrow: "01", title: "Pre-qualified leads", body: "Only patients with a real diagnosis, budget, and travel intent reach your IPD desk. Average lead → admission conversion: 34%." },
-  { eyebrow: "02", title: "8-language front desk", body: "Arabic, Russian, French, Portuguese, Bengali, Turkish, Hindi, English — we handle patient communication in-language, not your staff." },
-  { eyebrow: "03", title: "End-to-end coordination", body: "Visa, airport transfer, hotel, post-op follow-up — handled by our case managers. Your team sees a ready-to-admit patient." },
+  { eyebrow: tFh("forHospitalsPromise01Eyebrow"), title: tFh("forHospitalsPromise01Title"), body: tFh("forHospitalsPromise01Body") },
+  { eyebrow: tFh("forHospitalsPromise02Eyebrow"), title: tFh("forHospitalsPromise02Title"), body: tFh("forHospitalsPromise02Body") },
+  { eyebrow: tFh("forHospitalsPromise03Eyebrow"), title: tFh("forHospitalsPromise03Title"), body: tFh("forHospitalsPromise03Body") },
 ];
 
 const STEPS = [
-  { n: "01", t: "Hospital onboarding · 7 days", d: "We collect specialties, pricing ranges, doctor profiles, accreditations, and capacity constraints." },
-  { n: "02", t: "Lead routing · ≤ 6 hours", d: "Patients matching your specialties and pricing bracket get routed with full case files, imaging, and budget." },
-  { n: "03", t: "Quote & acceptance", d: "Itemised quote via hospital portal. We present it in the patient's language. Acceptance triggers travel booking." },
-  { n: "04", t: "Admission & care", d: "Patient arrives with all paperwork done. You deliver care. We handle check-ins, translation, and post-op follow-up." },
-  { n: "05", t: "Commission settled", d: "Transparent fee billed monthly per successful admission. No success, no fee. Standard: 10-15% by specialty and volume." },
-  { n: "06", t: "Performance review", d: "Monthly dashboard for lead quality, conversion, patient NPS, and reimbursement timing. Quarterly IPD review." },
+  { n: "01", t: tFh("forHospitalsStep01Title"), d: tFh("forHospitalsStep01Desc") },
+  { n: "02", t: tFh("forHospitalsStep02Title"), d: tFh("forHospitalsStep02Desc") },
+  { n: "03", t: tFh("forHospitalsStep03Title"), d: tFh("forHospitalsStep03Desc") },
+  { n: "04", t: tFh("forHospitalsStep04Title"), d: tFh("forHospitalsStep04Desc") },
+  { n: "05", t: tFh("forHospitalsStep05Title"), d: tFh("forHospitalsStep05Desc") },
+  { n: "06", t: tFh("forHospitalsStep06Title"), d: tFh("forHospitalsStep06Desc") },
 ];
 
 const QUALIFIES = [
-  "JCI, NABH, or equivalent national accreditation",
-  "Active international patient department with dedicated coordinator",
-  "Published pricing for at least 10 core treatments in our catalog",
-  "Digital records (DICOM imaging, PDF reports exportable)",
-  "Responsive quote turnaround (24-48 hours typical)",
-  "Transparent inclusion / exclusion line items",
+  tFh("forHospitalsQualify01"),
+  tFh("forHospitalsQualify02"),
+  tFh("forHospitalsQualify03"),
+  tFh("forHospitalsQualify04"),
+  tFh("forHospitalsQualify05"),
+  tFh("forHospitalsQualify06"),
 ];
 ---
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta
-      title="MedCasts for Hospitals — Partnership Program"
-      description="Pre-qualified international leads, 8-language patient communication, visa + travel handled, commission only on admission. No retainer, no ad spend."
+      title={tFh("seoTitle")}
+      description={tFh("seoDescription")}
       path={path}
       locale={locale}
     />
@@ -85,16 +86,16 @@ const QUALIFIES = [
         <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span class="mx-1.5">/</span>
-          <span style="color: var(--color-ink);">For hospitals</span>
+          <span style="color: var(--color-ink);">{tFh("forHospitalsBreadcrumb")}</span>
         </nav>
       </div>
     </div>
 
     <EntityListingHero
-      eyebrow="For hospitals · IPD partnership program"
-      h1First="Another ad won't fill your international beds."
-      h1Italic="This might."
-      lede="Patients reach your IPD coordinator with reports, budget, and visa paperwork already done. You bill on admission, not on a lead. If the patient doesn't fly, we don't bill — so we pre-qualify hard on our side, not yours."
+      eyebrow={tFh("eyebrow")}
+      h1First={tFh("h1First")}
+      h1Italic={tFh("h1Italic")}
+      lede={tFh("lede")}
       stats={stats}
     />
 
@@ -102,22 +103,22 @@ const QUALIFIES = [
     <section style="padding: 32px 0 0;">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
         <div class="mono uppercase mb-4" style="font-size: 10.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-          Patients we route
+          {tFh("patientsWeRoute")}
         </div>
         <ul class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
           {[
-            { region: "africa", id: 21, label: "Sub-Saharan Africa", flow: "→ India · Turkey", share: "31%" },
-            { region: "middle_east", id: 22, label: "Gulf & Levant", flow: "→ India · UAE · Germany", share: "27%" },
-            { region: "cis", id: 23, label: "CIS & Caucasus", flow: "→ Turkey · India", share: "19%" },
-            { region: "south_asia", id: 24, label: "South Asia", flow: "→ India · Thailand", share: "16%" },
-            { region: "africa", id: 25, label: "North Africa", flow: "→ Turkey · UAE", share: "7%" },
+            { region: "africa", id: 21, label: tFh("patientRegionSubSaharanAfrica"), flow: tFh("patientFlowAfrica"), share: "31%" },
+            { region: "middle_east", id: 22, label: tFh("patientRegionGulfAndLevant"), flow: tFh("patientFlowMiddleEast"), share: "27%" },
+            { region: "cis", id: 23, label: tFh("patientRegionCISAndCaucasus"), flow: tFh("patientFlowCIS"), share: "19%" },
+            { region: "south_asia", id: 24, label: tFh("patientRegionSouthAsia"), flow: tFh("patientFlowSouthAsia"), share: "16%" },
+            { region: "africa", id: 25, label: tFh("patientRegionNorthAfrica"), flow: tFh("patientFlowNorthAfrica"), share: "7%" },
           ].map((p) => (
             <li>
               <article class="paper overflow-hidden" style="padding: 0;">
                 <div class="relative" style="aspect-ratio: 1/1; overflow: hidden;">
                   <img
                     src={patientHero(p.id, p.region as any, 360)}
-                    alt={`Patient origin: ${p.label}`}
+                    alt={tFh("patientOriginAlt").replace("{label}", p.label)}
                     width="360"
                     height="360"
                     loading="lazy"
@@ -142,7 +143,7 @@ const QUALIFIES = [
           ))}
         </ul>
         <p class="mono uppercase" style="font-size: 10.5px; letter-spacing: 0.06em; color: var(--color-ink-subtle); margin-top: 14px;">
-          Lead origin distribution · trailing 12 months · stock imagery
+          {tFh("originDistributionNote")}
         </p>
       </div>
     </section>
@@ -151,10 +152,10 @@ const QUALIFIES = [
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
         <div class="mb-8">
           <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-            01 · Partnership promises
+            {tFh("forHospitalsSection01")}
           </div>
           <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
-            What partner hospitals <span class="italic-display">get</span>
+            {tFh("forHospitalsSection01Title")}
           </h2>
         </div>
         <ul class="grid grid-cols-1 gap-5 md:grid-cols-3">
@@ -179,10 +180,10 @@ const QUALIFIES = [
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
         <div class="mb-8">
           <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-            02 · How it works
+            {tFh("forHospitalsSection02")}
           </div>
           <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
-            Six stages, <span class="italic-display">end-to-end.</span>
+            {tFh("forHospitalsSection02Title")}
           </h2>
         </div>
         <ol>
@@ -213,10 +214,10 @@ const QUALIFIES = [
         <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
           <div>
             <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-              03 · Qualifies
+              {tFh("forHospitalsSection03")}
             </div>
             <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
-              What we look for <span class="italic-display">in a hospital</span>
+              {tFh("forHospitalsSection03Title")}
             </h2>
           </div>
           <ul class="space-y-3.5">
@@ -236,13 +237,13 @@ const QUALIFIES = [
         <div class="grid gap-8 lg:grid-cols-[1.5fr_1fr] items-end">
           <div>
             <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
-              Explore partnership
+              {tFh("forHospitalsCta")}
             </div>
             <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.02; letter-spacing: -0.02em; color: var(--color-bg);">
-              30-minute intro call, <span class="italic-display">no commitment.</span>
+              {tFh("forHospitalsCtaTitle")}
             </h2>
             <p class="serif mt-4 max-w-[42rem]" style="font-size: 17px; line-height: 1.5; color: rgba(246,241,230,0.75);">
-              We share market data for your destination + specialties before you commit to anything. If the numbers don't work for either side, we say so on the call.
+              {tFh("forHospitalsCtaText")}
             </p>
           </div>
           <div class="flex flex-wrap gap-3 lg:justify-end">
@@ -251,7 +252,7 @@ const QUALIFIES = [
               class="inline-flex items-center gap-2 font-semibold"
               style="background: var(--color-bg); color: var(--color-ink); padding: 14px 22px; border-radius: 9999px;"
             >
-              Request intro call
+              {tFh("forHospitalsCtaBtn")}
               <ChevronRight className="h-4 w-4 mirror-x" />
             </a>
           </div>
@@ -260,47 +261,47 @@ const QUALIFIES = [
     </section>
 
     <HowItWorks
-      heading="How partner hospitals work with us"
-      italicWord="work with us"
-      eyebrow="Partnership process"
+      heading={tFh("howItWorksHeading")}
+      italicWord={tFh("howItWorksItalicWord")}
+      eyebrow={tFh("howItWorksEyebrow")}
       steps={[
-        { title: "Initial conversation", description: "International department lead at the hospital connects with our partnerships team. We share our patient demographics, case volumes, and quality criteria." },
-        { title: "Quality validation", description: "We verify accreditation status, surgeon credentials, outcomes data publication, and pricing structure. Hospitals not meeting baseline standards aren't onboarded." },
-        { title: "Pricing transparency commitment", description: "Partner hospitals commit to itemized quote sheets — line-item breakdown of surgeon fee, anesthesia, implant, hospital stay, etc. Package marketing isn't enough." },
-        { title: "Coordination integration", description: "We integrate with the hospital's international-patient department for case routing, quote turnaround, and post-op coordination. Single point of contact at the hospital." },
-        { title: "Patient referral", description: "We refer cases that match your specific specialty depth and patient mix. We don't fire-hose; we match." },
-        { title: "Coordination fee on completion", description: "5-15% of hospital invoice paid by the hospital after the patient completes treatment. Free for the patient. No upfront fees from hospitals; success-aligned." },
+        { title: tFh("howItWorksStep1Title"), description: tFh("howItWorksStep1Desc") },
+        { title: tFh("howItWorksStep2Title"), description: tFh("howItWorksStep2Desc") },
+        { title: tFh("howItWorksStep3Title"), description: tFh("howItWorksStep3Desc") },
+        { title: tFh("howItWorksStep4Title"), description: tFh("howItWorksStep4Desc") },
+        { title: tFh("howItWorksStep5Title"), description: tFh("howItWorksStep5Desc") },
+        { title: tFh("howItWorksStep6Title"), description: tFh("howItWorksStep6Desc") },
       ]}
-      outroNote="We work with hospitals across 9 destinations. Partnership terms are written and renewable. Patient referral volume scales with quality and outcomes — not marketing spend."
+      outroNote={tFh("howItWorksOutroNote")}
     />
 
     <WhatToExpect
-      heading="What we look for in partner hospitals"
-      italicWord="partner hospitals"
+      heading={tFh("whatToExpectHeading")}
+      italicWord={tFh("whatToExpectItalicWord")}
       items={[
-        { label: "Accreditation depth", description: "JCI is baseline. Country-specific (NABH, HA, KOIHA, MSQH) preferred. Multiple accreditations from independent bodies are stronger." },
-        { label: "Sub-specialty volume", description: "Annual case volume on specific procedures, not just hospital totals. Programs with sub-specialty teams (mitral valve, hepatobiliary, pediatric cardiac) are prioritized." },
-        { label: "Outcomes transparency", description: "30-day mortality, revision rates, complication profiles published or shareable. Hospitals that don't publish these aren't ready for international referral." },
-        { label: "International patient infrastructure", description: "Multilingual coordinators, dedicated international wings, post-discharge telemedicine, complications protocols. Real infrastructure, not just translation." },
-        { label: "Pricing transparency", description: "Itemized quotes with all line items. Real pricing that holds, not bait-and-switch." },
-        { label: "Communication quality", description: "Quote turnaround within 48 hours. Direct surgeon access for video consults. Honest case selection — willing to decline cases that don't fit." },
+        { label: tFh("whatToExpectItem1Label"), description: tFh("whatToExpectItem1Desc") },
+        { label: tFh("whatToExpectItem2Label"), description: tFh("whatToExpectItem2Desc") },
+        { label: tFh("whatToExpectItem3Label"), description: tFh("whatToExpectItem3Desc") },
+        { label: tFh("whatToExpectItem4Label"), description: tFh("whatToExpectItem4Desc") },
+        { label: tFh("whatToExpectItem5Label"), description: tFh("whatToExpectItem5Desc") },
+        { label: tFh("whatToExpectItem6Label"), description: tFh("whatToExpectItem6Desc") },
       ]}
     />
 
     <ExploreGrid
       locale={locale}
-      eyebrow="See how we work"
-      heading="What we publish + how we evaluate"
-      lede="Before partnering, prospective hospitals usually want to know how we describe facilities, what we link out to, and how we handle pricing."
+      eyebrow={tFh("exploreEyebrow")}
+      heading={tFh("exploreHeading")}
+      lede={tFh("exploreLede")}
       items={[
-        { eyebrow: "Process", label: "Editorial + corrections policy", href: "/editorial-policy", hint: "How we source, review, and update hospital pages." },
-        { eyebrow: "Reviewers", label: "Medical board", href: "/medical-board", hint: "Clinical reviewers behind each specialty hub." },
-        { eyebrow: "Quality", label: "Accreditation registry", href: "/accreditation", hint: "Which credentials we surface + verify." },
-        { eyebrow: "Listings", label: "All hospitals", href: "/hospitals", hint: "9,254 facilities — the network you'd join." },
-        { eyebrow: "Listings", label: "Top destinations", href: "/countries", hint: "9 countries we actively place patients into." },
-        { eyebrow: "Cost", label: "Pricing matrix", href: "/pricing-index", hint: "How we benchmark cost across hospitals." },
-        { eyebrow: "About", label: "Who we are", href: "/about", hint: "Coordinator-not-clinician scope; how we get paid." },
-        { eyebrow: "Talk", label: "Talk to partnerships", href: "/contact", hint: "We respond within 1 business day." },
+        { eyebrow: tFh("exploreItem1Eyebrow"), label: tFh("exploreItem1Label"), href: "/editorial-policy", hint: tFh("exploreItem1Hint") },
+        { eyebrow: tFh("exploreItem2Eyebrow"), label: tFh("exploreItem2Label"), href: "/medical-board", hint: tFh("exploreItem2Hint") },
+        { eyebrow: tFh("exploreItem3Eyebrow"), label: tFh("exploreItem3Label"), href: "/accreditation", hint: tFh("exploreItem3Hint") },
+        { eyebrow: tFh("exploreItem4Eyebrow"), label: tFh("exploreItem4Label"), href: "/hospitals", hint: tFh("exploreItem4Hint") },
+        { eyebrow: tFh("exploreItem5Eyebrow"), label: tFh("exploreItem5Label"), href: "/countries", hint: tFh("exploreItem5Hint") },
+        { eyebrow: tFh("exploreItem6Eyebrow"), label: tFh("exploreItem6Label"), href: "/pricing-index", hint: tFh("exploreItem6Hint") },
+        { eyebrow: tFh("exploreItem7Eyebrow"), label: tFh("exploreItem7Label"), href: "/about", hint: tFh("exploreItem7Hint") },
+        { eyebrow: tFh("exploreItem8Eyebrow"), label: tFh("exploreItem8Label"), href: "/contact", hint: tFh("exploreItem8Hint") },
       ]}
     />
 

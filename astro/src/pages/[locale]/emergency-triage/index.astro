@@ -14,6 +14,7 @@ if (!isLocale(rawLocale)) return Astro.redirect("/en/emergency-triage", 308);
 const locale = rawLocale as Locale;
 
 const tc = getTranslator(locale, "common");
+const tEt = getTranslator(locale, "emergencyTriagePage");
 
 Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
 ---
@@ -21,8 +22,8 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta
-      title="Emergency Triage"
-      description="Check your symptoms against our clinical triage guide. Call emergency services for any life-threatening condition."
+      title={tEt("seoTitle")}
+      description={tEt("seoDescription")}
       path="/emergency-triage"
       locale={locale}
       noindex={true}
@@ -37,19 +38,19 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
         <nav class="mono text-[12px] flex items-center gap-2 flex-wrap" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span aria-hidden="true" class="text-[var(--color-border-strong)]">/</span>
-          <span style="color: var(--color-ink);">Emergency Triage</span>
+          <span style="color: var(--color-ink);">{tEt("breadcrumbCurrent")}</span>
         </nav>
       </div>
     </div>
 
     <section class="mx-auto w-full max-w-[80rem] px-5 md:px-8 py-12">
       <div class="mb-8">
-        <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-coral);">24/7 Emergency</p>
+        <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-coral);">{tEt("eyebrowEmergency")}</p>
         <h1 class="display mt-2" style="font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -0.02em;">
-          Symptom <span class="italic-display">triage guide</span>
+          {tEt("headingPart1")} <span class="italic-display">{tEt("headingPart2")}</span>
         </h1>
         <p class="serif mt-3 max-w-[48rem]" style="font-size: 17px; line-height: 1.55; color: var(--color-ink-muted);">
-          Not sure if you need urgent help? Work through this guide to understand your next step. For any life-threatening symptoms, call emergency services immediately.
+          {tEt("introPara")}
         </p>
 
         {/* YMYL disclaimer — informational, not medical advice. */}
@@ -59,10 +60,10 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
           style="background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 14px 18px; max-width: 720px;"
         >
           <p class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-coral); margin-bottom: 6px;">
-            Important
+            {tEt("disclaimerEyebrow")}
           </p>
           <p class="serif" style="font-size: 14.5px; line-height: 1.55; color: var(--color-ink-muted);">
-            This guide is informational only — it is <strong>not medical advice</strong> and does not replace evaluation by a clinician. If symptoms are severe, worsening, or you are unsure, contact a doctor or your local emergency services without delay.
+            {tEt("disclaimerBody")}
           </p>
         </div>
       </div>
@@ -71,50 +72,50 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
         {/* GREEN — Routine */}
         <div class="paper p-6" style="border-top: 4px solid var(--color-success);">
           <div class="display tnum mb-2" style="font-size: 48px; color: var(--color-success); line-height: 1;">✓</div>
-          <h2 class="serif mb-2" style="font-size: 22px; color: var(--color-success);">Green — Routine</h2>
-          <p class="text-sm mb-4" style="color: var(--color-ink-muted);">Continue monitoring. Contact your coordinator at next check-in.</p>
+          <h2 class="serif mb-2" style="font-size: 22px; color: var(--color-success);">{tEt("greenTitle")}</h2>
+          <p class="text-sm mb-4" style="color: var(--color-ink-muted);">{tEt("greenDesc")}</p>
           <ul class="space-y-2 text-sm" style="color: var(--color-ink-muted);">
-            <li>Mild soreness at incision site</li>
-            <li>Minor bruising around wound</li>
-            <li>Slight fatigue that improves with rest</li>
-            <li>Normal appetite variations</li>
-            <li>Mild stiffness in the morning</li>
+            <li>{tEt("greenItem1")}</li>
+            <li>{tEt("greenItem2")}</li>
+            <li>{tEt("greenItem3")}</li>
+            <li>{tEt("greenItem4")}</li>
+            <li>{tEt("greenItem5")}</li>
           </ul>
         </div>
 
         {/* YELLOW — Contact coordinator */}
         <div class="paper p-6" style="border-top: 4px solid var(--color-saffron);">
           <div class="display tnum mb-2" style="font-size: 48px; color: var(--color-saffron); line-height: 1;">⚠</div>
-          <h2 class="serif mb-2" style="font-size: 22px; color: var(--color-saffron);">Yellow — Contact coordinator</h2>
-          <p class="text-sm mb-4" style="color: var(--color-ink-muted);">Reach out immediately. Do not wait for your scheduled check-in.</p>
+          <h2 class="serif mb-2" style="font-size: 22px; color: var(--color-saffron);">{tEt("yellowTitle")}</h2>
+          <p class="text-sm mb-4" style="color: var(--color-ink-muted);">{tEt("yellowDesc")}</p>
           <ul class="space-y-2 text-sm" style="color: var(--color-ink-muted);">
-            <li>Fever above 38°C for more than 24h</li>
-            <li>Increasing redness or swelling at wound</li>
-            <li>Drainage that is yellow or foul-smelling</li>
-            <li>Persistent dizziness or shortness of breath</li>
-            <li>Pain not controlled by prescribed medication</li>
-            <li>Unable to pass urine in 8+ hours</li>
+            <li>{tEt("yellowItem1")}</li>
+            <li>{tEt("yellowItem2")}</li>
+            <li>{tEt("yellowItem3")}</li>
+            <li>{tEt("yellowItem4")}</li>
+            <li>{tEt("yellowItem5")}</li>
+            <li>{tEt("yellowItem6")}</li>
           </ul>
         </div>
 
         {/* RED — Emergency */}
         <div class="paper p-6" style="border-top: 4px solid var(--color-coral);">
           <div class="display tnum mb-2" style="font-size: 48px; color: var(--color-coral); line-height: 1;">✗</div>
-          <h2 class="serif mb-2" style="font-size: 22px; color: var(--color-coral);">Red — Call emergency now</h2>
-          <p class="text-sm mb-4" style="color: var(--color-ink-muted);">For life-threatening symptoms. Call emergency services in your destination country.</p>
+          <h2 class="serif mb-2" style="font-size: 22px; color: var(--color-coral);">{tEt("redTitle")}</h2>
+          <p class="text-sm mb-4" style="color: var(--color-ink-muted);">{tEt("redDesc")}</p>
           <ul class="space-y-2 text-sm" style="color: var(--color-ink-muted);">
-            <li>Chest pain or pressure</li>
-            <li>Sudden severe shortness of breath</li>
-            <li>Bleeding that won't stop</li>
-            <li>Signs of stroke (face droop, arm weakness, speech difficulty)</li>
-            <li>Loss of consciousness</li>
-            <li>Severe allergic reaction</li>
+            <li>{tEt("redItem1")}</li>
+            <li>{tEt("redItem2")}</li>
+            <li>{tEt("redItem3")}</li>
+            <li>{tEt("redItem4")}</li>
+            <li>{tEt("redItem5")}</li>
+            <li>{tEt("redItem6")}</li>
           </ul>
         </div>
       </div>
 
       <div class="mt-10 paper p-6">
-        <h2 class="serif mb-4" style="font-size: 22px;">Emergency contacts by destination</h2>
+        <h2 class="serif mb-4" style="font-size: 22px;">{tEt("contactsSectionTitle")}</h2>
         <div class="grid gap-4 md:grid-cols-2">
           {[
             { country: "India", emergency: "112", ambulance: "102", medcasts: "+91 800 621 000" },
@@ -126,7 +127,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
             <div class="flex items-start justify-between border-b border-[var(--color-border-soft)] pb-3">
               <div>
                 <span class="font-medium text-[15px]">{c.country}</span>
-                <p class="text-xs mt-0.5" style="color: var(--color-ink-muted);">Emergency: {c.emergency}{c.ambulance ? ` · Ambulance: ${c.ambulance}` : ""}</p>
+                <p class="text-xs mt-0.5" style="color: var(--color-ink-muted);">{tEt("contactsEmergencyLabel")} {c.emergency}{c.ambulance ? ` · ${tEt("contactsAmbulanceLabel")} ${c.ambulance}` : ""}</p>
               </div>
               <span class="mono text-[11px]" style="color: var(--color-accent);">
                 MedCasts: {c.medcasts}
@@ -139,18 +140,18 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
 
     <ExploreGrid
       locale={locale}
-      eyebrow="When you have time"
-      heading="Plan ahead, before the next emergency"
-      lede="If your situation isn't immediate, the pages below help you set up faster access if a crisis recurs."
+      eyebrow={tEt("exploreEyebrow")}
+      heading={tEt("exploreHeading")}
+      lede={tEt("exploreLede")}
       items={[
-        { eyebrow: "24/7 desk", label: "Air ambulance + emergency", href: "/emergency", hint: "How our medical-evac coordination works." },
-        { eyebrow: "Insurance", label: "Coverage on the road", href: "/insurance", hint: "What international policies cover for emergencies abroad." },
-        { eyebrow: "Specialty", label: "Cardiac surgeons", href: "/surgeons/cardiac-surgery", hint: "For chest-pain or post-MI recurrence." },
-        { eyebrow: "Specialty", label: "Neurosurgeons", href: "/surgeons/neurosurgery", hint: "For stroke or post-trauma escalation." },
-        { eyebrow: "Specialty", label: "Oncology", href: "/specialty/oncology", hint: "For oncology-related deteriorations." },
-        { eyebrow: "Patient portal", label: "Track an active case", href: "/portal", hint: "Look up where your case sits in the pipeline." },
-        { eyebrow: "Quote", label: "Start a treatment plan", href: "/quote", hint: "If you need surgery soon but the situation is stable." },
-        { eyebrow: "Talk to us", label: "Reach a coordinator", href: "/contact", hint: "Email, phone, or WhatsApp — pick what works." },
+        { eyebrow: tEt("exploreItem1Eyebrow"), label: tEt("exploreItem1Label"), href: "/emergency", hint: tEt("exploreItem1Hint") },
+        { eyebrow: tEt("exploreItem2Eyebrow"), label: tEt("exploreItem2Label"), href: "/insurance", hint: tEt("exploreItem2Hint") },
+        { eyebrow: tEt("exploreItem3Eyebrow"), label: tEt("exploreItem3Label"), href: "/surgeons/cardiac-surgery", hint: tEt("exploreItem3Hint") },
+        { eyebrow: tEt("exploreItem4Eyebrow"), label: tEt("exploreItem4Label"), href: "/surgeons/neurosurgery", hint: tEt("exploreItem4Hint") },
+        { eyebrow: tEt("exploreItem5Eyebrow"), label: tEt("exploreItem5Label"), href: "/specialty/oncology", hint: tEt("exploreItem5Hint") },
+        { eyebrow: tEt("exploreItem6Eyebrow"), label: tEt("exploreItem6Label"), href: "/portal", hint: tEt("exploreItem6Hint") },
+        { eyebrow: tEt("exploreItem7Eyebrow"), label: tEt("exploreItem7Label"), href: "/quote", hint: tEt("exploreItem7Hint") },
+        { eyebrow: tEt("exploreItem8Eyebrow"), label: tEt("exploreItem8Label"), href: "/contact", hint: tEt("exploreItem8Hint") },
       ]}
     />
 

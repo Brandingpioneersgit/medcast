@@ -3,6 +3,7 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import WhatsAppDoctorCta from "@/components/WhatsAppDoctorCta.astro";
 import LastUpdated from "@/components/LastUpdated.astro";
 import { listSurgeonsForSpecialty } from "@/lib/queries";
 import { getContent, getContentBatch, applyTranslated, isUntranslated } from "@/lib/translate";
@@ -60,6 +61,7 @@ const doctors = data.doctors.map((d) => ({
 }));
 
 const tc = getTranslator(locale, "common");
+const tSsc = getTranslator(locale, "surgeonsSpecialtyCountryPage");
 
 const surgeonYear = new Date().getFullYear();
 const surgeonNounLower = surgeonNoun(specialtyParam, specialty.name);
@@ -112,7 +114,7 @@ Astro.response.headers.set(
       <div class="mx-auto max-w-7xl px-6 py-3.5 text-sm text-ink-muted">
         <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
         <span class="mx-2 text-ink-subtle">/</span>
-        <a href={localizedPath(locale, "/surgeons")} class="hover:text-accent">Surgeons</a>
+        <a href={localizedPath(locale, "/surgeons")} class="hover:text-accent">{tSsc("breadcrumbSurgeons")}</a>
         <span class="mx-2 text-ink-subtle">/</span>
         <a href={localizedPath(locale, `/surgeons/${specialtyParam}`)} class="hover:text-accent">{specialty.name}</a>
         <span class="mx-2 text-ink-subtle">/</span>
@@ -133,10 +135,10 @@ Astro.response.headers.set(
         {specialty.name} · {placeName}
       </p>
       <h1 class="mt-2 display display-tight" style="font-size: clamp(2rem, 4.5vw, 3.5rem); letter-spacing: -0.025em; line-height: 1.02;">
-        Best {surgeonNounLower} in {placeName}
+        {tSsc("heroHeading").replace("{surgeonNoun}", surgeonNounLower).replace("{place}", placeName)}
       </h1>
       <p class="lede mt-5 max-w-[44rem]">
-        {data.total.toLocaleString()} surgeons at {placeName} hospitals credentialed for {specialty.name.toLowerCase()}, ranked by patient volume and years in practice. Not every doctor operates exclusively in this specialty — we'll narrow the list to your case.
+        {tSsc("heroLede").replace("{total}", data.total.toLocaleString()).replace("{place}", placeName).replace("{specialty}", specialty.name.toLowerCase())}
       </p>
       <div class="mt-5 flex flex-wrap items-center gap-3">
         <LastUpdated updated={new Date()} locale={locale} />
@@ -145,24 +147,23 @@ Astro.response.headers.set(
       {/* Scope selector — country mode lists countries + cities; city mode
           lists the parent country + sibling cities. */}
       <div class="mt-6 flex flex-wrap items-center gap-2">
-        <span class="mono uppercase text-[11px]" style="letter-spacing: 0.12em; color: var(--color-ink-subtle);">Scope</span>
+        <span class="mono uppercase text-[11px]" style="letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tSsc("scopeLabel")}</span>
         <a
           href={localizedPath(locale, `/surgeons/${specialtyParam}`)}
           class="rounded-full border border-border bg-surface px-3 py-1 text-[13px] font-medium text-ink hover:border-border-strong"
         >
-          All countries
+          {tSsc("scopeAllCountries")}
         </a>
         {mode === "city" && (
           <a
             href={localizedPath(locale, `/surgeons/${specialtyParam}/${country.slug}`)}
             class="rounded-full border border-accent bg-accent-soft px-3 py-1 text-[13px] font-medium text-ink hover:border-border-strong"
           >
-            All {country.name}
+            {tSsc("scopeAllCountry").replace("{country}", country.name)}
           </a>
         )}
         {mode === "country" && data.countryBreakdown
           .filter((c) => c.slug !== country.slug)
-          .slice(0, 6)
           .map((c) => (
             <a
               href={localizedPath(locale, `/surgeons/${specialtyParam}/${c.slug}`)}
@@ -173,7 +174,6 @@ Astro.response.headers.set(
           ))}
         {data.cityBreakdown
           .filter((c) => !city || c.slug !== city.slug)
-          .slice(0, 8)
           .map((c) => (
             <a
               href={localizedPath(locale, `/surgeons/${specialtyParam}/${c.slug}`)}
@@ -187,7 +187,7 @@ Astro.response.headers.set(
 
     <section class="mx-auto max-w-7xl px-6 pb-10 border-t border-border-soft pt-8">
       <h2 class="display-tight mb-5" style="font-size: clamp(1.5rem, 3vw, 2.25rem); letter-spacing: -0.02em;">
-        {data.total.toLocaleString()} {specialty.name.toLowerCase()} surgeons in {placeName}
+        {tSsc("listHeading").replace("{total}", data.total.toLocaleString()).replace("{specialty}", specialty.name.toLowerCase()).replace("{place}", placeName)}
       </h2>
       <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {doctors.map((d) => {
@@ -195,10 +195,10 @@ Astro.response.headers.set(
           const titlePrefix = nameHasTitle ? "" : (d.title ?? "Dr.");
           const fullName = titlePrefix ? `${titlePrefix} ${d.name}` : d.name;
           return (
-            <li>
+            <li class="flex flex-col gap-2">
               <a
                 href={localizedPath(locale, `/doctor/${d.slug}`)}
-                class="group flex h-full gap-4 rounded-xl border border-border bg-surface p-4 transition-colors hover:border-border-strong"
+                class="group flex flex-1 gap-4 rounded-xl border border-border bg-surface p-4 transition-colors hover:border-border-strong"
               >
                 <img
                   src={doctorPortrait({ imageUrl: d.image_url, id: d.id }, 128)}
@@ -214,7 +214,7 @@ Astro.response.headers.set(
                   {d.qualifications && <span class="mt-1 block text-[12.5px] text-ink-muted line-clamp-1">{d.qualifications}</span>}
                   <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-subtle">
                     {d.experience_years != null && (
-                      <span class="inline-flex items-center gap-1"><Award className="h-3 w-3 text-accent" />{d.experience_years} yrs</span>
+                      <span class="inline-flex items-center gap-1"><Award className="h-3 w-3 text-accent" />{tSsc("experienceYrs").replace("{n}", String(d.experience_years))}</span>
                     )}
                     {d.patients_treated != null && d.patients_treated > 0 && (
                       <span class="inline-flex items-center gap-1"><Users className="h-3 w-3 text-accent" />{d.patients_treated.toLocaleString()}</span>
@@ -228,6 +228,7 @@ Astro.response.headers.set(
                   </div>
                 </div>
               </a>
+              <WhatsAppDoctorCta doctorName={d.name} doctorSlug={d.slug} hospitalName={d.hospital_name} specialtyName={specialty.name} />
             </li>
           );
         })}
@@ -235,15 +236,15 @@ Astro.response.headers.set(
     </section>
 
     <section class="mx-auto max-w-7xl px-6 pb-20">
-      <h2 class="sr-only">Get a personal {specialty.name.toLowerCase()} surgeon shortlist for {placeName}</h2>
+      <h2 class="sr-only">{tSsc("ctaSrHeading").replace("{specialty}", specialty.name.toLowerCase()).replace("{place}", placeName)}</h2>
       <div class="paper p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
         <div class="max-w-[36rem]">
-          <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">Match me to a surgeon</p>
+          <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">{tSsc("ctaEyebrow")}</p>
           <h3 class="mt-2 font-display text-2xl md:text-3xl">
-            Want a case-specific shortlist from this list?
+            {tSsc("ctaHeading")}
           </h3>
           <p class="mt-2 text-sm text-ink-muted">
-            Send your reports and we'll come back with 3 specific {country.name} surgeons, availability, and a quote — no fee.
+            {tSsc("ctaBody").replace("{country}", country.name)}
           </p>
         </div>
         <div class="flex flex-wrap gap-3 shrink-0">
@@ -251,13 +252,13 @@ Astro.response.headers.set(
             href={localizedPath(locale, `/calculator`)}
             class="inline-flex items-center rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover"
           >
-            Start the shortlist
+            {tSsc("ctaBtnShortlist")}
           </a>
           <a
             href={localizedPath(locale, `/country/${country.slug}`)}
             class="inline-flex items-center rounded-lg border border-border px-5 py-2.5 text-sm font-semibold hover:border-border-strong"
           >
-            About {country.name}
+            {tSsc("ctaBtnAboutCountry").replace("{country}", country.name)}
             <ChevronRight className="ml-1 h-4 w-4" />
           </a>
         </div>
@@ -267,24 +268,24 @@ Astro.response.headers.set(
     <ExploreGrid
       locale={locale}
       eyebrow={`${specialty.name} · ${country.name}`}
-      heading={`Beyond the surgeon list — full ${country.name} ${specialty.name.toLowerCase()} picture`}
-      lede={`Volume-ranked physician list is one cut. These hubs cover the hospitals, the destination context, the procedures, and the visa logistics — so the surgeon decision lands in a real travel plan.`}
+      heading={tSsc("exploreHeading").replace("{country}", country.name).replace("{specialty}", specialty.name.toLowerCase())}
+      lede={tSsc("exploreLede")}
       items={[
-        { eyebrow: "Specialty", label: `${specialty.name} hub`, href: `/specialty/${specialtyParam}`, hint: `All ${specialty.name.toLowerCase()} programs across destinations.` },
-        { eyebrow: "Surgeons", label: `All ${specialty.name.toLowerCase()} surgeons`, href: `/surgeons/${specialtyParam}`, hint: "Volume-ranked directory across all destinations — for cross-border comparison." },
-        { eyebrow: "Best of", label: `Best ${specialty.name} in ${country.name}`, href: `/best/${specialtyParam}-in-${country.slug}`, hint: "Editorially ranked programs in this destination with methodology disclosed." },
+        { eyebrow: tSsc("exploreEyebrowSpecialty"), label: tSsc("exploreItemSpecialtyLabel").replace("{specialty}", specialty.name), href: `/specialty/${specialtyParam}`, hint: tSsc("exploreItemSpecialtyHint").replace("{specialty}", specialty.name.toLowerCase()) },
+        { eyebrow: tSsc("exploreEyebrowSurgeons"), label: tSsc("exploreItemAllSurgeonsLabel").replace("{specialty}", specialty.name.toLowerCase()), href: `/surgeons/${specialtyParam}`, hint: tSsc("exploreItemAllSurgeonsHint") },
+        { eyebrow: tSsc("exploreEyebrowBestOf"), label: tSsc("exploreItemBestOfLabel").replace("{specialty}", specialty.name).replace("{country}", country.name), href: `/best/${specialtyParam}-in-${country.slug}`, hint: tSsc("exploreItemBestOfHint") },
         ...(mode === "city"
-          ? [{ eyebrow: "Destination", label: `All ${specialty.name.toLowerCase()} surgeons in ${country.name}`, href: `/surgeons/${specialtyParam}/${country.slug}`, hint: `Step up from ${city!.name} to the full ${country.name} list.` }]
+          ? [{ eyebrow: tSsc("exploreEyebrowDestination"), label: tSsc("exploreItemCityAllSurgeonsLabel").replace("{specialty}", specialty.name.toLowerCase()).replace("{country}", country.name), href: `/surgeons/${specialtyParam}/${country.slug}`, hint: tSsc("exploreItemCityAllSurgeonsHint").replace("{city}", city!.name).replace("{country}", country.name) }]
           : []),
-        { eyebrow: "Destination", label: `${mode === "city" ? city!.name : country.name} hospital hub`, href: mode === "city" ? `/city/${city!.slug}` : `/country/${country.slug}`, hint: `Featured programs and pricing benchmarks across ${placeName}.` },
-        { eyebrow: "Hospitals", label: `${country.name} hospitals`, href: `/hospitals/country/${country.slug}`, hint: "Filter by city, specialty, accreditation, beds, rating." },
-        { eyebrow: "Hospitals", label: `${specialty.name} hospitals`, href: `/hospitals/specialty/${specialtyParam}`, hint: "Programs credentialed for this specialty across all destinations." },
-        { eyebrow: "Visa", label: `${country.name} medical visa`, href: `/visa/${country.slug}`, hint: "Documents, processing time, embassy guidance." },
-        { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure success rates, recovery time, hospital pricing." },
-        { eyebrow: "Compare", label: "Doctor comparison", href: "/compare/doctors", hint: "Surgeons compared on volume, fees, languages, video-consult availability." },
-        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, pricing for up to 4 hospitals." },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+        { eyebrow: tSsc("exploreEyebrowDestination"), label: tSsc("exploreItemHospitalHubLabel").replace("{place}", mode === "city" ? city!.name : country.name), href: mode === "city" ? `/city/${city!.slug}` : `/country/${country.slug}`, hint: tSsc("exploreItemHospitalHubHint").replace("{place}", placeName) },
+        { eyebrow: tSsc("exploreEyebrowHospitals"), label: tSsc("exploreItemCountryHospitalsLabel").replace("{country}", country.name), href: `/hospitals/country/${country.slug}`, hint: tSsc("exploreItemCountryHospitalsHint") },
+        { eyebrow: tSsc("exploreEyebrowHospitals"), label: tSsc("exploreItemSpecialtyHospitalsLabel").replace("{specialty}", specialty.name), href: `/hospitals/specialty/${specialtyParam}`, hint: tSsc("exploreItemSpecialtyHospitalsHint") },
+        { eyebrow: tSsc("exploreEyebrowVisa"), label: tSsc("exploreItemVisaLabel").replace("{country}", country.name), href: `/visa/${country.slug}`, hint: tSsc("exploreItemVisaHint") },
+        { eyebrow: tSsc("exploreEyebrowBrowse"), label: tSsc("exploreItemAllProceduresLabel"), href: "/treatments", hint: tSsc("exploreItemAllProceduresHint") },
+        { eyebrow: tSsc("exploreEyebrowCompare"), label: tSsc("exploreItemDoctorCompareLabel"), href: "/compare/doctors", hint: tSsc("exploreItemDoctorCompareHint") },
+        { eyebrow: tSsc("exploreEyebrowCompare"), label: tSsc("exploreItemHospitalCompareLabel"), href: "/compare/hospitals", hint: tSsc("exploreItemHospitalCompareHint") },
+        { eyebrow: tSsc("exploreEyebrowTool"), label: tSsc("exploreItemCalculatorLabel"), href: "/calculator", hint: tSsc("exploreItemCalculatorHint") },
+        { eyebrow: tSsc("exploreEyebrowAction"), label: tSsc("exploreItemSecondOpinionLabel"), href: "/second-opinion", hint: tSsc("exploreItemSecondOpinionHint") },
       ]}
     />
 

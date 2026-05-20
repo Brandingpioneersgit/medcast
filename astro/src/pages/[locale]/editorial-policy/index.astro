@@ -18,6 +18,7 @@ const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect(`/en/editorial-policy`, 308);
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tEd = getTranslator(locale, "editorialPage");
 
 const path = "/editorial-policy";
 const url = localeUrl(locale, path);
@@ -25,27 +26,27 @@ const currentYear = new Date().getFullYear();
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Editorial policy", url },
+  { name: tEd("breadcrumbEditorial"), url },
 ]);
 
 const aboutLd = {
   "@context": "https://schema.org",
   "@type": "AboutPage",
-  name: "Editorial Policy",
+  name: tEd("breadcrumbEditorial"),
   url,
   mainEntity: {
     "@type": "Article",
-    headline: "How we research, review, and update medical content",
+    headline: tEd("jsonLdHeadline"),
     publisher: { "@type": "Organization", name: "MedCasts" },
-    inLanguage: "en",
+    inLanguage: locale,
     dateModified: `${currentYear}-04-21`,
   },
   about: [
-    { "@type": "Thing", name: "Medical content sourcing" },
-    { "@type": "Thing", name: "Physician review process" },
-    { "@type": "Thing", name: "Pricing methodology" },
-    { "@type": "Thing", name: "Corrections policy" },
-    { "@type": "Thing", name: "AI-use disclosure" },
+    { "@type": "Thing", name: tEd("jsonLdAbout1") },
+    { "@type": "Thing", name: tEd("jsonLdAbout2") },
+    { "@type": "Thing", name: tEd("jsonLdAbout3") },
+    { "@type": "Thing", name: tEd("jsonLdAbout4") },
+    { "@type": "Thing", name: tEd("jsonLdAbout5") },
   ],
 };
 
@@ -55,30 +56,30 @@ Astro.response.headers.set(
 );
 
 const stats = [
-  { l: "Last updated", v: `Apr ${currentYear}` },
-  { l: "Review cadence", v: "Quarterly+" },
-  { l: "Corrections SLA", v: "2 days" },
-  { l: "AI on editorial", v: "None" },
+  { l: tEd("statLastUpdated"), v: tEd("statLastUpdatedValue").replace("{year}", String(currentYear)) },
+  { l: tEd("statReviewCadence"), v: tEd("statReviewCadenceValue") },
+  { l: tEd("statCorrectionsSLA"), v: tEd("statCorrectionsSLAValue") },
+  { l: tEd("statAIonEditorial"), v: tEd("statAIValue") },
 ];
 
 const TOC = [
-  { id: "authors", label: "Who writes, who reviews" },
-  { id: "citations", label: "What we cite" },
-  { id: "pricing", label: "How we handle pricing" },
-  { id: "cadence", label: "Update cadence" },
-  { id: "corrections", label: "Corrections" },
-  { id: "ads", label: "Advertising & conflicts" },
-  { id: "ai", label: "AI & automation, honestly" },
-  { id: "never", label: "What we'll never do" },
-  { id: "leadership", label: "Editorial leadership" },
+  { id: "authors", label: tEd("tocAuthors") },
+  { id: "citations", label: tEd("tocCitations") },
+  { id: "pricing", label: tEd("tocPricing") },
+  { id: "cadence", label: tEd("tocCadence") },
+  { id: "corrections", label: tEd("tocCorrections") },
+  { id: "ads", label: tEd("tocAds") },
+  { id: "ai", label: tEd("tocAI") },
+  { id: "never", label: tEd("tocNever") },
+  { id: "leadership", label: tEd("tocLeadership") },
 ];
 ---
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta
-      title="Editorial Policy — How We Source & Review"
-      description="How MedCasts researches, reviews, cites, and updates the medical information on this site. Written for patients who need to know whether to trust what they read."
+      title={tEd("seoTitle")}
+      description={tEd("seoDescription")}
       path={path}
       locale={locale}
     />
@@ -94,16 +95,16 @@ const TOC = [
         <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span class="mx-1.5">/</span>
-          <span style="color: var(--color-ink);">Editorial policy</span>
+          <span style="color: var(--color-ink);">{tEd("breadcrumbEditorial")}</span>
         </nav>
       </div>
     </div>
 
     <EntityListingHero
-      eyebrow={`Editorial policy · Last updated April ${currentYear}`}
-      h1First="How we decide what"
-      h1Italic="goes on this site."
-      lede="Medical-tourism websites have a bad reputation, earned mostly. Lots of AI-generated content, stale prices, unnamed 'specialists', fake reviews. This page documents how we try not to be that — and where we still fall short so you know what to double-check."
+      eyebrow={tEd("eyebrowTemplate").replace("{year}", String(currentYear))}
+      h1First={tEd("h1First")}
+      h1Italic={tEd("h1Italic")}
+      lede={tEd("lede")}
       stats={stats}
     />
 
@@ -112,58 +113,58 @@ const TOC = [
         <div class="grid gap-12 lg:grid-cols-[1fr_0.28fr]">
           <article class="min-w-0">
             <div class="policy-prose prose-editorial">
-              <h2 id="authors">Who writes and who reviews</h2>
-              <p>Content falls into two categories.</p>
+              <h2 id="authors">{tEd("h2Authors")}</h2>
+              <p>{tEd("contentFallsCategories")}</p>
               <ul>
-                <li><strong>Directory pages</strong> (hospital profiles, doctor profiles, treatment summaries, cost pages) are generated from structured data — hospital websites, public registries (Wikipedia, Wikidata, OpenStreetMap, government portals), and hospital-supplied quote sheets. The copy is templated, not hand-written. We state this openly on each page by noting when prices were sampled and from how many hospitals.</li>
-                <li><strong>Editorial pages</strong> (blog posts, visa guides, destination overviews, condition and treatment explainers) are drafted by our in-house editorial team, then reviewed by a practising physician in the relevant specialty before publication. Reviewer name and specialty appear in the byline.</li>
+                <li><strong>{tEd("listDirectoryPagesTitle")}</strong> {tEd("listDirectoryPagesBody")}</li>
+                <li><strong>{tEd("listEditorialPagesTitle")}</strong> {tEd("listEditorialPagesBody")}</li>
               </ul>
 
-              <h2 id="citations">What we cite</h2>
-              <p>For medical claims (procedure risks, success rates, recovery timelines), we cite at least one primary source. Acceptable primary sources are:</p>
+              <h2 id="citations">{tEd("h2Citations")}</h2>
+              <p>{tEd("citationsIntro")}</p>
               <ul>
-                <li>Peer-reviewed journals indexed on PubMed, published in the last 5 years where available</li>
-                <li>National medical society guidelines (ACC, ESC, AUA, ACOG, equivalents)</li>
-                <li>WHO, CDC, NICE, or equivalent public-health authority publications</li>
-                <li>Hospital-supplied outcome data where the hospital publicly reports it (some partner hospitals publish annual outcome reports — we link to those)</li>
+                <li>{tEd("listCitPubMed")}</li>
+                <li>{tEd("listCitGuidelines")}</li>
+                <li>{tEd("listCitWHO")}</li>
+                <li>{tEd("listCitHospital")}</li>
               </ul>
-              <p>We don't cite other medical-tourism websites. Circular sourcing is how bad numbers spread.</p>
+              <p>{tEd("citationsOutro")}</p>
 
-              <h2 id="pricing">How we handle pricing</h2>
-              <p>Prices on hospital and treatment pages reflect quote ranges sampled from partner-hospital quote sheets across a rolling six-month window. Individual quotes are case-specific and are not the published ranges — a patient with comorbidities or a complex anatomy will receive a different number. We flag the methodology on every cost page and request hospitals confirm published ranges before listing.</p>
-              <p>We don't inflate prices to create a comparison arbitrage with our own service. Hospitals pay our coordination fee; patients see the same package price they'd see by contacting the hospital directly.</p>
+              <h2 id="pricing">{tEd("h2Pricing")}</h2>
+              <p>{tEd("pricingPara1")}</p>
+              <p>{tEd("pricingPara2")}</p>
 
-              <h2 id="cadence">When we update, and how you'll know</h2>
-              <p>Editorial pages carry a <em>Last updated</em> date and, separately, a <em>Last reviewed</em> date. "Updated" means a factual element changed (a visa rule, a regulation, a price band). "Reviewed" means a physician re-read the page and confirmed nothing is outdated, even if nothing was edited.</p>
-              <p>Baseline cadence:</p>
+              <h2 id="cadence">{tEd("h2Cadence")}</h2>
+              <p>{tEd("cadencePara1")}</p>
+              <p>{tEd("cadencePara2")}</p>
               <ul>
-                <li>Visa guides: re-reviewed quarterly, or whenever an embassy announces a rule change</li>
-                <li>Cost pages: re-priced every six months minimum</li>
-                <li>Hospital profiles: re-checked annually against the accrediting body registry</li>
-                <li>Condition / treatment explainers: reviewed annually unless flagged by a physician reviewer</li>
-              </ul>
-
-              <h2 id="corrections">Corrections</h2>
-              <p>If you find an error — a stale price, an out-of-date visa rule, a doctor profile that misrepresents credentials — email <a href="mailto:medcastsdigital@gmail.com">medcastsdigital@gmail.com</a>. Corrections acknowledge within 2 working days, with a dated correction note at the bottom of the page if the change is material. We don't silently edit live pages to erase prior errors.</p>
-
-              <h2 id="ads">Advertising, affiliates, and conflicts</h2>
-              <p>We don't run ads. We don't accept affiliate fees from hospitals for placement or sort order on listing pages. Listing sort order on <em>/hospitals</em> is by rating and review count, filterable by country and specialty — not by ad spend. Hospitals that pay our partnership fee are disclosed on hospital profile pages.</p>
-              <p>When a hospital is partnered with us, that does not elevate them on listing or comparison pages. It only means we can coordinate quotes, travel, and post-op support for them. Non-partner hospitals remain listed and visible.</p>
-
-              <h2 id="ai">AI and automation, honestly</h2>
-              <p>We use automation. Directory pages — 9,000+ hospital profiles, 800+ doctor profiles, 80+ treatment pages — are generated by combining structured data with templated copy. This is how we cover the long tail. Editorial content is not AI-generated; it's drafted by humans and reviewed by physicians.</p>
-              <p>Where directory copy is automated, you'll notice: short, structural, factual. Where copy is written by our editorial team, it reads differently. We don't try to pass one off as the other.</p>
-
-              <h2 id="never">What we'll never do</h2>
-              <ul>
-                <li>Publish outcome statistics without citing the source</li>
-                <li>Write in the name of a physician who hasn't reviewed the content</li>
-                <li>Manufacture patient testimonials (real testimonials cite the patient's country, treatment, and year)</li>
-                <li>Recommend a specific surgeon outside of a written second-opinion or quote workflow with your records on file</li>
+                <li>{tEd("listCadenceVisa")}</li>
+                <li>{tEd("listCadenceCost")}</li>
+                <li>{tEd("listCadenceHospital")}</li>
+                <li>{tEd("listCadenceTreatment")}</li>
               </ul>
 
-              <h2 id="leadership">Editorial leadership</h2>
-              <p>Medical review is led by rotating specialists from our partner hospitals. Each editorial piece carries a <em>Reviewed by Dr. [Name], [Credential], [Hospital]</em> byline. If you see one without a byline, that's a mistake — email us and we'll fix it.</p>
+              <h2 id="corrections">{tEd("h2Corrections")}</h2>
+              <p set:html={tEd("correctionsPara")} />
+
+              <h2 id="ads">{tEd("h2Ads")}</h2>
+              <p>{tEd("adsPara1")}</p>
+              <p>{tEd("adsPara2")}</p>
+
+              <h2 id="ai">{tEd("h2AI")}</h2>
+              <p>{tEd("aiPara1")}</p>
+              <p>{tEd("aiPara2")}</p>
+
+              <h2 id="never">{tEd("h2Never")}</h2>
+              <ul>
+                <li>{tEd("listNever1")}</li>
+                <li>{tEd("listNever2")}</li>
+                <li>{tEd("listNever3")}</li>
+                <li>{tEd("listNever4")}</li>
+              </ul>
+
+              <h2 id="leadership">{tEd("h2Leadership")}</h2>
+              <p set:html={tEd("leadershipPara")} />
             </div>
 
             <div
@@ -172,10 +173,10 @@ const TOC = [
             >
               <div>
                 <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
-                  Found an error
+                  {tEd("foundError")}
                 </div>
                 <p class="mt-2 serif" style="font-size: 15.5px; line-height: 1.5; color: var(--color-ink-muted);">
-                  Email <a href="mailto:medcastsdigital@gmail.com" style="color: var(--color-ink);">medcastsdigital@gmail.com</a> — acknowledged in 2 working days, dated correction note if material.
+                  {tEd("foundErrorText")}
                 </p>
               </div>
             </div>
@@ -184,11 +185,11 @@ const TOC = [
           <aside class="hidden lg:block">
             <div class="lg:sticky lg:top-28 lg:self-start space-y-6">
               <nav
-                aria-label="On this page"
+                aria-label={tEd("onThisPage")}
                 style="padding: 18px 0; border-top: 1px solid var(--color-ink);"
               >
                 <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                  On this page
+                  {tEd("onThisPage")}
                 </div>
                 <ol class="mt-3 space-y-2 tnum">
                   {TOC.map((item, i) => (
@@ -212,13 +213,13 @@ const TOC = [
                 style="padding: 18px 20px;"
               >
                 <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
-                  About MedCasts
+                  {tEd("aboutMedCasts")}
                 </div>
                 <div class="serif mt-2" style="font-size: 16px; line-height: 1.3; color: var(--color-ink);">
-                  Who we are, <span class="italic-display">in plain English.</span>
+                  {tEd("aboutWhoWeAre")} <span class="italic-display">{tEd("aboutInPlainEnglish")}</span>
                 </div>
                 <div class="mt-3 mono uppercase inline-flex items-center gap-1 group-hover:text-accent transition-colors" style="font-size: 10.5px; letter-spacing: 0.14em; color: var(--color-ink-muted);">
-                  Read about us
+                  {tEd("readAboutUs")}
                   <ChevronRight className="h-3 w-3 mirror-x" />
                 </div>
               </a>
@@ -245,46 +246,46 @@ const TOC = [
     </style>
 
     <HowItWorks
-      heading='How we curate hospital and surgeon information'
-      italicWord='curate'
-      eyebrow='Our editorial process'
+      heading={tEd("howHeading")}
+      italicWord={tEd("howItalicWord")}
+      eyebrow={tEd("howEyebrow")}
       steps={[
-        { title: 'Source verification', description: 'Hospital and surgeon credentials verified against primary sources: national medical councils, accreditation registries, peer-reviewed publications.' },
-        { title: 'Outcome data sourcing', description: 'Mortality, complication, and revision rates sourced from hospital-published annual reports or peer-reviewed publications. Marketing claims excluded.' },
-        { title: 'Pricing methodology', description: 'Cost ranges from itemized quote sheets that partner hospitals issue to international patients. Not from advertising rates.' },
-        { title: 'Multi-source validation', description: 'Major claims cross-referenced across 2+ independent sources where possible. Discrepancies investigated.' },
-        { title: 'Periodic review', description: 'All content reviewed quarterly. Hospital and surgeon profiles refreshed when credentials change. Outcome data updated annually.' },
-        { title: 'Corrections protocol', description: 'Errors corrected within 72 hours of credible reporting. Correction history maintained on each updated page.' },
-      ]},
-      outroNote='Our editorial team has clinical-claim review oversight from named physicians on first-line clinical content. Coordination claims are reviewed by the editorial desk.'
+        { title: tEd("howStep1Title"), description: tEd("howStep1Desc") },
+        { title: tEd("howStep2Title"), description: tEd("howStep2Desc") },
+        { title: tEd("howStep3Title"), description: tEd("howStep3Desc") },
+        { title: tEd("howStep4Title"), description: tEd("howStep4Desc") },
+        { title: tEd("howStep5Title"), description: tEd("howStep5Desc") },
+        { title: tEd("howStep6Title"), description: tEd("howStep6Desc") },
+      ]}
+      outroNote={tEd("howOutroNote")}
     />
 
     <WhatToExpect
-      heading='Our content principles'
-      italicWord='principles'
+      heading={tEd("whatHeading")}
+      italicWord={tEd("whatItalicWord")}
       items={[
-        { label: 'Honesty over polish', description: "We don't whitewash. If a destination's lower-tier programs are uneven, we say so. If a procedure is over-recommended, we frame the alternative." },
-        { label: 'Specifics over generalities', description: "Every claim is checkable. Numbers, sources, dates. No 'world-class' or 'leading' without specific data." },
-        { label: 'Patient-side framing', description: 'We write for patients, not for hospitals. The same fact framed for a patient is different from the same fact framed for a hospital.' },
-        { label: 'Disclosure of incentives', description: "We disclose how we're paid (hospital coordination fees, 5-15%). We don't accept money to feature programs." },
-        { label: 'Cited sources', description: "When we make a claim that can be linked, we link. When we make a claim that's our judgment, we say so." },
-        { label: 'Open to corrections', description: "Send us evidence; we'll update. medcastsdigital@gmail.com goes to the editor." },
+        { label: tEd("whatItem1Label"), description: tEd("whatItem1Desc") },
+        { label: tEd("whatItem2Label"), description: tEd("whatItem2Desc") },
+        { label: tEd("whatItem3Label"), description: tEd("whatItem3Desc") },
+        { label: tEd("whatItem4Label"), description: tEd("whatItem4Desc") },
+        { label: tEd("whatItem5Label"), description: tEd("whatItem5Desc") },
+        { label: tEd("whatItem6Label"), description: tEd("whatItem6Desc") },
       ]}
     />
     <ExploreGrid
       locale={locale}
-      eyebrow="Trust + transparency"
-      heading="Other policies + reviewers"
-      lede="The pages below cover the rest of how MedCasts is run — who reviews, what we collect, and how we accept reports."
+      eyebrow={tEd("exploreEyebrow")}
+      heading={tEd("exploreHeading")}
+      lede={tEd("exploreLede")}
       items={[
-        { eyebrow: "Reviewers", label: "Medical board", href: "/medical-board", hint: "The clinicians who sign off on specialty + condition pages." },
-        { eyebrow: "Quality", label: "Accreditation registry", href: "/accreditation", hint: "JCI, NABH, ISO and 10 others — verifiable in public registries." },
-        { eyebrow: "Trust", label: "Security disclosure", href: "/security", hint: "How we accept reports from researchers." },
-        { eyebrow: "Action", label: "Report a safety incident", href: "/incident-report", hint: "Anonymous channel for clinical concerns." },
-        { eyebrow: "Legal", label: "Privacy policy", href: "/privacy-policy", hint: "What we collect, retention, GDPR rights." },
-        { eyebrow: "Legal", label: "Terms of service", href: "/terms", hint: "Coordinator scope, refunds, dispute resolution." },
-        { eyebrow: "About", label: "Who we are", href: "/about", hint: "Coordinator-not-clinician scope; how we get paid." },
-        { eyebrow: "Reference", label: "Glossary of terms", href: "/glossary", hint: "Definitions for the language used across the site." },
+        { eyebrow: tEd("exploreItem1Eyebrow"), label: tEd("exploreItem1Label"), href: "/medical-board", hint: tEd("exploreItem1Hint") },
+        { eyebrow: tEd("exploreItem2Eyebrow"), label: tEd("exploreItem2Label"), href: "/accreditation", hint: tEd("exploreItem2Hint") },
+        { eyebrow: tEd("exploreItem3Eyebrow"), label: tEd("exploreItem3Label"), href: "/security", hint: tEd("exploreItem3Hint") },
+        { eyebrow: tEd("exploreItem4Eyebrow"), label: tEd("exploreItem4Label"), href: "/incident-report", hint: tEd("exploreItem4Hint") },
+        { eyebrow: tEd("exploreItem5Eyebrow"), label: tEd("exploreItem5Label"), href: "/privacy-policy", hint: tEd("exploreItem5Hint") },
+        { eyebrow: tEd("exploreItem6Eyebrow"), label: tEd("exploreItem6Label"), href: "/terms", hint: tEd("exploreItem6Hint") },
+        { eyebrow: tEd("exploreItem7Eyebrow"), label: tEd("exploreItem7Label"), href: "/about", hint: tEd("exploreItem7Hint") },
+        { eyebrow: tEd("exploreItem8Eyebrow"), label: tEd("exploreItem8Label"), href: "/glossary", hint: tEd("exploreItem8Hint") },
       ]}
     />
 

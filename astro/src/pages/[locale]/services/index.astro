@@ -27,6 +27,7 @@ const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect("/en/services", 308);
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tSv = getTranslator(locale, "servicesPage");
 
 type Service = {
   slug: string;
@@ -40,43 +41,43 @@ type Group = { eyebrow: string; title: string; sub: string; items: Service[] };
 
 const groups: Group[] = [
   {
-    eyebrow: "01 · Getting started",
-    title: "Decide before you commit",
-    sub: "Free, low-friction services that help you choose without booking anything.",
+    eyebrow: tSv("g1Eyebrow"),
+    title: tSv("g1Title"),
+    sub: tSv("g1Sub"),
     items: [
-      { slug: "quote-matching", icon: Target, title: "Quote matching", blurb: "Itemized quotes from 3 hospitals within 48 hours — no markup, no upfront fees.", cta: "Request quotes", href: "/quote" },
-      { slug: "second-opinion", icon: Brain, title: "Free second opinion", blurb: "Multidisciplinary review of your case by senior specialists — 5–10 day turnaround.", cta: "Upload reports", href: "/second-opinion" },
-      { slug: "case-management", icon: Compass, title: "Named case manager", blurb: "One person handling your case end-to-end — in your language, 8 supported.", cta: "Meet your coordinator", href: "/contact" },
+      { slug: "quote-matching", icon: Target, title: tSv("s1Title"), blurb: tSv("s1Blurb"), cta: tSv("s1Cta"), href: "/quote" },
+      { slug: "second-opinion", icon: Brain, title: tSv("s2Title"), blurb: tSv("s2Blurb"), cta: tSv("s2Cta"), href: "/second-opinion" },
+      { slug: "case-management", icon: Compass, title: tSv("s4Title"), blurb: tSv("s4Blurb"), cta: tSv("s4Cta"), href: "/contact" },
     ],
   },
   {
-    eyebrow: "02 · Travel & logistics",
-    title: "Get to the hospital, hassle-free",
-    sub: "Documentation, transit, and accommodation handled before you board the plane.",
+    eyebrow: tSv("g2Eyebrow"),
+    title: tSv("g2Title"),
+    sub: tSv("g2Sub"),
     items: [
-      { slug: "visa-coordination", icon: FileText, title: "Medical visa coordination", blurb: "Invitation letters, documentation checklists, embassy-appointment guidance across 9 destinations.", cta: "Start visa", href: "/contact?topic=visa" },
-      { slug: "airport-pickup", icon: Plane, title: "Airport pickup + accommodation", blurb: "Coordinator meets you planeside, hospital-vetted hotels at corporate rates, interpreter on call.", cta: "Plan my trip", href: "/contact?topic=travel" },
+      { slug: "visa-coordination", icon: FileText, title: tSv("s3Title"), blurb: tSv("s3Blurb"), cta: tSv("s3Cta"), href: "/contact?topic=visa" },
+      { slug: "airport-pickup", icon: Plane, title: tSv("s5Title"), blurb: tSv("s5Blurb"), cta: tSv("s5Cta"), href: "/contact?topic=travel" },
     ],
   },
   {
-    eyebrow: "03 · Support & safety",
-    title: "After surgery, before you fly home — and after",
-    sub: "Recovery support, emergency cover, and payment infrastructure for cross-border care.",
+    eyebrow: tSv("g3Eyebrow"),
+    title: tSv("g3Title"),
+    sub: tSv("g3Sub"),
     items: [
-      { slug: "post-op-followup", icon: Stethoscope, title: "90-day post-op follow-up", blurb: "Weekly telemedicine check-ins with your operating surgeon, lab coordination with your home doctor.", cta: "How follow-up works", href: "/editorial-policy" },
-      { slug: "emergency-evac", icon: Siren, title: "Emergency + air ambulance", blurb: "24/7 desk reaches a senior physician directly, not a call centre. Lear-jet evacuation under 4 hours from major hubs.", cta: "Emergency desk", href: "/emergency" },
-      { slug: "insurance-liaison", icon: Receipt, title: "Insurance + payment liaison", blurb: "Escrow for large deposits, direct-billing partners for Gulf insurers, FX with 0.5–1% spreads via regulated processors.", cta: "Payment options", href: "/insurance" },
+      { slug: "post-op-followup", icon: Stethoscope, title: tSv("s6Title"), blurb: tSv("s6Blurb"), cta: tSv("s6Cta"), href: "/editorial-policy" },
+      { slug: "emergency-evac", icon: Siren, title: tSv("s7Title"), blurb: tSv("s7Blurb"), cta: tSv("s7Cta"), href: "/emergency" },
+      { slug: "insurance-liaison", icon: Receipt, title: tSv("s8Title"), blurb: tSv("s8Blurb"), cta: tSv("s8Cta"), href: "/insurance" },
     ],
   },
 ];
 
-const seoTitle = "Services — MedCasts coordination end-to-end";
-const seoDescription = "Every coordination service we run — quote matching, second opinions, visa, case management, post-op follow-up, emergency evac, insurance liaison. Free to you.";
+const seoTitle = tSv("seoTitle");
+const seoDescription = tSv("seoDescription");
 const path = "/services";
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Services", url: localeUrl(locale, path) },
+  { name: tSv("breadcrumbServices"), url: localeUrl(locale, path) },
 ]);
 
 Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
@@ -95,7 +96,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
       <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
         <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
         <span class="mx-1.5">/</span>
-        <span style="color: var(--color-ink);">Services</span>
+        <span style="color: var(--color-ink);">{tSv("breadcrumbServices")}</span>
       </nav>
     </div>
 
@@ -103,18 +104,18 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
       <div class="mx-auto max-w-[1120px]">
         <div class="grid gap-10 lg:grid-cols-[1fr_0.7fr] lg:items-center">
           <div>
-            <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">What we do</div>
+            <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">{tSv("heroEyebrow")}</div>
             <h1 class="display display-tight mt-3" style="font-size: clamp(2.25rem, 5vw, 3.5rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;">
-              Eight services, <span class="italic-display">one coordinator.</span>
+              {tSv("heroH1First")} <span class="italic-display">{tSv("heroH1Italic")}</span>
             </h1>
             <p class="serif mt-5" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted); max-width: 680px;">
-              Everything between your first message and your return flight home — handled. You never pay us directly; hospitals pay our coordination fee only after you choose to proceed.
+              {tSv("heroLede")}
             </p>
           </div>
           <div class="relative paper-flat overflow-hidden" style="aspect-ratio: 4/5; border-radius: var(--radius-lg);">
             <img
               src={heroImage("services-hero")}
-              alt="Coordinator with international patient"
+              alt={tSv("heroImgAlt")}
               width="600"
               height="750"
               loading="eager"
@@ -123,8 +124,8 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
             />
             <div class="image-veil" />
             <div class="absolute" style="inset-inline-start: 16px; inset-block-end: 16px; inset-inline-end: 16px;">
-              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: rgba(251,248,241,0.78);">From first message to flight home</div>
-              <div class="serif" style="font-size: 16px; font-weight: 500; color: #FBF8F1; line-height: 1.3; margin-top: 4px;">One person, your language, every step.</div>
+              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: rgba(251,248,241,0.78);">{tSv("imgOverlayLabel")}</div>
+              <div class="serif" style="font-size: 16px; font-weight: 500; color: #FBF8F1; line-height: 1.3; margin-top: 4px;">{tSv("imgOverlayDesc")}</div>
             </div>
           </div>
         </div>
@@ -193,51 +194,51 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
     <section style="padding: 72px 28px; background: var(--color-ink); color: var(--color-bg);">
       <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
-          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7;">Always</div>
+          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7;">{tSv("alwaysEyebrow")}</div>
           <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.05; letter-spacing: -0.025em; font-weight: 400;">
-            Free to you —
-            <span class="italic-display"> hospitals pay us.</span>
+            {tSv("alwaysH2First")}
+            <span class="italic-display"> {tSv("alwaysH2Italic")}</span>
           </h2>
           <p class="serif mt-4" style="font-size: 17px; line-height: 1.55; max-width: 560px; opacity: 0.85;">
-            Coordination fee (5-15% of the hospital invoice) comes from the hospital after you choose to proceed. Second opinions, quote preparation, visa coordination, and pre-travel support are free regardless.
+            {tSv("alwaysDesc")}
           </p>
         </div>
         <div class="flex flex-wrap gap-3">
           <a href={localizedPath(locale, "/quote")} class="inline-flex items-center gap-2 font-semibold" style="background: var(--color-accent); color: #FFF; padding: 13px 22px; font-size: 15px; border-radius: 9999px;">
-            Start now <ChevronRight className="h-4 w-4 mirror-x" />
+            {tSv("ctaStartNow")} <ChevronRight className="h-4 w-4 mirror-x" />
           </a>
           <a href={localizedPath(locale, "/terms")} class="inline-flex items-center gap-2 font-semibold" style="background: transparent; color: var(--color-bg); border: 1px solid rgba(246,241,230,0.3); padding: 13px 22px; font-size: 15px; border-radius: 9999px;">
-            Read terms
+            {tSv("ctaReadTerms")}
           </a>
         </div>
       </div>
     </section>
 
     <HowItWorks
-      heading="From first message to first follow-up"
-      italicWord="follow-up"
+      heading={tSv("howHeading")}
+      italicWord={tSv("howItalicWord")}
       steps={[
-        { title: "Initial conversation", description: "You share what you're considering — diagnosis, prior workup, location, budget. We listen, ask clarifying questions, and route the case to a specific case-manager. Typically a 20-30 minute call." },
-        { title: "Workup review", description: "We collect your records — imaging, pathology, labs, prior reports — and circulate them to 2-3 partner programs that match your case. No commitment yet; this is the diagnostic-and-quote phase." },
-        { title: "Quotes + recommendations", description: "Within 48-72 hours we return: itemized quotes from each program, surgeon-volume data, expected timelines, and our specific recommendation with rationale. You compare." },
-        { title: "Decision support", description: "Questions, alternative options, second opinions — whatever you need before committing. We're not pushing a specific program; we're helping you choose." },
-        { title: "Travel coordination", description: "Once you've chosen, we handle visa documentation, airport pickup, hospital-near hotel booking, and interpreter coordination. Your case-manager is your single point of contact." },
-        { title: "On-site management", description: "While you're at the hospital, we coordinate between you, the surgical team, and your home physician. Daily check-ins during admission; on-call coverage 24/7 for emergencies." },
-        { title: "Post-op + follow-up", description: "Records transfer to your home physician, telemedicine follow-up scheduled, complications protocol clear. We stay engaged through week 12 minimum." },
+        { title: tSv("step1Title"), description: tSv("step1Desc") },
+        { title: tSv("step2Title"), description: tSv("step2Desc") },
+        { title: tSv("step3Title"), description: tSv("step3Desc") },
+        { title: tSv("step4Title"), description: tSv("step4Desc") },
+        { title: tSv("step5Title"), description: tSv("step5Desc") },
+        { title: tSv("step6Title"), description: tSv("step6Desc") },
+        { title: tSv("step7Title"), description: tSv("step7Desc") },
       ]}
-      outroNote="Most patients move from initial conversation to flying out in 3-6 weeks. Complex oncology and transplant cases sometimes take longer (8-16 weeks) for thorough multi-program comparison."
+      outroNote={tSv("howOutroNote")}
     />
 
     <WhatToExpect
-      heading="What we are — and what we aren't"
-      italicWord="we aren't"
+      heading={tSv("wteHeading")}
+      italicWord={tSv("wteItalicWord")}
       items={[
-        { label: "We are coordinators", description: "Licensed in our home country to coordinate medical-tourism logistics. We work with hospitals, surgeons, insurers, embassies." },
-        { label: "We are not clinicians", description: "We don't diagnose, prescribe, or perform procedures. Clinical recommendations come from licensed physicians at partner programs, not from us." },
-        { label: "We are partial to good outcomes", description: "Our incentive structure rewards repeat patients and referrals — not pushing specific programs. We disclose all coordination fees in our terms." },
-        { label: "We are not affiliated with a specific hospital", description: "We work with multiple programs in each destination. We have direct relationships, but not exclusive ones." },
-        { label: "We are honest about limitations", description: "If your case is better treated locally, we'll say so. If a procedure isn't right for you, we'll explain why. Bad referrals lose us future referrals — the math punishes overselling." },
-        { label: "We are responsible for our recommendations", description: "Documented in writing. Trail of communication preserved. Open to scrutiny, dispute, and second opinions." },
+        { label: tSv("wte1Label"), description: tSv("wte1Desc") },
+        { label: tSv("wte2Label"), description: tSv("wte2Desc") },
+        { label: tSv("wte3Label"), description: tSv("wte3Desc") },
+        { label: tSv("wte4Label"), description: tSv("wte4Desc") },
+        { label: tSv("wte5Label"), description: tSv("wte5Desc") },
+        { label: tSv("wte6Label"), description: tSv("wte6Desc") },
       ]}
     />
 

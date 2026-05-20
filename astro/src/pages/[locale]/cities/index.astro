@@ -63,25 +63,28 @@ const groups = Array.from(groupMap.values()).sort((a, b) => b.total - a.total);
 
 const totalCities = rows.length;
 const tc = getTranslator(locale, "common");
-const seoTitle = `Cities for Medical Travel — Hospital Directory by City`;
-const seoDescription = `Browse ${totalCities.toLocaleString()} cities across ${groups.length} destination countries, each with accredited hospitals for international patients. Find hospitals, doctors and pricing by city.`;
+const tCi = getTranslator(locale, "citiesPage");
+const seoTitle = tCi("seoTitle");
+const seoDescription = tCi("seoDescription")
+  .replace("{totalCities}", totalCities.toLocaleString())
+  .replace("{countryCount}", groups.length.toString());
 const path = "/cities";
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Cities", url: localeUrl(locale, path) },
+  { name: tCi("breadcrumbCities"), url: localeUrl(locale, path) },
 ]);
 const collectionLd = collectionPageJsonLd({
-  name: "Medical travel cities",
+  name: tCi("collectionName"),
   description: seoDescription,
   url: localeUrl(locale, path),
   items: rows.slice(0, 100).map((r) => ({ name: r.name, url: localeUrl(locale, `/city/${r.slug}`) })),
 });
 
 const stats = [
-  { l: "Cities", v: totalCities.toLocaleString() },
-  { l: "Countries", v: groups.length.toString() },
-  { l: "Hospitals", v: rows.reduce((s, r) => s + r.n, 0).toLocaleString() },
+  { l: tCi("statCities"), v: totalCities.toLocaleString() },
+  { l: tCi("statCountries"), v: groups.length.toString() },
+  { l: tCi("statHospitals"), v: rows.reduce((s, r) => s + r.n, 0).toLocaleString() },
 ];
 
 Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
@@ -102,15 +105,15 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
         <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span class="mx-1.5">/</span>
-          <span style="color: var(--color-ink);">Cities</span>
+          <span style="color: var(--color-ink);">{tCi("breadcrumbCities")}</span>
         </nav>
       </div>
     </div>
 
     <EntityListingHero
-      eyebrow={`${totalCities.toLocaleString()} medical-travel cities`}
-      h1First="Hospitals by"
-      h1Italic="city"
+      eyebrow={tCi("eyebrow").replace("{totalCities}", totalCities.toLocaleString())}
+      h1First={tCi("h1First")}
+      h1Italic={tCi("h1Italic")}
       lede={seoDescription}
       stats={stats}
     />
@@ -129,7 +132,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
                 class="mono text-[11px] uppercase tracking-wider hover:text-accent"
                 style="color: var(--color-ink-subtle);"
               >
-                {g.countryName} hub <ChevronRight className="inline h-3 w-3 mirror-x" />
+                {tCi("countryHubLink").replace("{countryName}", g.countryName)} <ChevronRight className="inline h-3 w-3 mirror-x" />
               </a>
             </div>
             <ul class="mt-4 grid grid-cols-2 gap-x-5 gap-y-1.5 sm:grid-cols-3 lg:grid-cols-4">
@@ -147,9 +150,9 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
             </ul>
             {g.total > g.cities.length && (
               <p class="mt-3 text-[13px]" style="color: var(--color-ink-muted);">
-                + {(g.total - g.cities.length).toLocaleString()} more cities —{" "}
+                + {(g.total - g.cities.length).toLocaleString()} {tCi("moreCitiesPrefix")} —{" "}
                 <a href={localizedPath(locale, `/country/${g.countrySlug}`)} class="underline hover:text-accent">
-                  see all of {g.countryName}
+                  {tCi("seeAllOf").replace("{countryName}", g.countryName)}
                 </a>
               </p>
             )}

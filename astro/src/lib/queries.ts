@@ -3022,10 +3022,10 @@ function placeScopePredicate(opts: PlaceScope) {
  */
 export async function listDoctorSpecialtiesForPlace(
   opts: PlaceScope,
-): Promise<{ slug: string; name: string; n: number }[]> {
+): Promise<{ id: number; slug: string; name: string; n: number }[]> {
   return db
-    .execute<{ slug: string; name: string; n: number }>(sql`
-      SELECT sp.slug, sp.name, COUNT(DISTINCT d.id)::int AS n
+    .execute<{ id: number; slug: string; name: string; n: number }>(sql`
+      SELECT sp.id, sp.slug, sp.name, COUNT(DISTINCT d.id)::int AS n
       FROM specialties sp
       INNER JOIN doctor_specialties ds ON ds.specialty_id = sp.id
       INNER JOIN doctors d ON d.id = ds.doctor_id AND d.is_active = true
@@ -3034,7 +3034,7 @@ export async function listDoctorSpecialtiesForPlace(
       INNER JOIN countries co ON co.id = ci.country_id
       WHERE sp.is_active = true
       ${placeScopePredicate(opts)}
-      GROUP BY sp.slug, sp.name
+      GROUP BY sp.id, sp.slug, sp.name
       HAVING COUNT(DISTINCT d.id) > 0
       ORDER BY n DESC, sp.name ASC
       LIMIT 20
@@ -3050,12 +3050,12 @@ export async function listDoctorSpecialtiesForPlace(
  */
 export async function listSurgeonSpecialtiesForPlace(
   opts: PlaceScope,
-): Promise<{ specialties: { slug: string; name: string; docs: number }[]; total: number }> {
+): Promise<{ specialties: { id: number; slug: string; name: string; docs: number }[]; total: number }> {
   const scope = placeScopePredicate(opts);
   const [rows, total] = await Promise.all([
     db
-      .execute<{ slug: string; name: string; docs: number }>(sql`
-        SELECT s.slug, s.name, COUNT(DISTINCT d.id)::int AS docs
+      .execute<{ id: number; slug: string; name: string; docs: number }>(sql`
+        SELECT s.id, s.slug, s.name, COUNT(DISTINCT d.id)::int AS docs
         FROM specialties s
         INNER JOIN hospital_specialties hs ON hs.specialty_id = s.id
         INNER JOIN hospitals h ON h.id = hs.hospital_id AND h.is_active = true
@@ -3064,7 +3064,7 @@ export async function listSurgeonSpecialtiesForPlace(
         INNER JOIN countries co ON co.id = ci.country_id
         WHERE s.is_active = true
         ${scope}
-        GROUP BY s.slug, s.name
+        GROUP BY s.id, s.slug, s.name
         HAVING COUNT(DISTINCT d.id) > 0
         ORDER BY docs DESC, s.name ASC
       `)
@@ -3097,10 +3097,13 @@ export type TestimonialRow = {
   treatment_date: Date | null;
   image_url: string | null;
   is_verified: boolean | null;
+  treatment_id: number | null;
   treatment_name: string | null;
   treatment_slug: string | null;
+  hospital_id: number | null;
   hospital_name: string | null;
   hospital_slug: string | null;
+  country_id: number | null;
   country_name: string | null;
   country_slug: string | null;
 };
@@ -3116,9 +3119,9 @@ export async function listTestimonials(limit = 60): Promise<TestimonialRow[]> {
       SELECT te.id, te.patient_name, te.patient_country, te.patient_age,
              te.rating, te.title, te.story, te.treatment_date, te.image_url,
              te.is_verified,
-             t.name AS treatment_name, t.slug AS treatment_slug,
-             h.name AS hospital_name, h.slug AS hospital_slug,
-             co.name AS country_name, co.slug AS country_slug
+             t.id AS treatment_id, t.name AS treatment_name, t.slug AS treatment_slug,
+             h.id AS hospital_id, h.name AS hospital_name, h.slug AS hospital_slug,
+             co.id AS country_id, co.name AS country_name, co.slug AS country_slug
       FROM testimonials te
       LEFT JOIN treatments t ON t.id = te.treatment_id
       LEFT JOIN hospitals h ON h.id = te.hospital_id
@@ -3142,12 +3145,16 @@ export type GalleryRow = {
   caption: string | null;
   months_after: number | null;
   patient_age_range: string | null;
+  treatment_id: number | null;
   treatment_name: string | null;
   treatment_slug: string | null;
+  specialty_id: number | null;
   specialty_name: string | null;
   specialty_slug: string | null;
+  hospital_id: number | null;
   hospital_name: string | null;
   hospital_slug: string | null;
+  country_id: number | null;
   country_name: string | null;
 };
 
@@ -3160,10 +3167,10 @@ export async function listBeforeAfterGallery(limit = 72): Promise<GalleryRow[]> 
     .execute<GalleryRow>(sql`
       SELECT ba.id, ba.before_url, ba.after_url, ba.caption,
              ba.months_after, ba.patient_age_range,
-             t.name AS treatment_name, t.slug AS treatment_slug,
-             s.name AS specialty_name, s.slug AS specialty_slug,
-             h.name AS hospital_name, h.slug AS hospital_slug,
-             co.name AS country_name
+             t.id AS treatment_id, t.name AS treatment_name, t.slug AS treatment_slug,
+             s.id AS specialty_id, s.name AS specialty_name, s.slug AS specialty_slug,
+             h.id AS hospital_id, h.name AS hospital_name, h.slug AS hospital_slug,
+             co.id AS country_id, co.name AS country_name
       FROM before_after_photos ba
       LEFT JOIN treatments t ON t.id = ba.treatment_id
       LEFT JOIN specialties s ON s.id = t.specialty_id

@@ -19,6 +19,7 @@ const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect(`/en/compare/countries`, 308);
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tCc = getTranslator(locale, "compareCountriesPage");
 
 const rows = await compareCountries();
 
@@ -34,7 +35,7 @@ const url = localeUrl(locale, path);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Compare destinations", url },
+  { name: tCc("breadcrumbLabel"), url },
 ]);
 
 Astro.response.headers.set(
@@ -46,10 +47,10 @@ const totalHospitals = rows.reduce((s, r) => s + r.hospital_count, 0);
 const totalDoctors = rows.reduce((s, r) => s + r.doctor_count, 0);
 
 const stats = [
-  { l: "Destinations", v: rows.length.toString() },
-  { l: "Hospitals", v: totalHospitals.toLocaleString() },
-  { l: "Specialists", v: totalDoctors.toLocaleString() },
-  { l: "Treatments", v: rows.reduce((s, r) => s + r.treatment_count, 0).toLocaleString() },
+  { l: tCc("statDestinations"), v: rows.length.toString() },
+  { l: tCc("statHospitals"), v: totalHospitals.toLocaleString() },
+  { l: tCc("statSpecialists"), v: totalDoctors.toLocaleString() },
+  { l: tCc("statTreatments"), v: rows.reduce((s, r) => s + r.treatment_count, 0).toLocaleString() },
 ];
 
 const maxHospitals = rows.reduce((m, r) => Math.max(m, r.hospital_count), 0);
@@ -58,8 +59,8 @@ const maxHospitals = rows.reduce((m, r) => Math.max(m, r.hospital_count), 0);
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta
-      title="Compare Medical Travel Destinations"
-      description="Compare medical travel destinations: hospital count, specialist volume, treatment variety, and city coverage across 9 international destinations."
+      title={tCc("seoTitle")}
+      description={tCc("seoDescription")}
       path={path}
       locale={locale}
     />
@@ -74,16 +75,16 @@ const maxHospitals = rows.reduce((m, r) => Math.max(m, r.hospital_count), 0);
         <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span class="mx-1.5">/</span>
-          <span style="color: var(--color-ink);">Compare destinations</span>
+          <span style="color: var(--color-ink);">{tCc("breadcrumbLabel")}</span>
         </nav>
       </div>
     </div>
 
     <EntityListingHero
-      eyebrow={`Compare · ${rows.length} destinations`}
-      h1First="Destinations"
-      h1Italic="head-to-head"
-      lede={`Hospital count, specialist volume, treatment variety, and city coverage across ${rows.length} medical travel destinations. Open any row for the full country guide.`}
+      eyebrow={tCc("eyebrowHero").replace("{count}", rows.length.toString())}
+      h1First={tCc("h1FirstHero")}
+      h1Italic={tCc("h1ItalicHero")}
+      lede={tCc("ledeHero").replace("{count}", rows.length.toString())}
       stats={stats}
     />
 
@@ -94,11 +95,11 @@ const maxHospitals = rows.reduce((m, r) => Math.max(m, r.hospital_count), 0);
             <thead>
               <tr style="border-bottom: 1px solid var(--color-ink);">
                 <th class="text-start mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal; width: 36px;">#</th>
-                <th class="text-start mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Destination</th>
-                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal; min-width: 220px;">Hospitals · scale</th>
-                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Specialists</th>
-                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Treatments</th>
-                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Cities</th>
+                <th class="text-start mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">{tCc("colDestination")}</th>
+                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal; min-width: 220px;">{tCc("colHospitalsScale")}</th>
+                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">{tCc("colSpecialists")}</th>
+                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">{tCc("colTreatments")}</th>
+                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">{tCc("colCities")}</th>
                 <th style="padding: 16px 20px;"></th>
               </tr>
             </thead>
@@ -110,7 +111,7 @@ const maxHospitals = rows.reduce((m, r) => Math.max(m, r.hospital_count), 0);
                   ? r.hospital_count / topRow.hospital_count
                   : null;
                 const ratioLabel = i === 0
-                  ? "Top destination"
+                  ? tCc("topDestination")
                   : ratioVsTop != null
                     ? `${ratioVsTop.toFixed(2)}× ${topRow.name.toLowerCase()}`
                     : null;
@@ -162,7 +163,7 @@ const maxHospitals = rows.reduce((m, r) => Math.max(m, r.hospital_count), 0);
                         class="inline-flex items-center gap-1 mono uppercase"
                         style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);"
                       >
-                        Open
+                        {tCc("openLink")}
                         <ChevronRight className="h-3 w-3 mirror-x" />
                       </a>
                     </td>
@@ -174,33 +175,33 @@ const maxHospitals = rows.reduce((m, r) => Math.max(m, r.hospital_count), 0);
         </div>
 
         <p class="mt-4 mono uppercase" style="font-size: 10.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-          Scale bar is relative to the highest-count destination · Counts from live DB
+          {tCc("footerNote")}
         </p>
       </div>
     </section>
 
     <HowItWorks
-      heading="How to compare destinations"
-      italicWord="destinations"
-      eyebrow="Country comparison"
+      heading={tCc("howHeading")}
+      italicWord={tCc("howItalicWord")}
+      eyebrow={tCc("howEyebrow")}
       steps={[
-        { title: "Match procedure to destination strength", description: "India for cardiac/transplant/orthopedic, Turkey for cosmetic/dental/hair, Korea for liver/GI, Germany for complex re-do, UAE for premium." },
-        { title: "Compare cost-quality at top tier", description: "Top-tier Indian programs cost 60-80% less than US for comparable quality. Mid-tier across destinations is where the variation gets dramatic." },
-        { title: "Factor in travel logistics", description: "Long-haul flight + visa complexity + cultural distance affect total trip experience. India is a different proposition for European patients than Turkey." },
-        { title: "Consider climate and recovery comfort", description: "Recovery in 40°C summer or monsoon affects quality of life. Match destination season to your trip window." },
-        { title: "Evaluate program-specific outcomes", description: "Country is a starting frame; the actual decision is at the program level. Drill down to specific hospitals + surgeons." },
+        { title: tCc("howStep1Title"), description: tCc("howStep1Desc") },
+        { title: tCc("howStep2Title"), description: tCc("howStep2Desc") },
+        { title: tCc("howStep3Title"), description: tCc("howStep3Desc") },
+        { title: tCc("howStep4Title"), description: tCc("howStep4Desc") },
+        { title: tCc("howStep5Title"), description: tCc("howStep5Desc") },
       ]}
     />
 
     <WhatToExpect
-      heading="Decision factors that actually matter"
-      italicWord="actually matter"
+      heading={tCc("wteHeading")}
+      italicWord={tCc("wteItalicWord")}
       items={[
-        { label: "Procedure-specific fit", description: "Match your specific procedure to the destination known for it. India for CABG; Korea for liver transplant; Turkey for hair transplant." },
-        { label: "Surgeon volume", description: "Top destinations have many programs at varying volume. Within a country, your specific surgeon's case volume matters more than the country reputation." },
-        { label: "Recovery support quality", description: "Post-op infrastructure (hotel near hospital, telemedicine follow-up, insurance for complications) varies widely. Premium destinations charge for it; budget destinations sometimes lack it." },
-        { label: "Communication and language", description: "Destinations with strong international-patient infrastructure (Singapore, Thailand, UAE) make first-time medical-tourism easier. India top-tier programs are also strong but vary." },
-        { label: "Total cost (not procedure cost)", description: "Trip cost is typically 1.5-2.5× procedure quote. Premium destinations narrow the savings vs domestic." },
+        { label: tCc("wteItem1Label"), description: tCc("wteItem1Desc") },
+        { label: tCc("wteItem2Label"), description: tCc("wteItem2Desc") },
+        { label: tCc("wteItem3Label"), description: tCc("wteItem3Desc") },
+        { label: tCc("wteItem4Label"), description: tCc("wteItem4Desc") },
+        { label: tCc("wteItem5Label"), description: tCc("wteItem5Desc") },
       ]}
     />
 

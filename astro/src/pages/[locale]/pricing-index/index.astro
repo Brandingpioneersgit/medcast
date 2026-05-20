@@ -6,6 +6,7 @@ import SiteFooter from "@/components/SiteFooter.astro";
 import { getPriceIndex } from "@/lib/queries";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, SITE_URL, SITE_NAME, withProvenance } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
 import HowItWorks from "@/components/content/HowItWorks.astro";
 import WhatToExpect from "@/components/content/WhatToExpect.astro";
 import PageCta from "@/components/PageCta.astro";
@@ -15,10 +16,11 @@ export const prerender = false;
 const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect("/en/pricing-index", 308);
 const locale = rawLocale as Locale;
+const tPi = getTranslator(locale, "pricingIndexPage");
 
 const rows = await getPriceIndex();
 const year = new Date().getUTCFullYear();
-const edition = `${year} edition`;
+const edition = tPi("edition").replace("{year}", String(year));
 
 // Group by treatment for scannable per-procedure tables
 type Group = {
@@ -56,12 +58,15 @@ const highestMedian = rows.length > 0 ? Math.max(...rows.map((r) => r.medianUsd)
 
 const path = "/pricing-index";
 const url = localeUrl(locale, path);
-const title = `MedCasts Global Hospital Price Index — ${edition}`;
-const description = `Median package pricing for ${treatmentsCovered} treatments across ${countriesCovered} destination countries. Open data methodology, ${rows.length} country × treatment pairs. Free to cite.`;
+const title = tPi("seoTitle").replace("{edition}", edition);
+const description = tPi("seoDescription")
+  .replace("{treatmentsCovered}", String(treatmentsCovered))
+  .replace("{countriesCovered}", String(countriesCovered))
+  .replace("{pairsCount}", String(rows.length));
 
 const crumbs = breadcrumbJsonLd([
-  { name: "Home", url: localeUrl(locale, "/") },
-  { name: "Pricing Index", url },
+  { name: tPi("breadcrumbHome"), url: localeUrl(locale, "/") },
+  { name: tPi("breadcrumbPricingIndex"), url },
 ]);
 
 // Schema.org Dataset — tells Google/AEO engines this is citable open data
@@ -141,37 +146,40 @@ function fmt(n: number) {
     <section style="border-bottom: 1px solid var(--color-border); padding: 64px 28px;">
       <div class="mx-auto max-w-[80rem]">
         <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
-          Open data · {edition} · CC BY 4.0
+          {tPi("eyebrowOpenData")} · {edition} · CC BY 4.0
         </p>
         <h1
           class="display display-tight mt-3"
           style="font-size: clamp(2.25rem, 6vw, 4.5rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em;"
         >
-          The MedCasts <span class="italic-display">Global Hospital</span><br /> Price Index.
+          {tPi("h1Prefix")} <span class="italic-display">{tPi("h1Italic")}</span><br /> {tPi("h1Suffix")}
         </h1>
         <p class="lede mt-6 max-w-[50rem]">
-          Real package pricing for {treatmentsCovered} planned procedures across {countriesCovered} destination countries, aggregated from {rows.reduce((a, r) => a + r.hospitalCount, 0).toLocaleString()} hospital offerings. Free to cite, CSV and JSON downloads below, methodology disclosed.
+          {tPi("hereLede")
+            .replace("{treatmentsCovered}", String(treatmentsCovered))
+            .replace("{countriesCovered}", String(countriesCovered))
+            .replace("{hospitalOfferings}", rows.reduce((a, r) => a + r.hospitalCount, 0).toLocaleString())}
         </p>
 
         <div class="grid gap-3 md:gap-4 mt-8" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
           <div class="paper" style="padding: 18px 20px;">
-            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Treatments</div>
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tPi("statTreatments")}</div>
             <div class="display tnum mt-1" style="font-size: 28px; line-height: 1;">{treatmentsCovered}</div>
           </div>
           <div class="paper" style="padding: 18px 20px;">
-            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Countries</div>
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tPi("statCountries")}</div>
             <div class="display tnum mt-1" style="font-size: 28px; line-height: 1;">{countriesCovered}</div>
           </div>
           <div class="paper" style="padding: 18px 20px;">
-            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Country × treatment pairs</div>
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tPi("statPairs")}</div>
             <div class="display tnum mt-1" style="font-size: 28px; line-height: 1;">{totalPairs.toLocaleString()}</div>
           </div>
           <div class="paper" style="padding: 18px 20px;">
-            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Lowest median</div>
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tPi("statLowestMedian")}</div>
             <div class="display tnum mt-1" style="font-size: 28px; line-height: 1;">{fmt(lowestMedian)}</div>
           </div>
           <div class="paper" style="padding: 18px 20px;">
-            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Highest median</div>
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tPi("statHighestMedian")}</div>
             <div class="display tnum mt-1" style="font-size: 28px; line-height: 1;">{fmt(highestMedian)}</div>
           </div>
         </div>
@@ -183,21 +191,21 @@ function fmt(n: number) {
             class="inline-flex items-center gap-2 font-medium"
             style="background: var(--color-ink); color: var(--color-bg); padding: 10px 18px; border-radius: 9999px; font-size: 14px;"
           >
-            Download CSV ↓
+            {tPi("btnDownloadCsv")}
           </a>
           <a
             href="/pricing-index.json"
             class="inline-flex items-center gap-2 font-medium"
             style="background: transparent; color: var(--color-ink); border: 1px solid var(--color-ink); padding: 10px 18px; border-radius: 9999px; font-size: 14px;"
           >
-            Download JSON ↓
+            {tPi("btnDownloadJson")}
           </a>
           <a
             href="#methodology"
             class="inline-flex items-center gap-2 font-medium"
             style="background: transparent; color: var(--color-ink); border: 1px solid var(--color-border); padding: 10px 18px; border-radius: 9999px; font-size: 14px;"
           >
-            Methodology
+            {tPi("btnMethodology")}
           </a>
         </div>
       </div>
@@ -209,8 +217,8 @@ function fmt(n: number) {
         {groups.length === 0 ? (
           <div class="paper" style="padding: 32px;">
             <p style="color: var(--color-ink-muted);">
-              Price data is currently being aggregated. Check back soon, or download the
-              <a href="/pricing-index.csv" style="color: var(--color-accent);"> raw CSV</a>.
+              {tPi("emptyStateText")}
+              <a href="/pricing-index.csv" style="color: var(--color-accent);"> {tPi("emptyStateCsvLink")}</a>.
             </p>
           </div>
         ) : (
@@ -234,7 +242,7 @@ function fmt(n: number) {
                   href={localizedPath(locale, `/treatment/${g.treatmentSlug}`)}
                   style="font-size: 13px; color: var(--color-accent);"
                 >
-                  Full treatment page →
+                  {tPi("tableLinkTreatmentPage")}
                 </a>
               </div>
               <div class="paper" style="overflow: hidden;">
@@ -242,19 +250,19 @@ function fmt(n: number) {
                   <thead>
                     <tr style="background: var(--color-paper);">
                       <th style="text-align: left; padding: 10px 14px; font-weight: 500; color: var(--color-ink-muted); font-size: 12px; letter-spacing: 0.04em; border-bottom: 1px solid var(--color-border);">
-                        Destination
+                        {tPi("thDestination")}
                       </th>
                       <th style="text-align: right; padding: 10px 14px; font-weight: 500; color: var(--color-ink-muted); font-size: 12px; letter-spacing: 0.04em; border-bottom: 1px solid var(--color-border);">
-                        Min
+                        {tPi("thMin")}
                       </th>
                       <th style="text-align: right; padding: 10px 14px; font-weight: 500; color: var(--color-ink-muted); font-size: 12px; letter-spacing: 0.04em; border-bottom: 1px solid var(--color-border);">
-                        Median
+                        {tPi("thMedian")}
                       </th>
                       <th style="text-align: right; padding: 10px 14px; font-weight: 500; color: var(--color-ink-muted); font-size: 12px; letter-spacing: 0.04em; border-bottom: 1px solid var(--color-border);">
-                        Max
+                        {tPi("thMax")}
                       </th>
                       <th style="text-align: right; padding: 10px 14px; font-weight: 500; color: var(--color-ink-muted); font-size: 12px; letter-spacing: 0.04em; border-bottom: 1px solid var(--color-border);">
-                        Hospitals
+                        {tPi("thHospitals")}
                       </th>
                     </tr>
                   </thead>
@@ -289,78 +297,56 @@ function fmt(n: number) {
       <div class="mx-auto max-w-[80rem] grid gap-10 md:grid-cols-[1fr_1.4fr]">
         <div>
           <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-            Methodology
+            {tPi("methodologyEyebrow")}
           </div>
           <h2 class="display mt-2" style="font-size: 28px; letter-spacing: -0.015em;">
-            How these numbers were built
+            {tPi("methodologyHeading")}
           </h2>
         </div>
         <div class="prose-editorial">
-          <p>
-            All figures are <strong>USD package prices</strong> — the all-inclusive quote a hospital provides
-            for an international patient covering surgeon + OR + hospital stay + standard pre/post-op imaging
-            and meds, before international travel and visa costs.
-          </p>
-          <p>
-            For each <em>(country × treatment)</em> pair we require at least <strong>three</strong> active
-            hospital offerings. The <em>median</em> is computed as the 50th percentile of each hospital's
-            midpoint (min + max / 2). This suppresses anecdotal outliers. Pairs with fewer than three
-            offerings are excluded rather than shown with low confidence.
-          </p>
-          <p>
-            <strong>Excluded:</strong> robotic-assisted variants when standard surgery is the comparison
-            baseline, re-do / revision cases (different clinical complexity), paediatric variants, research
-            protocols with trial sponsorship. All currency conversions at the ECB daily reference rate
-            captured on the first of each quarter.
-          </p>
-          <p>
-            <strong>What we don't claim:</strong> these are not personalised quotes. Real quotes depend on
-            the individual case workup, travel dates, room class, and whether the hospital offers a fixed
-            package or itemised billing. Use the index to size the ballpark; request a real quote through
-            a coordinator before booking.
-          </p>
-          <p>
-            Raw data, including per-hospital rows, is available as <a href="/pricing-index.csv">CSV</a> and <a href="/pricing-index.json">JSON</a>.
-            We refresh this dataset quarterly; the download reflects the last refresh date stamped in the file.
-          </p>
+          <p set:html={tPi("methodologyP1")} />
+          <p set:html={tPi("methodologyP2")} />
+          <p set:html={tPi("methodologyP3")} />
+          <p set:html={tPi("methodologyP4")} />
+          <p set:html={tPi("methodologyP5")} />
         </div>
       </div>
     </section>
 
     <section style="padding: 48px 28px 96px; background: var(--color-paper);">
       <div class="mx-auto max-w-[80rem]">
-        <h2 class="display" style="font-size: 24px; letter-spacing: -0.015em;">Cite this dataset</h2>
-        <p class="mt-2" style="color: var(--color-ink-muted);">Licensed under CC BY 4.0 — free to redistribute and adapt with attribution.</p>
+        <h2 class="display" style="font-size: 24px; letter-spacing: -0.015em;">{tPi("citeHeading")}</h2>
+        <p class="mt-2" style="color: var(--color-ink-muted);">{tPi("citeLicenseNote")}</p>
         <div class="paper mt-4" style="padding: 20px 24px; font-family: var(--font-mono); font-size: 13px; line-height: 1.55; white-space: pre-wrap;">
-MedCasts editorial desk ({year}). The MedCasts Global Hospital Price Index, {edition}. medcasts.com/pricing-index. CC BY 4.0.
+{tPi("citeBlock").replace("{year}", String(year)).replace("{edition}", edition)}
         </div>
         <p class="mt-4" style="font-size: 13px; color: var(--color-ink-muted);">
-          Press and research enquiries: <a href="mailto:medcastsdigital@gmail.com" style="color: var(--color-ink); font-weight: 500;">medcastsdigital@gmail.com</a>.
-          Found an error? <a href="mailto:medcastsdigital@gmail.com" style="color: var(--color-ink); font-weight: 500;">medcastsdigital@gmail.com</a>.
+          {tPi("citePressLabel")} <a href="mailto:medcastsdigital@gmail.com" style="color: var(--color-ink); font-weight: 500;">medcastsdigital@gmail.com</a>.
+          {tPi("citeFoundError")} <a href="mailto:medcastsdigital@gmail.com" style="color: var(--color-ink); font-weight: 500;">medcastsdigital@gmail.com</a>.
         </p>
       </div>
     </section>
 
     <HowItWorks
-      heading='How pricing index pages work'
-      italicWord='work'
-      eyebrow='Pricing reference'
+      heading={tPi("hiwHeading")}
+      italicWord={tPi("hiwItalicWord")}
+      eyebrow={tPi("hiwEyebrow")}
       steps={[
-        { title: 'Pricing aggregated from quote sheets', description: 'Each cost figure comes from itemized quote sheets that partner hospitals issue to international patients. Not from advertising rates.' },
-        { title: 'Country medians used for ranges', description: 'Within each destination, we show low-to-high price bands across hospital tiers. Mid-range is what most patients actually pay.' },
-        { title: 'Updated quarterly', description: 'Pricing data refreshed every 90 days. Major program-specific changes flow through immediately.' },
-        { title: 'Itemized quote for binding pricing', description: 'Index pages show ranges. For your specific case, request itemized quotes — final pricing depends on case complexity, implant choice, length of stay.' },
+        { title: tPi("hiwStep1Title"), description: tPi("hiwStep1Desc") },
+        { title: tPi("hiwStep2Title"), description: tPi("hiwStep2Desc") },
+        { title: tPi("hiwStep3Title"), description: tPi("hiwStep3Desc") },
+        { title: tPi("hiwStep4Title"), description: tPi("hiwStep4Desc") },
       ]}
     />
 
     <WhatToExpect
-      heading='What the price ranges include and exclude'
-      italicWord='include and exclude'
+      heading={tPi("wteHeading")}
+      italicWord={tPi("wteItalicWord")}
       items={[
-        { label: 'Included in range', description: 'Surgeon fee, anesthesia, OR time, standard hospital stay, standard implants/devices, routine post-op imaging, discharge medications.' },
-        { label: 'Not included', description: 'Travel costs, accommodation, meals, attendant logistics, complications care, follow-up imaging beyond standard, premium implant upgrades, extended ICU stays.' },
-        { label: 'Total trip cost reality', description: '1.5-2.5× the procedure quote when you include travel, accommodation, and contingency. Plan accordingly.' },
-        { label: 'Currency volatility', description: 'Quotes in USD or destination currency. FX moves of 5-10% over 60 days are common. Lock rates at quote time where possible.' },
+        { label: tPi("wteItem1Label"), description: tPi("wteItem1Desc") },
+        { label: tPi("wteItem2Label"), description: tPi("wteItem2Desc") },
+        { label: tPi("wteItem3Label"), description: tPi("wteItem3Desc") },
+        { label: tPi("wteItem4Label"), description: tPi("wteItem4Desc") },
       ]}
     />
     

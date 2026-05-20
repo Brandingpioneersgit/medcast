@@ -3,6 +3,7 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import WhatsAppDoctorCta from "@/components/WhatsAppDoctorCta.astro";
 import LastUpdated from "@/components/LastUpdated.astro";
 import { listSurgeonsForSpecialty } from "@/lib/queries";
 import { getContent, getContentBatch, applyTranslated, isUntranslated } from "@/lib/translate";
@@ -42,6 +43,7 @@ const doctors = data.doctors.map((d) => ({
 }));
 
 const tc = getTranslator(locale, "common");
+const tSsi = getTranslator(locale, "surgeonsSpecialtyPage");
 
 function bucketFor(d: (typeof doctors)[number]): "senior" | "established" | "early" {
   const yrs = d.experience_years ?? 0;
@@ -59,28 +61,30 @@ const buckets = {
 
 const BUCKET_COPY: Record<"senior" | "established" | "early", { title: string; note: string }> = {
   senior: {
-    title: "Senior consultants",
-    note: "20+ years in practice or 5,000+ cases — typically leading complex referrals.",
+    title: tSsi("bucketSeniorTitle"),
+    note: tSsi("bucketSeniorNote"),
   },
   established: {
-    title: "Established specialists",
-    note: "10+ years in practice or 1,000+ cases handled.",
+    title: tSsi("bucketEstablishedTitle"),
+    note: tSsi("bucketEstablishedNote"),
   },
   early: {
-    title: "Practising specialists",
-    note: "Earlier-career consultants, still actively operating and available for consults.",
+    title: tSsi("bucketEarlyTitle"),
+    note: tSsi("bucketEarlyNote"),
   },
 };
 
-const seoTitle = `${specialty.name} Surgeons Abroad — Top by Volume`;
-const seoDescription =
-  `${data.total.toLocaleString()} surgeons practising at hospitals credentialed for ${specialty.name}, ordered by patient volume and experience. Request a surgeon shortlist matched to your case.`.slice(0, 160);
+const seoTitle = tSsi("seoTitle").replace("{specialtyName}", specialty.name);
+const seoDescription = tSsi("seoDescription")
+  .replace("{total}", data.total.toLocaleString())
+  .replace("{specialtyName}", specialty.name)
+  .slice(0, 160);
 const path = `/surgeons/${specialtyParam}`;
 const url = localeUrl(locale, path);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Surgeons", url: localeUrl(locale, "/surgeons") },
+  { name: tSsi("breadcrumbSurgeons"), url: localeUrl(locale, "/surgeons") },
   { name: specialty.name, url },
 ]);
 
@@ -114,7 +118,7 @@ Astro.response.headers.set(
       <div class="mx-auto max-w-7xl px-6 py-3.5 text-sm text-ink-muted">
         <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
         <span class="mx-2 text-ink-subtle">/</span>
-        <a href={localizedPath(locale, "/surgeons")} class="hover:text-accent">Surgeons</a>
+        <a href={localizedPath(locale, "/surgeons")} class="hover:text-accent">{tSsi("breadcrumbSurgeons")}</a>
         <span class="mx-2 text-ink-subtle">/</span>
         <span class="text-ink" aria-current="page">{specialty.name}</span>
       </div>
@@ -125,23 +129,23 @@ Astro.response.headers.set(
         {specialty.name}
       </p>
       <h1 class="mt-2 display display-tight" style="font-size: clamp(2rem, 4.5vw, 3.5rem); letter-spacing: -0.025em; line-height: 1.02;">
-        {specialty.name} surgeons we'd shortlist for you
+        {tSsi("heroHeading").replace("{specialtyName}", specialty.name)}
       </h1>
       <p class="lede mt-5 max-w-[44rem]">
-        {data.total.toLocaleString()} practising specialists at hospitals credentialed for {specialty.name.toLowerCase()}, ranked by patient volume and years in practice. Not every doctor here operates exclusively in this specialty — our case manager refines this list to your specific condition.
+        {tSsi("heroLede").replace("{total}", data.total.toLocaleString()).replace("{specialtyName}", specialty.name.toLowerCase())}
       </p>
       <div class="mt-5"><LastUpdated updated={new Date()} locale={locale} /></div>
 
       {/* Country scope selector */}
       {data.countryBreakdown.length > 0 && (
         <div class="mt-6 flex flex-wrap items-center gap-2">
-          <span class="mono uppercase text-[11px]" style="letter-spacing: 0.12em; color: var(--color-ink-subtle);">Scope</span>
+          <span class="mono uppercase text-[11px]" style="letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tSsi("scopeLabel")}</span>
           <a
             href={localizedPath(locale, `/surgeons/${specialtyParam}`)}
             class="rounded-full px-3 py-1 text-[13px] font-medium"
             style="background: var(--color-ink); color: var(--color-bg);"
           >
-            All countries · {data.total.toLocaleString()}
+            {tSsi("scopeAllCountries").replace("{total}", data.total.toLocaleString())}
           </a>
           {data.countryBreakdown.map((c) => (
             <a
@@ -160,7 +164,7 @@ Astro.response.headers.set(
         <section class="mx-auto max-w-7xl px-6 py-8 border-t border-border-soft">
           <div class="flex items-baseline justify-between flex-wrap gap-2">
             <h2 class="font-display text-2xl md:text-3xl">{BUCKET_COPY[key].title}</h2>
-            <span class="text-[13px] text-ink-subtle">{buckets[key].length} listed</span>
+            <span class="text-[13px] text-ink-subtle">{tSsi("bucketCountListed").replace("{n}", String(buckets[key].length))}</span>
           </div>
           <p class="mt-2 text-sm text-ink-muted max-w-[44rem]">{BUCKET_COPY[key].note}</p>
 
@@ -170,10 +174,10 @@ Astro.response.headers.set(
               const titlePrefix = nameHasTitle ? "" : (d.title ?? "Dr.");
               const fullName = titlePrefix ? `${titlePrefix} ${d.name}` : d.name;
               return (
-                <li>
+                <li class="flex flex-col gap-2">
                   <a
                     href={localizedPath(locale, `/doctor/${d.slug}`)}
-                    class="group flex h-full gap-4 rounded-xl border border-border bg-surface p-4 transition-colors hover:border-border-strong"
+                    class="group flex flex-1 gap-4 rounded-xl border border-border bg-surface p-4 transition-colors hover:border-border-strong"
                   >
                     <img
                       src={doctorPortrait({ imageUrl: d.image_url, id: d.id }, 128)}
@@ -189,7 +193,7 @@ Astro.response.headers.set(
                       {d.qualifications && <span class="mt-1 block text-[12.5px] text-ink-muted line-clamp-1">{d.qualifications}</span>}
                       <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-subtle">
                         {d.experience_years != null && (
-                          <span class="inline-flex items-center gap-1"><Award className="h-3 w-3 text-accent" />{d.experience_years} yrs</span>
+                          <span class="inline-flex items-center gap-1"><Award className="h-3 w-3 text-accent" />{tSsi("experienceYears").replace("{n}", String(d.experience_years))}</span>
                         )}
                         {d.patients_treated != null && d.patients_treated > 0 && (
                           <span class="inline-flex items-center gap-1"><Users className="h-3 w-3 text-accent" />{d.patients_treated.toLocaleString()}</span>
@@ -203,6 +207,7 @@ Astro.response.headers.set(
                       </div>
                     </div>
                   </a>
+                  <WhatsAppDoctorCta doctorName={d.name} doctorSlug={d.slug} hospitalName={d.hospital_name} specialtyName={specialty.name} />
                 </li>
               );
             })}
@@ -215,12 +220,12 @@ Astro.response.headers.set(
     <section class="mx-auto max-w-7xl px-6 pt-8 pb-20">
       <div class="paper p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
         <div class="max-w-[36rem]">
-          <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">Human shortlist</p>
+          <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">{tSsi("ctaEyebrow")}</p>
           <h3 class="mt-2 font-display text-2xl md:text-3xl">
-            Want us to match one of these surgeons to your case?
+            {tSsi("ctaHeading")}
           </h3>
           <p class="mt-2 text-sm text-ink-muted">
-            Send your reports and we'll come back with 3 specific names, availability, and a quote — no fee.
+            {tSsi("ctaBody")}
           </p>
         </div>
         <div class="flex flex-wrap gap-3 shrink-0">
@@ -228,13 +233,13 @@ Astro.response.headers.set(
             href={localizedPath(locale, `/calculator`)}
             class="inline-flex items-center rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover"
           >
-            Start the shortlist
+            {tSsi("ctaButtonPrimary")}
           </a>
           <a
             href={localizedPath(locale, `/specialty/${specialty.slug}`)}
             class="inline-flex items-center rounded-lg border border-border px-5 py-2.5 text-sm font-semibold hover:border-border-strong"
           >
-            About {specialty.name}
+            {tSsi("ctaButtonSecondary").replace("{specialtyName}", specialty.name)}
             <ChevronRight className="ml-1 h-4 w-4" />
           </a>
         </div>
@@ -247,10 +252,10 @@ Astro.response.headers.set(
           <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
             <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
               <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Volume benchmarks
+                {tSsi("volumeBenchmarksEyebrow")}
               </div>
               <h2 class="display mb-7" style="font-size: 26px; letter-spacing: -0.02em;">
-                Surgeon volume <span style="font-style: italic;">benchmarks for {specialty.name.toLowerCase()}</span>
+                {tSsi("volumeBenchmarksHeading").replace("{specialtyName}", specialty.name.toLowerCase())}
               </h2>
               <div class="paper overflow-hidden" style="padding: 0;">
                 {specSections.surgeonVolumeThresholds.map((t: any, i: number) => (
@@ -271,10 +276,10 @@ Astro.response.headers.set(
           <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft);">
             <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
               <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Consultation questions
+                {tSsi("consultQuestionsEyebrow")}
               </div>
               <h2 class="display mb-7" style="font-size: 26px; letter-spacing: -0.02em;">
-                What to <span style="font-style: italic;">ask any candidate</span>
+                {tSsi("consultQuestionsHeading")}
               </h2>
               <ol class="space-y-3">
                 {specSections.questionsForProgram.map((q: string, i: number) => (
@@ -294,22 +299,22 @@ Astro.response.headers.set(
 
     <ExploreGrid
       locale={locale}
-      eyebrow={`${specialty.name} surgeons`}
-      heading="Different routes to the same shortlist"
-      lede={`Volume-ranked surgeon list is one cut. These hubs let you re-rank by destination, by procedure, or by hospital — and check the underlying specialty content alongside.`}
+      eyebrow={tSsi("exploreEyebrow").replace("{specialtyName}", specialty.name)}
+      heading={tSsi("exploreHeading")}
+      lede={tSsi("exploreLede")}
       items={[
-        { eyebrow: "Specialty", label: `${specialty.name} hub`, href: `/specialty/${specialtyParam}`, hint: `Programs, sub-specialties, and procedures across ${specialty.name.toLowerCase()}.` },
-        { eyebrow: "Hospitals", label: `Hospitals offering ${specialty.name.toLowerCase()}`, href: `/hospitals/specialty/${specialtyParam}`, hint: "Programs credentialed for this specialty across our network." },
-        { eyebrow: "Best of", label: `Best ${specialty.name.toLowerCase()} programs`, href: "/best", hint: "Editorially ranked by specialty × country with methodology disclosed." },
-        { eyebrow: "Browse", label: "9 destination countries", href: "/countries", hint: "Filter surgeon directory by country — cost-of-care, accreditation profile." },
-        { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure success rates, recovery time, hospital pricing." },
-        { eyebrow: "Browse", label: "All 79 conditions", href: "/conditions", hint: "Map condition → specialty → first-line treatment." },
-        { eyebrow: "Compare", label: "Doctor comparison", href: "/compare/doctors", hint: "Surgeons compared on volume, fees, languages, video-consult availability." },
-        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, and pricing." },
-        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
-        { eyebrow: "Trust", label: "Medical board", href: "/medical-board", hint: "Named clinicians who review surgeon directory + treatment content." },
-        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+        { eyebrow: tSsi("exploreItem1Eyebrow"), label: tSsi("exploreItem1Label").replace("{specialtyName}", specialty.name), href: `/specialty/${specialtyParam}`, hint: tSsi("exploreItem1Hint").replace("{specialtyName}", specialty.name.toLowerCase()) },
+        { eyebrow: tSsi("exploreItem2Eyebrow"), label: tSsi("exploreItem2Label").replace("{specialtyName}", specialty.name.toLowerCase()), href: `/hospitals/specialty/${specialtyParam}`, hint: tSsi("exploreItem2Hint") },
+        { eyebrow: tSsi("exploreItem3Eyebrow"), label: tSsi("exploreItem3Label").replace("{specialtyName}", specialty.name.toLowerCase()), href: "/best", hint: tSsi("exploreItem3Hint") },
+        { eyebrow: tSsi("exploreItem4Eyebrow"), label: tSsi("exploreItem4Label"), href: "/countries", hint: tSsi("exploreItem4Hint") },
+        { eyebrow: tSsi("exploreItem5Eyebrow"), label: tSsi("exploreItem5Label"), href: "/treatments", hint: tSsi("exploreItem5Hint") },
+        { eyebrow: tSsi("exploreItem6Eyebrow"), label: tSsi("exploreItem6Label"), href: "/conditions", hint: tSsi("exploreItem6Hint") },
+        { eyebrow: tSsi("exploreItem7Eyebrow"), label: tSsi("exploreItem7Label"), href: "/compare/doctors", hint: tSsi("exploreItem7Hint") },
+        { eyebrow: tSsi("exploreItem8Eyebrow"), label: tSsi("exploreItem8Label"), href: "/compare/hospitals", hint: tSsi("exploreItem8Hint") },
+        { eyebrow: tSsi("exploreItem9Eyebrow"), label: tSsi("exploreItem9Label"), href: "/match-me", hint: tSsi("exploreItem9Hint") },
+        { eyebrow: tSsi("exploreItem10Eyebrow"), label: tSsi("exploreItem10Label"), href: "/calculator", hint: tSsi("exploreItem10Hint") },
+        { eyebrow: tSsi("exploreItem11Eyebrow"), label: tSsi("exploreItem11Label"), href: "/medical-board", hint: tSsi("exploreItem11Hint") },
+        { eyebrow: tSsi("exploreItem12Eyebrow"), label: tSsi("exploreItem12Label"), href: "/second-opinion", hint: tSsi("exploreItem12Hint") },
       ]}
     />
 

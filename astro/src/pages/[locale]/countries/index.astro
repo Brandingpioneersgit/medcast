@@ -68,46 +68,47 @@ const FLAG_MAP: Record<string, string> = {
 };
 function countryFlag(s: string): string { return FLAG_MAP[s] ?? "🌐"; }
 
-const BLURBS: Record<string, string> = {
-  india: "Volume, price and English-fluent doctors. JCI flagships in Delhi-NCR, Chennai, Mumbai.",
-  turkey: "Fast visas, strong aesthetics and oncology programs. Istanbul handles 70% of flow.",
-  thailand: "Bumrungrad, BDMS and Bangkok Hospital set the Asia-Pacific standard.",
-  uae: "Dubai and Abu Dhabi Cleveland Clinic — premium pricing, zero language friction.",
-  germany: "Complex surgery, cancer, transplants. Slower bookings, strongest outcomes.",
-  singapore: "Boutique, very expensive, best-in-class outcomes for high-stakes cases.",
-  "south-korea": "Seoul leads on aesthetics, oncology, and robotic surgery.",
-  malaysia: "KL hospitals courted Commonwealth patients — English-fluent, low visa friction.",
-  "saudi-arabia": "Riyadh and Jeddah — MOH-regulated, mostly regional patient flow.",
-};
-
 const totalHospitals = rows.reduce((s, r) => s + r.hospitals, 0);
 const totalDoctors = rows.reduce((s, r) => s + r.doctors, 0);
 const lowestFrom = rows.reduce((m, r) => (r.fromUsd && (!m || r.fromUsd < m) ? r.fromUsd : m), null as number | null);
 
 const tc = getTranslator(locale, "common");
+const tCt = getTranslator(locale, "countriesPage");
 const { bindChromeT } = await import("@/lib/chrome-i18n");
 const ct = bindChromeT(locale);
 const seoTitle = ct("lp.countries.title");
 const seoDescription = ct("lp.countries.desc").replace("{count}", String(rows.length));
 const path = "/countries";
 
+const BLURBS: Record<string, string> = {
+  india: tCt("blurbIndia"),
+  turkey: tCt("blurbTurkey"),
+  thailand: tCt("blurbThailand"),
+  uae: tCt("blurbUae"),
+  germany: tCt("blurbGermany"),
+  singapore: tCt("blurbSingapore"),
+  "south-korea": tCt("blurbSouthKorea"),
+  malaysia: tCt("blurbMalaysia"),
+  "saudi-arabia": tCt("blurbSaudiArabia"),
+};
+
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Destinations", url: localeUrl(locale, path) },
+  { name: tCt("breadcrumbCountries"), url: localeUrl(locale, path) },
 ]);
 
 const collectionLd = collectionPageJsonLd({
-  name: "Medical travel destinations",
+  name: tCt("collectionName"),
   description: seoDescription,
   url: localeUrl(locale, path),
   items: rows.map((r) => ({ name: r.name, url: localeUrl(locale, `/country/${r.slug}`) })),
 });
 
 const stats = [
-  { l: "Destinations", v: rows.length.toString() },
-  { l: "Hospitals", v: totalHospitals.toLocaleString() },
-  { l: "Doctors", v: totalDoctors.toLocaleString() },
-  lowestFrom ? { l: "From", v: `$${(lowestFrom / 1000).toFixed(1)}k` } : null,
+  { l: tCt("statDestinations"), v: rows.length.toString() },
+  { l: tCt("statHospitals"), v: totalHospitals.toLocaleString() },
+  { l: tCt("statDoctors"), v: totalDoctors.toLocaleString() },
+  lowestFrom ? { l: tCt("statFrom"), v: `$${(lowestFrom / 1000).toFixed(1)}k` } : null,
 ].filter(Boolean) as Array<{ l: string; v: string }>;
 
 Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
@@ -128,7 +129,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
         <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span class="mx-1.5">/</span>
-          <span style="color: var(--color-ink);">Destinations</span>
+          <span style="color: var(--color-ink);">{tCt("breadcrumbCountries")}</span>
         </nav>
       </div>
     </div>
@@ -162,7 +163,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
                       class="mono uppercase absolute"
                       style="top: 14px; inset-inline-end: 14px; font-size: 9.5px; letter-spacing: 0.14em; background: var(--color-coral); color: var(--color-bg); padding: 4px 10px; border-radius: 9999px;"
                     >
-                      Most visited
+                      {tCt("mostVisited")}
                     </span>
                   )}
                 </PhotoBlock>
@@ -177,11 +178,11 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
                     <span class="mono text-[10px] uppercase tracking-wider" style="color: var(--color-ink-subtle);">{c.isoCode}</span>
                   </div>
                   <p class="mt-3 serif" style="font-size: 14.5px; line-height: 1.55; color: var(--color-ink-muted);">
-                    {BLURBS[c.slug] ?? `${c.hospitals.toLocaleString()} accredited hospitals across ${c.name}.`}
+                    {BLURBS[c.slug] ?? tCt("blurbFallback").replace("{n}", c.hospitals.toLocaleString()).replace("{name}", c.name)}
                   </p>
                   {c.topSpecialty && (
                     <div class="mt-3 mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">
-                      Known for · {c.topSpecialty}
+                      {tCt("knownForDot")} {c.topSpecialty}
                     </div>
                   )}
                   <div
@@ -190,16 +191,16 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
                   >
                     <div class="text-[12.5px]" style="color: var(--color-ink-muted);">
                       {c.fromUsd ? (
-                        <>From <span class="display tnum text-ink text-[15px]"><Price usd={c.fromUsd} /></span> · {c.hospitals.toLocaleString()} hospitals</>
+                        <>{tCt("fromPrefix")} <span class="display tnum text-ink text-[15px]"><Price usd={c.fromUsd} /></span> · {tCt("hospitalsCount").replace("{n}", c.hospitals.toLocaleString())}</>
                       ) : (
-                        <>{c.hospitals.toLocaleString()} hospitals · {c.doctors.toLocaleString()} doctors</>
+                        <>{tCt("hospitalsAndDoctors").replace("{h}", c.hospitals.toLocaleString()).replace("{d}", c.doctors.toLocaleString())}</>
                       )}
                     </div>
                     <span
                       class="inline-flex items-center gap-1 text-[12px] font-semibold"
                       style="background: var(--color-ink); color: var(--color-bg); padding: 6px 12px; border-radius: 9999px;"
                     >
-                      Explore
+                      {tCt("explore")}
                       <ChevronRight className="h-3 w-3 mirror-x" />
                     </span>
                   </div>
@@ -212,35 +213,36 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
     </section>
 
     <HowItWorks
-      heading="How to choose a destination"
-      italicWord="destination"
-      eyebrow="Destination guide"
+      heading={tCt("howHeading")}
+      italicWord={tCt("howItalic")}
+      eyebrow={tCt("howEyebrow")}
       steps={[
-        { title: "Match procedure to destination strength", description: "India for cardiac/transplant/orthopedic value, Turkey for cosmetic/dental/hair, Korea for liver transplant + advanced GI, Germany for complex re-do, UAE for premium." },
-        { title: "Consider travel logistics", description: "Flight time, visa complexity, distance from family. Long-haul to India is a different proposition than 4-hour Turkey for European patients." },
-        { title: "Match climate to recovery window", description: "October-March for India, April-October for Turkey, year-round for UAE/Singapore. Heat and humidity affect recovery comfort." },
-        { title: "Match budget to destination tier", description: "India top-tier programs offer best cost-quality ratio. Turkey/Thailand mid-tier. Singapore/UAE/Germany premium." },
-        { title: "Evaluate program-specific fit", description: "Country is the framing; program is the decision. Always drill down to specific hospitals + surgeons." },
+        { title: tCt("howStep1Title"), description: tCt("howStep1Desc") },
+        { title: tCt("howStep2Title"), description: tCt("howStep2Desc") },
+        { title: tCt("howStep3Title"), description: tCt("howStep3Desc") },
+        { title: tCt("howStep4Title"), description: tCt("howStep4Desc") },
+        { title: tCt("howStep5Title"), description: tCt("howStep5Desc") },
       ]}
     />
 
     <WhatToExpect
-      heading="Where each destination shines"
-      italicWord="shines"
+      heading={tCt("whereHeading")}
+      italicWord={tCt("whereItalic")}
+      eyebrow={tCt("whereEyebrow")}
       items={[
-        { label: "India", description: "Highest case volumes globally for many specialties; best cost-quality ratio at top-tier programs (Apollo, Medanta, Fortis Escorts, Tata Memorial). Best for cardiac, transplant, orthopedic, oncology." },
-        { label: "Turkey", description: "Strong on cosmetic, dental, hair transplant, bariatric. Premium cardiac and oncology at Acıbadem and Memorial. Closest non-European destination for European patients." },
-        { label: "Thailand", description: "Best service experience and English-language infrastructure. Bumrungrad is the global benchmark for international patient care. Mid-tier pricing." },
-        { label: "Korea", description: "World leader in liver transplant (Asan), advanced GI surgery, refractive eye surgery. Premium cosmetic in Gangnam." },
-        { label: "Germany", description: "Premium for complex re-do procedures, multi-organ transplant, neuro-oncology. Highest cost; best outcomes for highest-complexity cases." },
-        { label: "UAE", description: "Cleveland Clinic Abu Dhabi clones US standards; Dubai/Mediclinic for regional referrals. Premium pricing, premium service, US/UK-trained staff." },
-        { label: "Singapore", description: "Asia's premium; best for second opinions and rare-disease workup. Premium pricing reflects best-in-class outcomes." },
-        { label: "Saudi Arabia", description: "Vision 2030-driven investment in healthcare. King Faisal Specialist Hospital for complex cardiac and oncology. Premium pricing." },
-        { label: "Malaysia", description: "MHTC-coordinated cost-competitive Asian alternative. Strong for cardiology, fertility, oncology. Mid-tier pricing." },
+        { label: tCt("where1Label"), description: tCt("where1Desc") },
+        { label: tCt("where2Label"), description: tCt("where2Desc") },
+        { label: tCt("where3Label"), description: tCt("where3Desc") },
+        { label: tCt("where4Label"), description: tCt("where4Desc") },
+        { label: tCt("where5Label"), description: tCt("where5Desc") },
+        { label: tCt("where6Label"), description: tCt("where6Desc") },
+        { label: tCt("where7Label"), description: tCt("where7Desc") },
+        { label: tCt("where8Label"), description: tCt("where8Desc") },
+        { label: tCt("where9Label"), description: tCt("where9Desc") },
       ]}
     />
 
-    
+
     <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>

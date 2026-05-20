@@ -27,6 +27,7 @@ const rowsRaw = await listSpecialties();
 const rows = Array.from(rowsRaw);
 
 const tc = getTranslator(locale, "common");
+const tSp = getTranslator(locale, "specialtiesPage");
 const { bindChromeT } = await import("@/lib/chrome-i18n");
 const ct = bindChromeT(locale);
 const seoTitle = ct("lp.specialties.title");
@@ -39,7 +40,7 @@ const crumbs = breadcrumbJsonLd([
 ]);
 
 const collectionLd = collectionPageJsonLd({
-  name: "Medical specialties",
+  name: tSp("collectionLdName"),
   description: seoDescription,
   url: localeUrl(locale, path),
   items: rows.map((sp) => ({
@@ -54,10 +55,10 @@ const lowestFrom = rows.reduce((m, r) => (r.from_usd && (!m || r.from_usd < m) ?
 const lowestFromFormatted = lowestFrom ? await formatUsd(Astro.cookies, lowestFrom) : null;
 
 const stats = [
-  { l: "Specialties", v: rows.length.toString() },
-  { l: "Hospitals", v: totalHospitals.toLocaleString() },
-  { l: "Treatments", v: totalTreatments.toString() },
-  lowestFromFormatted ? { l: "From", v: lowestFromFormatted } : null,
+  { l: tc("specialties"), v: rows.length.toString() },
+  { l: tSp("labelHospitals"), v: totalHospitals.toLocaleString() },
+  { l: tSp("labelTreatments"), v: totalTreatments.toString() },
+  lowestFromFormatted ? { l: tSp("fromPrefix"), v: lowestFromFormatted } : null,
 ].filter(Boolean) as Array<{ l: string; v: string }>;
 
 function firstWord(s: string) { const i = s.indexOf(" "); return i === -1 ? s : s.slice(0, i); }
@@ -81,7 +82,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
         <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span class="mx-1.5">/</span>
-          <span style="color: var(--color-ink);">Specialties</span>
+          <span style="color: var(--color-ink);">{tc("specialties")}</span>
         </nav>
       </div>
     </div>
@@ -96,7 +97,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
 
     <section style="padding: 32px 0 88px;">
       <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
-        <h2 class="sr-only">Browse specialties</h2>
+        <h2 class="sr-only">{tSp("browseSrOnly")}</h2>
         <ul class="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
           {rows.map((sp) => (
             <li>
@@ -132,16 +133,16 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
                   >
                     <div class="text-[12.5px]" style="color: var(--color-ink-muted);">
                       {sp.from_usd ? (
-                        <>From <span class="display tnum text-ink text-[15px]"><Price usd={sp.from_usd} /></span> · {sp.hospitals.toLocaleString()} hospitals</>
+                        <>{tSp("fromPrefix")} <span class="display tnum text-ink text-[15px]"><Price usd={sp.from_usd} /></span> · {sp.hospitals.toLocaleString()} {tSp("labelHospitals")}</>
                       ) : (
-                        <>{sp.hospitals.toLocaleString()} hospitals · {sp.treatments} treatments</>
+                        <>{sp.hospitals.toLocaleString()} {tSp("labelHospitals")} · {sp.treatments} {tSp("labelTreatments")}</>
                       )}
                     </div>
                     <span
                       class="inline-flex items-center gap-1 text-[12px] font-semibold"
                       style="background: var(--color-ink); color: var(--color-bg); padding: 6px 12px; border-radius: 9999px;"
                     >
-                      Explore
+                      {tc("explore")}
                       <ChevronRight className="h-3 w-3 mirror-x" />
                     </span>
                   </div>
@@ -154,25 +155,25 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
     </section>
 
     <HowItWorks
-      heading="How specialties relate to your case"
-      italicWord="your case"
-      eyebrow="Specialty navigation"
+      heading={tSp("howHeading")}
+      italicWord={tSp("howItalic")}
+      eyebrow={tSp("howEyebrow")}
       steps={[
-        { title: "Identify your concern", description: "Symptoms, diagnosis, or referral. Not all conditions map cleanly to a single specialty — heart conditions might involve cardiology, cardiac surgery, vascular." },
-        { title: "Find the matching specialty hub", description: "Each specialty page covers scope, sub-specialties, top destinations, and decision frameworks. Read the specialty page before drilling into specific procedures." },
-        { title: "Read sub-specialty depth", description: "A 'cardiac surgeon' isn't the same as a 'mitral valve specialist'. Sub-specialty volume on your specific procedure matters more than general specialty designation." },
-        { title: "Cross-reference with destinations", description: "Different destinations excel at different specialties. India for cardiac/transplant, Korea for liver transplant + advanced GI, Germany for complex re-do, Turkey for cosmetic." },
+        { title: tSp("step1Title"), description: tSp("step1Desc") },
+        { title: tSp("step2Title"), description: tSp("step2Desc") },
+        { title: tSp("step3Title"), description: tSp("step3Desc") },
+        { title: tSp("step4Title"), description: tSp("step4Desc") },
       ]}
     />
 
     <WhatToExpect
-      heading="What good specialty programs look like"
-      italicWord="look like"
+      heading={tSp("whatHeading")}
+      italicWord={tSp("whatItalic")}
       items={[
-        { label: "Sub-specialty teams", description: "Strong programs have multiple sub-specialty teams (cardiac surgery + interventional cardiology + electrophysiology), not generalist coverage." },
-        { label: "Multidisciplinary review", description: "Tumor boards (oncology), heart teams (cardiac), spine conferences — recurring multidisciplinary case reviews are a quality signal." },
-        { label: "Volume thresholds met", description: "Programs doing the volume thresholds for each specialty (200+ CABG/year for cardiac, 100+ Whipples/year for HPB, etc.) reach the strongest outcome ranges." },
-        { label: "Continuous improvement", description: "Active publication record, society membership, conference presence indicate engagement with the field beyond just operating." },
+        { label: tSp("item1Label"), description: tSp("item1Desc") },
+        { label: tSp("item2Label"), description: tSp("item2Desc") },
+        { label: tSp("item3Label"), description: tSp("item3Desc") },
+        { label: tSp("item4Label"), description: tSp("item4Desc") },
       ]}
     />
 

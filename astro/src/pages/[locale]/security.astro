@@ -5,11 +5,13 @@ import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import ExploreGrid from "@/components/ExploreGrid.astro";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { getTranslator } from "@/lib/messages";
 
 export const prerender = false;
 
 const rawLocale = Astro.params.locale ?? "en";
 const locale = (isLocale(rawLocale) ? rawLocale : "en") as Locale;
+const tSe = getTranslator(locale, "securityPage");
 
 Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
 ---
@@ -17,8 +19,8 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta
-      title="Security policy & responsible disclosure"
-      description="How to report a security issue to MedCasts. Scope, timeline, recognition, and what we won't accept."
+      title={tSe("seoTitle")}
+      description={tSe("seoDescription")}
       path="/security"
       locale={locale}
       translatedLocales={["en"]}
@@ -31,71 +33,71 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
 
     <section style="padding: 56px 28px 96px;">
       <div class="mx-auto" style="max-width: 720px;">
-        <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">Security</p>
+        <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">{tSe("eyebrow")}</p>
         <h1
           class="display display-tight mt-3"
           style="font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.05; font-weight: 400; letter-spacing: -0.03em;"
         >
-          Security policy &amp; <span class="italic-display">responsible disclosure</span>
+          {tSe("h1Main")} <span class="italic-display">{tSe("h1Accent")}</span>
         </h1>
         <p class="serif mt-5" style="font-size: 17px; line-height: 1.55; color: var(--color-ink-muted);">
-          MedCasts coordinates planned medical travel for international patients — the data we hold (case summaries, IDs, payment intent, treatment plans) is sensitive. If you find a vulnerability, we want to hear from you.
+          {tSe("leadParagraph")}
         </p>
 
         <div class="prose-editorial mt-12">
-          <h2>How to report</h2>
+          <h2>{tSe("h2HowToReport")}</h2>
           <p>
-            Email <a href="mailto:medcastsdigital@gmail.com">medcastsdigital@gmail.com</a> with:
+            {tSe("howToReportIntro")} <a href="mailto:medcastsdigital@gmail.com">medcastsdigital@gmail.com</a> {tSe("howToReportWith")}
           </p>
           <ul>
-            <li>A short summary of the issue + impact</li>
-            <li>Steps to reproduce — minimal payload, no scraping</li>
-            <li>Optional PGP key (we'll set up encrypted reply if requested)</li>
+            <li>{tSe("reportItem1")}</li>
+            <li>{tSe("reportItem2")}</li>
+            <li>{tSe("reportItem3")}</li>
           </ul>
           <p>
-            For urgent issues (active exploit), prefix the subject with <code>[CRITICAL]</code> — paged 24/7. Routine reports get a written acknowledgement within 2 business days and an initial assessment within 5.
+            {tSe("urgentNote")}
           </p>
 
-          <h2>In scope</h2>
+          <h2>{tSe("h2InScope")}</h2>
           <ul>
             <li><code>medcasts.com</code> + all <code>*.medcasts.com</code> subdomains</li>
-            <li>Public APIs at <code>/api/v1/*</code></li>
-            <li>Patient portal token / session security</li>
-            <li>Admin authentication, authorization, session management</li>
-            <li>Stored data exposure (PHI, payment intent, contact details)</li>
+            <li>{tSe("inScopeItem2")}</li>
+            <li>{tSe("inScopeItem3")}</li>
+            <li>{tSe("inScopeItem4")}</li>
+            <li>{tSe("inScopeItem5")}</li>
             <li>SSRF, RCE, SQLi, deserialization, auth-bypass</li>
-            <li>Stored XSS / DOM XSS in admin or patient portal</li>
+            <li>{tSe("inScopeItem7")}</li>
           </ul>
 
-          <h2>Out of scope</h2>
+          <h2>{tSe("h2OutOfScope")}</h2>
           <ul>
-            <li>Self-XSS or social-engineering of MedCasts staff</li>
-            <li>Vulnerabilities in third-party services we use (report to them)</li>
-            <li>Best-practice findings without an exploit chain (missing security headers on a page that ships them everywhere else, etc.)</li>
-            <li>Rate-limit bypasses on read-only public endpoints</li>
-            <li>Outdated software disclosure with no exploit</li>
-            <li>Spam / abuse via the inquiry form (CSRF + rate-limit already gate it)</li>
+            <li>{tSe("outOfScopeItem1")}</li>
+            <li>{tSe("outOfScopeItem2")}</li>
+            <li>{tSe("outOfScopeItem3")}</li>
+            <li>{tSe("outOfScopeItem4")}</li>
+            <li>{tSe("outOfScopeItem5")}</li>
+            <li>{tSe("outOfScopeItem6")}</li>
           </ul>
 
-          <h2>What we ask</h2>
+          <h2>{tSe("h2WhatWeAsk")}</h2>
           <ul>
-            <li><strong>Don't access patient data.</strong> If you find an exposure, stop, document, and report. We'll reproduce on our side.</li>
-            <li>Don't run automated scanners against production. Test on a fork or against the local dev server (instructions in the project README).</li>
-            <li>Don't disclose publicly until we've shipped a fix or we've agreed on a coordinated date (default 90 days).</li>
-            <li>One report per issue. Bundling chains is fine.</li>
+            <li><strong>{tSe("whatWeAskItem1Bold")}</strong> {tSe("whatWeAskItem1Rest")}</li>
+            <li>{tSe("whatWeAskItem2")}</li>
+            <li>{tSe("whatWeAskItem3")}</li>
+            <li>{tSe("whatWeAskItem4")}</li>
           </ul>
 
-          <h2>Recognition</h2>
+          <h2>{tSe("h2Recognition")}</h2>
           <p>
-            We run a non-monetary acknowledgement program — every confirmed report gets a write-up on this page (with researcher name + report date, opt-in) and a reference letter for portfolio use. We're a small team and don't run a paid bounty program yet; we'll be transparent if that changes.
+            {tSe("recognitionParagraph")}
           </p>
 
-          <h2>Reference</h2>
+          <h2>{tSe("h2Reference")}</h2>
           <ul>
-            <li>Machine-readable contact: <a href="/.well-known/security.txt">/.well-known/security.txt</a></li>
-            <li>Editorial + corrections process: <a href={localizedPath(locale, "/editorial-policy")}>/editorial-policy</a></li>
-            <li>Privacy policy: <a href={localizedPath(locale, "/privacy-policy")}>/privacy-policy</a></li>
-            <li>Health probe (uptime): <a href="/api/health">/api/health</a></li>
+            <li>{tSe("refItem1Label")}: <a href="/.well-known/security.txt">/.well-known/security.txt</a></li>
+            <li>{tSe("refItem2Label")}: <a href={localizedPath(locale, "/editorial-policy")}>/editorial-policy</a></li>
+            <li>{tSe("refItem3Label")}: <a href={localizedPath(locale, "/privacy-policy")}>/privacy-policy</a></li>
+            <li>{tSe("refItem4Label")}: <a href="/api/health">/api/health</a></li>
           </ul>
         </div>
       </div>
@@ -103,18 +105,18 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while
 
     <ExploreGrid
       locale={locale}
-      eyebrow="Trust + transparency"
-      heading="Related policies"
-      lede="MedCasts publishes its review process, conflict-of-interest stance, and data handling rules openly. The pages below are the load-bearing ones."
+      eyebrow={tSe("gridEyebrow")}
+      heading={tSe("gridHeading")}
+      lede={tSe("gridLede")}
       items={[
-        { eyebrow: "Editorial", label: "Editorial + corrections policy", href: "/editorial-policy", hint: "Sourcing, AI use, corrections SLA, who reviews what." },
-        { eyebrow: "Trust", label: "Medical board", href: "/medical-board", hint: "The reviewers behind specialty + condition pages." },
-        { eyebrow: "Legal", label: "Privacy policy", href: "/privacy-policy", hint: "What we collect, how long we keep it, your GDPR rights." },
-        { eyebrow: "Legal", label: "Terms of service", href: "/terms", hint: "How payment, refunds, and dispute resolution work." },
-        { eyebrow: "Quality", label: "Accreditation registry", href: "/accreditation", hint: "JCI, NABH, ISO and 10 other registries we cross-check." },
-        { eyebrow: "Action", label: "Report a safety incident", href: "/incident-report", hint: "Anonymous channel for clinical concerns." },
-        { eyebrow: "About", label: "Who we are", href: "/about", hint: "Coordinator-not-clinician scope, team, contacts." },
-        { eyebrow: "Contact", label: "Talk to a coordinator", href: "/contact", hint: "Get a real person on email, phone, or WhatsApp." },
+        { eyebrow: tSe("gridItem1Eyebrow"), label: tSe("gridItem1Label"), href: "/editorial-policy", hint: tSe("gridItem1Hint") },
+        { eyebrow: tSe("gridItem2Eyebrow"), label: tSe("gridItem2Label"), href: "/medical-board", hint: tSe("gridItem2Hint") },
+        { eyebrow: tSe("gridItem3Eyebrow"), label: tSe("gridItem3Label"), href: "/privacy-policy", hint: tSe("gridItem3Hint") },
+        { eyebrow: tSe("gridItem4Eyebrow"), label: tSe("gridItem4Label"), href: "/terms", hint: tSe("gridItem4Hint") },
+        { eyebrow: tSe("gridItem5Eyebrow"), label: tSe("gridItem5Label"), href: "/accreditation", hint: tSe("gridItem5Hint") },
+        { eyebrow: tSe("gridItem6Eyebrow"), label: tSe("gridItem6Label"), href: "/incident-report", hint: tSe("gridItem6Hint") },
+        { eyebrow: tSe("gridItem7Eyebrow"), label: tSe("gridItem7Label"), href: "/about", hint: tSe("gridItem7Hint") },
+        { eyebrow: tSe("gridItem8Eyebrow"), label: tSe("gridItem8Label"), href: "/contact", hint: tSe("gridItem8Hint") },
       ]}
     />
 

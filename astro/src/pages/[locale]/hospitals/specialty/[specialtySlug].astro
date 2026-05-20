@@ -16,8 +16,9 @@ import { sql } from "drizzle-orm";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, collectionPageJsonLd, withProvenance } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
+import { getContent, getContentBatch, applyTranslated, isUntranslated } from "@/lib/translate";
 import { ChevronRight } from "lucide-react";
-import { hospitalCover } from "@/lib/images";
+import { hospitalCover, specialtyBanner } from "@/lib/images";
 
 export const prerender = false;
 
@@ -27,8 +28,8 @@ if (!specialtySlug) return new Response("Not found", { status: 404 });
 if (!isLocale(rawLocale)) return Astro.redirect(`/en/hospitals/specialty/${specialtySlug}`, 308);
 const locale = rawLocale as Locale;
 
-const specialty = await getGeoSpecialty(specialtySlug);
-if (!specialty) return new Response(`Not found: ${specialtySlug}`, { status: 404 });
+const specialtyRow = await getGeoSpecialty(specialtySlug);
+if (!specialtyRow) return new Response(`Not found: ${specialtySlug}`, { status: 404 });
 
 const url = new URL(Astro.request.url);
 const pageParam = parseInt(url.searchParams.get("page") ?? "1", 10);
@@ -39,10 +40,17 @@ const sort: "featured" | "rating" | "reviews" | "beds" =
     ? sortParam
     : "featured";
 
-const [{ rows, total, totalPages }, breakdown] = await Promise.all([
+const [{ rows: rawRows, total, totalPages }, breakdown] = await Promise.all([
   listHospitals({ page, sort, specialty: [specialtySlug] }),
   getSpecialtyHospitalBreakdown(specialtySlug),
 ]);
+
+// Localize DB content for non-default locales (getContent/getContentBatch
+// return {} on `en`, so applyTranslated is a no-op there).
+const specialtyMap = await getContent("specialty", specialtyRow.id, locale);
+const specialty = applyTranslated(specialtyRow, specialtyMap, ["name"]);
+const hospitalTx = await getContentBatch("hospital", rawRows.map((h) => h.id), locale);
+const rows = rawRows.map((h) => applyTranslated(h, hospitalTx[h.id] ?? {}, ["name"]));
 
 // Batch-fetch accreditation chips for the visible rows.
 const hospitalIds = rows.map((h) => h.id);
@@ -80,7 +88,7 @@ const seoDescription =
     160,
   );
 
-const shouldNoindex = page > 1 || total === 0;
+const shouldNoindex = page > 1 || total === 0 || isUntranslated(locale, specialtyMap);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
@@ -173,6 +181,9 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
       h1Italic="abroad"
       lede={`Accredited hospitals credentialed for ${specialtyName.toLowerCase()} across our destinations — compared on rating, bed capacity and accreditation, and continuously re-vetted by our medical panel.`}
       stats={stats}
+      locale={locale}
+      image={specialtyBanner(specialtySlug)}
+      imageAlt={`${specialtyName} hospitals abroad`}
     />
 
     {(breakdown.countries.length > 0 || breakdown.cities.length > 0) && (
@@ -191,7 +202,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
               <span class="tnum" style="opacity: 0.55; margin-inline-start: 5px;">{c.n}</span>
             </a>
           ))}
-          {breakdown.cities.slice(0, 14).map((c) => (
+          {breakdown.cities.map((c) => (
             <a
               href={localizedPath(locale, `/hospitals/specialty/${specialtySlug}/${c.slug}`)}
               class="rounded-full border px-3 py-1.5 text-[13px] font-medium hover:border-ink transition-colors"

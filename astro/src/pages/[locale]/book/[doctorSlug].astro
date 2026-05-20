@@ -27,6 +27,7 @@ if (!isLocale(rawLocale)) {
 }
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tBk = getTranslator(locale, "bookPage");
 
 const doctorSlug = String(Astro.params.doctorSlug ?? "");
 
@@ -94,7 +95,7 @@ const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
   { name: tc("doctors") || "Doctors", url: localeUrl(locale, "/doctors") },
   { name: fullName, url: localeUrl(locale, `/doctor/${row.slug}`) },
-  { name: "Book", url: pageUrl },
+  { name: tBk("breadcrumbBook"), url: pageUrl },
 ]);
 
 // ContactPage schema — Google surfaces booking pages in "contact us" rich
@@ -141,8 +142,8 @@ Astro.response.headers.set(
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta
-      title={`Book ${fullName}${row.hospitalName ? ` · ${row.hospitalName}` : ""}`}
-      description={`Request a consultation with ${fullName}${row.specialtyName ? `, ${row.specialtyName}` : ""}${row.cityName && row.countryName ? `, ${row.cityName}, ${row.countryName}` : ""}. Reply within 24 hours.`}
+      title={tBk("metaTitle").replace("{name}", fullName).replace("{hospital}", row.hospitalName ?? "").replace(" ·  ", " ")}
+      description={tBk("metaDescription").replace("{name}", fullName).replace("{specialty}", row.specialtyName ?? "").replace("{city}", row.cityName ?? "").replace("{country}", row.countryName ?? "")}
       path={path}
       locale={locale}
     />
@@ -162,7 +163,7 @@ Astro.response.headers.set(
           <span aria-hidden="true" class="text-[var(--color-border-strong)]">/</span>
           <a href={localizedPath(locale, `/doctor/${row.slug}`)} class="hover:text-ink">{fullName}</a>
           <span aria-hidden="true" class="text-[var(--color-border-strong)]">/</span>
-          <span style="color: var(--color-ink);">Book</span>
+          <span style="color: var(--color-ink);">{tBk("breadcrumbBook")}</span>
         </nav>
       </div>
     </div>
@@ -170,17 +171,17 @@ Astro.response.headers.set(
     <section style="padding: 48px 0 24px;">
       <div class="mx-auto max-w-[1120px] px-7 md:px-10">
         <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
-          Book consultation
+          {tBk("eyebrow")}
         </div>
         <h1 class="display display-tight mt-3" style="font-size: clamp(2.25rem, 5vw, 3.5rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;">
-          Book with<br />
+          {tBk("headingBookWith")}<br />
           <span class="italic-display">{fullName}</span>
         </h1>
         <p class="serif mt-5" style="font-size: 18px; line-height: 1.5; color: var(--color-ink-muted); max-width: 640px;">
           {row.specialtyName && (<><span>{row.specialtyName}</span> · </>)}
           {row.hospitalName}
           {row.cityName && row.countryName && (<>, {row.cityName}, {row.countryName}</>)}
-          . You'll receive a written confirmation with the appointment code within minutes; the coordinator confirms the slot within 24 hours.
+          {tBk("subheadConfirmation")}
         </p>
       </div>
     </section>
@@ -208,7 +209,7 @@ Astro.response.headers.set(
 
             <div class="flex items-baseline justify-between flex-wrap gap-2">
               <div class="serif" style="font-size: 24px; letter-spacing: -0.015em;">
-                Appointment <span class="italic-display">details</span>
+                {tBk("sectionAppointment")} <span class="italic-display">{tBk("sectionDetails")}</span>
               </div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                 ~ 2 minutes
@@ -217,13 +218,13 @@ Astro.response.headers.set(
 
             <fieldset class="mt-6 border-0 p-0">
               <legend class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Consultation type
+                {tBk("legendConsultType")}
               </legend>
               <div class="grid gap-2 md:grid-cols-3">
                 {[
-                  { v: "in-person", label: "In person", icon: "pin", desc: "Visit the clinic" },
-                  { v: "video", label: "Video", icon: "video", desc: "Secure video call", disabled: !row.availableForVideoConsult },
-                  { v: "phone", label: "Phone", icon: "phone", desc: "Voice only" },
+                  { v: "in-person", label: tBk("consultInPerson"), icon: "pin", desc: tBk("consultInPersonDesc") },
+                  { v: "video", label: tBk("consultVideo"), icon: "video", desc: tBk("consultVideoDesc"), disabled: !row.availableForVideoConsult },
+                  { v: "phone", label: tBk("consultPhone"), icon: "phone", desc: tBk("consultPhoneDesc") },
                 ].map((opt) => (
                   <label
                     class="flex items-start gap-2 cursor-pointer transition-colors"
@@ -246,7 +247,7 @@ Astro.response.headers.set(
               </div>
               {!row.availableForVideoConsult && (
                 <p class="mono mt-2" style="font-size: 10.5px; color: var(--color-ink-subtle);">
-                  Video consult not available for {row.name} — request in-person or phone.
+                  {tBk("videoUnavailable").replace("{name}", row.name)}
                 </p>
               )}
             </fieldset>
@@ -255,7 +256,7 @@ Astro.response.headers.set(
               <div>
                 <label class="block" for="preferredDate">
                   <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                    Preferred date *
+                    {tBk("labelPreferredDate")}
                   </span>
                   <input
                     id="preferredDate"
@@ -272,7 +273,7 @@ Astro.response.headers.set(
               <div>
                 <label class="block" for="alternativeDate">
                   <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                    Alternative date
+                    {tBk("labelAlternativeDate")}
                   </span>
                   <input
                     id="alternativeDate"
@@ -289,7 +290,7 @@ Astro.response.headers.set(
             {doctorTreatments.length > 0 && (
               <label class="block mt-4" for="treatment">
                 <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                  Procedure / interest (optional)
+                  {tBk("labelProcedure")}
                 </span>
                 <select
                   id="treatment"
@@ -297,7 +298,7 @@ Astro.response.headers.set(
                   class="w-full serif"
                   style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14.5px; color: var(--color-ink);"
                 >
-                  <option value="">— Not sure yet —</option>
+                  <option value="">{tBk("optionNotSure")}</option>
                   {doctorTreatments.map((t) => (
                     <option value={t.slug} selected={t.slug === preTreatment}>{t.name}</option>
                   ))}
@@ -307,26 +308,26 @@ Astro.response.headers.set(
 
             <label class="block mt-4" for="notes">
               <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Anything the doctor should know
+                {tBk("labelNotes")}
               </span>
               <textarea
                 id="notes"
                 name="notes"
                 rows="3"
-                placeholder="Existing diagnosis, prior procedures, urgency…"
+                placeholder={tBk("placeholderNotes")}
                 class="w-full serif"
                 style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14.5px; color: var(--color-ink); font-family: inherit; resize: vertical;"
               ></textarea>
             </label>
 
             <div class="serif mt-7" style="font-size: 18px; letter-spacing: -0.015em; padding-top: 24px; border-top: 1px solid var(--color-border-soft);">
-              About <span class="italic-display">you</span>
+              {tBk("sectionAbout")} <span class="italic-display">{tBk("sectionYou")}</span>
             </div>
 
             <div class="grid gap-4 md:grid-cols-2 mt-4">
               <label class="block" for="patientName">
                 <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                  Full name *
+                  {tBk("labelFullName")}
                 </span>
                 <input
                   id="patientName"
@@ -341,7 +342,7 @@ Astro.response.headers.set(
               </label>
               <label class="block" for="patientPhone">
                 <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                  Phone (with country code) *
+                  {tBk("labelPhone")}
                 </span>
                 <input
                   id="patientPhone"
@@ -360,7 +361,7 @@ Astro.response.headers.set(
             <div class="grid gap-4 md:grid-cols-2 mt-4">
               <label class="block" for="patientEmail">
                 <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                  Email
+                  {tBk("labelEmail")}
                 </span>
                 <input
                   id="patientEmail"
@@ -374,14 +375,14 @@ Astro.response.headers.set(
               </label>
               <label class="block" for="patientCountry">
                 <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                  Country
+                  {tBk("labelCountry")}
                 </span>
                 <input
                   id="patientCountry"
                   name="patientCountry"
                   type="text"
                   autocomplete="country-name"
-                  placeholder="Where you'll travel from"
+                  placeholder={tBk("placeholderCountry")}
                   class="w-full serif"
                   style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14.5px; color: var(--color-ink);"
                 />
@@ -394,20 +395,20 @@ Astro.response.headers.set(
                 class="mono uppercase inline-flex items-center gap-1"
                 style="color: var(--color-ink); padding: 10px 18px; font-size: 11px; letter-spacing: 0.12em; border-radius: 9999px; border: 1px solid var(--color-border);"
               >
-                ← Back to profile
+                {tBk("backToProfile")}
               </a>
               <button
                 type="submit"
                 class="inline-flex items-center gap-2 font-semibold"
                 style="background: var(--color-ink); color: var(--color-bg); padding: 14px 24px; font-size: 14px; border-radius: 9999px;"
               >
-                Request appointment
+                {tBk("btnRequestAppointment")}
                 <ChevronRight className="h-3.5 w-3.5 mirror-x" />
               </button>
             </div>
 
             <p class="mono mt-5" style="font-size: 10.5px; color: var(--color-ink-subtle); line-height: 1.5;">
-              <ShieldCheck className="h-3 w-3 inline-block align-text-bottom" /> Submitting this form does not commit you to treatment. We confirm availability within 24 hours and respond with a written quote before any payment is requested.
+              <ShieldCheck className="h-3 w-3 inline-block align-text-bottom" /> {tBk("disclaimer")}
             </p>
           </form>
 
@@ -417,7 +418,7 @@ Astro.response.headers.set(
                 {row.imageUrl ? (
                   <img
                     src={row.imageUrl}
-                    alt={`${fullName} portrait`}
+                    alt={tBk("imgAlt").replace("{name}", fullName)}
                     width="56"
                     height="56"
                     loading="eager"
@@ -452,31 +453,31 @@ Astro.response.headers.set(
                 {row.availableForVideoConsult && (
                   <li class="flex items-start gap-2" style="color: var(--color-accent);">
                     <Video className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                    <span>Video consult available</span>
+                    <span>{tBk("sidebarVideoAvailable")}</span>
                   </li>
                 )}
                 {row.consultationFeeUsd != null && (
                   <li class="flex items-start gap-2" style="color: var(--color-ink-muted);">
                     <Phone className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                    <span>Consult fee from ${row.consultationFeeUsd}</span>
+                    <span>{tBk("sidebarConsultFee").replace("{fee}", String(row.consultationFeeUsd))}</span>
                   </li>
                 )}
                 {row.experienceYears != null && row.experienceYears > 0 && (
                   <li class="flex items-start gap-2" style="color: var(--color-ink-muted);">
                     <ShieldCheck className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                    <span>{row.experienceYears}+ years in practice</span>
+                    <span>{tBk("sidebarExperience").replace("{years}", String(row.experienceYears))}</span>
                   </li>
                 )}
               </ul>
 
               <div class="mt-5 pt-5" style="border-top: 1px dashed var(--color-border);">
                 <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-                  What happens next
+                  {tBk("sidebarNextTitle")}
                 </div>
                 <ol class="mt-2 space-y-2.5" style="font-size: 12.5px; color: var(--color-ink-muted); line-height: 1.5;">
-                  <li><span class="serif" style="color: var(--color-ink); font-weight: 500;">1.</span> You receive a confirmation code (APT-…) within minutes.</li>
-                  <li><span class="serif" style="color: var(--color-ink); font-weight: 500;">2.</span> A coordinator confirms the slot within 24 hours.</li>
-                  <li><span class="serif" style="color: var(--color-ink); font-weight: 500;">3.</span> {row.name} reviews your case before the consult.</li>
+                  <li><span class="serif" style="color: var(--color-ink); font-weight: 500;">1.</span> {tBk("nextStep1")}</li>
+                  <li><span class="serif" style="color: var(--color-ink); font-weight: 500;">2.</span> {tBk("nextStep2")}</li>
+                  <li><span class="serif" style="color: var(--color-ink); font-weight: 500;">3.</span> {tBk("nextStep3").replace("{name}", row.name)}</li>
                 </ol>
               </div>
             </div>

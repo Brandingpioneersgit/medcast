@@ -55,6 +55,7 @@ if (!slug || !countrySlug) return new Response("Not found", { status: 404 });
 
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tTcy = getTranslator(locale, "treatmentCountryPage");
 
 const treatmentRow = await db.query.treatments.findFirst({
   where: eq(treatments.slug, slug),
@@ -164,13 +165,13 @@ const FLAG: Record<string, string> = {
 };
 const flag = FLAG[countryRow.slug] ?? "🌐";
 
-const seoTitle = `${treatment.name} Cost in ${countryRow.name} (${new Date().getFullYear()})`;
+const seoTitle = tTcy("seoTitleTemplate").replace("{treatment}", treatment.name).replace("{country}", countryRow.name).replace("{year}", String(new Date().getFullYear()));
 const stayPart = treatmentRow.hospitalStayDays
   ? `${treatmentRow.hospitalStayDays}-night stay. `
   : "";
 const seoDescription = lowestPrice
-  ? `${treatment.name} in ${countryRow.name} from $${Math.round(lowestPrice).toLocaleString()}. ${hospitalPricing.length} accredited hospitals${savingsPct ? `, save up to ${savingsPct}% vs US` : ""}. ${stayPart}Free itemised quote.`.slice(0, 160)
-  : `${treatment.name} in ${countryRow.name}. Compare accredited hospitals + transparent pricing. ${stayPart}Free itemised quote.`.slice(0, 160);
+  ? `${treatment.name} in ${countryRow.name} from $${Math.round(lowestPrice).toLocaleString()}. ${hospitalPricing.length} ${tTcy("seoDescAccreditedHospitals")}${savingsPct ? `, ${tTcy("seoDescSaveUpTo").replace("{pct}", String(savingsPct))}` : ""}. ${stayPart}${tTcy("seoDescFreeQuote")}`.slice(0, 160)
+  : `${treatment.name} in ${countryRow.name}. ${tTcy("seoDescCompare")} ${stayPart}${tTcy("seoDescFreeQuote")}`.slice(0, 160);
 
 const path = `/treatment/${slug}/${countrySlug}`;
 const url = localeUrl(locale, path);
@@ -277,7 +278,7 @@ Astro.response.headers.set(
               class="display display-tight"
               style="font-size: clamp(2.5rem, 5.5vw, 4.25rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em;"
             >
-              {treatment.name} cost in
+              {treatment.name} {tTcy("heroCostIn")}
               <span style="font-style: italic;"> {flag} {countryRow.name}</span>
             </h1>
             <p
@@ -285,8 +286,8 @@ Astro.response.headers.set(
               style="font-size: 20px; line-height: 1.45; color: var(--color-ink-muted); max-width: 680px;"
             >
               {lowestPrice
-                ? `${treatment.name} in ${countryRow.name} starts from $${Math.round(lowestPrice).toLocaleString()} across ${hospitalPricing.length} accredited hospitals${savingsPct ? `. Roughly ${savingsPct}% less than typical US pricing` : ""}.`
-                : `${treatment.name} pricing in ${countryRow.name} — compare accredited hospitals and request a free itemized quote.`}
+                ? `${treatment.name} in ${countryRow.name} ${tTcy("heroSubtextStartsFrom").replace("{price}", "$" + Math.round(lowestPrice).toLocaleString()).replace("{count}", String(hospitalPricing.length))}${savingsPct ? `. ${tTcy("heroSubtextSavings").replace("{pct}", String(savingsPct))}` : ""}.`
+                : `${treatment.name} ${tTcy("heroSubtextNoPricing").replace("{country}", countryRow.name)}`}
             </p>
 
             {/* Price stat ribbon */}
@@ -295,11 +296,11 @@ Astro.response.headers.set(
               style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); border-top: 1px solid var(--color-ink); border-bottom: 1px solid var(--color-border);"
             >
               {[
-                lowestPrice && { l: "Starting price", v: await formatUsd(Astro.cookies, lowestPrice) },
-                avgPrice && { l: "Average", v: await formatUsd(Astro.cookies, avgPrice) },
-                { l: "Hospitals listed", v: hospitalPricing.length.toString() },
-                treatmentRow.hospitalStayDays && { l: "Hospital stay", v: `${treatmentRow.hospitalStayDays} days` },
-                usPrice && savingsPct && { l: "Save vs US", v: `~${savingsPct}%` },
+                lowestPrice && { l: tTcy("statStartingPrice"), v: await formatUsd(Astro.cookies, lowestPrice) },
+                avgPrice && { l: tTcy("statAverage"), v: await formatUsd(Astro.cookies, avgPrice) },
+                { l: tTcy("statHospitalsListed"), v: hospitalPricing.length.toString() },
+                treatmentRow.hospitalStayDays && { l: tTcy("statHospitalStay"), v: `${treatmentRow.hospitalStayDays} ${tTcy("statDays")}` },
+                usPrice && savingsPct && { l: tTcy("statSaveVsUs"), v: `~${savingsPct}%` },
               ].filter(Boolean).slice(0, 4).map((s: any, i: number) => (
                 <div style={i === 0
                   ? {paddingInline: "18px"}
@@ -316,10 +317,10 @@ Astro.response.headers.set(
           <aside class="lg:sticky lg:top-32 lg:self-start">
             <div class="paper" style="padding: 22px;">
               <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">
-                Free itemized quote
+                {tTcy("quoteEyebrow")}
               </div>
               <div class="display mt-1.5" style="font-size: 22px; line-height: 1.2; letter-spacing: -0.02em;">
-                For {treatment.name} in {countryRow.name}
+                {tTcy("quoteHeading").replace("{treatment}", treatment.name).replace("{country}", countryRow.name)}
               </div>
               {lowestPrice && highestPrice > 0 && (
                 <div class="flex items-baseline gap-2 mt-3">
@@ -327,31 +328,27 @@ Astro.response.headers.set(
                   <span class="tnum" style="font-size: 13px; color: var(--color-ink-subtle);">— <Price usd={highestPrice} /></span>
                 </div>
               )}
-              <form action={localizedPath(locale, `/contact`)} method="get" class="mt-4">
-                <input type="hidden" name="treatment" value={slug} />
-                <input type="hidden" name="country" value={countrySlug} />
-                <a
-                  href={localizedPath(locale, `/contact?treatment=${slug}&country=${countrySlug}`)}
-                  class="inline-flex items-center justify-center gap-2 w-full font-semibold"
-                  style="background: var(--color-accent); color: #FFF; padding: 14px 22px; font-size: 15px; border-radius: 9999px;"
-                >
-                  Get 3 free quotes
-                  <ChevronRight className="h-3.5 w-3.5 mirror-x" />
-                </a>
-              </form>
+              <a
+                href={localizedPath(locale, `/contact?treatment=${slug}&country=${countrySlug}`)}
+                class="inline-flex items-center justify-center gap-2 w-full font-semibold mt-4"
+                style="background: var(--color-accent); color: #FFF; padding: 14px 22px; font-size: 15px; border-radius: 9999px;"
+              >
+                {tTcy("quoteButton")}
+                <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+              </a>
               <div class="flex items-center gap-2 mt-3 mono justify-center" style="font-size: 11px; color: var(--color-ink-subtle);">
                 <span style="width: 6px; height: 6px; border-radius: 50%; background: #10B981;" />
-                Case manager replies in ~9 min
+                {tTcy("caseManagerNote")}
               </div>
             </div>
 
             {/* Pricing disclaimer */}
             <div class="mt-6 paper" style="padding: 16px 20px; border: 1px solid var(--color-border-soft);">
               <div class="mono text-[10px] uppercase tracking-wider mb-2" style="color: var(--color-ink-subtle);">
-                Pricing disclaimer
+                {tTcy("disclaimerEyebrow")}
               </div>
               <p class="serif" style="font-size: 13.5px; line-height: 1.6; color: var(--color-ink-muted);">
-                Prices shown are either reported by patients who underwent treatment or quoted by hospitals when we enquired directly. Actual costs vary based on individual case complexity, implant selection, length of stay, and any complications. MedCasts patients receive a 15% referral discount — the full discount amount is applied directly to the patient's bill, so international patients benefit fully from treatment costs.
+                {tTcy("disclaimerText")}
               </p>
             </div>
           </aside>
@@ -370,21 +367,21 @@ Astro.response.headers.set(
             <div class="grid gap-6 md:grid-cols-[auto_1fr_auto] md:items-center">
               <div>
                 <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent-strong, var(--color-accent));">
-                  Cost comparison
+                  {tTcy("savingsBandEyebrow")}
                 </div>
                 <div class="display tnum mt-1" style="font-size: 36px; line-height: 1; letter-spacing: -0.025em; color: var(--color-accent-strong, var(--color-accent));">
                   ~{savingsPct}%
                 </div>
                 <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle); margin-top: 2px;">
-                  less than US pricing
+                  {tTcy("savingsBandLessThanUs")}
                 </div>
               </div>
               <div>
                 <p class="serif" style="font-size: 16px; line-height: 1.5; color: var(--color-ink);">
-                  Typical {treatment.name} in the United States runs around <strong class="tnum">${Math.round(usPrice).toLocaleString()}</strong>. From {countryRow.name}'s top-rated hospitals it starts at <strong class="tnum">${Math.round(lowestPrice).toLocaleString()}</strong> all-in — surgeon, anesthesia, ward stay, and standard consumables.
+                  {tTcy("savingsBandBody1").replace("{treatment}", treatment.name)} <strong class="tnum">${Math.round(usPrice).toLocaleString()}</strong>. {tTcy("savingsBandBody2").replace("{country}", countryRow.name)} <strong class="tnum">${Math.round(lowestPrice).toLocaleString()}</strong> {tTcy("savingsBandBody3")}
                 </p>
                 <p class="mono uppercase mt-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-                  Savings ≠ outcome guarantee · {countryRow.name} pairs lower base cost with high-volume programs
+                  {tTcy("savingsBandFootnote").replace("{country}", countryRow.name)}
                 </p>
               </div>
               <a
@@ -392,7 +389,7 @@ Astro.response.headers.set(
                 class="inline-flex items-center justify-center gap-1.5 font-semibold whitespace-nowrap"
                 style="background: var(--color-ink); color: var(--color-bg); padding: 12px 20px; border-radius: 9999px; font-size: 13.5px;"
               >
-                See itemized quotes
+                {tTcy("savingsBandButton")}
                 <ChevronRight className="h-3.5 w-3.5 mirror-x" />
               </a>
             </div>
@@ -407,15 +404,15 @@ Astro.response.headers.set(
         <div class="mx-auto max-w-[1440px]">
           <div class="flex items-end justify-between flex-wrap gap-4 mb-7">
             <h2 class="display" style="font-size: 32px; letter-spacing: -0.02em;">
-              Top {countryRow.name} hospitals for {treatment.name},
-              <span style="font-style: italic;"> ranked by value</span>
+              {tTcy("hospitalsHeading1").replace("{country}", countryRow.name).replace("{treatment}", treatment.name)},
+              <span style="font-style: italic;"> {tTcy("hospitalsHeadingRanked")}</span>
             </h2>
             <a
               href={localizedPath(locale, `/treatment/${slug}`)}
               class="inline-flex items-center gap-1 text-sm"
               style="color: var(--color-accent);"
             >
-              Compare across all destinations →
+              {tTcy("hospitalsCompareLink")}
             </a>
           </div>
 
@@ -443,13 +440,13 @@ Astro.response.headers.set(
                   </div>
                 </div>
                 <div>
-                  <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">From</div>
+                  <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">{tTcy("hospitalRowFrom")}</div>
                   <div class="display tnum mt-0.5" style="font-size: 19px;">
                     {hp.costMinUsd ? <Price usd={Number(hp.costMinUsd)} /> : "—"}
                   </div>
                 </div>
                 <div>
-                  <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">Beds</div>
+                  <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">{tTcy("hospitalRowBeds")}</div>
                   <div class="tnum mt-1" style="font-size: 14px;">
                     {hp.hospitalBeds ? hp.hospitalBeds.toLocaleString() : "—"}
                   </div>
@@ -469,7 +466,7 @@ Astro.response.headers.set(
                   class="inline-flex items-center gap-1 font-semibold"
                   style="background: var(--color-ink); color: var(--color-bg); padding: 8px 14px; font-size: 12.5px; border-radius: 9999px;"
                 >
-                  Quote
+                  {tTcy("hospitalRowQuote")}
                   <ChevronRight className="h-3.5 w-3.5 mirror-x" />
                 </a>
               </div>
@@ -484,28 +481,28 @@ Astro.response.headers.set(
       <div class="mx-auto max-w-[1120px]">
         <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
           <div>
-            <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">What's covered</div>
-            <h2 class="display mt-3" style="font-size: 30px; letter-spacing: -0.02em;">What the {countryRow.name} package includes</h2>
+            <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">{tTcy("includedEyebrow")}</div>
+            <h2 class="display mt-3" style="font-size: 30px; letter-spacing: -0.02em;">{tTcy("includedHeading").replace("{country}", countryRow.name)}</h2>
           </div>
           <div class="grid gap-8 md:grid-cols-2">
             <div>
-              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent); text-transform: uppercase;">Typically included</div>
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent); text-transform: uppercase;">{tTcy("includedTypicallyEyebrow")}</div>
               <ul class="mt-3 space-y-2.5 serif" style="font-size: 15.5px; line-height: 1.55; color: var(--color-ink);">
-                <li>Surgeon + anesthesia fee</li>
-                <li>Operating-room time + protocol consumables</li>
-                <li>{treatmentRow.hospitalStayDays ?? 3}-night ward stay</li>
-                <li>Routine medications + first follow-up</li>
-                <li>Language-matched case manager</li>
+                <li>{tTcy("includedItem1")}</li>
+                <li>{tTcy("includedItem2")}</li>
+                <li>{tTcy("includedItem3").replace("{nights}", String(treatmentRow.hospitalStayDays ?? 3))}</li>
+                <li>{tTcy("includedItem4")}</li>
+                <li>{tTcy("includedItem5")}</li>
               </ul>
             </div>
             <div>
-              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-coral); text-transform: uppercase;">Watch out for</div>
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-coral); text-transform: uppercase;">{tTcy("watchOutEyebrow")}</div>
               <ul class="mt-3 space-y-2.5 serif" style="font-size: 15.5px; line-height: 1.55; color: var(--color-ink);">
-                <li>Implant brand upgrades (tier-1 adds $1–3k)</li>
-                <li>Extended ICU days if complications arise</li>
-                <li>Physiotherapy billed separately in some packages</li>
-                <li>Airport transfer + accommodation may be optional</li>
-                <li>Revision surgery — confirm warranty terms in writing</li>
+                <li>{tTcy("watchOutItem1")}</li>
+                <li>{tTcy("watchOutItem2")}</li>
+                <li>{tTcy("watchOutItem3")}</li>
+                <li>{tTcy("watchOutItem4")}</li>
+                <li>{tTcy("watchOutItem5")}</li>
               </ul>
             </div>
           </div>
@@ -539,10 +536,10 @@ Astro.response.headers.set(
               <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
                 <div>
                   <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                    Preparation
+                    {tTcy("prepEyebrow")}
                   </div>
                   <h2 class="display mt-3" style="font-size: 26px; letter-spacing: -0.015em;">
-                    Before you fly to {countryRow.name}
+                    {tTcy("prepHeading").replace("{country}", countryRow.name)}
                   </h2>
                 </div>
                 <ol class="space-y-3">
@@ -562,10 +559,10 @@ Astro.response.headers.set(
           <section style="padding: 64px 28px; border-top: 1px solid var(--color-border-soft);">
             <div class="mx-auto max-w-[1120px]">
               <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Recovery
+                {tTcy("recoveryEyebrow")}
               </div>
               <h2 class="display mb-7" style="font-size: 26px; letter-spacing: -0.02em;">
-                Recovery in {countryRow.name} <span style="font-style: italic;">week-by-week</span>
+                {tTcy("recoveryHeading").replace("{country}", countryRow.name)} <span style="font-style: italic;">{tTcy("recoveryHeadingItalic")}</span>
               </h2>
               <ol class="space-y-0">
                 {tcSections.recoveryTimeline.map((step: any, i: number) => (
@@ -588,10 +585,10 @@ Astro.response.headers.set(
           <section style="padding: 64px 28px; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
             <div class="mx-auto max-w-[1120px]">
               <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Questions
+                {tTcy("questionsEyebrow")}
               </div>
               <h2 class="display mb-7" style="font-size: 26px; letter-spacing: -0.02em;">
-                What to <span style="font-style: italic;">ask the surgeon</span>
+                {tTcy("questionsHeading")} <span style="font-style: italic;">{tTcy("questionsHeadingItalic")}</span>
               </h2>
               <ol class="space-y-3">
                 {tcSections.questionsToAsk.map((q: string, i: number) => (
@@ -611,10 +608,10 @@ Astro.response.headers.set(
           <section style="padding: 64px 28px; border-top: 1px solid var(--color-border-soft);">
             <div class="mx-auto max-w-[1120px]">
               <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-coral, #E85A4F);">
-                Watch out for
+                {tTcy("watchOutEyebrow")}
               </div>
               <h2 class="display mb-7" style="font-size: 26px; letter-spacing: -0.02em;">
-                Red flags in <span style="font-style: italic;">quotes and clinics</span>
+                {tTcy("redFlagsHeading")} <span style="font-style: italic;">{tTcy("redFlagsHeadingItalic")}</span>
               </h2>
               <ul class="space-y-3">
                 {tcSections.redFlags.map((rf: string) => (
@@ -639,18 +636,18 @@ Astro.response.headers.set(
           <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Travel timing
+                {tTcy("travelTimingEyebrow")}
               </div>
               <h2 class="display mt-3" style="font-size: 24px; letter-spacing: -0.015em;">
-                When to travel to {countryRow.name}
+                {tTcy("travelTimingHeading").replace("{country}", countryRow.name)}
               </h2>
             </div>
             <div class="paper" style="padding: 24px;">
               {ccSections.bestMonthsToTravel.peak && (
-                <p class="mb-2" style="font-size: 15px;"><strong>Peak window:</strong> {ccSections.bestMonthsToTravel.peak.join(", ")}</p>
+                <p class="mb-2" style="font-size: 15px;"><strong>{tTcy("travelTimingPeak")}</strong> {ccSections.bestMonthsToTravel.peak.join(", ")}</p>
               )}
               {ccSections.bestMonthsToTravel.avoid && ccSections.bestMonthsToTravel.avoid.length > 0 && (
-                <p class="mb-2" style="font-size: 15px;"><strong>Avoid:</strong> {ccSections.bestMonthsToTravel.avoid.join(", ")}</p>
+                <p class="mb-2" style="font-size: 15px;"><strong>{tTcy("travelTimingAvoid")}</strong> {ccSections.bestMonthsToTravel.avoid.join(", ")}</p>
               )}
               {ccSections.bestMonthsToTravel.notes && (
                 <p style="font-size: 14.5px; line-height: 1.6; color: var(--color-ink-muted);">{ccSections.bestMonthsToTravel.notes}</p>
@@ -666,9 +663,9 @@ Astro.response.headers.set(
       <div class="mx-auto max-w-[1120px]">
         <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
           <div>
-            <div class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">FAQ</div>
+            <div class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">{tTcy("faqEyebrow")}</div>
             <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
-              Common questions
+              {tTcy("faqHeading")}
             </h2>
           </div>
           <div class="divide-y" style="border-color: var(--color-border-soft);">
@@ -689,7 +686,7 @@ Astro.response.headers.set(
     {/* EEAT block — methodology + reviewer attribution */}
     <MethodologyBlock locale={locale}
       lastReviewed={treatmentRow.updatedAt}
-      curationNote={`This page draws on ${hospitalPricing.length} accredited hospitals' itemised quotes for ${treatment.name.toLowerCase()} in ${countryRow.name}, refreshed quarterly. The clinical descriptions are reviewed against current ${specialty?.name ?? "specialty"} guidelines before publication.`}
+      curationNote={tTcy("curationNote").replace("{count}", String(hospitalPricing.length)).replace("{treatment}", treatment.name.toLowerCase()).replace("{country}", countryRow.name).replace("{specialty}", specialty?.name ?? tTcy("specialtyFallback"))}
       dataSources={[
         "Hospital itemised quote sheets",
         "JCI accreditation registry",
@@ -705,9 +702,9 @@ Astro.response.headers.set(
         <div class="mx-auto max-w-[1440px]">
           <div class="flex items-baseline justify-between flex-wrap gap-4 mb-8">
             <div>
-              <p class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">Case studies</p>
+              <p class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">{tTcy("caseStudiesEyebrow")}</p>
               <h2 class="display mt-1" style="font-size: 28px; letter-spacing: -0.02em;">
-                {treatment.name} in {countryRow.name} — patient stories
+                {tTcy("caseStudiesHeading").replace("{treatment}", treatment.name).replace("{country}", countryRow.name)}
               </h2>
             </div>
           </div>
@@ -719,7 +716,7 @@ Astro.response.headers.set(
                     <span style="color: var(--color-saffron); font-size: 14px;">&#9733;</span>
                   ))}
                   {t.isVerified && (
-                    <span class="mono ml-auto" style="font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-subtle);">Verified</span>
+                    <span class="mono ml-auto" style="font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-subtle);">{tTcy("verifiedBadge")}</span>
                   )}
                 </div>
                 {t.title && (
@@ -746,13 +743,13 @@ Astro.response.headers.set(
     <section style="padding: 72px 28px; border-top: 1px solid var(--color-border); background: var(--color-ink); color: var(--color-bg);">
       <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
-          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7;">Ready to plan</div>
+          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7;">{tTcy("ctaEyebrow")}</div>
           <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.05; letter-spacing: -0.025em; font-weight: 400;">
-            Get 3 itemized {countryRow.name} quotes for {treatment.name}
-            <span style="font-style: italic;"> this week.</span>
+            {tTcy("ctaHeading").replace("{country}", countryRow.name).replace("{treatment}", treatment.name)}
+            <span style="font-style: italic;"> {tTcy("ctaHeadingItalic")}</span>
           </h2>
           <p class="serif mt-4" style="font-size: 17px; line-height: 1.55; max-width: 560px; opacity: 0.85;">
-            Share your imaging or current plan. A named case manager shortlists 3 hospitals and returns an itemized quote + travel plan in under 48 hours.
+            {tTcy("ctaBody")}
           </p>
         </div>
         <div class="flex flex-wrap gap-3">
@@ -761,7 +758,7 @@ Astro.response.headers.set(
             class="inline-flex items-center gap-2 font-semibold"
             style="background: var(--color-accent); color: #FFF; padding: 13px 22px; font-size: 15px; border-radius: 9999px;"
           >
-            Request quotes
+            {tTcy("ctaButtonPrimary")}
             <ChevronRight className="h-4 w-4 mirror-x" />
           </a>
           <a
@@ -769,7 +766,7 @@ Astro.response.headers.set(
             class="inline-flex items-center gap-2 font-semibold"
             style="background: transparent; color: var(--color-bg); border: 1px solid rgba(246,241,230,0.3); padding: 13px 22px; font-size: 15px; border-radius: 9999px;"
           >
-            Free 2nd opinion
+            {tTcy("ctaButtonSecondary")}
           </a>
         </div>
       </div>
@@ -778,21 +775,21 @@ Astro.response.headers.set(
     <ExploreGrid
       locale={locale}
       eyebrow={`${treatment.name} · ${countryRow.name}`}
-      heading={`Other lenses on ${treatment.name.toLowerCase()} care`}
-      lede={`Cost in one country is one signal. These hubs let you cross-check destinations, surgeons, and procedure-level data side by side.`}
+      heading={tTcy("exploreHeading").replace("{treatment}", treatment.name.toLowerCase())}
+      lede={tTcy("exploreLede")}
       items={[
-        { eyebrow: "Procedure", label: `Full ${treatment.name} page`, href: `/treatment/${slug}`, hint: "Description, recovery timeline, success rates, top hospitals priced." },
-        ...(specialty ? [{ eyebrow: "Specialty", label: `${specialty.name} hub`, href: `/specialty/${specialty.slug}`, hint: `All ${specialty.name.toLowerCase()} programs across destinations.` }] : []),
-        { eyebrow: "Cost", label: `${treatment.name} cost across destinations`, href: `/cost/${slug}`, hint: `Compare median pricing across all 9 destinations for ${treatment.name.toLowerCase()}.` },
-        { eyebrow: "Destination", label: `${countryRow.name} hospital hub`, href: `/country/${countryRow.slug}`, hint: `Featured programs, accreditation profile, pricing benchmarks.` },
-        { eyebrow: "Hospitals", label: `Hospitals in ${countryRow.name}`, href: `/hospitals/country/${countryRow.slug}`, hint: "Filter by city, specialty, accreditation." },
-        ...(specialty ? [{ eyebrow: "Surgeons", label: `${specialty.name} surgeons in ${countryRow.name}`, href: `/surgeons/${specialty.slug}/${countryRow.slug}`, hint: `${countryRow.name}-based physician directory for this specialty.` }] : []),
-        ...(specialty ? [{ eyebrow: "Best of", label: `Best ${specialty.name} in ${countryRow.name}`, href: `/best/${specialty.slug}-in-${countryRow.slug}`, hint: "Editorially ranked programs with methodology disclosed." }] : []),
-        { eyebrow: "Visa", label: `${countryRow.name} medical visa`, href: `/visa/${countryRow.slug}`, hint: "Documents, processing time, embassy guidance." },
-        { eyebrow: "Compare", label: "Treatments side-by-side", href: "/compare/treatments", hint: "Cost, stay, recovery, success-rate columns across procedures." },
-        { eyebrow: "Compare", label: "Destination shootout", href: "/compare/countries", hint: "Hospitals, doctors, treatments, programs by country." },
-        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
-        { eyebrow: "Open data", label: "Pricing index", href: "/pricing-index", hint: "Median package pricing dataset · CC BY 4.0 · CSV + JSON downloads." },
+        { eyebrow: tTcy("exploreEyebrowProcedure"), label: `${tTcy("exploreLabelFullPage").replace("{treatment}", treatment.name)}`, href: `/treatment/${slug}`, hint: tTcy("exploreHintProcedure") },
+        ...(specialty ? [{ eyebrow: tTcy("exploreEyebrowSpecialty"), label: `${specialty.name} ${tTcy("exploreHubSuffix")}`, href: `/specialty/${specialty.slug}`, hint: tTcy("exploreHintSpecialty").replace("{specialty}", specialty.name.toLowerCase()) }] : []),
+        { eyebrow: tTcy("exploreEyebrowCost"), label: tTcy("exploreLabelCostAcross").replace("{treatment}", treatment.name), href: `/cost/${slug}`, hint: tTcy("exploreHintCost").replace("{treatment}", treatment.name.toLowerCase()) },
+        { eyebrow: tTcy("exploreEyebrowDestination"), label: tTcy("exploreLabelCountryHub").replace("{country}", countryRow.name), href: `/country/${countryRow.slug}`, hint: tTcy("exploreHintCountryHub") },
+        { eyebrow: tTcy("exploreEyebrowHospitals"), label: tTcy("exploreLabelHospitalsIn").replace("{country}", countryRow.name), href: `/hospitals/country/${countryRow.slug}`, hint: tTcy("exploreHintHospitals") },
+        ...(specialty ? [{ eyebrow: tTcy("exploreEyebrowSurgeons"), label: tTcy("exploreLabelSurgeons").replace("{specialty}", specialty.name).replace("{country}", countryRow.name), href: `/surgeons/${specialty.slug}/${countryRow.slug}`, hint: tTcy("exploreHintSurgeons").replace("{country}", countryRow.name) }] : []),
+        ...(specialty ? [{ eyebrow: tTcy("exploreEyebrowBestOf"), label: tTcy("exploreLabelBestOf").replace("{specialty}", specialty.name).replace("{country}", countryRow.name), href: `/best/${specialty.slug}-in-${countryRow.slug}`, hint: tTcy("exploreHintBestOf") }] : []),
+        { eyebrow: tTcy("exploreEyebrowVisa"), label: tTcy("exploreLabelVisa").replace("{country}", countryRow.name), href: `/visa/${countryRow.slug}`, hint: tTcy("exploreHintVisa") },
+        { eyebrow: tTcy("exploreEyebrowCompare"), label: tTcy("exploreLabelTreatmentsSideBySide"), href: "/compare/treatments", hint: tTcy("exploreHintTreatmentsSideBySide") },
+        { eyebrow: tTcy("exploreEyebrowCompare"), label: tTcy("exploreLabelDestinationShootout"), href: "/compare/countries", hint: tTcy("exploreHintDestinationShootout") },
+        { eyebrow: tTcy("exploreEyebrowTool"), label: tTcy("exploreLabelCalculator"), href: "/calculator", hint: tTcy("exploreHintCalculator") },
+        { eyebrow: tTcy("exploreEyebrowOpenData"), label: tTcy("exploreLabelPricingIndex"), href: "/pricing-index", hint: tTcy("exploreHintPricingIndex") },
       ]}
     />
 

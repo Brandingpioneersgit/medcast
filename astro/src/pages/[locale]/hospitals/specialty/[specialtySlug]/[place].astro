@@ -16,8 +16,9 @@ import { sql } from "drizzle-orm";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, collectionPageJsonLd, withProvenance } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
+import { getContent, getContentBatch, applyTranslated, isUntranslated } from "@/lib/translate";
 import { ChevronRight } from "lucide-react";
-import { hospitalCover } from "@/lib/images";
+import { hospitalCover, specialtyBanner } from "@/lib/images";
 
 export const prerender = false;
 
@@ -28,8 +29,8 @@ if (!specialtyParam || !placeParam) return new Response("Not found", { status: 4
 if (!isLocale(rawLocale)) return Astro.redirect(`/en/hospitals/specialty/${specialtyParam}/${placeParam}`, 308);
 const locale = rawLocale as Locale;
 
-const specialty = await getGeoSpecialty(specialtyParam);
-if (!specialty) return new Response(`Not found: ${specialtyParam}`, { status: 404 });
+const specialtyRow = await getGeoSpecialty(specialtyParam);
+if (!specialtyRow) return new Response(`Not found: ${specialtyParam}`, { status: 404 });
 
 // Place-aware: resolve as a country first, fall back to a city. (Astro can't
 // have two dynamic files at one depth — same pattern as /surgeons/[specialty]/[place].)
@@ -37,7 +38,12 @@ const countryRow = await getGeoCountry(placeParam);
 const cityRow = countryRow ? null : await getGeoCity(placeParam);
 if (!countryRow && !cityRow) return new Response(`Not found: ${placeParam}`, { status: 404 });
 const mode: "country" | "city" = countryRow ? "country" : "city";
-const country = countryRow ?? cityRow!.country ?? null;
+const rawCountry = countryRow ?? cityRow!.country ?? null;
+
+// Localize the place country (city names have no DB translations — proper
+// nouns, left as-is). getContent returns {} on `en`, so this is a no-op there.
+const countryMap = rawCountry ? await getContent("country", rawCountry.id, locale) : {};
+const country = rawCountry ? applyTranslated(rawCountry, countryMap, ["name"]) : null;
 
 const url = new URL(Astro.request.url);
 const pageParam = parseInt(url.searchParams.get("page") ?? "1", 10);
@@ -48,7 +54,7 @@ const sort: "featured" | "rating" | "reviews" | "beds" =
     ? sortParam
     : "featured";
 
-const { rows, total, totalPages } = await listHospitals({
+const { rows: rawRows, total, totalPages } = await listHospitals({
   page,
   sort,
   specialty: [specialtyParam],
@@ -61,6 +67,12 @@ if (mode === "city" && total < 3 && country) {
   return Astro.redirect(localizedPath(locale, `/hospitals/specialty/${specialtyParam}/${country.slug}`), 301);
 }
 if (total === 0) return new Response(`No hospitals for ${specialtyParam}/${placeParam}`, { status: 404 });
+
+// Localize DB content for non-default locales (no-op on `en`).
+const specialtyMap = await getContent("specialty", specialtyRow.id, locale);
+const specialty = applyTranslated(specialtyRow, specialtyMap, ["name"]);
+const hospitalTx = await getContentBatch("hospital", rawRows.map((h) => h.id), locale);
+const rows = rawRows.map((h) => applyTranslated(h, hospitalTx[h.id] ?? {}, ["name"]));
 
 const breakdown = await getSpecialtyHospitalBreakdown(specialtyParam);
 
@@ -96,7 +108,7 @@ const seoDescription =
     160,
   );
 
-const shouldNoindex = page > 1 || total < 3;
+const shouldNoindex = page > 1 || total < 3 || isUntranslated(locale, specialtyMap);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
@@ -143,11 +155,10 @@ const SORTS = [
 ];
 
 // Scope selector — countries with this specialty + sibling cities.
-const otherCountries = breakdown.countries.filter((c) => c.slug !== (country?.slug ?? "")).slice(0, 8);
+const otherCountries = breakdown.countries.filter((c) => c.slug !== (country?.slug ?? ""));
 const scopeCities = breakdown.cities
   .filter((c) => (mode === "city" ? c.slug !== cityRow!.slug : true))
-  .filter((c) => (mode === "city" && country ? c.countrySlug === country.slug : true))
-  .slice(0, 10);
+  .filter((c) => (mode === "city" && country ? c.countrySlug === country.slug : true));
 
 const stats =
   page === 1
@@ -208,6 +219,9 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-
       h1Italic={placeName}
       lede={`Accredited hospitals credentialed for ${specialtyName.toLowerCase()} in ${placeLabel} — compared on rating, bed capacity and accreditation, and continuously re-vetted by our medical panel.`}
       stats={stats}
+      locale={locale}
+      image={specialtyBanner(specialtyParam)}
+      imageAlt={`${specialtyName} hospitals in ${placeName}`}
     />
 
     <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-6 pb-12">

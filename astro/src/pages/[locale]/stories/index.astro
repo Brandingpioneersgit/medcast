@@ -11,6 +11,7 @@ import { listTestimonials } from "@/lib/queries";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, collectionPageJsonLd, withProvenance } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
+import { getContentBatch, applyTranslated, isUntranslated } from "@/lib/translate";
 import { ShieldCheck } from "lucide-react";
 
 export const prerender = false;
@@ -19,8 +20,33 @@ const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect("/en/stories", 308);
 const locale = rawLocale as Locale;
 
-const stories = await listTestimonials(72);
+const rawStories = await listTestimonials(72);
 const tc = getTranslator(locale, "common");
+
+// Localize testimonials + their joined treatment/hospital/country names for
+// non-default locales (getContentBatch returns {} on `en` — no-op there).
+const testimonialTx = await getContentBatch("testimonial", rawStories.map((s) => s.id), locale);
+const storyTreatmentTx = await getContentBatch(
+  "treatment",
+  rawStories.map((s) => s.treatment_id).filter((id): id is number => id != null),
+  locale,
+);
+const storyHospitalTx = await getContentBatch(
+  "hospital",
+  rawStories.map((s) => s.hospital_id).filter((id): id is number => id != null),
+  locale,
+);
+const storyCountryTx = await getContentBatch(
+  "country",
+  rawStories.map((s) => s.country_id).filter((id): id is number => id != null),
+  locale,
+);
+const stories = rawStories.map((s) => ({
+  ...applyTranslated(s, testimonialTx[s.id] ?? {}, ["title", "story", "patient_name"]),
+  treatment_name: (s.treatment_id != null ? storyTreatmentTx[s.treatment_id]?.name : undefined) ?? s.treatment_name,
+  hospital_name: (s.hospital_id != null ? storyHospitalTx[s.hospital_id]?.name : undefined) ?? s.hospital_name,
+  country_name: (s.country_id != null ? storyCountryTx[s.country_id]?.name : undefined) ?? s.country_name,
+}));
 
 const verifiedCount = stories.filter((s) => s.is_verified).length;
 const countryCount = new Set(stories.map((s) => s.patient_country).filter(Boolean)).size;
@@ -33,8 +59,9 @@ const seoDescription =
     160,
   );
 
-// Empty until testimonials are loaded — don't index a hollow page.
-const shouldNoindex = stories.length === 0;
+// Empty until testimonials are loaded — don't index a hollow page. Also skip
+// indexing a non-default locale when none of the stories are translated.
+const shouldNoindex = stories.length === 0 || isUntranslated(locale, ...Object.values(testimonialTx));
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },

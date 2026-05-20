@@ -3,6 +3,7 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import WhatsAppDoctorCta from "@/components/WhatsAppDoctorCta.astro";
 import EntityListingHero from "@/components/EntityListingHero.astro";
 import Pagination from "@/components/Pagination.astro";
 import { listDoctors, getDoctorFilterOptions } from "@/lib/queries";
@@ -74,6 +75,7 @@ const FLAG_MAP: Record<string, string> = {
 function countryFlag(s: string | null | undefined): string { return s ? (FLAG_MAP[s] ?? "🌐") : "🌐"; }
 
 const tc = getTranslator(locale, "common");
+const tD = getTranslator(locale, "doctorsPage");
 const { bindChromeT } = await import("@/lib/chrome-i18n");
 const ct = bindChromeT(locale);
 const countText = total > 0 ? total.toLocaleString() : "";
@@ -140,10 +142,10 @@ function buildHref(patch: Patch = {}): string {
 }
 
 const SORTS = [
-  { value: "featured", label: "Featured" },
-  { value: "rating", label: "Top rated" },
-  { value: "experience", label: "Most experienced" },
-  { value: "reviews", label: "Most reviewed" },
+  { value: "featured", label: tD("sortFeatured") },
+  { value: "rating", label: tD("sortRating") },
+  { value: "experience", label: tD("sortExperience") },
+  { value: "reviews", label: tD("sortReviews") },
 ];
 
 const activeChips: Array<{ label: string; remove: string }> = [];
@@ -167,27 +169,37 @@ for (const lang of languageFilters) {
     remove: buildHref({ languages: languageFilters.filter((x) => x !== lang) }),
   });
 }
-if (minYears > 0) activeChips.push({ label: `${minYears}+ yrs`, remove: buildHref({ minYears: 0 }) });
-if (minRating > 0) activeChips.push({ label: `${minRating.toFixed(1)}★ +`, remove: buildHref({ minRating: 0 }) });
-if (maxFee > 0) activeChips.push({ label: `≤ $${maxFee.toLocaleString()} fee`, remove: buildHref({ maxFee: 0 }) });
-if (videoConsult) activeChips.push({ label: "Video consult", remove: buildHref({ videoConsult: false }) });
-if (verifiedOnly) activeChips.push({ label: "Licence verified", remove: buildHref({ verified: false }) });
+if (minYears > 0) activeChips.push({ label: tD("chipYrsPlus").replace("{n}", String(minYears)), remove: buildHref({ minYears: 0 }) });
+if (minRating > 0) activeChips.push({ label: tD("chipRatingPlus").replace("{n}", minRating.toFixed(1)), remove: buildHref({ minRating: 0 }) });
+if (maxFee > 0) activeChips.push({ label: tD("chipMaxFee").replace("{n}", maxFee.toLocaleString()), remove: buildHref({ maxFee: 0 }) });
+if (videoConsult) activeChips.push({ label: tD("chipVideoConsult"), remove: buildHref({ videoConsult: false }) });
+if (verifiedOnly) activeChips.push({ label: tD("chipVerified"), remove: buildHref({ verified: false }) });
 
 // Smart relax suggestions for empty results.
 const relaxSuggestions: Array<{ label: string; href: string }> = [];
 if (rows.length === 0) {
   if (countryFilters.length > 0 && specialtyFilters.length > 0) {
+    const countryName = countryFilters.length === 1
+      ? (options.countries.find((x) => x.slug === countryFilters[0])?.name ?? countryFilters[0])
+      : null;
+    const specialtyName = specialtyFilters.length === 1
+      ? (options.specialties.find((x) => x.slug === specialtyFilters[0])?.name ?? specialtyFilters[0])
+      : null;
     relaxSuggestions.push({
-      label: `Specialists in ${countryFilters.length === 1 ? (options.countries.find((x) => x.slug === countryFilters[0])?.name ?? countryFilters[0]) : `${countryFilters.length} countries`} — any specialty`,
+      label: countryFilters.length === 1
+        ? tD("relaxSpecialistsInCountry").replace("{country}", countryName!)
+        : tD("relaxSpecialistsInCountries").replace("{n}", String(countryFilters.length)),
       href: buildHref({ specialties: [] }),
     });
     relaxSuggestions.push({
-      label: `${specialtyFilters.length === 1 ? (options.specialties.find((x) => x.slug === specialtyFilters[0])?.name ?? specialtyFilters[0]) : `${specialtyFilters.length} specialties`} — anywhere`,
+      label: specialtyFilters.length === 1
+        ? tD("relaxSpecialtyAnywhere").replace("{specialty}", specialtyName!)
+        : tD("relaxSpecialtiesAnywhere").replace("{n}", String(specialtyFilters.length)),
       href: buildHref({ countries: [] }),
     });
   }
-  if (minYears > 0) relaxSuggestions.push({ label: "Drop minimum experience", href: buildHref({ minYears: 0 }) });
-  if (minRating > 0) relaxSuggestions.push({ label: "Drop minimum rating", href: buildHref({ minRating: 0 }) });
+  if (minYears > 0) relaxSuggestions.push({ label: tD("relaxDropExperience"), href: buildHref({ minYears: 0 }) });
+  if (minRating > 0) relaxSuggestions.push({ label: tD("relaxDropRating"), href: buildHref({ minRating: 0 }) });
 }
 
 const paginationBase = buildHref({});
@@ -217,10 +229,10 @@ const prevUrl = page > 1 ? pageHref(page - 1) : undefined;
 const nextUrl = page < totalPages ? pageHref(page + 1) : undefined;
 
 const stats = page === 1 && !hasAnyFilter ? [
-  { l: "Specialists", v: total > 0 ? total.toLocaleString() : rows.length.toString() },
-  { l: "Countries", v: options.countries.length.toString() },
-  { l: "Specialties", v: options.specialties.length.toString() },
-  { l: "Reply time", v: "9 min" },
+  { l: tD("statSpecialists"), v: total > 0 ? total.toLocaleString() : rows.length.toString() },
+  { l: tD("statCountries"), v: options.countries.length.toString() },
+  { l: tD("statSpecialties"), v: options.specialties.length.toString() },
+  { l: tD("statReplyTime"), v: tD("statReplyValue") },
 ] : [];
 
 // Always render every currently-selected facet — even if cross-facet counts dropped it to 0 —
@@ -246,59 +258,59 @@ const countriesWithFlag = allCountryOptions.map((c) => ({ ...c, flag: countryFla
 const facets: FacetSpec[] = [
   {
     kind: "toggle",
-    label: "Quick filters",
+    label: tD("facetQuickFilters"),
     toggles: [
-      { name: "videoConsult", label: "Offers video consult", selected: videoConsult, hint: "remote second opinion" },
-      { name: "verified",     label: "Licence verified",     selected: verifiedOnly,  hint: "checked by our editorial desk" },
+      { name: "videoConsult", label: tD("toggleVideoConsult"), selected: videoConsult, hint: tD("toggleVideoConsultHint") },
+      { name: "verified",     label: tD("toggleVerified"),     selected: verifiedOnly,  hint: tD("toggleVerifiedHint") },
     ],
   },
   {
     kind: "checkbox",
-    label: "Specialty",
+    label: tD("filterSpecialty"),
     name: "specialty",
     options: allSpecialtyOptions,
     selected: specialtyFilters,
   },
   {
     kind: "checkbox",
-    label: "Country",
+    label: tD("filterCountry"),
     name: "country",
     options: countriesWithFlag,
     selected: countryFilters,
   },
   {
     kind: "checkbox",
-    label: "Languages spoken",
+    label: tD("facetLanguages"),
     name: "language",
     options: allLanguageOptions,
     selected: languageFilters,
   },
   {
     kind: "range",
-    label: "Min experience",
+    label: tD("facetMinExperience"),
     name: "minYears",
     min: 0, max: 40, step: 5,
     value: minYears,
-    readout: minYears > 0 ? `${minYears}+ yrs` : "Any",
-    marks: ["0", "20", "40+"],
+    readout: minYears > 0 ? `${minYears}+ yrs` : tD("readoutAny"),
+    marks: ["0", "20", tD("mark40plus")],
   },
   {
     kind: "range",
-    label: "Min rating",
+    label: tD("facetMinRating"),
     name: "minRating",
     min: 0, max: 5, step: 0.5,
     value: minRating,
-    readout: minRating > 0 ? `${minRating.toFixed(1)}★` : "Any",
-    marks: ["Any", "3.0", "5.0"],
+    readout: minRating > 0 ? `${minRating.toFixed(1)}★` : tD("readoutAny"),
+    marks: [tD("readoutAny"), "3.0", "5.0"],
   },
   {
     kind: "range",
-    label: "Max consultation fee",
+    label: tD("facetMaxFee"),
     name: "maxFee",
     min: 0, max: 500, step: 25,
     value: maxFee,
-    readout: maxFee > 0 ? `≤ $${maxFee}` : "Any",
-    marks: ["Any", "$250", "$500"],
+    readout: maxFee > 0 ? `≤ $${maxFee}` : tD("readoutAny"),
+    marks: [tD("readoutAny"), "$250", "$500"],
   },
 ];
 
@@ -329,7 +341,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
         <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span class="mx-1.5">/</span>
-          <span style="color: var(--color-ink);">Specialists</span>
+          <span style="color: var(--color-ink);">{tD("breadcrumbSpecialists")}</span>
         </nav>
       </div>
     </div>
@@ -362,17 +374,17 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
           <div class="space-y-8">
             <div class="paper" style="padding: 16px;">
               <p class="mono uppercase mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
-                Not sure who to see?
+                {tD("matchMePromptEyebrow")}
               </p>
               <p class="text-[13px] mb-3" style="color: var(--color-ink-muted);">
-                Describe your case — we'll match you to a sub-specialist within a few hours during business hours.
+                {tD("matchMePromptBody")}
               </p>
               <a
                 href={localizedPath(locale, "/match-me")}
                 class="mono uppercase inline-block"
                 style="font-size: 11px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 8px 14px; border-radius: 9999px;"
               >
-                Match me →
+                {tD("matchMeLink")}
               </a>
             </div>
 
@@ -385,23 +397,23 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
                 class="mono uppercase w-full"
                 style="font-size: 11px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 10px 16px; border-radius: 9999px; border: 0;"
               >
-                Apply filters
+                {tD("applyFilters")}
               </button>
             </noscript>
           </div>
         </aside>
 
         <div class="min-w-0">
-          <h2 class="sr-only">Browse specialists{hasAnyFilter ? " — filtered" : ""}</h2>
+          <h2 class="sr-only">{hasAnyFilter ? tD("browseHeadingFiltered") : tD("browseHeading")}</h2>
           <div
             class="mb-6 flex flex-wrap items-center justify-between gap-3 pb-4"
             style="border-bottom: 1px solid var(--color-border);"
           >
             <span class="serif text-[14px]" style="color: var(--color-ink-muted);">
-              <span class="display tnum text-ink">{total.toLocaleString()}</span> specialist{total === 1 ? "" : "s"}
+              <span class="display tnum text-ink">{total.toLocaleString()}</span> {total === 1 ? tD("specialistSingular") : tD("specialistPlural")}
               {hasAnyFilter && rows.length > 0 && (
                 <span class="ms-2 mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-                  Page {page} of {totalPages}
+                  {tD("pageOf").replace("{page}", String(page)).replace("{total}", String(totalPages))}
                 </span>
               )}
             </span>
@@ -416,11 +428,11 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                 <path d="M2 4h12M4 8h8M6 12h4" stroke-linecap="round" />
               </svg>
-              <span>Filter{filterCount > 0 ? ` · ${filterCount}` : "s"}</span>
+              <span>{tD("filtersTrigger")}{filterCount > 0 ? ` · ${filterCount}` : ""}</span>
             </button>
             <div class="flex items-center gap-1 -mx-1 overflow-x-auto">
               <span class="mono uppercase px-1 whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Sort
+                {tD("sortLabel")}
               </span>
               {SORTS.map((o) => {
                 const active = sort === o.value;
@@ -456,15 +468,15 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
                 class="mono text-[10px] uppercase tracking-wider hover:text-ink"
                 style="color: var(--color-ink-muted);"
               >
-                Clear all →
+                {tD("clearAll")}
               </a>
             </div>
           )}
 
           {rows.length === 0 ? (
             <div class="paper text-center py-20" style="color: var(--color-ink-muted);">
-              <p class="serif text-lg mb-3">No specialists match these filters.</p>
-              <p class="text-sm mb-5">Try relaxing one constraint — or let us match you to a sub-specialist.</p>
+              <p class="serif text-lg mb-3">{tD("emptyTitle")}</p>
+              <p class="text-sm mb-5">{tD("emptyLede")}</p>
               {relaxSuggestions.length > 0 && (
                 <ul class="flex flex-wrap items-center justify-center gap-2 mb-5" style="list-style: none; padding: 0;">
                   {relaxSuggestions.map((s) => (
@@ -486,14 +498,14 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
                   class="mono uppercase"
                   style="font-size: 11px; letter-spacing: 0.12em; border: 1px solid var(--color-border); padding: 9px 16px; border-radius: 9999px; color: var(--color-ink);"
                 >
-                  Clear all filters
+                  {tD("clearAllFilters")}
                 </a>
                 <a
                   href={localizedPath(locale, "/match-me")}
                   class="mono uppercase"
                   style="font-size: 11px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 9px 16px; border-radius: 9999px;"
                 >
-                  Match me →
+                  {tD("matchMeArrow")}
                 </a>
               </div>
             </div>
@@ -502,10 +514,10 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
               {rows.map((d) => {
                 const clean = cleanName(d.name);
                 return (
-                  <li>
+                  <li class="flex flex-col gap-2.5">
                     <a
                       href={localizedPath(locale, `/doctor/${d.slug}`)}
-                      class="paper group flex h-full flex-col overflow-hidden transition hover:-translate-y-0.5"
+                      class="paper group flex flex-1 flex-col overflow-hidden transition hover:-translate-y-0.5"
                       style="padding: 0;"
                     >
                       <div class="w-full overflow-hidden" style="aspect-ratio: 4/5; background: linear-gradient(135deg, #0A5D54 0%, #0D7C70 60%, #1C2A25 100%);">
@@ -560,6 +572,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
                         </div>
                       </div>
                     </a>
+                    <WhatsAppDoctorCta doctorName={d.name} doctorSlug={d.slug} hospitalName={d.hospitalName} />
                   </li>
                 );
               })}
@@ -576,22 +589,22 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
       id="doctor-filter-drawer"
       class="mc-doctor-drawer lg:hidden"
       data-mc-doctor-drawer
-      aria-label="Filter specialists"
+      aria-label={tD("drawerAriaLabel")}
     >
       <div class="mc-doctor-drawer-panel">
         <div class="mc-doctor-drawer-head">
           <div>
             <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-              Filter
+              {tD("drawerFilterLabel")}
             </div>
             <div class="serif" style="font-size: 17px; letter-spacing: -0.005em;">
-              {total.toLocaleString()} specialist{total === 1 ? "" : "s"}
+              {total.toLocaleString()} {total === 1 ? tD("specialistSingular") : tD("specialistPlural")}
             </div>
           </div>
           <button
             type="button"
             data-mc-doctor-close
-            aria-label="Close filters"
+            aria-label={tD("closeFiltersAria")}
             class="mono"
             style="width: 38px; height: 38px; line-height: 1; font-size: 22px; background: none; border: 1px solid var(--color-border); border-radius: 9999px; color: var(--color-ink); cursor: pointer;"
           >×</button>
@@ -605,7 +618,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
               href={localizedPath(locale, path)}
               class="mono uppercase"
               style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-ink-muted); padding: 12px 16px; border: 1px solid var(--color-border); border-radius: 9999px;"
-            >Clear all</a>
+            >{tD("clearAllDrawer")}</a>
           ) : (
             <span></span>
           )}
@@ -614,39 +627,39 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
             form="doctor-filters"
             class="font-semibold"
             style="background: var(--color-ink); color: var(--color-bg); padding: 13px 22px; border-radius: 9999px; font-size: 14px; border: 0; cursor: pointer;"
-          >Show {total.toLocaleString()} result{total === 1 ? "" : "s"}</button>
+          >{total === 1 ? tD("showResults").replace("{n}", total.toLocaleString()) : tD("showResultsPlural").replace("{n}", total.toLocaleString())}</button>
         </div>
       </div>
     </dialog>
 
     <HowItWorks
-      heading="How to evaluate surgeons in this directory"
-      italicWord="this directory"
-      eyebrow="Surgeon-evaluation guide"
+      heading={tD("howHeading")}
+      italicWord={tD("howItalicWord")}
+      eyebrow={tD("howEyebrow")}
       steps={[
-        { title: "Match specialty + sub-specialty", description: "Don't search 'cardiac surgeon' — search 'mitral valve repair surgeon'. Sub-specialty experience matters more than general specialty designation." },
-        { title: "Check personal annual case volume", description: "Look for surgeons doing 100+ of your specific procedure annually. Below 50/year, complications rates measurably increase across most procedures." },
-        { title: "Verify credentials independently", description: "Board certification, fellowship training, hospital privileges, peer-reviewed publications. Cross-check on PubMed, Google Scholar, ORCID." },
-        { title: "Read patient testimonials carefully", description: "Look for specifics — procedure name, date, outcomes at 6/12 months. Generic 'great surgeon' testimonials are less informative than specific case stories." },
-        { title: "Schedule video consultation", description: "Before booking, talk to the surgeon directly (not just sales). 20-30 minutes is enough to assess communication quality and case-specific fit." },
+        { title: tD("step1Title"), description: tD("step1Desc") },
+        { title: tD("step2Title"), description: tD("step2Desc") },
+        { title: tD("step3Title"), description: tD("step3Desc") },
+        { title: tD("step4Title"), description: tD("step4Desc") },
+        { title: tD("step5Title"), description: tD("step5Desc") },
       ]}
-      outroNote="Programs vary in surgeon assignment. Confirm before any procedure that the specific surgeon you've consulted with is the one performing your case."
+      outroNote={tD("howOutro")}
     />
 
     <WhatToExpect
-      heading="What predicts a good surgical outcome"
-      italicWord="good surgical outcome"
+      heading={tD("wteHeading")}
+      italicWord={tD("wteItalicWord")}
       items={[
-        { label: "Volume", description: "Surgeon volume on the specific procedure is the strongest single predictor of outcomes — across cardiac, orthopedic, urologic, and oncologic surgery." },
-        { label: "Sub-specialty match", description: "A 'spine surgeon' doing 100 procedures a year — but spread across cervical, lumbar, deformity, oncologic — is different from a deformity-focused surgeon doing 100 scoliosis cases. Match precisely." },
-        { label: "Multidisciplinary integration", description: "Best surgeons work in programs with strong tumor boards (oncology), heart teams (cardiac), or spine conferences. Solo cowboys often produce average outcomes." },
-        { label: "Communication quality", description: "Surgeons who explain trade-offs clearly, set realistic expectations, and respond to questions are typically the same ones who manage complications well." },
-        { label: "Honest self-assessment", description: "The best surgeons know what they're not great at. Surgeons who claim equal expertise across many sub-specialties are sometimes the ones with shallow expertise everywhere." },
-        { label: "Continuity post-op", description: "Surgeons who personally follow up post-op are typically more invested in outcomes than those who hand off to junior staff or leave it entirely to coordinators." },
+        { label: tD("wte1Label"), description: tD("wte1Desc") },
+        { label: tD("wte2Label"), description: tD("wte2Desc") },
+        { label: tD("wte3Label"), description: tD("wte3Desc") },
+        { label: tD("wte4Label"), description: tD("wte4Desc") },
+        { label: tD("wte5Label"), description: tD("wte5Desc") },
+        { label: tD("wte6Label"), description: tD("wte6Desc") },
       ]}
     />
 
-    
+
     <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>

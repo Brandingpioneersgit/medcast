@@ -76,9 +76,9 @@ try {
       ORDER BY count DESC
       LIMIT 14
     `),
-    // Every active specialty (that has hospitals) + its top 3 destination
-    // countries, for the collapsible "by specialty" footer map. One windowed
-    // query — countries with <3 hospitals are dropped in JS below the floor.
+    // Every active specialty (that has hospitals) + every destination country
+    // it operates in, for the collapsible "by specialty" footer map. One
+    // windowed query — countries with <3 hospitals are dropped in JS.
     db.execute<{ slug: string; name: string; country_slug: string; country_name: string; n: number }>(sql`
       SELECT slug, name, country_slug, country_name, n FROM (
         SELECT s.id, s.slug, s.name, co.slug AS country_slug, co.name AS country_name,
@@ -92,12 +92,13 @@ try {
         WHERE s.is_active = true
         GROUP BY s.id, s.slug, s.name, co.slug, co.name
       ) ranked
-      WHERE rn <= 3
+      WHERE rn <= 9
       ORDER BY name ASC, rn ASC
     `),
-    // Every specialty + its top 3 medical cities — floored at ≥3 hospitals AND
+    // Every specialty + its top 6 medical cities — floored at ≥3 hospitals AND
     // ≥3 active doctors so both the surgeon and hospital city pages resolve
-    // directly (neither hits its <3 inventory-floor redirect).
+    // directly (neither hits its <3 inventory-floor redirect). The complete
+    // city set per specialty lives on the hub pages + XML sitemaps.
     db.execute<{ spec_slug: string; spec_name: string; city_slug: string; city_name: string }>(sql`
       SELECT spec_slug, spec_name, city_slug, city_name FROM (
         SELECT s.slug AS spec_slug, s.name AS spec_name, ci.slug AS city_slug, ci.name AS city_name,
@@ -111,7 +112,7 @@ try {
         GROUP BY s.id, s.slug, s.name, ci.slug, ci.name
         HAVING COUNT(DISTINCT h.id) >= 3 AND COUNT(DISTINCT d.id) >= 3
       ) ranked
-      WHERE rn <= 3
+      WHERE rn <= 6
       ORDER BY spec_slug ASC, rn ASC
     `),
   ]);

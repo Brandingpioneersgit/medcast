@@ -11,6 +11,7 @@ import { listBeforeAfterGallery } from "@/lib/queries";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, collectionPageJsonLd, withProvenance } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
+import { getContentBatch } from "@/lib/translate";
 
 export const prerender = false;
 
@@ -18,8 +19,32 @@ const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect("/en/gallery", 308);
 const locale = rawLocale as Locale;
 
-const outcomes = await listBeforeAfterGallery(72);
+const rawOutcomes = await listBeforeAfterGallery(72);
 const tc = getTranslator(locale, "common");
+
+// Localize the joined treatment/hospital/country names for non-default locales
+// (getContentBatch returns {} on `en` or for empty id lists — no-op there).
+const galleryTreatmentTx = await getContentBatch(
+  "treatment",
+  rawOutcomes.map((o) => o.treatment_id).filter((id): id is number => id != null),
+  locale,
+);
+const galleryHospitalTx = await getContentBatch(
+  "hospital",
+  rawOutcomes.map((o) => o.hospital_id).filter((id): id is number => id != null),
+  locale,
+);
+const galleryCountryTx = await getContentBatch(
+  "country",
+  rawOutcomes.map((o) => o.country_id).filter((id): id is number => id != null),
+  locale,
+);
+const outcomes = rawOutcomes.map((o) => ({
+  ...o,
+  treatment_name: (o.treatment_id != null ? galleryTreatmentTx[o.treatment_id]?.name : undefined) ?? o.treatment_name,
+  hospital_name: (o.hospital_id != null ? galleryHospitalTx[o.hospital_id]?.name : undefined) ?? o.hospital_name,
+  country_name: (o.country_id != null ? galleryCountryTx[o.country_id]?.name : undefined) ?? o.country_name,
+}));
 
 const treatmentCount = new Set(outcomes.map((o) => o.treatment_slug).filter(Boolean)).size;
 const path = "/gallery";

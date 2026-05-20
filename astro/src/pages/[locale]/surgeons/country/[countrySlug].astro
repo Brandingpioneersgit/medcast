@@ -3,6 +3,7 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import WhatsAppDoctorCta from "@/components/WhatsAppDoctorCta.astro";
 import EntityListingHero from "@/components/EntityListingHero.astro";
 import PageCta from "@/components/PageCta.astro";
 import ExploreGrid from "@/components/ExploreGrid.astro";
@@ -11,8 +12,9 @@ import { listSurgeonSpecialtiesForPlace, listDoctors, getGeoCountry } from "@/li
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, collectionPageJsonLd, withProvenance, surgeonNoun } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
+import { getContent, getContentBatch, applyTranslated, isUntranslated } from "@/lib/translate";
 import { Award, ChevronRight, MapPin } from "lucide-react";
-import { doctorPortrait } from "@/lib/images";
+import { doctorPortrait, countryBanner } from "@/lib/images";
 
 export const prerender = false;
 
@@ -22,20 +24,28 @@ if (!countrySlug) return new Response("Not found", { status: 404 });
 if (!isLocale(rawLocale)) return Astro.redirect(`/en/surgeons/country/${countrySlug}`, 308);
 const locale = rawLocale as Locale;
 
-const country = await getGeoCountry(countrySlug);
-if (!country) return new Response(`Not found: ${countrySlug}`, { status: 404 });
+const countryRow = await getGeoCountry(countrySlug);
+if (!countryRow) return new Response(`Not found: ${countrySlug}`, { status: 404 });
 
-const [{ specialties, total }, topSurgeons] = await Promise.all([
+const [{ specialties: rawSpecialties, total }, topSurgeons] = await Promise.all([
   listSurgeonSpecialtiesForPlace({ countrySlug }),
   listDoctors({ country: [countrySlug], page: 1, sort: "experience" }),
 ]);
 
 // No surgeons at all in this country — nothing indexable to show.
-if (total === 0 || specialties.length === 0) {
+if (total === 0 || rawSpecialties.length === 0) {
   return new Response(`No surgeons listed for ${countrySlug}`, { status: 404 });
 }
 
 const tc = getTranslator(locale, "common");
+
+// Localize DB content for non-default locales (getContent/getContentBatch
+// return {} on `en`, so applyTranslated is a no-op there).
+const countryMap = await getContent("country", countryRow.id, locale);
+const country = applyTranslated(countryRow, countryMap, ["name"]);
+const specialtyTx = await getContentBatch("specialty", rawSpecialties.map((s) => s.id), locale);
+const specialties = rawSpecialties.map((s) => applyTranslated(s, specialtyTx[s.id] ?? {}, ["name"]));
+const doctorTx = await getContentBatch("doctor", topSurgeons.rows.map((d) => d.id), locale);
 const year = new Date().getFullYear();
 const countText = total.toLocaleString();
 const path = `/surgeons/country/${countrySlug}`;
@@ -73,14 +83,16 @@ const stats = [
   { l: "Reply time", v: "9 min" },
 ];
 
-const topStrip = topSurgeons.rows.slice(0, 12);
+const topStrip = topSurgeons.rows
+  .slice(0, 12)
+  .map((d) => applyTranslated(d, doctorTx[d.id] ?? {}, ["name", "qualifications"]));
 
 Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
 ---
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={isUntranslated(locale, countryMap)} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(collectionLd)} />
   </Fragment>
@@ -106,6 +118,9 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
       h1Italic={country.name}
       lede={`Pick a specialty to see the volume-ranked surgeon roster for ${country.name}. Every surgeon practises at a hospital credentialed for their field — and our coordinators will narrow any list to your specific case, free.`}
       stats={stats}
+      locale={locale}
+      image={countryBanner(countrySlug)}
+      imageAlt={`Surgeons and hospitals in ${country.name}`}
     />
 
     <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-6 pb-10">
@@ -152,10 +167,10 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
             const titlePrefix = nameHasTitle ? "" : (d.title ?? "Dr.");
             const fullName = titlePrefix ? `${titlePrefix} ${d.name}` : d.name;
             return (
-              <li>
+              <li class="flex flex-col gap-2">
                 <a
                   href={localizedPath(locale, `/doctor/${d.slug}`)}
-                  class="group flex h-full gap-4 rounded-xl border border-border bg-surface p-4 transition-colors hover:border-border-strong"
+                  class="group flex flex-1 gap-4 rounded-xl border border-border bg-surface p-4 transition-colors hover:border-border-strong"
                 >
                   <img
                     src={doctorPortrait({ imageUrl: d.imageUrl, id: d.id }, 128)}
@@ -184,6 +199,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
                     )}
                   </div>
                 </a>
+                <WhatsAppDoctorCta doctorName={d.name} doctorSlug={d.slug} hospitalName={d.hospitalName} />
               </li>
             );
           })}

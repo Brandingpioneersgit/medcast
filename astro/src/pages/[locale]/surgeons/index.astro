@@ -23,6 +23,7 @@ const specialties = await listSurgeonSpecialties();
 const totalDoctors = specialties.reduce((acc, s) => acc + s.docs, 0);
 
 const tc = getTranslator(locale, "common");
+const tS = getTranslator(locale, "surgeonsPage");
 const { bindChromeT } = await import("@/lib/chrome-i18n");
 const ct = bindChromeT(locale);
 const seoTitle = ct("lp.surgeons.title");
@@ -31,13 +32,13 @@ const path = "/surgeons";
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Surgeons", url: localeUrl(locale, path) },
+  { name: tS("breadcrumb"), url: localeUrl(locale, path) },
 ]);
 
 const itemLd = specialties.length > 0
   ? itemListJsonLd(
       specialties.map((s) => ({
-        name: `${s.name} surgeons`,
+        name: `${s.name} ${tS("surgeonsWord")}`,
         url: localeUrl(locale, `/surgeons/${s.slug}`),
       })),
     )
@@ -49,10 +50,10 @@ Astro.response.headers.set(
 );
 
 const stats = [
-  { l: "Surgeons", v: totalDoctors.toLocaleString() },
-  { l: "Specialties", v: specialties.length.toString() },
-  { l: "Verified", v: "All" },
-  { l: "Contact desk", v: "9 min" },
+  { l: tS("statSurgeonsLabel"), v: totalDoctors.toLocaleString() },
+  { l: tS("statSpecialtiesLabel"), v: specialties.length.toString() },
+  { l: tS("statVerifiedLabel"), v: tS("statVerifiedVal") },
+  { l: tS("statContactLabel"), v: tS("statContactVal") },
 ];
 
 function firstWord(s: string) { const i = s.indexOf(" "); return i === -1 ? s : s.slice(0, i); }
@@ -74,7 +75,7 @@ function restOfName(s: string) { const i = s.indexOf(" "); return i === -1 ? "" 
         <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span class="mx-1.5">/</span>
-          <span style="color: var(--color-ink);">Surgeons</span>
+          <span style="color: var(--color-ink);">{tS("breadcrumb")}</span>
         </nav>
       </div>
     </div>
@@ -101,14 +102,14 @@ function restOfName(s: string) { const i = s.indexOf(" "); return i === -1 ? "" 
                   {firstWord(s.name)}{restOfName(s.name) && <> <span class="italic-display">{restOfName(s.name)}</span></>}
                 </div>
                 <div class="mt-2 mono uppercase tnum" style="font-size: 10.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-                  {s.docs.toLocaleString()} surgeons
+                  {tS("cardSurgeonCount").replace("{n}", s.docs.toLocaleString())}
                 </div>
                 <div
                   class="mt-auto flex items-center justify-between"
                   style="border-top: 1px dashed var(--color-border); margin-top: 14px; padding-top: 12px;"
                 >
                   <span class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
-                    View roster
+                    {tS("cardViewRoster")}
                   </span>
                   <ChevronRight className="h-3.5 w-3.5 mirror-x text-[var(--color-ink-subtle)] group-hover:text-[var(--color-accent)] transition-colors" />
                 </div>
@@ -120,30 +121,30 @@ function restOfName(s: string) { const i = s.indexOf(" "); return i === -1 ? "" 
     </section>
 
     <HowItWorks
-      heading="How to find the right surgeon"
-      italicWord="right surgeon"
-      eyebrow="Surgeon evaluation"
+      heading={tS("howHeading")}
+      italicWord={tS("howItalicWord")}
+      eyebrow={tS("howEyebrow")}
       steps={[
-        { title: "Match by sub-specialty", description: "Pick by your specific procedure family. Sub-specialty experience matters more than general specialty designation. A 'cardiac surgeon' isn't the same as a 'mitral valve specialist'." },
-        { title: "Compare by case volume", description: "Personal annual case volume on your specific procedure is the strongest single outcome predictor. Look for 100+/year on your exact case type." },
-        { title: "Verify credentials independently", description: "Board certification, fellowship training, hospital privileges, peer-reviewed publications. Cross-check on PubMed, Google Scholar, ORCID." },
-        { title: "Drill into program context", description: "Top surgeons work in programs with strong multidisciplinary infrastructure (tumor boards, heart teams, sub-specialty clinics). Solo cowboys often produce average outcomes." },
-        { title: "Consultation before commitment", description: "Schedule a video consultation with your top 1-2 candidates. Communication quality during consultation predicts communication quality during your case." },
+        { title: tS("step1Title"), description: tS("step1Desc") },
+        { title: tS("step2Title"), description: tS("step2Desc") },
+        { title: tS("step3Title"), description: tS("step3Desc") },
+        { title: tS("step4Title"), description: tS("step4Desc") },
+        { title: tS("step5Title"), description: tS("step5Desc") },
       ]}
     />
 
     <WhatToExpect
-      heading="The volume thresholds that matter"
-      italicWord="that matter"
+      heading={tS("volumeHeading")}
+      italicWord={tS("volumeItalicWord")}
       items={[
-        { label: "Top tier (200+/year)", description: "Surgeons doing 200+ procedures of your specific type annually typically reach the strongest outcomes ranges. Look for them at high-volume institutional programs." },
-        { label: "Strong tier (100-200/year)", description: "Experienced surgeons with consistent technique. Outcomes near top tier for most case complexity." },
-        { label: "Moderate tier (50-100/year)", description: "Acceptable for routine cases. For complex cases or rare procedures, consider higher-volume options." },
-        { label: "Below 50/year", description: "Complication rates measurably higher across cardiac, orthopedic, urologic, and oncologic surgery. Reasonable to skip for elective international travel." },
+        { label: tS("vol1Label"), description: tS("vol1Desc") },
+        { label: tS("vol2Label"), description: tS("vol2Desc") },
+        { label: tS("vol3Label"), description: tS("vol3Desc") },
+        { label: tS("vol4Label"), description: tS("vol4Desc") },
       ]}
     />
 
-    
+
     <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>

@@ -19,6 +19,7 @@ const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect("/en/best", 308);
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tBe = getTranslator(locale, "bestPage");
 
 // Find all specialty × country pairs that have at least one active hospital
 const rows = Array.from(
@@ -59,7 +60,7 @@ const url = localeUrl(locale, path);
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Best hospitals", url },
+  { name: tBe("indexBreadcrumb"), url },
 ]);
 
 Astro.response.headers.set(
@@ -71,8 +72,8 @@ Astro.response.headers.set(
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta
-      title="Best Hospitals by Specialty & Destination"
-      description={`Ranked hospital lists for top medical destinations — cardiac surgery in India, orthopedics in Thailand, fertility in Turkey, and more.`}
+      title={tBe("indexSeoTitle")}
+      description={tBe("indexSeoDescription")}
       path={path}
       locale={locale}
     />
@@ -87,7 +88,7 @@ Astro.response.headers.set(
         <nav class="mono text-[12px] flex items-center gap-2" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span aria-hidden="true" class="text-[var(--color-border-strong)]">/</span>
-          <span style="color: var(--color-ink);">Best hospitals</span>
+          <span style="color: var(--color-ink);">{tBe("indexBreadcrumb")}</span>
         </nav>
       </div>
     </div>
@@ -96,14 +97,14 @@ Astro.response.headers.set(
     <section style="padding: 72px 28px;">
       <div class="mx-auto max-w-[1120px]">
         <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
-          {new Date().getFullYear()} rankings
+          {new Date().getFullYear()}{tBe("indexHeroEyebrowSuffix")}
         </div>
         <h1 class="display mt-3" style="font-size: clamp(2.5rem, 5.5vw, 3.75rem); line-height: 1; letter-spacing: -0.03em; font-weight: 400;">
-          Best hospitals,<br />
-          <span style="font-style: italic;">ranked by destination</span>
+          {tBe("indexH1First")}<br />
+          <span style="font-style: italic;">{tBe("indexH1Italic")}</span>
         </h1>
         <p class="serif mt-5" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted); max-width: 600px;">
-          {items.length} specialty × destination combinations, ranked by center-of-excellence status, patient ratings, and verified review volume.
+          {tBe("indexLede").replace("{count}", String(items.length))}
         </p>
       </div>
     </section>
@@ -115,7 +116,7 @@ Astro.response.headers.set(
           <input
             id="bestFilter"
             type="search"
-            placeholder="Filter by country or specialty…"
+            placeholder={tBe("indexFilterPlaceholder")}
             class="w-full"
             style="padding: 12px 16px; border: 1px solid var(--color-border); border-radius: 9999px; background: var(--color-paper); color: var(--color-ink); font-size: 14px;"
           />
@@ -131,7 +132,7 @@ Astro.response.headers.set(
               <div class="flex items-start justify-between gap-2">
                 <span class="text-2xl">{item.flag}</span>
                 <span class="mono text-[11px]" style="color: var(--color-ink-subtle);">
-                  {item.count} hospitals
+                  {tBe("indexHospitalCount").replace("{count}", String(item.count))}
                 </span>
               </div>
               <div>
@@ -143,7 +144,7 @@ Astro.response.headers.set(
                 </div>
               </div>
               <div class="mt-auto pt-2 flex items-center gap-1 text-[13px] font-medium" style="color: var(--color-accent);">
-                View ranking
+                {tBe("indexViewRanking")}
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="mirror-x">
                   <path d="M5 12h14M12 5l7 7-7 7" />
                 </svg>
@@ -152,7 +153,7 @@ Astro.response.headers.set(
           ))}
         </div>
         <p id="bestEmpty" class="serif mt-8 text-center" style="display: none; color: var(--color-ink-muted);">
-          No matches. Try another country or specialty.
+          {tBe("indexEmptyState")}
         </p>
       </div>
     </section>
@@ -179,43 +180,43 @@ Astro.response.headers.set(
     </script>
 
     <HowItWorks
-      heading='How we rank these lists'
-      italicWord='rank'
-      eyebrow='Methodology'
+      heading={tBe("methodologyHeading")}
+      italicWord={tBe("methodologyItalicWord")}
+      eyebrow={tBe("methodologyEyebrow")}
       steps={[
-        { title: 'Center-of-Excellence designation', description: 'Hospitals with departments flagged as Centers of Excellence rank highest in their specialty + country combination.' },
-        { title: 'Featured + verified status', description: 'Featured hospitals (long-term partner programs with verified outcome data) rank above non-featured.' },
-        { title: 'Rating + review count', description: 'Higher rating × higher review volume contributes to ranking. Single 5-star ratings without volume are weighted lower.' },
-        { title: 'Bed capacity for complex cases', description: 'For complex procedures (cardiac, transplant, oncology), institutional scale matters. 300+ bed hospitals weighted higher.' },
-        { title: 'Quarterly re-evaluation', description: 'Rankings refresh quarterly. Hospital additions, accreditation changes, and partner-program updates flow through.' },
-      ]},
-      outroNote='Rankings are heuristics for narrowing your options, not a substitute for case-specific evaluation. The right hospital for your case depends on the specific procedure and surgeon.'
+        { title: tBe("methodologyStep1Title"), description: tBe("methodologyStep1Desc") },
+        { title: tBe("methodologyStep2Title"), description: tBe("methodologyStep2Desc") },
+        { title: tBe("methodologyStep3Title"), description: tBe("methodologyStep3Desc") },
+        { title: tBe("methodologyStep4Title"), description: tBe("methodologyStep4Desc") },
+        { title: tBe("methodologyStep5Title"), description: tBe("methodologyStep5Desc") },
+      ]}
+      outroNote={tBe("methodologyOutro")}
     />
 
     <WhatToExpect
-      heading='How to use these lists'
-      italicWord='these lists'
+      heading={tBe("howToHeading")}
+      italicWord={tBe("howToItalicWord")}
       items={[
-        { label: 'Narrow to 3-5 candidates', description: 'From the ranked list, narrow to 3-5 candidates that match your specific case complexity and budget.' },
-        { label: 'Drill into each candidate', description: "Read each candidate hospital's program profile, surgeon team, accreditation status, and patient testimonials." },
-        { label: 'Request itemized quotes', description: 'Get itemized quotes from your top 2-3 candidates. Compare on equal scope.' },
-        { label: 'Verify outcomes for your case', description: "For complex cases, request the surgeon's annual case volume on your specific procedure. Institutional volume is a baseline; surgeon volume is the predictor." },
+        { label: tBe("howToStep1Label"), description: tBe("howToStep1Desc") },
+        { label: tBe("howToStep2Label"), description: tBe("howToStep2Desc") },
+        { label: tBe("howToStep3Label"), description: tBe("howToStep3Desc") },
+        { label: tBe("howToStep4Label"), description: tBe("howToStep4Desc") },
       ]}
     />
     <ExploreGrid
       locale={locale}
-      eyebrow="Beyond the best-of lists"
-      heading="Other ways to evaluate a hospital"
-      lede="Best-of rankings are a starting point, not a verdict. The pages below give you the underlying signals — accreditations, surgeon volume, real costs."
+      eyebrow={tBe("exploreEyebrow")}
+      heading={tBe("exploreHeading")}
+      lede={tBe("exploreLede")}
       items={[
-        { eyebrow: "Browse", label: "All hospitals", href: "/hospitals", hint: "9,254 hospitals, sortable by rating, reviews, size." },
-        { eyebrow: "Compare", label: "Compare hospitals side-by-side", href: "/compare/hospitals", hint: "Up to 4 hospitals on every metric we track." },
-        { eyebrow: "Quality", label: "Accreditation registry", href: "/accreditation", hint: "JCI, NABH, ISO and 10 others — verifiable in public registries." },
-        { eyebrow: "Browse", label: "Surgeons by specialty", href: "/surgeons", hint: "15 specialties, ranked by surgeon volume." },
-        { eyebrow: "Compare", label: "Compare countries", href: "/compare/countries", hint: "Cost, language coverage, recovery climate." },
-        { eyebrow: "Cost", label: "Pricing matrix", href: "/pricing-index", hint: "All 88 treatments × 9 destinations." },
-        { eyebrow: "Trust", label: "Free second opinion", href: "/second-opinion", hint: "Before you commit to any of these." },
-        { eyebrow: "Action", label: "Get a free quote", href: "/quote", hint: "We send 3 hospital options + cost in 48h." },
+        { eyebrow: tBe("exploreItem1Eyebrow"), label: tBe("exploreItem1Label"), href: "/hospitals", hint: tBe("exploreItem1Hint") },
+        { eyebrow: tBe("exploreItem2Eyebrow"), label: tBe("exploreItem2Label"), href: "/compare/hospitals", hint: tBe("exploreItem2Hint") },
+        { eyebrow: tBe("exploreItem3Eyebrow"), label: tBe("exploreItem3Label"), href: "/accreditation", hint: tBe("exploreItem3Hint") },
+        { eyebrow: tBe("exploreItem4Eyebrow"), label: tBe("exploreItem4Label"), href: "/surgeons", hint: tBe("exploreItem4Hint") },
+        { eyebrow: tBe("exploreItem5Eyebrow"), label: tBe("exploreItem5Label"), href: "/compare/countries", hint: tBe("exploreItem5Hint") },
+        { eyebrow: tBe("exploreItem6Eyebrow"), label: tBe("exploreItem6Label"), href: "/pricing-index", hint: tBe("exploreItem6Hint") },
+        { eyebrow: tBe("exploreItem7Eyebrow"), label: tBe("exploreItem7Label"), href: "/second-opinion", hint: tBe("exploreItem7Hint") },
+        { eyebrow: tBe("exploreItem8Eyebrow"), label: tBe("exploreItem8Label"), href: "/quote", hint: tBe("exploreItem8Hint") },
       ]}
     />
 

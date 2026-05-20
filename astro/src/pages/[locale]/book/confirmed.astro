@@ -14,6 +14,7 @@ import {
 } from "../../../../../src/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { getTranslator } from "@/lib/messages";
 import { CheckCircle2, Copy, MessageCircle, Mail } from "lucide-react";
 
 export const prerender = false;
@@ -61,6 +62,8 @@ const path = "/book/confirmed";
 const fmtDate = (d: Date | null | undefined) =>
   d ? new Date(d).toLocaleDateString(locale, { weekday: "long", year: "numeric", month: "long", day: "numeric" }) : null;
 
+const tBc = getTranslator(locale, "bookConfirmedPage");
+
 // Always noindex — patient-private content keyed by code.
 Astro.response.headers.set("Cache-Control", "private, no-store, max-age=0");
 ---
@@ -68,8 +71,8 @@ Astro.response.headers.set("Cache-Control", "private, no-store, max-age=0");
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta
-      title={appt ? `Appointment ${appt.code} confirmed` : "Appointment lookup"}
-      description="Appointment request received. A coordinator will confirm within 24 hours."
+      title={appt ? tBc("metaTitleConfirmed").replace("{code}", appt.code) : tBc("metaTitleLookup")}
+      description={tBc("metaDescription")}
       path={path}
       locale={locale}
       noindex={true}
@@ -86,22 +89,22 @@ Astro.response.headers.set("Cache-Control", "private, no-store, max-age=0");
             <div class="flex items-center gap-3" style="color: var(--color-accent);">
               <CheckCircle2 className="h-6 w-6" />
               <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em;">
-                Request received
+                {tBc("badgeRequestReceived")}
               </div>
             </div>
 
             <h1 class="display display-tight mt-4" style="font-size: clamp(2rem, 4.5vw, 3rem); line-height: 1.05; font-weight: 400; letter-spacing: -0.03em;">
-              Thank you, {appt.patientName.split(/\s+/)[0]}.<br />
-              <span class="italic-display">Your code is below.</span>
+              {tBc("headingThankYou").replace("{firstName}", appt.patientName.split(/\s+/)[0])}<br />
+              <span class="italic-display">{tBc("headingCodeBelow")}</span>
             </h1>
 
             <p class="serif mt-5" style="font-size: 18px; line-height: 1.5; color: var(--color-ink-muted); max-width: 560px;">
-              A coordinator will confirm availability within 24 hours. Save this code — it's how you reference the appointment if you contact us by phone or WhatsApp.
+              {tBc("bodyCoordinatorConfirm")}
             </p>
 
             <div class="paper mt-8" style="padding: 24px 28px;">
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Appointment code
+                {tBc("labelAppointmentCode")}
               </div>
               <div class="flex items-center gap-3 mt-2">
                 <div
@@ -113,17 +116,20 @@ Astro.response.headers.set("Cache-Control", "private, no-store, max-age=0");
                   data-copy-target={appt.code}
                   class="inline-flex items-center gap-1"
                   style="padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 9999px; font-size: 12px; color: var(--color-ink); background: var(--color-bg);"
-                  aria-label="Copy appointment code"
+                  aria-label={tBc("ariaLabelCopyCode")}
+                  data-copy-text={tBc("btnCopy")}
+                  data-copied-text={tBc("btnCopied")}
+                  data-copy-fail-text={tBc("btnCopyFail")}
                 >
                   <Copy className="h-3.5 w-3.5" />
-                  <span data-copy-label>Copy</span>
+                  <span data-copy-label>{tBc("btnCopy")}</span>
                 </button>
               </div>
 
               <dl class="mt-6 grid gap-4" style="grid-template-columns: 1fr 1fr;">
                 {appt.doctorName && (
                   <div>
-                    <dt class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Doctor</dt>
+                    <dt class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tBc("labelDoctor")}</dt>
                     <dd class="serif mt-1" style="font-size: 15px;">
                       {appt.doctorSlug ? (
                         <a href={localizedPath(locale, `/doctor/${appt.doctorSlug}`)} class="hover:underline">{appt.doctorName}</a>
@@ -133,7 +139,7 @@ Astro.response.headers.set("Cache-Control", "private, no-store, max-age=0");
                 )}
                 {appt.hospitalName && (
                   <div>
-                    <dt class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Hospital</dt>
+                    <dt class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tBc("labelHospital")}</dt>
                     <dd class="serif mt-1" style="font-size: 15px;">
                       {appt.hospitalSlug ? (
                         <a href={localizedPath(locale, `/hospital/${appt.hospitalSlug}`)} class="hover:underline">{appt.hospitalName}</a>
@@ -143,22 +149,22 @@ Astro.response.headers.set("Cache-Control", "private, no-store, max-age=0");
                   </div>
                 )}
                 <div>
-                  <dt class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Preferred date</dt>
+                  <dt class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tBc("labelPreferredDate")}</dt>
                   <dd class="serif mt-1" style="font-size: 15px;">{fmtDate(appt.preferredDate)}</dd>
                 </div>
                 {appt.alternativeDate && (
                   <div>
-                    <dt class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Alternative</dt>
+                    <dt class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tBc("labelAlternativeDate")}</dt>
                     <dd class="serif mt-1" style="font-size: 15px;">{fmtDate(appt.alternativeDate)}</dd>
                   </div>
                 )}
                 <div>
-                  <dt class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Format</dt>
+                  <dt class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tBc("labelFormat")}</dt>
                   <dd class="serif mt-1" style="font-size: 15px; text-transform: capitalize;">{(appt.consultationType ?? "in-person").replace("-", " ")}</dd>
                 </div>
                 {appt.treatmentName && (
                   <div>
-                    <dt class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Interest</dt>
+                    <dt class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">{tBc("labelInterest")}</dt>
                     <dd class="serif mt-1" style="font-size: 15px;">{appt.treatmentName}</dd>
                   </div>
                 )}
@@ -174,7 +180,7 @@ Astro.response.headers.set("Cache-Control", "private, no-store, max-age=0");
                 style="background: var(--color-surface-elevated); color: var(--color-ink); border: 1px solid var(--color-border); padding: 14px 20px; font-size: 14px; border-radius: 9999px;"
               >
                 <MessageCircle className="h-4 w-4" />
-                Message coordinator on WhatsApp
+                {tBc("btnWhatsApp")}
               </a>
               <a
                 href="mailto:medcastsdigital@gmail.com?subject=Appointment%20{appt.code}"
@@ -182,18 +188,18 @@ Astro.response.headers.set("Cache-Control", "private, no-store, max-age=0");
                 style="background: var(--color-surface-elevated); color: var(--color-ink); border: 1px solid var(--color-border); padding: 14px 20px; font-size: 14px; border-radius: 9999px;"
               >
                 <Mail className="h-4 w-4" />
-                Email coordinator
+                {tBc("btnEmail")}
               </a>
             </div>
 
             <div class="mt-8 paper" style="padding: 22px; background: var(--color-accent-mist); border-color: var(--color-accent-soft);">
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">
-                What happens next
+                {tBc("nextStepsHeading")}
               </div>
               <ol class="serif mt-3 space-y-2.5" style="font-size: 14.5px; line-height: 1.55; color: var(--color-ink);">
-                <li><strong>Within 24 hours.</strong> A coordinator confirms availability and sends you a written summary.</li>
-                <li><strong>Before the consult.</strong> {appt.doctorName ?? "Your doctor"} reviews any reports you've uploaded.</li>
-                <li><strong>After the consult.</strong> You'll receive an itemized treatment plan + cost estimate within 48 hours.</li>
+                <li><strong>{tBc("nextStep1Bold")}</strong> {tBc("nextStep1Body")}</li>
+                <li><strong>{tBc("nextStep2Bold")}</strong> {tBc("nextStep2Body").replace("{doctorName}", appt.doctorName ?? tBc("fallbackYourDoctor"))}</li>
+                <li><strong>{tBc("nextStep3Bold")}</strong> {tBc("nextStep3Body")}</li>
               </ol>
             </div>
 
@@ -203,48 +209,48 @@ Astro.response.headers.set("Cache-Control", "private, no-store, max-age=0");
                 class="paper hover:border-[var(--color-accent)] transition-colors"
                 style="padding: 16px; border: 1px solid var(--color-border-soft);"
               >
-                <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">Optional</div>
-                <div class="serif mt-1" style="font-size: 14.5px; font-weight: 500;">Get a free second opinion</div>
-                <div class="mono mt-1" style="font-size: 11px; color: var(--color-ink-subtle);">Independent review before you commit</div>
+                <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">{tBc("card1Badge")}</div>
+                <div class="serif mt-1" style="font-size: 14.5px; font-weight: 500;">{tBc("card1Title")}</div>
+                <div class="mono mt-1" style="font-size: 11px; color: var(--color-ink-subtle);">{tBc("card1Sub")}</div>
               </a>
               <a
                 href={localizedPath(locale, "/visa")}
                 class="paper hover:border-[var(--color-accent)] transition-colors"
                 style="padding: 16px; border: 1px solid var(--color-border-soft);"
               >
-                <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">Travel</div>
-                <div class="serif mt-1" style="font-size: 14.5px; font-weight: 500;">Medical visa info</div>
-                <div class="mono mt-1" style="font-size: 11px; color: var(--color-ink-subtle);">Requirements by country</div>
+                <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">{tBc("card2Badge")}</div>
+                <div class="serif mt-1" style="font-size: 14.5px; font-weight: 500;">{tBc("card2Title")}</div>
+                <div class="mono mt-1" style="font-size: 11px; color: var(--color-ink-subtle);">{tBc("card2Sub")}</div>
               </a>
               <a
                 href={localizedPath(locale, "/insurance")}
                 class="paper hover:border-[var(--color-accent)] transition-colors"
                 style="padding: 16px; border: 1px solid var(--color-border-soft);"
               >
-                <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">Coverage</div>
-                <div class="serif mt-1" style="font-size: 14.5px; font-weight: 500;">Insurance & cashless</div>
-                <div class="mono mt-1" style="font-size: 11px; color: var(--color-ink-subtle);">What your policy covers abroad</div>
+                <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">{tBc("card3Badge")}</div>
+                <div class="serif mt-1" style="font-size: 14.5px; font-weight: 500;">{tBc("card3Title")}</div>
+                <div class="mono mt-1" style="font-size: 11px; color: var(--color-ink-subtle);">{tBc("card3Sub")}</div>
               </a>
             </div>
           </>
         ) : (
           <>
             <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-              Appointment lookup
+              {tBc("lookupBadge")}
             </div>
             <h1 class="display display-tight mt-3" style="font-size: clamp(2rem, 4.5vw, 3rem); line-height: 1.05; font-weight: 400; letter-spacing: -0.03em;">
-              {validCode ? "We couldn't find that appointment" : "Enter your appointment code"}
+              {validCode ? tBc("lookupH1NotFound") : tBc("lookupH1Enter")}
             </h1>
             <p class="serif mt-5" style="font-size: 18px; line-height: 1.5; color: var(--color-ink-muted); max-width: 560px;">
               {validCode
-                ? "Double-check the code or contact the coordinator — we'll find your booking by name + email."
-                : "Your appointment code looks like APT-XXXXXXXX. It was emailed to you and shown after your request."}
+                ? tBc("lookupBodyNotFound")
+                : tBc("lookupBodyEnter")}
             </p>
 
             <form method="get" action={localizedPath(locale, "/book/confirmed")} class="paper mt-8" style="padding: 22px;">
               <label class="block" for="code">
                 <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                  Appointment code
+                  {tBc("labelAppointmentCode")}
                 </span>
                 <input
                   id="code"
@@ -264,12 +270,12 @@ Astro.response.headers.set("Cache-Control", "private, no-store, max-age=0");
                 class="inline-flex items-center gap-2 font-semibold mt-4"
                 style="background: var(--color-ink); color: var(--color-bg); padding: 12px 22px; font-size: 14px; border-radius: 9999px;"
               >
-                Look up appointment
+                {tBc("btnLookUp")}
               </button>
             </form>
 
             <p class="mono mt-6" style="font-size: 12px; color: var(--color-ink-subtle);">
-              No code? <a href={localizedPath(locale, "/contact?type=code-recovery")} class="underline">Ask the coordinator to recover it.</a>
+              {tBc("noCodePrompt")} <a href={localizedPath(locale, "/contact?type=code-recovery")} class="underline">{tBc("noCodeLink")}</a>
             </p>
           </>
         )}
@@ -281,13 +287,16 @@ Astro.response.headers.set("Cache-Control", "private, no-store, max-age=0");
         const btn = document.querySelector("[data-copy-target]");
         if (!btn) return;
         const label = btn.querySelector("[data-copy-label]");
+        const copiedText = btn.getAttribute("data-copied-text") || "Copied";
+        const copyText = btn.getAttribute("data-copy-text") || "Copy";
+        const copyFailText = btn.getAttribute("data-copy-fail-text") || "Press ⌘C";
         btn.addEventListener("click", async () => {
           try {
             await navigator.clipboard.writeText(btn.getAttribute("data-copy-target") || "");
-            if (label) label.textContent = "Copied";
-            setTimeout(() => { if (label) label.textContent = "Copy"; }, 1500);
+            if (label) label.textContent = copiedText;
+            setTimeout(() => { if (label) label.textContent = copyText; }, 1500);
           } catch {
-            if (label) label.textContent = "Press ⌘C";
+            if (label) label.textContent = copyFailText;
           }
         });
       })();

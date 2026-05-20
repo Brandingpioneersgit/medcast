@@ -19,31 +19,32 @@ const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect(`/en/insurance`, 308);
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tIn = getTranslator(locale, "insurancePage");
 
 const path = "/insurance";
 const url = localeUrl(locale, path);
 
 const partners = [
-  { name: "Cigna Global", cashless: "yes" as const, note: "Pre-authorization required for planned surgeries" },
-  { name: "Bupa International", cashless: "yes" as const, note: "Direct billing for Tier-1 network hospitals" },
-  { name: "Allianz Worldwide Care", cashless: "partial" as const, note: "Cashless for select India / Thailand partners" },
-  { name: "AXA — Global Healthcare", cashless: "partial" as const, note: "Reimbursement model for most facilities" },
-  { name: "Aetna International", cashless: "yes" as const, note: "Pre-auth via PPO network" },
-  { name: "IMG (International Medical Group)", cashless: "reimburse" as const, note: "Patient pays, we help claim" },
-  { name: "GeoBlue / Blue Cross Blue Shield", cashless: "partial" as const, note: "Direct pay at JCI-accredited partners" },
-  { name: "WellAway", cashless: "reimburse" as const, note: "Reimbursement model" },
+  { name: "Cigna Global", cashless: "yes" as const, note: tIn("partnerNote1") },
+  { name: "Bupa International", cashless: "yes" as const, note: tIn("partnerNote2") },
+  { name: "Allianz Worldwide Care", cashless: "partial" as const, note: tIn("partnerNote3") },
+  { name: "AXA — Global Healthcare", cashless: "partial" as const, note: tIn("partnerNote4") },
+  { name: "Aetna International", cashless: "yes" as const, note: tIn("partnerNote5") },
+  { name: "IMG (International Medical Group)", cashless: "reimburse" as const, note: tIn("partnerNote6") },
+  { name: "GeoBlue / Blue Cross Blue Shield", cashless: "partial" as const, note: tIn("partnerNote7") },
+  { name: "WellAway", cashless: "reimburse" as const, note: tIn("partnerNote8") },
 ];
 
 const faqs = [
-  { question: "Can I use my international insurance at MedCasts partner hospitals?", answer: "Yes — we work with 20+ international insurers. Cashless settlement depends on the insurer and destination hospital; we handle pre-authorization paperwork on your behalf." },
-  { question: "What if my policy requires reimbursement rather than cashless?", answer: "We provide all itemised invoices, discharge summaries, diagnostic reports, and claim-ready documentation in English within 5 business days of discharge." },
-  { question: "Does overseas medical tourism affect my premium?", answer: "No. MedCasts pricing is typically 60-80% below US / UK standards, so insurers often encourage overseas treatment for planned procedures." },
-  { question: "What isn't covered by standard international policies?", answer: "Cosmetic procedures, fertility treatment, and experimental therapies are usually out-of-pocket. Dental is covered only with dental add-ons. We flag these upfront in your quote." },
+  { question: tIn("faqQ1"), answer: tIn("faqA1") },
+  { question: tIn("faqQ2"), answer: tIn("faqA2") },
+  { question: tIn("faqQ3"), answer: tIn("faqA3") },
+  { question: tIn("faqQ4"), answer: tIn("faqA4") },
 ];
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Insurance", url },
+  { name: tIn("breadcrumbInsurance"), url },
 ]);
 
 Astro.response.headers.set(
@@ -52,18 +53,18 @@ Astro.response.headers.set(
 );
 
 const stats = [
-  { l: "Insurers", v: `${partners.length}+` },
-  { l: "Cashless coverage", v: "On eligible policies" },
-  { l: "Pre-auth SLA", v: "24 h" },
-  { l: "Claim docs", v: "English PDF" },
+  { l: tIn("stat01label"), v: `${partners.length}+` },
+  { l: tIn("stat02label"), v: tIn("stat02val") },
+  { l: tIn("stat03label"), v: tIn("stat03val") },
+  { l: tIn("stat04label"), v: tIn("stat04val") },
 ];
 ---
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta
-      title="International Insurance — Cashless + Claims"
-      description="Cigna, Bupa, Allianz, AXA, Aetna, BCBS — 20+ international insurers processed. Pre-auth handled, claim-ready paperwork, single claims manager per case."
+      title={tIn("seoTitle")}
+      description={tIn("seoDescription")}
       path={path}
       locale={locale}
     />
@@ -79,16 +80,16 @@ const stats = [
         <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
           <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
           <span class="mx-1.5">/</span>
-          <span style="color: var(--color-ink);">Insurance</span>
+          <span style="color: var(--color-ink);">{tIn("breadcrumbInsurance")}</span>
         </nav>
       </div>
     </div>
 
     <EntityListingHero
-      eyebrow="Insurance · International policies"
-      h1First="Your policy"
-      h1Italic="probably works here."
-      lede="Whether your insurer pays the hospital directly (cashless) or reimburses you after discharge depends on the policy and destination. We confirm which applies to your case before you fly — so the surprise doesn't come at the billing desk."
+      eyebrow={tIn("eyebrow")}
+      h1First={tIn("h1First")}
+      h1Italic={tIn("h1Italic")}
+      lede={tIn("lede")}
       stats={stats}
     />
 
@@ -97,27 +98,27 @@ const stats = [
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
         <div class="grid gap-3" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
           <div class="relative paper-flat overflow-hidden" style="aspect-ratio: 4/3; border-radius: var(--radius-lg);">
-            <img src={serviceScene("ins-1")} alt="Patient with insurance paperwork" width="600" height="450" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover;" />
+            <img src={serviceScene("ins-1")} alt={tIn("imgAlt1")} width="600" height="450" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover;" />
             <div class="image-veil" />
             <div class="absolute" style="inset-inline-start: 14px; inset-block-end: 12px; inset-inline-end: 14px;">
-              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: rgba(251,248,241,0.78);">Pre-authorisation</div>
-              <div class="serif" style="font-size: 14px; font-weight: 500; color: #FBF8F1; line-height: 1.3; margin-top: 3px;">We file with your insurer</div>
+              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: rgba(251,248,241,0.78);">{tIn("imgOverlay1Label")}</div>
+              <div class="serif" style="font-size: 14px; font-weight: 500; color: #FBF8F1; line-height: 1.3; margin-top: 3px;">{tIn("imgOverlay1Caption")}</div>
             </div>
           </div>
           <div class="relative paper-flat overflow-hidden" style="aspect-ratio: 4/3; border-radius: var(--radius-lg);">
-            <img src={patientHero(31, "middle_east", 600)} alt="Patient consulting on insurance" width="600" height="450" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover;" />
+            <img src={patientHero(31, "middle_east", 600)} alt={tIn("imgAlt2")} width="600" height="450" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover;" />
             <div class="image-veil" />
             <div class="absolute" style="inset-inline-start: 14px; inset-block-end: 12px; inset-inline-end: 14px;">
-              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: rgba(251,248,241,0.78);">Cashless settlements</div>
-              <div class="serif" style="font-size: 14px; font-weight: 500; color: #FBF8F1; line-height: 1.3; margin-top: 3px;">Gulf insurers · Indian hospitals</div>
+              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: rgba(251,248,241,0.78);">{tIn("imgOverlay2Label")}</div>
+              <div class="serif" style="font-size: 14px; font-weight: 500; color: #FBF8F1; line-height: 1.3; margin-top: 3px;">{tIn("imgOverlay2Caption")}</div>
             </div>
           </div>
           <div class="relative paper-flat overflow-hidden" style="aspect-ratio: 4/3; border-radius: var(--radius-lg);">
-            <img src={serviceScene("ins-3")} alt="Coordinator on call with patient" width="600" height="450" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover;" />
+            <img src={serviceScene("ins-3")} alt={tIn("imgAlt3")} width="600" height="450" loading="lazy" decoding="async" style="width: 100%; height: 100%; object-fit: cover;" />
             <div class="image-veil" />
             <div class="absolute" style="inset-inline-start: 14px; inset-block-end: 12px; inset-inline-end: 14px;">
-              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: rgba(251,248,241,0.78);">Reimbursement support</div>
-              <div class="serif" style="font-size: 14px; font-weight: 500; color: #FBF8F1; line-height: 1.3; margin-top: 3px;">Itemised receipts · 8 languages</div>
+              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: rgba(251,248,241,0.78);">{tIn("imgOverlay3Label")}</div>
+              <div class="serif" style="font-size: 14px; font-weight: 500; color: #FBF8F1; line-height: 1.3; margin-top: 3px;">{tIn("imgOverlay3Caption")}</div>
             </div>
           </div>
         </div>
@@ -129,14 +130,14 @@ const stats = [
         <div class="flex items-end justify-between flex-wrap gap-4 mb-8">
           <div>
             <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-              01 · Insurers we work with
+              {tIn("insurance01")}
             </div>
             <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
-              Coverage, <span class="italic-display">by policy.</span>
+              {tIn("insuranceCoverage")}
             </h2>
           </div>
           <p class="mono uppercase max-w-[24rem]" style="font-size: 10.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-align: end;">
-            Cashless eligibility depends on policy + destination · We confirm before admission
+            {tIn("insuranceNote")}
           </p>
         </div>
 
@@ -144,15 +145,15 @@ const stats = [
           <table class="w-full" style="border-collapse: collapse;">
             <thead>
               <tr style="border-bottom: 1px solid var(--color-ink);">
-                <th class="text-start mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Insurer</th>
-                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Settlement</th>
-                <th class="text-start mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Notes</th>
+                <th class="text-start mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">{tIn("tableHeaderInsurer")}</th>
+                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">{tIn("tableHeaderSettlement")}</th>
+                <th class="text-start mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">{tIn("tableHeaderNotes")}</th>
               </tr>
             </thead>
             <tbody>
               {partners.map((p, i) => {
                 const tone = p.cashless === "yes" ? "var(--color-accent)" : p.cashless === "partial" ? "var(--color-saffron)" : "var(--color-ink-muted)";
-                const label = p.cashless === "yes" ? "Cashless" : p.cashless === "partial" ? "Partial cashless" : "Reimburse";
+                const label = p.cashless === "yes" ? tIn("labelCashless") : p.cashless === "partial" ? tIn("labelPartialCashless") : tIn("labelReimburse");
                 return (
                   <tr style={i > 0 ? "border-top: 1px dashed var(--color-border);" : ""}>
                     <td class="serif" style="font-size: 16px; letter-spacing: -0.005em; color: var(--color-ink); padding: 16px 20px;">
@@ -178,7 +179,7 @@ const stats = [
         </div>
 
         <p class="mt-4 mono uppercase" style="font-size: 10.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-          Don't see your insurer · Email us, new partnerships added monthly
+          {tIn("insuranceMissing")}
         </p>
       </div>
     </section>
@@ -187,17 +188,17 @@ const stats = [
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
         <div class="mb-8">
           <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-            02 · Claims support
+            {tIn("insuranceHow")}
           </div>
           <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
-            What we handle, <span class="italic-display">end-to-end.</span>
+            {tIn("insuranceHowTitle")}
           </h2>
         </div>
         <ul class="grid grid-cols-1 gap-5 md:grid-cols-3">
           {[
-            { eyebrow: "01", t: "Pre-authorization", d: "We coordinate with your insurer before admission — pre-auth letters, medical necessity justification, cost estimates." },
-            { eyebrow: "02", t: "Claim-ready docs", d: "Itemised invoices, discharge summaries, imaging reports, diagnostic tests — all in English PDF, within 5 business days." },
-            { eyebrow: "03", t: "Dedicated manager", d: "One named person from admission to settlement. They follow up with your insurer on reimbursement delays." },
+            { eyebrow: "01", t: tIn("insurancePreauth"), d: tIn("insurancePreauthDesc") },
+            { eyebrow: "02", t: tIn("insuranceDocs"), d: tIn("insuranceDocsDesc") },
+            { eyebrow: "03", t: tIn("insuranceDedicated"), d: tIn("insuranceDedicatedDesc") },
           ].map((x) => (
             <li class="paper" style="padding: 26px 28px;">
               <div class="display tnum" style="font-size: 40px; line-height: 0.95; color: var(--color-accent); letter-spacing: -0.02em;">{x.eyebrow}</div>
@@ -214,10 +215,10 @@ const stats = [
         <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
           <div>
             <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-              03 · FAQ
+              {tIn("insuranceFaq")}
             </div>
             <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
-              Insurance questions, answered
+              {tIn("insuranceFaqTitle")}
             </h2>
           </div>
           <div class="divide-y divide-[var(--color-border-soft)]">
@@ -240,10 +241,10 @@ const stats = [
         <div class="grid gap-8 lg:grid-cols-[1.5fr_1fr] items-end">
           <div>
             <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
-              Confirm coverage
+              {tIn("insuranceCta")}
             </div>
             <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.02; letter-spacing: -0.02em; color: var(--color-bg);">
-              Share your policy card. <span class="italic-display">We confirm in 24 hours.</span>
+              {tIn("insuranceCtaText")}
             </h2>
           </div>
           <div class="flex flex-wrap gap-3 lg:justify-end">
@@ -252,7 +253,7 @@ const stats = [
               class="inline-flex items-center gap-2 font-semibold"
               style="background: var(--color-bg); color: var(--color-ink); padding: 14px 22px; border-radius: 9999px;"
             >
-              Check my policy
+              {tIn("insuranceBtn")}
               <ChevronRight className="h-4 w-4 mirror-x" />
             </a>
           </div>
@@ -261,36 +262,36 @@ const stats = [
     </section>
 
     <HowItWorks
-      heading="How insurance for medical travel actually works"
-      italicWord="actually works"
-      eyebrow="Insurance navigation"
+      heading={tIn("howHeading")}
+      italicWord={tIn("howItalicWord")}
+      eyebrow={tIn("howEyebrow")}
       steps={[
-        { title: "Verify your existing coverage", description: "Most domestic insurance excludes elective international procedures. Some international policies (Cigna Global, Allianz Care, AXA, Bupa Global) reimburse at JCI hospitals. Confirm pre-authorization requirements." },
-        { title: "Pre-authorization (if applicable)", description: "If your insurer covers any portion, pre-auth is typically required. We handle the documentation: clinical justification, hospital quotes, expected outcome data." },
-        { title: "Direct-billing vs reimbursement", description: "Cashless direct-billing arrangements exist with select Gulf insurers. Most international cases are reimbursement: you pay, then submit for partial recovery." },
-        { title: "Documentation for claims", description: "Itemized invoices with diagnosis (ICD-10) and procedure (CPT) codes, discharge summary, operative note, pathology. Translation may be required." },
-        { title: "Travel insurance separately", description: "Standard travel insurance covers emergency medical events during your trip — not the planned procedure. Worth carrying for unrelated emergencies (which can happen)." },
+        { title: tIn("howStep1Title"), description: tIn("howStep1Desc") },
+        { title: tIn("howStep2Title"), description: tIn("howStep2Desc") },
+        { title: tIn("howStep3Title"), description: tIn("howStep3Desc") },
+        { title: tIn("howStep4Title"), description: tIn("howStep4Desc") },
+        { title: tIn("howStep5Title"), description: tIn("howStep5Desc") },
       ]}
-      outroNote="Don't plan international travel based primarily on insurance reimbursement. The cost savings vs domestic care are usually large enough that the trip makes sense without insurance — any reimbursement is a bonus."
+      outroNote={tIn("howOutroNote")}
     />
 
     <WhatToExpect
-      heading="The realistic insurance landscape"
-      italicWord="realistic landscape"
+      heading={tIn("wteHeading")}
+      italicWord={tIn("wteItalicWord")}
       items={[
-        { label: "US patients", description: "Most insurance excludes elective international. Some self-funded employer plans have explicit international benefits (notably WalMart, Lowe's). HSA/FSA funds work for qualified expenses. Tax deduction available above 7.5% AGI threshold." },
-        { label: "UK patients", description: "NHS doesn't cover elective international. Private UK insurance typically excludes — some policies have global cover with strict pre-auth." },
-        { label: "EU patients", description: "Cross-Border Healthcare Directive provides reimbursement at home-country rates within EU. Outside-EU travel (Turkey, India) typically not covered." },
-        { label: "Gulf patients", description: "Strong direct-billing arrangements with select Gulf insurers (Daman, Oman Insurance, Bupa Arabia). Cashless service common at major hospitals." },
-        { label: "What insurance never covers", description: "Cosmetic-only procedures, fertility (sometimes excluded), travel costs, accommodation. Verify exclusions before relying on coverage." },
+        { label: tIn("wteItem1Label"), description: tIn("wteItem1Desc") },
+        { label: tIn("wteItem2Label"), description: tIn("wteItem2Desc") },
+        { label: tIn("wteItem3Label"), description: tIn("wteItem3Desc") },
+        { label: tIn("wteItem4Label"), description: tIn("wteItem4Desc") },
+        { label: tIn("wteItem5Label"), description: tIn("wteItem5Desc") },
       ]}
     />
 
     <ExploreGrid
       locale={locale}
-      eyebrow="What insurance won't always cover"
-      heading="Plan around what's reimbursable"
-      lede="The pages below help you estimate out-of-pocket cost where insurance falls short — by procedure, by destination, or by hospital."
+      eyebrow={tIn("exploreEyebrow")}
+      heading={tIn("exploreHeading")}
+      lede={tIn("exploreLede")}
       items={[
         { eyebrow: "Cost", label: "Cost calculator", href: "/calculator", hint: "Procedure × country → live USD/EUR price band." },
         { eyebrow: "Cost", label: "Pricing matrix", href: "/pricing-index", hint: "All 88 treatments × 9 destinations." },

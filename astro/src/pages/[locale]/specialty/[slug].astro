@@ -43,6 +43,7 @@ if (!data) return new Response(`Not found: ${slug}`, { status: 404 });
 const { specialty: specialtyRaw, agg, topHospitals, countryBreakdown, topDoctors } = data;
 
 const tc = getTranslator(locale, "common");
+const tSd = getTranslator(locale, "specialtyDetailPage");
 
 const treatmentIds = (specialtyRaw.treatments ?? []).map((t) => t.id);
 
@@ -191,16 +192,16 @@ const guidelines = SOCIETY_GUIDELINES[slug] ?? [];
 
 type OutcomeCell = { l: string; v: string; sub?: string };
 const outcomeCells: OutcomeCell[] = [];
-if (avgSuccess) outcomeCells.push({ l: "Avg success", v: `${avgSuccess.toFixed(1)}%`, sub: `across ${successRates.length} procedures` });
-if (avgStay) outcomeCells.push({ l: "Hospital stay", v: `${avgStay.toFixed(1)} days`, sub: "median across the specialty" });
-if (avgRecovery) outcomeCells.push({ l: "Recovery", v: `${Math.round(avgRecovery)} wk`, sub: "to full activity" });
-outcomeCells.push({ l: "Hospitals", v: agg.hospitals.toLocaleString(), sub: `in ${agg.countries} destinations` });
+if (avgSuccess) outcomeCells.push({ l: tSd("outcomeLabelAvgSuccess"), v: `${avgSuccess.toFixed(1)}%`, sub: tSd("outcomeSubAcrossProcedures").replace("{n}", String(successRates.length)) });
+if (avgStay) outcomeCells.push({ l: tSd("outcomeLabelHospitalStay"), v: `${avgStay.toFixed(1)} days`, sub: tSd("outcomeSubMedian") });
+if (avgRecovery) outcomeCells.push({ l: tSd("outcomeLabelRecovery"), v: `${Math.round(avgRecovery)} wk`, sub: tSd("outcomeSubFullActivity") });
+outcomeCells.push({ l: tSd("outcomeLabelHospitals"), v: agg.hospitals.toLocaleString(), sub: tSd("outcomeSubInDestinations").replace("{n}", String(agg.countries)) });
 
 const stats = [
-  { l: "Hospitals", v: agg.hospitals.toLocaleString() },
-  { l: "Treatments", v: specialtyTreatments.length.toString() },
-  { l: "Destinations", v: agg.countries.toString() },
-  aggFromFormatted ? { l: "From", v: aggFromFormatted } : null,
+  { l: tSd("statLabelHospitals"), v: agg.hospitals.toLocaleString() },
+  { l: tSd("statLabelTreatments"), v: specialtyTreatments.length.toString() },
+  { l: tSd("statLabelDestinations"), v: agg.countries.toString() },
+  aggFromFormatted ? { l: tSd("statLabelFrom"), v: aggFromFormatted } : null,
 ].filter(Boolean) as Array<{ l: string; v: string }>;
 
 const seoTitle = specialty.name;
@@ -268,7 +269,7 @@ Astro.response.headers.set(
     <section class="pt-12 md:pt-16">
       <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
         <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
-          Specialty · {agg.hospitals.toLocaleString()} accredited hospitals
+          {tSd("eyebrowSpecialty").replace("{n}", agg.hospitals.toLocaleString())}
         </p>
         <div class="grid gap-10 lg:grid-cols-[1.5fr_1fr] lg:gap-14 mt-3">
           <div>
@@ -312,7 +313,7 @@ Astro.response.headers.set(
               slug={specialty.slug}
               name={specialty.name}
               aspect="5/4"
-              label={`${specialty.name} · accredited care`}
+              label={tSd("bannerLabel").replace("{name}", specialty.name)}
             />
             <div
               class="paper mt-4 flex items-center justify-between"
@@ -320,16 +321,16 @@ Astro.response.headers.set(
             >
               <div>
                 <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-                  Free quote
+                  {tSd("quoteCardEyebrow")}
                 </div>
-                <div class="serif" style="font-size: 15px;">Typical reply in ~9 min</div>
+                <div class="serif" style="font-size: 15px;">{tSd("quoteCardReply")}</div>
               </div>
               <a
                 href={localizedPath(locale, `/contact?specialty=${slug}`)}
                 class="inline-flex items-center gap-1 text-sm font-semibold"
                 style="background: var(--color-ink); color: var(--color-bg); padding: 9px 16px; border-radius: 9999px;"
               >
-                Get quote
+                {tSd("quoteCardButton")}
                 <ChevronRight className="h-3.5 w-3.5 mirror-x" />
               </a>
             </div>
@@ -344,13 +345,13 @@ Astro.response.headers.set(
           <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                About this specialty
+                {tSd("aboutEyebrow")}
               </div>
               <h2
                 class="display mt-3"
                 style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;"
               >
-                What to expect
+                {tSd("aboutHeading")}
               </h2>
             </div>
             <div class="prose-editorial" set:html={descriptionRestHtml} />
@@ -363,13 +364,13 @@ Astro.response.headers.set(
     <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
         <div class="mono uppercase mb-6" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-          What care looks like in {specialty.name}
+          {tSd("photoSectionEyebrow").replace("{name}", specialty.name)}
         </div>
         <ul class="grid gap-3" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
           {[
-            { src: heroImage(`sp-${specialty.slug}-1`), title: "Specialist consult", sub: "Senior consultant, named, in your language" },
-            { src: heroImage(`sp-${specialty.slug}-2`), title: "Imaging + workup", sub: "Same-day MRI/CT review with operating team" },
-            { src: journeyScene(`sp-${specialty.slug}-3`), title: "Recovery + follow-up", sub: "Weekly video check-ins after discharge" },
+            { src: heroImage(`sp-${specialty.slug}-1`), title: tSd("photoCard1Title"), sub: tSd("photoCard1Sub") },
+            { src: heroImage(`sp-${specialty.slug}-2`), title: tSd("photoCard2Title"), sub: tSd("photoCard2Sub") },
+            { src: journeyScene(`sp-${specialty.slug}-3`), title: tSd("photoCard3Title"), sub: tSd("photoCard3Sub") },
           ].map((m) => (
             <li class="relative paper-flat overflow-hidden" style="aspect-ratio: 4/5; border-radius: var(--radius-lg);">
               <img
@@ -403,10 +404,10 @@ Astro.response.headers.set(
           <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft);">
             <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
               <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Sub-specialties
+                {tSd("subspecialtiesEyebrow")}
               </div>
               <h2 class="display mb-7" style="font-size: 28px; letter-spacing: -0.02em;">
-                Within {specialty.name.toLowerCase()}
+                {tSd("subspecialtiesHeading").replace("{name}", specialty.name.toLowerCase())}
               </h2>
               <div class="grid gap-5 md:grid-cols-2">
                 {specialtySections.subspecialties.map((s: any) => (
@@ -428,10 +429,10 @@ Astro.response.headers.set(
               <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
                 <div>
                   <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                    Program quality
+                    {tSd("programQualityEyebrow")}
                   </div>
                   <h2 class="display mt-3" style="font-size: 26px; letter-spacing: -0.015em;">
-                    What to <span style="font-style: italic;">look for</span>
+                    {tSd("programQualityHeading")}
                   </h2>
                 </div>
                 <ul class="space-y-3">
@@ -451,10 +452,10 @@ Astro.response.headers.set(
           <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft);">
             <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
               <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Volume thresholds
+                {tSd("volumeThresholdsEyebrow")}
               </div>
               <h2 class="display mb-7" style="font-size: 26px; letter-spacing: -0.02em;">
-                Surgeon volume <span style="font-style: italic;">benchmarks</span>
+                {tSd("volumeThresholdsHeading")}
               </h2>
               <div class="paper overflow-hidden" style="padding: 0;">
                 {specialtySections.surgeonVolumeThresholds.map((t: any, i: number) => (
@@ -475,10 +476,10 @@ Astro.response.headers.set(
           <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
             <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
               <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Destinations
+                {tSd("destinationsEyebrow")}
               </div>
               <h2 class="display mb-7" style="font-size: 28px; letter-spacing: -0.02em;">
-                Where this is <span style="font-style: italic;">commonly done</span>
+                {tSd("destinationsHeading")}
               </h2>
               <div class="grid gap-5 md:grid-cols-2">
                 {specialtySections.topDestinations.map((d: any) => (
@@ -498,10 +499,10 @@ Astro.response.headers.set(
           <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft);">
             <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
               <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Patient journey
+                {tSd("patientJourneyEyebrow")}
               </div>
               <h2 class="display mb-7" style="font-size: 28px; letter-spacing: -0.02em;">
-                The typical <span style="font-style: italic;">care flow</span>
+                {tSd("patientJourneyHeading")}
               </h2>
               <ol class="space-y-0">
                 {specialtySections.typicalPatientJourney.map((step: any, i: number) => (
@@ -527,10 +528,10 @@ Astro.response.headers.set(
           <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
             <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
               <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Questions
+                {tSd("questionsEyebrow")}
               </div>
               <h2 class="display mb-7" style="font-size: 28px; letter-spacing: -0.02em;">
-                What to <span style="font-style: italic;">ask the program</span>
+                {tSd("questionsHeading")}
               </h2>
               <ol class="space-y-3">
                 {specialtySections.questionsForProgram.map((q: string, i: number) => (
@@ -552,9 +553,9 @@ Astro.response.headers.set(
               <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
                 <div>
                   <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                    Decision check
+                    {tSd("decisionCheckEyebrow")}
                   </div>
-                  <h2 class="display mt-3" style="font-size: 24px; letter-spacing: -0.015em;">Is this specialty right for your case?</h2>
+                  <h2 class="display mt-3" style="font-size: 24px; letter-spacing: -0.015em;">{tSd("decisionCheckHeading")}</h2>
                 </div>
                 <ul class="space-y-3">
                   {specialtySections.decisionPrompts.map((p: string) => (
@@ -578,14 +579,13 @@ Astro.response.headers.set(
           <div class="grid gap-10 lg:grid-cols-[1.2fr_1fr]">
             <div>
               <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
-                Outcomes at a glance
+                {tSd("outcomesEyebrow")}
               </div>
               <h2 class="display mt-2" style="font-size: 30px; line-height: 1.05; letter-spacing: -0.02em;">
-                What patients in {firstWord(specialty.name).toLowerCase()} care
-                <span style="font-style: italic; font-weight: 300;"> typically see</span>
+                {tSd("outcomesHeading").replace("{name}", firstWord(specialty.name).toLowerCase())}
               </h2>
               <p class="serif mt-3" style="font-size: 15px; line-height: 1.55; color: var(--color-ink-muted); max-width: 520px;">
-                Averages across the {specialtyTreatments.length} procedures in this specialty. Your case manager will quote outcomes specific to your indication and chosen surgeon.
+                {tSd("outcomesBody").replace("{n}", String(specialtyTreatments.length))}
               </p>
               <div
                 class="grid mt-6"
@@ -602,11 +602,11 @@ Astro.response.headers.set(
             </div>
             <div>
               <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                Guidelines we follow
+                {tSd("guidelinesEyebrow")}
               </div>
               <h3 class="display mt-2" style="font-size: 22px; line-height: 1.15; letter-spacing: -0.015em;">
-                Society guidelines
-                {guidelines.length > 0 && <span style="font-style: italic; font-weight: 300;"> · current edition</span>}
+                {tSd("guidelinesHeading")}
+                {guidelines.length > 0 && <span style="font-style: italic; font-weight: 300;"> {tSd("guidelinesCurrentEdition")}</span>}
               </h3>
               {guidelines.length > 0 ? (
                 <ul class="mt-5 space-y-2.5">
@@ -623,18 +623,18 @@ Astro.response.headers.set(
                           <div class="serif mt-1 truncate" style="font-size: 14.5px; font-weight: 500; line-height: 1.3;">{g.name}</div>
                           <div class="mono uppercase mt-1" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">{g.edition}</div>
                         </div>
-                        <span class="mono uppercase shrink-0 group-hover:text-accent transition-colors" style="font-size: 10px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">Open ↗</span>
+                        <span class="mono uppercase shrink-0 group-hover:text-accent transition-colors" style="font-size: 10px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">{tSd("guidelinesOpenLink")}</span>
                       </a>
                     </li>
                   ))}
                 </ul>
               ) : (
                 <p class="serif mt-4" style="font-size: 14.5px; line-height: 1.55; color: var(--color-ink-muted);">
-                  Treatment recommendations follow international society consensus where one exists, and the specialist's institutional protocol where it doesn't. We surface the source on every quote.
+                  {tSd("guidelinesFallback")}
                 </p>
               )}
               <p class="mono uppercase mt-5" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-                Editions verified by editorial · re-checked quarterly
+                {tSd("guidelinesVerified")}
               </p>
             </div>
           </div>
@@ -648,10 +648,10 @@ Astro.response.headers.set(
           <div class="flex items-end justify-between flex-wrap gap-4 mb-8">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                01 · Procedures
+                {tSd("proceduresEyebrow")}
               </div>
               <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
-                Treatments in <span class="italic-display">{firstWord(specialty.name)}</span>
+                {tSd("proceduresHeading").replace("{name}", firstWord(specialty.name))}
               </h2>
             </div>
             <a
@@ -659,7 +659,7 @@ Astro.response.headers.set(
               class="mono text-[11px] uppercase tracking-wider hover:text-accent"
               style="color: var(--color-ink-subtle);"
             >
-              All treatments →
+              {tSd("allTreatmentsLink")}
             </a>
           </div>
           <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -675,9 +675,9 @@ Astro.response.headers.set(
                   </div>
                   {(t.hospitalStayDays || t.recoveryDays || t.successRatePercent) && (
                     <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[12px]" style="color: var(--color-ink-subtle);">
-                      {t.hospitalStayDays && <span class="tnum">{t.hospitalStayDays}d stay</span>}
-                      {t.recoveryDays && <span class="tnum">{t.recoveryDays}wk recovery</span>}
-                      {t.successRatePercent && <span class="tnum">{Number(t.successRatePercent).toFixed(0)}% success</span>}
+                      {t.hospitalStayDays && <span class="tnum">{tSd("treatmentStatStay").replace("{n}", String(t.hospitalStayDays))}</span>}
+                      {t.recoveryDays && <span class="tnum">{tSd("treatmentStatRecovery").replace("{n}", String(t.recoveryDays))}</span>}
+                      {t.successRatePercent && <span class="tnum">{tSd("treatmentStatSuccess").replace("{n}", Number(t.successRatePercent).toFixed(0))}</span>}
                     </div>
                   )}
                   <div
@@ -685,7 +685,7 @@ Astro.response.headers.set(
                     style="border-top: 1px dashed var(--color-border); margin-top: 16px; padding-top: 12px;"
                   >
                     <span class="mono text-[10px] uppercase tracking-wider" style="color: var(--color-ink-subtle);">
-                      Compare pricing
+                      {tSd("comparePricing")}
                     </span>
                     <ChevronRight className="h-3.5 w-3.5 mirror-x text-[var(--color-ink-subtle)] group-hover:text-[var(--color-accent)] transition-colors" />
                   </div>
@@ -703,10 +703,10 @@ Astro.response.headers.set(
           <div class="flex items-end justify-between flex-wrap gap-4 mb-8">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                02 · Featured hospitals
+                {tSd("hospitalsEyebrow")}
               </div>
               <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
-                Centres of excellence for {firstWord(specialty.name)}
+                {tSd("hospitalsHeading").replace("{name}", firstWord(specialty.name))}
               </h2>
             </div>
           </div>
@@ -749,7 +749,7 @@ Astro.response.headers.set(
                         <span style="color: var(--color-saffron);">★</span>
                         <span class="tnum">{Number(h.rating).toFixed(1)}</span>
                         {h.review_count && h.review_count > 0 && (
-                          <span class="text-[12px]" style="color: var(--color-ink-subtle);">· {h.review_count.toLocaleString()} reviews</span>
+                          <span class="text-[12px]" style="color: var(--color-ink-subtle);">· {h.review_count.toLocaleString()} {tSd("reviews")}</span>
                         )}
                       </div>
                     )}
@@ -759,16 +759,16 @@ Astro.response.headers.set(
                     >
                       {h.from_usd ? (
                         <span class="text-[12.5px]" style="color: var(--color-ink-muted);">
-                          Quotes from <span class="display tnum text-ink text-[15px]"><Price usd={h.from_usd} /></span>
+                          {tSd("quotesFrom")} <span class="display tnum text-ink text-[15px]"><Price usd={h.from_usd} /></span>
                         </span>
                       ) : (
-                        <span class="mono text-[10px] uppercase tracking-wider" style="color: var(--color-ink-subtle);">View hospital</span>
+                        <span class="mono text-[10px] uppercase tracking-wider" style="color: var(--color-ink-subtle);">{tSd("viewHospital")}</span>
                       )}
                       <span
                         class="inline-flex items-center gap-1 text-[12px] font-semibold"
                         style="background: var(--color-ink); color: var(--color-bg); padding: 6px 12px; border-radius: 9999px;"
                       >
-                        View
+                        {tSd("viewButton")}
                         <ChevronRight className="h-3 w-3 mirror-x" />
                       </span>
                     </div>
@@ -787,10 +787,10 @@ Astro.response.headers.set(
           <div class="flex items-end justify-between flex-wrap gap-4 mb-8">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                03 · Surgeons
+                {tSd("surgeonsEyebrow")}
               </div>
               <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
-                Surgeons working in <span class="italic-display">{firstWord(specialty.name)}</span>
+                {tSd("surgeonsHeading").replace("{name}", firstWord(specialty.name))}
               </h2>
             </div>
             <a
@@ -798,7 +798,7 @@ Astro.response.headers.set(
               class="mono text-[11px] uppercase tracking-wider hover:text-accent"
               style="color: var(--color-ink-subtle);"
             >
-              All surgeons →
+              {tSd("allSurgeonsLink")}
             </a>
           </div>
           <ul class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
@@ -846,10 +846,10 @@ Astro.response.headers.set(
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
           <div class="mb-8">
             <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-              04 · Where to go
+              {tSd("whereToGoEyebrow")}
             </div>
             <h2 class="display mt-3" style="font-size: 32px; letter-spacing: -0.02em;">
-              Destinations for {firstWord(specialty.name)}
+              {tSd("whereToGoHeading").replace("{name}", firstWord(specialty.name))}
             </h2>
           </div>
           <ul>
@@ -869,14 +869,14 @@ Astro.response.headers.set(
                   </a>
                 </div>
                 <div class="tnum text-[13px] text-end" style="color: var(--color-ink-muted);">
-                  {c.n.toLocaleString()} hospitals
+                  {tSd("hospitalsCount").replace("{n}", c.n.toLocaleString())}
                 </div>
                 <a
                   href={localizedPath(locale, `/country/${c.slug}`)}
                   class="mono text-[10.5px] uppercase tracking-wider hover:text-accent"
                   style="color: var(--color-ink-subtle);"
                 >
-                  Country guide →
+                  {tSd("countryGuideLink")}
                 </a>
               </li>
             ))}
@@ -891,10 +891,10 @@ Astro.response.headers.set(
           <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                05 · FAQ
+                {tSd("faqEyebrow")}
               </div>
               <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
-                Common questions about {specialty.name} abroad
+                {tSd("faqHeading").replace("{name}", specialty.name)}
               </h2>
             </div>
             <div class="divide-y divide-[var(--color-border-soft)]">
@@ -918,10 +918,10 @@ Astro.response.headers.set(
         <div class="grid gap-8 lg:grid-cols-[1.5fr_1fr] items-end">
           <div>
             <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
-              Ready to start
+              {tSd("ctaEyebrow")}
             </div>
             <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 3.25rem); line-height: 1.02; letter-spacing: -0.02em; color: var(--color-bg);">
-              Share your case. Get a <span class="italic-display">{firstWord(specialty.name)}</span> shortlist in 48 hours.
+              {tSd("ctaHeading").replace("{name}", firstWord(specialty.name))}
             </h2>
           </div>
           <div class="flex flex-wrap gap-3 lg:justify-end">
@@ -930,7 +930,7 @@ Astro.response.headers.set(
               class="inline-flex items-center gap-2 font-semibold"
               style="background: var(--color-bg); color: var(--color-ink); padding: 14px 22px; border-radius: 9999px;"
             >
-              Request quotes
+              {tSd("ctaRequestQuotes")}
               <ChevronRight className="h-4 w-4 mirror-x" />
             </a>
             <a
@@ -938,7 +938,7 @@ Astro.response.headers.set(
               class="inline-flex items-center gap-2 font-semibold"
               style="border: 1px solid rgba(246,241,230,0.35); color: var(--color-bg); padding: 13px 22px; border-radius: 9999px;"
             >
-              Free second opinion
+              {tSd("ctaSecondOpinion")}
             </a>
           </div>
         </div>
@@ -992,7 +992,7 @@ Astro.response.headers.set(
     <MobileQuoteBar
       locale={locale}
       label={specialty.name}
-      sublabel="Match me to a sub-specialist"
+      sublabel={tSd("mobileSubLabel")}
       whatsapp={{
         page: "specialty",
         slug,

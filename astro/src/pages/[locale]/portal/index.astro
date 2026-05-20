@@ -16,6 +16,7 @@ const rawLocale = Astro.params.locale ?? "en";
 if (!isLocale(rawLocale)) return Astro.redirect("/en/portal", 308);
 const locale = rawLocale as Locale;
 const tc = getTranslator(locale, "common");
+const tPo = getTranslator(locale, "portalPage");
 
 const url = new URL(Astro.request.url);
 const codeAttempt = url.searchParams.get("code")?.trim();
@@ -24,13 +25,13 @@ if (codeAttempt && /^[A-Z0-9-]{6,24}$/i.test(codeAttempt)) {
   redirectUrl = localizedPath(locale, `/portal/${codeAttempt.toUpperCase()}`);
 }
 
-const seoTitle = "Patient portal — track your case";
-const seoDescription = "Look up your case by the 10-character tracking code your coordinator sent. See journey stage, upcoming appointments, and messages.";
+const seoTitle = tPo("seoTitle");
+const seoDescription = tPo("seoDescription");
 const path = "/portal";
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
-  { name: "Patient portal", url: localeUrl(locale, path) },
+  { name: tPo("breadcrumbLabel"), url: localeUrl(locale, path) },
 ]);
 
 const contactPageLd = {
@@ -73,7 +74,7 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
       <nav class="mono mx-auto max-w-[1440px]" style="font-size: 12px; color: var(--color-ink-subtle);" aria-label="Breadcrumb">
         <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
         <span class="mx-1.5">/</span>
-        <span style="color: var(--color-ink);">Patient portal</span>
+        <span style="color: var(--color-ink);">{tPo("breadcrumbLabel")}</span>
       </nav>
     </div>
 
@@ -82,7 +83,7 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
         <div class="relative paper-flat overflow-hidden mb-8" style="aspect-ratio: 16/9; border-radius: var(--radius-lg);">
           <img
             src={journeyScene("portal-hero")}
-            alt="Patient and family at home"
+            alt={tPo("heroImgAlt")}
             width="800"
             height="450"
             loading="eager"
@@ -91,22 +92,22 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
           />
           <div class="image-veil" />
           <div class="absolute" style="inset-inline-start: 16px; inset-block-end: 14px; inset-inline-end: 16px;">
-            <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: rgba(251,248,241,0.78);">6-stage timeline</div>
-            <div class="serif" style="font-size: 15px; font-weight: 500; color: #FBF8F1; line-height: 1.3; margin-top: 3px;">Track your case from records → recovery</div>
+            <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: rgba(251,248,241,0.78);">{tPo("heroOverlayEyebrow")}</div>
+            <div class="serif" style="font-size: 15px; font-weight: 500; color: #FBF8F1; line-height: 1.3; margin-top: 3px;">{tPo("heroOverlayCaption")}</div>
           </div>
         </div>
-        <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent); text-align: center;">Case lookup</div>
+        <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent); text-align: center;">{tPo("sectionEyebrow")}</div>
         <h1 class="display display-tight mt-3 text-center" style="font-size: clamp(2rem, 4.5vw, 3rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;">
-          Enter your <span class="italic-display">tracking code</span>
+          {tPo("headingPrefix")} <span class="italic-display">{tPo("headingEmphasis")}</span>
         </h1>
         <p class="serif mt-5 text-center" style="font-size: 17px; line-height: 1.5; color: var(--color-ink-muted);">
-          Your coordinator sent a 10-character code by email and WhatsApp when your case opened. Enter it below to see stage, appointments, and messages.
+          {tPo("bodyParagraph")}
         </p>
 
-        <h2 class="sr-only">Look up your case by tracking code</h2>
+        <h2 class="sr-only">{tPo("srOnlyHeading")}</h2>
         <form method="get" class="paper mt-8" style="padding: 24px; box-shadow: var(--shadow-md);">
           <label class="block">
-            <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Tracking code</span>
+            <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">{tPo("formLabel")}</span>
             <input
               name="code"
               placeholder="MC-A1B2C3D4"
@@ -122,31 +123,31 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
             class="inline-flex items-center justify-center gap-2 w-full mt-4 font-semibold"
             style="background: var(--color-ink); color: var(--color-bg); padding: 14px 22px; font-size: 15px; border-radius: 9999px;"
           >
-            Look up my case <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+            {tPo("submitButton")} <ChevronRight className="h-3.5 w-3.5 mirror-x" />
           </button>
         </form>
 
         <div class="mt-6 text-center" style="font-size: 13.5px; color: var(--color-ink-muted);">
-          Lost your code?
-          <a href={localizedPath(locale, "/contact?topic=code-recovery")} class="underline" style="color: var(--color-accent);">Ask your coordinator</a>
+          {tPo("lostCodePrompt")}
+          <a href={localizedPath(locale, "/contact?topic=code-recovery")} class="underline" style="color: var(--color-accent);">{tPo("lostCodeLink")}</a>
         </div>
       </div>
     </section>
 
     <ExploreGrid
       locale={locale}
-      eyebrow="No code yet?"
-      heading="Start a case or learn how the portal works"
-      lede="The portal tracks active cases by code. If you don't have one, the entry points below get you started."
+      eyebrow={tPo("exploreEyebrow")}
+      heading={tPo("exploreHeading")}
+      lede={tPo("exploreLede")}
       items={[
-        { eyebrow: "Quote", label: "Get a free quote", href: "/quote", hint: "5-minute form — we send 3 hospital options + cost." },
-        { eyebrow: "Match", label: "Match Me quiz", href: "/match-me", hint: "Concern + budget → recommended path." },
-        { eyebrow: "Find", label: "Find a specialist", href: "/find-specialist", hint: "Specialty + condition → matched surgeon." },
-        { eyebrow: "Trust", label: "Free second opinion", href: "/second-opinion", hint: "Independent review of an existing surgical plan." },
-        { eyebrow: "Process", label: "How our case managers work", href: "/services", hint: "Quote, second opinion, visa, follow-up — what we deliver." },
-        { eyebrow: "Refer", label: "Refer someone", href: "/referral", hint: "Doctor, family, or past patient — start a referral." },
-        { eyebrow: "Talk", label: "Talk to a coordinator", href: "/contact", hint: "Email, phone, or WhatsApp." },
-        { eyebrow: "Q&A", label: "Patient Q&A", href: "/qa", hint: "30 answered questions across 12 categories." },
+        { eyebrow: tPo("item1Eyebrow"), label: tPo("item1Label"), href: "/quote", hint: tPo("item1Hint") },
+        { eyebrow: tPo("item2Eyebrow"), label: tPo("item2Label"), href: "/match-me", hint: tPo("item2Hint") },
+        { eyebrow: tPo("item3Eyebrow"), label: tPo("item3Label"), href: "/find-specialist", hint: tPo("item3Hint") },
+        { eyebrow: tPo("item4Eyebrow"), label: tPo("item4Label"), href: "/second-opinion", hint: tPo("item4Hint") },
+        { eyebrow: tPo("item5Eyebrow"), label: tPo("item5Label"), href: "/services", hint: tPo("item5Hint") },
+        { eyebrow: tPo("item6Eyebrow"), label: tPo("item6Label"), href: "/referral", hint: tPo("item6Hint") },
+        { eyebrow: tPo("item7Eyebrow"), label: tPo("item7Label"), href: "/contact", hint: tPo("item7Hint") },
+        { eyebrow: tPo("item8Eyebrow"), label: tPo("item8Label"), href: "/qa", hint: tPo("item8Hint") },
       ]}
     />
 
