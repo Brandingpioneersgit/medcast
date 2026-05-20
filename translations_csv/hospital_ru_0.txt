@@ -1,0 +1,1057 @@
+=== 1976 | taluk-hospital-attingal | ru ===
+[name]
+  en: Taluk Hospital Attingal
+  ru: Taluk Hospital Attingal [ALREADY DONE]
+
+[description]
+  en: Taluk Hospital Attingal provides public medical services as a secondary level hospital for the Attingal region of Kerala.
+  ru: Taluk Hospital Attingal предоставляет государственные медицинские услуги как больница вторичного уровня для региона Аттингал в Керале. [ALREADY DONE]
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 7721 | cevre-hastanesi | ru ===
+[name]
+  en: Çevre Hastanesi
+  ru: 
+
+[description]
+  en: Çevre Hastanesi is a medical facility in Unknown, Turkey.
+  ru: 
+
+[address]
+  en: 2
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 26 | paolo-kaset-hospital | ru ===
+[name]
+  en: Paolo Kaset Hospital
+  ru: 
+
+[description]
+  en: Paolo Kaset Hospital is a medical facility in Bangkok, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 1980 | taluk-hospital-kadakkal | ru ===
+[name]
+  en: Taluk Hospital Kadakkal
+  ru: 
+
+[description]
+  en: Taluk Hospital Kadakkal is a medical facility in Unknown, India.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 22 | camillian-hospital | ru ===
+[name]
+  en: Camillian Hospital
+  ru: 
+
+[description]
+  en: Camillian Hospital - small private hospital in Bangkok (Thailand), founded by catholic missionaries - camillians in 1956. The hospital is located in Watthana district and has general practice and special care facilities.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 17 | vajira-hospital | ru ===
+[name]
+  en: Vajira Hospital
+  ru: 
+
+[description]
+  en: Vajira Hospital is one of the first hospitals in Thailand, founded by King Rama VI. It is a teaching university hospital of the Faculty of Medicine Vajira Hospital, Navamindradhiraj University; the Faculty of Medicine, Bangkokthonburi University and an affiliated teaching hospital of the Faculty of Medicine, Srinakharinwirot University. It is situated on Samsen Road, Dusit District, Bangkok, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 2 | medanta-medicity | ru ===
+[name]
+  en: Medanta - The Medicity
+  ru: 
+
+[description]
+  en: Medanta - The Medicity is a medical facility in Gurugram, India.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 25 | siriraj-hospital | ru ===
+[name]
+  en: Siriraj Hospital
+  ru: 
+
+[description]
+  en: Siriraj Hospital is the oldest and largest teaching hospital in Thailand, affiliated with Mahidol University's Faculty of Medicine. Founded in 1888, it is a quaternary referral centre handling the most complex medical and surgical cases from across Thailand and Southeast Asia.
+
+As a university hospital, Siriraj has dedicated research programmes in translational medicine, clinical trials, and medical innovation. Its clinical departments cover the full spectrum of specialties and subspecialties, w
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 28 | mccormick-hospital | ru ===
+[name]
+  en: McCormick Hospital
+  ru: 
+
+[description]
+  en: McCormick Hospital is a medical facility in Chiang Mai, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 13 | naresuan-university-hospital | ru ===
+[name]
+  en: Naresuan University Hospital
+  ru: 
+
+[description]
+  en: Naresuan University Hospital is a primary teaching hospital of the Faculty of Medicine Naresuan University, located on the campus of Naresuan University in Phitsanulok Province, Thailand. The hospital is designed as the super tertiary care medical center in the lower northern region of Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 1978 | taluk-hospital-nedungolam | ru ===
+[name]
+  en: Taluk Hospital Nedungolam
+  ru: 
+
+[description]
+  en: Taluk Hospital Nedungolam is a medical facility in Unknown, India.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 12 | piyavate-hospital | ru ===
+[name]
+  en: Piyavate Hospital
+  ru: 
+
+[description]
+  en: Piyavate Hospital is a private hospital in Bangkok with over 25 years of service. It has developed particular strengths in cardiac care (Piyavate Heart Institute), orthopaedics, and gastroenterology, alongside comprehensive general and specialist services.
+
+The hospital is popular with international patients seeking value-based care, offering transparent pricing and package deals for common procedures including cardiac catheterisation, joint replacement, and health screening.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 29 | phyathai-1-hospital | ru ===
+[name]
+  en: Phyathai 1 Hospital
+  ru: 
+
+[description]
+  en: Phyathai 1 Hospital is a private hospital in Bangkok and part of the Phyathai Hospital network. It offers comprehensive medical services across multiple specialties, with particular strengths in cardiac care, neurology, and orthopaedics. The hospital has expanded into a full-service tertiary centre with modern facilities.
+
+Phyathai 1 operates a network of hospitals and specialised clinics across Bangkok, offering accessible pricing and short wait times compared to the premium hospital tier. Inte
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 6 | sarvodaya-hospital | ru ===
+[name]
+  en: Sarvodaya Hospital
+  ru: 
+
+[description]
+  en: Sarvodaya Hospital in Faridabad (Delhi NCR) is a leading multi-specialty hospital offering comprehensive medical and surgical care for patients across the Delhi-Gurgaon-Faridabad corridor. Founded over 30 years ago, the hospital has built a trusted reputation in the region for quality general and specialist care at accessible pricing.
+
+Clinical services include general medicine and surgery, orthopaedics and joint replacement, cardiac care, obstetrics and gynaecology, and nephrology. The hospital
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 53 | debaratana-nakhon-ratchasima-hospital | ru ===
+[name]
+  en: Debaratana Nakhon Ratchasima Hospital
+  ru: 
+
+[description]
+  en: Debaratana Nakhon Ratchasima Hospital is a medical facility in Nakhon Ratchasima, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 34 | veterans-general-hospital | ru ===
+[name]
+  en: Veterans General Hospital
+  ru: 
+
+[description]
+  en: Taipei Veterans General Hospital is a national first-class medical center and a teaching hospital that provides tertiary patient care, undergraduate medical education programs and residency programs in Taiwan. It was founded in 1958 and administered by the Veterans Affairs Council. It is in Beitou District, Taipei and mainly serves patients in northern Taipei and New Taipei. Three branches, Taoyuan Veterans Hospital, Yuanshan Veterans Hospital, and Suao Veterans Hospital, were established.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 48 | chum-phae-hospital | ru ===
+[name]
+  en: Chum Phae Hospital
+  ru: 
+
+[description]
+  en: Chum Phae Hospital is a medical facility in Khon Kaen, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 49 | ban-mi-hospital | ru ===
+[name]
+  en: Ban Mi Hospital
+  ru: 
+
+[description]
+  en: Ban Mi Hospital is a medical facility in Unknown, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 55 | rajavej-chiangmai-hospital | ru ===
+[name]
+  en: Rajavej Chiangmai Hospital
+  ru: 
+
+[description]
+  en: Rajavej Chiangmai Hospital is a medical facility in Chiang Mai, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 7722 | ac-badem-fulya-hastanesi | ru ===
+[name]
+  en: Acıbadem Fulya Hastanesi
+  ru: 
+
+[description]
+  en: Acıbadem Fulya Hastanesi is a medical facility in Istanbul, Turkey.
+  ru: 
+
+[address]
+  en: 23, Yeşilçimen Sokak, İstanbul, 34349
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 47 | central-chest-institute-of-thailand | ru ===
+[name]
+  en: Central Chest Institute of Thailand
+  ru: 
+
+[description]
+  en: Central Chest Institute of Thailand is a medical facility in Nonthaburi, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 43 | lanna-hospital | ru ===
+[name]
+  en: Lanna Hospital
+  ru: 
+
+[description]
+  en: Lanna Hospital is a medical facility in Chiang Mai, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 44 | saint-louis-hospital | ru ===
+[name]
+  en: Saint Louis Hospital
+  ru: 
+
+[description]
+  en: Saint Louis Hospital is a large private Catholic hospital in Sathon District, Bangkok, Thailand. Named for Saint Louis; the King of France, the hospital was founded by Bishop Vey in 1898 following the adjacent Saint Louis Church, making it the first Catholic hospital in Thailand. The hospital's motto is "Ubi Caritas, Ibi Deus Est."
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 66 | banphaeo-general-hospital | ru ===
+[name]
+  en: Banphaeo General Hospital
+  ru: 
+
+[description]
+  en: Banphaeo General Hospital, is a hospital located in Ban Phaeo district, Samut Sakhon province, Thailand. It is operated as a public organisation under oversight of the Ministry of Public Health (MOPH) and is the only hospital in Thailand be run in this manner. It is also an affiliated teaching hospital of the Faculty of Medicine Siriraj Hospital, Mahidol University.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 51 | su-ngai-kolok-hospital | ru ===
+[name]
+  en: Su-ngai Kolok Hospital
+  ru: 
+
+[description]
+  en: Su-ngai Kolok Hospital is a medical facility in Hat Yai, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 69 | ananda-mahidol-hospital | ru ===
+[name]
+  en: Ananda Mahidol Hospital
+  ru: 
+
+[description]
+  en: Ananda Mahidol Hospital is a medical facility in Hat Yai, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 60 | galyanivadhanakarun-hospital | ru ===
+[name]
+  en: Galyanivadhanakarun Hospital
+  ru: 
+
+[description]
+  en: Galyanivadhanakarun Hospital is a university teaching hospital, affiliated to the Faculty of Medicine of Princess of Naradhiwas University, located in Mueang Narathiwat District, Narathiwat Province. It is located close to the new Provincial Government Office of Narathiwat Province.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 58 | vejthani-hospital | ru ===
+[name]
+  en: Vejthani Hospital
+  ru: 
+
+[description]
+  en: Vejthani Hospital is a medical facility in Bangkok, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 1982 | taluk-hospital-angamaly | ru ===
+[name]
+  en: Taluk Hospital Angamaly
+  ru: 
+
+[description]
+  en: Taluk Hospital Angamaly is a medical facility in Unknown, India.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 64 | ramkhamhaeng-hospital | ru ===
+[name]
+  en: Ramkhamhaeng Hospital
+  ru: 
+
+[description]
+  en: Ramkhamhaeng Hospital is a medical facility in Bangkok, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 52 | crown-prince-chawang-hospital | ru ===
+[name]
+  en: Crown Prince Chawang Hospital
+  ru: 
+
+[description]
+  en: Crown Prince Chawang Hospital is a medical facility in Hat Yai, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 7723 | mecidiyekoy-kbb-ve-vertigo-klinigi | ru ===
+[name]
+  en: Mecidiyeköy KBB ve Vertigo Kliniği
+  ru: 
+
+[description]
+  en: Mecidiyeköy KBB ve Vertigo Kliniği is a medical facility in Istanbul, Turkey.
+  ru: 
+
+[address]
+  en: 5/A, Ortaklar Caddesi, İstanbul, 34346
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 50 | phra-phutthabat-hospital | ru ===
+[name]
+  en: Phra Phutthabat Hospital
+  ru: 
+
+[description]
+  en: Phra Phutthabat Hospital is a medical facility in Nonthaburi, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 63 | the-cabin-chiang-mai | ru ===
+[name]
+  en: The Cabin Chiang Mai
+  ru: 
+
+[description]
+  en: The Cabin Rehab is a drug and alcohol rehabilitation facility in Chiang Mai, Thailand. The center has offered treatment for alcohol, drug and behavioral addiction since 2009. The centre is a medical tourism location for international patients from countries such as Australia, Bangladesh, India, Oman, Singapore, the United Kingdom and the United States.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 32 | kasemrad-sriburin-general-hospital | ru ===
+[name]
+  en: Kasemrad Sriburin General Hospital
+  ru: 
+
+[description]
+  en: Kasemrad Sriburin General Hospital or Kasemrad Hospital is a hospital in Chiang Rai Province in northeast Thailand. It is one of the most important hospitals in the province. It was established in 1993 by the Kasemrad Hospital group which is based in Bangkok.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 88 | somdej-phra-sangharaja-17th-hospital | ru ===
+[name]
+  en: Somdej Phra Sangharaja 17th Hospital
+  ru: 
+
+[description]
+  en: Somdej Phra Sangharaja 17th Hospital is a medical facility in Hat Yai, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 86 | in-buri-hospital | ru ===
+[name]
+  en: In Buri Hospital
+  ru: 
+
+[description]
+  en: In Buri Hospital is a medical facility in Nonthaburi, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 110 | sansai-hospital | ru ===
+[name]
+  en: Sansai hospital
+  ru: 
+
+[description]
+  en: Sansai hospital is a medical facility in Unknown, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 90 | crown-prince-tha-bo-hospital | ru ===
+[name]
+  en: Crown Prince Tha Bo Hospital
+  ru: 
+
+[description]
+  en: Crown Prince Tha Bo Hospital is a medical facility in Khon Kaen, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 99 | naradhiwas-rajanagarindra-hospital | ru ===
+[name]
+  en: Naradhiwas Rajanagarindra Hospital
+  ru: 
+
+[description]
+  en: Naradhiwas Rajanagarindra Hospital is the main hospital of Narathiwat Province, Thailand and is classified under the Ministry of Public Health as a general hospital. It has a CPIRD Medical Education Center which trains doctors for the Faculty of Medicine of Princess of Naradhiwas University.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 78 | pua-crown-prince-hospital | ru ===
+[name]
+  en: Pua Crown Prince Hospital
+  ru: 
+
+[description]
+  en: Pua Crown Prince Hospital is a medical facility in Khon Kaen, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 7726 | medisun-hastanesi | ru ===
+[name]
+  en: Medisun Hastanesi
+  ru: 
+
+[description]
+  en: Medisun Hastanesi is a medical facility in Unknown, Turkey.
+  ru: 
+
+[address]
+  en: 1920. Cd(10. Cd.)
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 1467 | bgs-global-hospital | ru ===
+[name]
+  en: BGS Global Hospital
+  ru: 
+
+[description]
+  en: BGS Global Hospital is a medical facility in Bengaluru, India.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 97 | songklanagarind-hospital | ru ===
+[name]
+  en: Songklanagarind Hospital
+  ru: 
+
+[description]
+  en: Songklanagarind Hospital is a university teaching hospital, affiliated to the Faculty of Medicine of Prince of Songkla University, located in Hat Yai District, Songkhla Province. It is a hospital capable of super tertiary care and is the first university hospital in Southern Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 112 | nan-hospital | ru ===
+[name]
+  en: Nan hospital
+  ru: 
+
+[description]
+  en: Nan hospital is a medical facility in Unknown, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 72 | sisaket-hospital | ru ===
+[name]
+  en: Sisaket Hospital
+  ru: 
+
+[description]
+  en: Sisaket Hospital is the main hospital of Sisaket Province, Thailand. It is classified under the Ministry of Public Health as a regional hospital. It has a CPIRD Medical Education Center which trains doctors for the College of Medicine and Public Health of Ubon Ratchathani University.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 70 | maharaj-nakorn-chiang-mai-hospital | ru ===
+[name]
+  en: Maharaj Nakorn Chiang Mai Hospital
+  ru: 
+
+[description]
+  en: Maharaj Nakorn Chiang Mai Hospital is a university teaching hospital, affiliated to the Faculty of Medicine of Chiang Mai University, located in Mueang Chiang Mai District, Chiang Mai Province. It is a hospital capable of super tertiary care and is the first university hospital in Northern Thailand, and the first to be located outside Bangkok. The hospital is known as 'Suandok Hospital' locally, due to its close proximity to Suan Dok Gate.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 1004 | thong-pha-phum-hospital | ru ===
+[name]
+  en: Thong Pha Phum Hospital
+  ru: 
+
+[description]
+  en: Thong Pha Phum Hospital is a medical facility in Unknown, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 107 | uttaradit-hospital | ru ===
+[name]
+  en: Uttaradit Hospital
+  ru: 
+
+[description]
+  en: Uttaradit Hospital is the main hospital of Uttaradit province, Thailand. It is classified under the Ministry of Public Health as a regional hospital. It has a CPIRD Medical Education Center which trains doctors for the Faculty of Medicine of Naresuan University. It is capable of tertiary care.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 
+
+=== 93 | hua-chiew-hospital | ru ===
+[name]
+  en: Hua Chiew Hospital
+  ru: 
+
+[description]
+  en: Hua Chiew Hospital is a medical facility in Bangkok, Thailand.
+  ru: 
+
+[address]
+  en: 
+  ru: 
+
+[metaTitle]
+  en: 
+  ru: 
+
+[metaDescription]
+  en: 
+  ru: 

@@ -20,10 +20,12 @@ import { doctorJsonLd, breadcrumbJsonLd, localeUrl, SITE_URL, withProvenance } f
 import LastUpdated from "@/components/LastUpdated.astro";
 import ContactDoctor from "@/components/ContactDoctor.tsx";
 import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 import MobileQuoteBar from "@/components/MobileQuoteBar.astro";
 import EngagementFab from "@/components/EngagementFab.astro";
 import { whatsappFor } from "@/lib/whatsapp";
 import { doctorPortrait } from "@/lib/images";
+import { pageImageFor } from "@/lib/page-images";
 import {
   Award,
   ChevronRight,
@@ -42,7 +44,10 @@ if (!isLocale(rawLocale)) return Astro.redirect(`/en/doctor/${slug}`, 308);
 if (!slug) return new Response("Not found", { status: 404 });
 
 const locale = rawLocale as Locale;
-const doctorRaw = await getDoctorBySlug(slug);
+const [doctorRaw, portraitOverride] = await Promise.all([
+  getDoctorBySlug(slug),
+  pageImageFor("doctor", slug, "cover"),
+]);
 if (!doctorRaw) return new Response(`Not found: ${slug}`, { status: 404 });
 
 const tc = getTranslator(locale, "common");
@@ -98,6 +103,28 @@ const languages = parseLanguages(doctor.languagesSpoken);
 
 const cityName = hospital?.city?.name ?? null;
 const countryName = hospital?.city?.country?.name ?? null;
+const citySlug = doctorRaw.hospital?.city?.slug ?? null;
+const countrySlug = doctorRaw.hospital?.city?.country?.slug ?? null;
+const hospSlug = doctorRaw.hospital?.slug ?? null;
+const hospName = hospital?.name ?? null;
+const primarySpecSlug = docSpecialties[0]?.specialty?.slug ?? null;
+const primarySpecNameForLink = docSpecialties[0]?.specialty?.name ?? null;
+
+type ExploreItem = { eyebrow?: string; label: string; href: string; hint?: string };
+const exploreItems: ExploreItem[] = [
+  ...(hospSlug && hospName ? [{ eyebrow: "Hospital", label: `${hospName} profile`, href: `/hospital/${hospSlug}`, hint: "Programs, accreditation, surgeons, pricing across all specialties." }] : []),
+  ...(primarySpecSlug && primarySpecNameForLink ? [{ eyebrow: "Specialty", label: `${primarySpecNameForLink} hub`, href: `/specialty/${primarySpecSlug}`, hint: `All ${primarySpecNameForLink.toLowerCase()} programs across destinations.` }] : []),
+  ...(primarySpecSlug && primarySpecNameForLink ? [{ eyebrow: "Surgeons", label: `Other ${primarySpecNameForLink.toLowerCase()} surgeons`, href: `/surgeons/${primarySpecSlug}`, hint: "Volume-ranked physician directory." }] : []),
+  ...(primarySpecSlug && countrySlug && primarySpecNameForLink && countryName ? [{ eyebrow: "Surgeons", label: `${primarySpecNameForLink} surgeons in ${countryName}`, href: `/surgeons/${primarySpecSlug}/${countrySlug}`, hint: `Filtered to ${countryName}-based programs only.` }] : []),
+  ...(citySlug && cityName ? [{ eyebrow: "Destination", label: `Hospitals in ${cityName}`, href: `/hospitals/city/${citySlug}`, hint: "Same-city options for context." }] : []),
+  ...(countrySlug && countryName ? [{ eyebrow: "Destination", label: `${countryName} hospital hub`, href: `/country/${countrySlug}`, hint: `Featured programs and pricing in ${countryName}.` }] : []),
+  { eyebrow: "Compare", label: "Doctor comparison", href: "/compare/doctors", hint: "Surgeons compared on volume, fees, languages, video-consult availability." },
+  { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, pricing for up to 4 hospitals." },
+  { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get specialty + destination + 3 hospitals." },
+  { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
+  { eyebrow: "Reference", label: "Glossary of terms", href: "/glossary", hint: "Plain-language definitions for credentials, procedures, logistics." },
+  { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "How we verify physician credentials and source of practice records." },
+];
 
 const whatsappUrl = whatsappFor({
   page: "doctor",
@@ -151,15 +178,37 @@ const researchLinks = [
   { label: "ORCID", sub: "Researcher ID lookup", url: orcidUrl },
 ];
 
-const seoTitle = hospital ? `${fullName} — ${hospital.name}` : fullName;
-const seoDescription = `${doctor.name}${doctor.qualifications ? `, ${doctor.qualifications}` : ""}${hospital ? ` at ${hospital.name}` : ""}. ${doctor.experienceYears ? `${doctor.experienceYears}+ years experience. ` : ""}Book an appointment.`;
+// Local-SEO title: "{Dr.} — {Specialty} in {City}, {Country}" — matches
+// long-tail queries like "cardiac surgeon in mumbai" and locks the geo trio
+// into the result snippet. Falls back gracefully when fields are missing.
+const primarySpecialtyName = docSpecialties[0]?.specialty?.name ?? null;
+const localGeoSuffix = [cityName, countryName].filter(Boolean).join(", ");
+const seoTitle = (() => {
+  if (primarySpecialtyName && localGeoSuffix)
+    return `${fullName} — ${primarySpecialtyName} in ${localGeoSuffix}`;
+  if (localGeoSuffix) return `${fullName} — ${localGeoSuffix}`;
+  if (hospital) return `${fullName} — ${hospital.name}`;
+  return fullName;
+})();
+const seoDescription = (() => {
+  // On non-default locales, the translated bio is the most natural SEO blurb.
+  if (locale !== "en" && doctor.bio) {
+    return doctor.bio.replace(/\s+/g, " ").trim().slice(0, 160);
+  }
+  const role = primarySpecialtyName ? `${primarySpecialtyName} specialist` : "Specialist";
+  const at = hospital ? ` at ${hospital.name}` : "";
+  const where = localGeoSuffix ? `, ${localGeoSuffix}` : "";
+  const yrs = doctor.experienceYears ? `${doctor.experienceYears}+ yrs experience. ` : "";
+  const cred = doctor.qualifications ? `${doctor.qualifications.split(/[,;·•|/]/)[0].trim()}. ` : "";
+  return `${role}${at}${where}. ${cred}${yrs}Book a consultation or free second opinion.`.slice(0, 160);
+})();
 const path = `/doctor/${slug}`;
 const url = localeUrl(locale, path);
 
 const physicianLd = doctorJsonLd({
   name: fullName,
   qualifications: doctor.qualifications,
-  imageUrl: doctor.imageUrl,
+  imageUrl: portraitOverride?.url ?? doctor.imageUrl,
   hospitalName: hospital?.name ?? "",
   hospitalUrl: hospital ? localeUrl(locale, `/hospital/${hospital.slug}`) : undefined,
   hospitalWebsite: doctorRaw.hospital?.website ?? null,
@@ -168,6 +217,8 @@ const physicianLd = doctorJsonLd({
   reviewCount: doctor.reviewCount,
   specialties: docSpecialties.map((ds) => ds.specialty.name),
   expertise: expertise.map((e: { expertiseArea: string }) => e.expertiseArea),
+  city: cityName,
+  country: countryName,
 });
 
 const jsonLd = withProvenance(
@@ -183,6 +234,15 @@ const jsonLd = withProvenance(
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
   { name: tc("doctors"), url: localeUrl(locale, "/doctors") },
+  ...(countrySlug && countryName
+    ? [{ name: countryName, url: localeUrl(locale, `/doctors?country=${countrySlug}`) }]
+    : []),
+  ...(citySlug && cityName
+    ? [{ name: cityName, url: localeUrl(locale, `/city/${citySlug}`) }]
+    : []),
+  ...(hospSlug && hospName
+    ? [{ name: hospName, url: localeUrl(locale, `/hospital/${hospSlug}`) }]
+    : []),
   { name: fullName, url },
 ]);
 
@@ -260,15 +320,15 @@ Astro.response.headers.set(
     {/* Hero — 3-col editorial: portrait | info | booking panel */}
     <section style="padding: 48px 28px; background: var(--color-paper); border-bottom: 1px solid var(--color-border);">
       <div class="mx-auto max-w-[1440px]">
-        <div class="grid gap-10 lg:grid-cols-[0.8fr,1.5fr,1fr] lg:gap-[40px] items-start">
+        <div class="grid gap-10 lg:grid-cols-[0.8fr_1.5fr_1fr] lg:gap-[40px] items-start">
           {/* Portrait — capped width on small screens so the 4/5 aspect doesn't blow up */}
           <div
             class="mc-doctor-portrait paper-flat relative overflow-hidden mx-auto lg:mx-0 w-full"
             style="aspect-ratio: 4/5; border-radius: var(--radius-lg);"
           >
             <img
-              src={doctorPortrait({ imageUrl: doctor.imageUrl, id: doctor.id }, 600)}
-              alt={fullName}
+              src={doctorPortrait({ imageUrl: doctor.imageUrl, id: doctor.id, override: portraitOverride?.url }, 600)}
+              alt={portraitOverride?.altText ?? fullName}
               width="480"
               height="600"
               loading="eager"
@@ -369,33 +429,40 @@ Astro.response.headers.set(
             <div class="mt-4"><LastUpdated updated={doctorRaw.updatedAt} locale={locale} /></div>
           </div>
 
-          {/* Booking panel — kept from prior impl but reformatted */}
+          {/* Booking panel — real flow at /book/[doctorSlug], not fake slot pills */}
           <aside>
             <div class="paper" style="padding: 22px;">
               <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">
-                Book a video consultation
+                Book a consultation
               </div>
               <div class="display mt-2" style="font-size: 22px; letter-spacing: -0.02em; line-height: 1.2;">
-                Next available: <span class="serif" style="font-style: italic;">Tomorrow 4:30pm</span>
+                Coordinator confirms <span class="serif" style="font-style: italic;">within 24 hours</span>
               </div>
+              <p class="serif mt-3" style="font-size: 13.5px; line-height: 1.5; color: var(--color-ink-muted);">
+                Pick a preferred date + format. You'll get an appointment code immediately; {doctor.name.split(/\s+/).slice(0, 1).join(" ")}'s team confirms availability within a business day.
+              </p>
 
               <div class="mt-4 grid grid-cols-3 gap-1.5">
-                {["Tue 4:30", "Wed 11:00", "Thu 2:00", "Fri 9:30", "Fri 5:00", "Sat 10:30"].map((s, i) => {
-                  const btnStyle = i === 0
-                    ? "padding: 10px 8px; border: 1px solid var(--color-ink); border-radius: 8px; background: var(--color-ink); color: var(--color-bg);"
-                    : "padding: 10px 8px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface-elevated); color: var(--color-ink);";
-                  return (
-                    <a
-                      href={localizedPath(locale, `/contact?doctor=${doctor.slug}&slot=${encodeURIComponent(s)}`)}
-                      class="text-center text-[12.5px] font-medium"
-                      style={btnStyle}
-                    >{s}</a>
-                  );
-                })}
+                <a
+                  href={localizedPath(locale, `/book/${doctor.slug}?type=in-person`)}
+                  class="text-center text-[12px] font-medium"
+                  style="padding: 10px 6px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface-elevated); color: var(--color-ink);"
+                >In&nbsp;person</a>
+                <a
+                  href={localizedPath(locale, `/book/${doctor.slug}?type=video`)}
+                  class="text-center text-[12px] font-medium"
+                  style={`padding: 10px 6px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface-elevated); color: var(--color-ink); ${doctor.availableForVideoConsult ? "" : "opacity: 0.45; pointer-events: none;"}`}
+                  aria-disabled={!doctor.availableForVideoConsult ? "true" : undefined}
+                >Video</a>
+                <a
+                  href={localizedPath(locale, `/book/${doctor.slug}?type=phone`)}
+                  class="text-center text-[12px] font-medium"
+                  style="padding: 10px 6px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface-elevated); color: var(--color-ink);"
+                >Phone</a>
               </div>
 
               <a
-                href={localizedPath(locale, `/contact?doctor=${doctor.slug}`)}
+                href={localizedPath(locale, `/book/${doctor.slug}`)}
                 class="inline-flex items-center justify-center gap-2 w-full mt-3.5 font-semibold"
                 style="background: var(--color-accent); color: #FFF; padding: 14px 22px; font-size: 15px; border-radius: 9999px;"
               >
@@ -455,7 +522,7 @@ Astro.response.headers.set(
 
     {/* Below-hero: bio + hospital + expertise content */}
     <section class="mx-auto max-w-7xl px-6 pt-12 md:pt-14 pb-8">
-      <div class="grid gap-10 md:grid-cols-[1fr,22rem]">
+      <div class="grid gap-10 md:grid-cols-[1fr_22rem]">
         <div>
           {hospital && (
             <div class="rounded-xl border p-5" style="border-color: var(--color-border); background: var(--color-surface-muted);">
@@ -493,7 +560,7 @@ Astro.response.headers.set(
                 Verifiable
                 <span style="font-style: italic; font-weight: 300;"> training</span>
               </h2>
-              <div class="grid gap-6 lg:grid-cols-[1.3fr,1fr]">
+              <div class="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
                 <div>
                   <p class="mono uppercase mb-3" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                     Qualifications
@@ -762,6 +829,14 @@ Astro.response.headers.set(
         "Peer-reviewed publication record (PubMed, Google Scholar)",
         "Society membership directories (specialty-specific)",
       ]}
+    />
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow="Continue your search"
+      heading={`Other ways to find a fit beyond ${doctor.name}`}
+      lede="One surgeon, evaluated. These pages broaden the picture — same specialty, same destination, same procedure — for an honest comparison."
+      items={exploreItems}
     />
 
     <SiteFooter locale={locale} />

@@ -12,6 +12,7 @@ import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, SITE_NAME, SITE_URL } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { ChevronRight } from "lucide-react";
+import { heroImage, serviceScene, journeyScene } from "@/lib/images";
 import HowItWorks from "@/components/content/HowItWorks.astro";
 import WhatToExpect from "@/components/content/WhatToExpect.astro";
 
@@ -60,7 +61,7 @@ const contactPageLd = {
       {
         "@type": "ContactPoint",
         contactType: "customer support",
-        email: "hello@medcasts.com",
+        email: "medcastsdigital@gmail.com",
         availableLanguage: ["en", "ar", "ru", "fr", "pt", "bn", "tr", "hi"],
       },
       {
@@ -117,6 +118,41 @@ const whyStats = [
       lede={tq("lede")}
       stats={heroStats}
     />
+
+    {/* Real-care strip — what happens after the quote */}
+    <section style="padding: 0 0 24px;">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="grid gap-3" style="grid-template-columns: repeat(4, minmax(0, 1fr));">
+          {[
+            { src: heroImage("quote-step-1"), n: "01", title: "You upload reports" },
+            { src: heroImage("quote-step-2"), n: "02", title: "Panel reviews · 48 hr" },
+            { src: serviceScene("quote-step-3"), n: "03", title: "Itemised quotes from 3 hospitals" },
+            { src: journeyScene("quote-step-4"), n: "04", title: "Speak the surgeon. Decide." },
+          ].map((s) => (
+            <div class="relative paper-flat overflow-hidden" style="aspect-ratio: 4/5; border-radius: var(--radius-lg);">
+              <img
+                src={s.src}
+                alt={s.title}
+                width="500"
+                height="625"
+                loading="lazy"
+                decoding="async"
+                style="width: 100%; height: 100%; object-fit: cover;"
+              />
+              <div class="image-veil-strong" />
+              <div class="absolute" style="inset-inline-start: 14px; inset-block-end: 14px; inset-inline-end: 14px;">
+                <div class="mono tnum" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-saffron);">
+                  {s.n}
+                </div>
+                <div class="serif" style="font-size: 14px; font-weight: 500; color: #FBF8F1; line-height: 1.3; margin-top: 4px;">
+                  {s.title}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
 
     <section style="padding: 24px 0 56px;">
       <div class="mx-auto w-full max-w-[62rem] px-5 md:px-8">

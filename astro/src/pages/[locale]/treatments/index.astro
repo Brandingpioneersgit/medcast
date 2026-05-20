@@ -6,10 +6,14 @@ import SiteFooter from "@/components/SiteFooter.astro";
 import EntityListingHero from "@/components/EntityListingHero.astro";
 import Price from "@/components/Price.astro";
 import { listTreatmentsGrouped } from "@/lib/queries";
+import { formatUsd } from "@/lib/currency";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, itemListJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { ChevronRight } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import PageCta from "@/components/PageCta.astro";
 
 export const prerender = false;
 
@@ -34,8 +38,10 @@ for (const row of rowsRaw) {
 const grouped = Array.from(groupedMap.values());
 
 const tc = getTranslator(locale, "common");
-const seoTitle = "Medical treatments & procedures";
-const seoDescription = `Transparent pricing for ${rowsRaw.length} planned procedures — cardiac bypass to IVF, spinal fusion to knee replacement. Compare packages across accredited hospitals.`;
+const { bindChromeT } = await import("@/lib/chrome-i18n");
+const ct = bindChromeT(locale);
+const seoTitle = ct("lp.treatments.title");
+const seoDescription = ct("lp.treatments.desc").replace("{count}", String(rowsRaw.length));
 const path = "/treatments";
 
 const crumbs = breadcrumbJsonLd([
@@ -55,10 +61,12 @@ const avgSuccess = withSuccess.length > 0
   ? withSuccess.reduce((s, r) => s + Number(r.success_rate_percent), 0) / withSuccess.length
   : null;
 
+const lowestFromFormatted = lowestFrom ? await formatUsd(Astro.cookies, lowestFrom) : null;
+
 const stats = [
   { l: "Procedures", v: rowsRaw.length.toString() },
   { l: "Specialties", v: grouped.length.toString() },
-  lowestFrom ? { l: "From", v: `$${(lowestFrom / 1000).toFixed(1)}k` } : null,
+  lowestFromFormatted ? { l: "From", v: lowestFromFormatted } : null,
   avgSuccess ? { l: "Avg success", v: `${avgSuccess.toFixed(0)}%` } : null,
 ].filter(Boolean) as Array<{ l: string; v: string }>;
 
@@ -68,11 +76,11 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
-    {itemLd && <script type="application/ld+json" set:html={JSON.stringify(itemLd)} />}
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    {itemLd && <script type="application/ld+json" is:inline set:html={JSON.stringify(itemLd)} />}
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -86,10 +94,10 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
     </div>
 
     <EntityListingHero
-      eyebrow={`Treatments · ${rowsRaw.length} procedures`}
-      h1First="Treatments"
-      h1Italic="& procedures"
-      lede={`Transparent package pricing across ${rowsRaw.length} planned procedures — surgeon fee, anaesthesia, standard implants, hospital stay, routine post-op. Watch-outs are called out inside each page.`}
+      eyebrow={ct("lp.treatments.eyebrow").replace("{count}", String(rowsRaw.length))}
+      h1First={ct("lp.treatments.h1a")}
+      h1Italic={ct("lp.treatments.h1b")}
+      lede={seoDescription}
       stats={stats}
     />
 
@@ -139,50 +147,105 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
             )}
           </div>
           <div class="paper overflow-hidden" style="padding: 0;">
-            {g.items.map((t, i) => (
-              <a
-                href={localizedPath(locale, `/treatment/${t.slug}`)}
-                class="grid items-center gap-4 p-5 md:p-6 hover:bg-[var(--color-paper)] transition-colors"
-                style={`grid-template-columns: 36px 1.6fr 0.9fr 0.7fr 0.8fr auto; ${i > 0 ? "border-top: 1px solid var(--color-border-soft);" : ""}`}
-              >
-                <div class="display tnum" style="font-size: 18px; color: var(--color-ink-subtle);">
-                  {String(i + 1).padStart(2, "0")}
-                </div>
-                <div class="min-w-0">
-                  <div class="serif" style="font-size: 17px; letter-spacing: -0.005em; color: var(--color-ink);">
-                    {t.name}
+            <div
+              class="hidden md:grid items-center gap-4 px-5 md:px-6 py-3 mono uppercase"
+              style="grid-template-columns: 36px 1.6fr 0.9fr 0.6fr 0.6fr 0.9fr auto; font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle); border-bottom: 1px solid var(--color-border-soft); background: var(--color-bg);"
+            >
+              <span>#</span>
+              <span>Procedure</span>
+              <span>From</span>
+              <span>Duration</span>
+              <span>Success</span>
+              <span>Stay · recovery</span>
+              <span></span>
+            </div>
+            {g.items.map((t, i) => {
+              const procLabel = t.procedure_type
+                ? t.procedure_type.replace(/-/g, " ")
+                : null;
+              const anestLabel = t.anesthesia_type
+                ? t.anesthesia_type.replace(/-/g, " ")
+                : null;
+              const dur = t.average_duration_hours ? Number(t.average_duration_hours) : null;
+              const durLabel = dur != null
+                ? dur < 1 ? `${Math.round(dur * 60)}m` : dur === Math.floor(dur) ? `${dur}h` : `${dur}h`
+                : null;
+              return (
+                <a
+                  href={localizedPath(locale, `/treatment/${t.slug}`)}
+                  class="grid items-center gap-4 p-5 md:p-6 hover:bg-[var(--color-paper)] transition-colors"
+                  style={`grid-template-columns: 36px 1.6fr 0.9fr 0.6fr 0.6fr 0.9fr auto; ${i > 0 ? "border-top: 1px solid var(--color-border-soft);" : ""}`}
+                >
+                  <div class="display tnum" style="font-size: 18px; color: var(--color-ink-subtle);">
+                    {String(i + 1).padStart(2, "0")}
                   </div>
-                  {t.hospital_count > 0 && (
-                    <div class="mt-0.5 mono text-[10.5px] uppercase tracking-wider" style="color: var(--color-ink-subtle);">
-                      {t.hospital_count.toLocaleString()} hospitals priced
+                  <div class="min-w-0">
+                    <div class="serif" style="font-size: 17px; letter-spacing: -0.005em; color: var(--color-ink);">
+                      {t.name}
                     </div>
-                  )}
-                </div>
-                <div>
-                  <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
-                    From
+                    <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                      {procLabel && (
+                        <span
+                          class="mono uppercase"
+                          style="font-size: 9.5px; letter-spacing: 0.1em; padding: 2px 7px; border-radius: 9999px; border: 1px solid var(--color-border); color: var(--color-ink-muted);"
+                        >
+                          {procLabel}
+                        </span>
+                      )}
+                      {t.is_minimally_invasive && (
+                        <span
+                          class="mono uppercase"
+                          style="font-size: 9.5px; letter-spacing: 0.1em; padding: 2px 7px; border-radius: 9999px; background: var(--color-accent-mist, var(--color-accent-soft)); color: var(--color-accent);"
+                        >
+                          Min-invasive
+                        </span>
+                      )}
+                      {anestLabel && (
+                        <span class="mono" style="font-size: 10px; color: var(--color-ink-subtle);">
+                          {anestLabel} anaesthesia
+                        </span>
+                      )}
+                    </div>
+                    {t.hospital_count > 0 && (
+                      <div class="mt-1 mono text-[10.5px] uppercase tracking-wider" style="color: var(--color-ink-subtle);">
+                        {t.hospital_count.toLocaleString()} hospitals priced
+                      </div>
+                    )}
                   </div>
-                  <div class="display tnum mt-0.5" style="font-size: 17px;">
-                    {t.from_usd ? <Price usd={t.from_usd} /> : <span style="color: var(--color-ink-subtle);">—</span>}
+                  <div>
+                    <div class="md:hidden mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
+                      From
+                    </div>
+                    <div class="display tnum mt-0.5" style="font-size: 17px;">
+                      {t.from_usd ? <Price usd={t.from_usd} /> : <span style="color: var(--color-ink-subtle);">—</span>}
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
-                    Success
+                  <div>
+                    <div class="md:hidden mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
+                      Duration
+                    </div>
+                    <div class="tnum mt-0.5" style="font-size: 14px; color: var(--color-ink);">
+                      {durLabel ?? <span style="color: var(--color-ink-subtle);">—</span>}
+                    </div>
                   </div>
-                  <div class="tnum mt-0.5" style="font-size: 14px;">
-                    {t.success_rate_percent ? `${Number(t.success_rate_percent).toFixed(0)}%` : <span style="color: var(--color-ink-subtle);">—</span>}
+                  <div>
+                    <div class="md:hidden mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
+                      Success
+                    </div>
+                    <div class="tnum mt-0.5" style="font-size: 14px;">
+                      {t.success_rate_percent ? `${Number(t.success_rate_percent).toFixed(0)}%` : <span style="color: var(--color-ink-subtle);">—</span>}
+                    </div>
                   </div>
-                </div>
-                <div class="text-[12px]" style="color: var(--color-ink-muted);">
-                  {[
-                    t.hospital_stay_days ? `${t.hospital_stay_days}d stay` : null,
-                    t.recovery_days ? `${t.recovery_days}d recovery` : null,
-                  ].filter(Boolean).join(" · ") || "—"}
-                </div>
-                <ChevronRight className="h-4 w-4 mirror-x text-[var(--color-ink-subtle)]" />
-              </a>
-            ))}
+                  <div class="text-[12px]" style="color: var(--color-ink-muted);">
+                    {[
+                      t.hospital_stay_days != null ? `${t.hospital_stay_days}d stay` : null,
+                      t.recovery_days ? `${t.recovery_days}d recovery` : null,
+                    ].filter(Boolean).join(" · ") || "—"}
+                  </div>
+                  <ChevronRight className="h-4 w-4 mirror-x text-[var(--color-ink-subtle)]" />
+                </a>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -190,7 +253,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
 
     <section style="background: var(--color-ink); color: var(--color-bg); padding: 72px 0;">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-        <div class="grid gap-8 lg:grid-cols-[1.5fr,1fr] items-end">
+        <div class="grid gap-8 lg:grid-cols-[1.5fr_1fr] items-end">
           <div>
             <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
               Need a specific quote
@@ -220,6 +283,34 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
       </div>
     </section>
 
+    <HowItWorks
+      heading="How to use this treatment catalog"
+      italicWord="catalog"
+      eyebrow="Treatment-evaluation guide"
+      steps={[
+        { title: "Find your procedure", description: "88 procedures across 15 specialties. We use standard medical naming — LASIK and 'laser eye surgery' both find the same entry." },
+        { title: "Read the deep page", description: "Each treatment page has candidacy criteria, recovery timeline, surgeon questions, red flags. Read these before getting quotes." },
+        { title: "Check cost-by-country", description: "Same procedure varies 2-5× across destinations. See the cost-by-country page for your treatment to understand the price-quality matrix." },
+        { title: "Compare destinations", description: "For your procedure, the best destination depends on case complexity. Routine = India top-tier; complex = Germany or premium Asian." },
+        { title: "Get itemized quotes", description: "Once you've narrowed to 1-2 destinations, request itemized quotes from 3-4 hospitals. Compare on equal scope." },
+      ]}
+    />
+
+    <WhatToExpect
+      heading="The questions that matter most before any procedure"
+      italicWord="any procedure"
+      items={[
+        { label: "Do I actually need this?", description: "Many procedures are over-recommended. Conservative management adequately tried? Second opinion confirming the recommendation? Both should be yes before committing." },
+        { label: "What does the surgeon do specifically?", description: "Their personal annual case volume on this specific procedure. Below 50/year, complications run measurably higher." },
+        { label: "What are the realistic outcomes?", description: "Best case, expected case, worst case. Programs that present only the best case are managing expectations poorly." },
+        { label: "What's the recovery actually like?", description: "Day-by-day timeline, return-to-activity windows. Programs that claim 'rapid recovery' without specifics are marketing." },
+        { label: "What if something goes wrong?", description: "Revision policy, complications coverage, telemedicine follow-up duration. Get answers in writing before booking." },
+        { label: "What's the all-in cost?", description: "Itemized quote with exclusions clearly listed. Total trip cost typically 1.5-2.5× the procedure quote." },
+      ]}
+    />
+
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

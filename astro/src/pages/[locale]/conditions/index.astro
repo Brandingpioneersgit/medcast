@@ -10,6 +10,9 @@ import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, collectionPageJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { ChevronRight } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import PageCta from "@/components/PageCta.astro";
 
 export const prerender = false;
 
@@ -59,8 +62,10 @@ const totalTreatments = rows.reduce((s, r) => s + r.treatmentCount, 0);
 const severe = rows.filter((r) => r.severityLevel?.toLowerCase() === "severe").length;
 
 const tc = getTranslator(locale, "common");
-const seoTitle = "Medical conditions index";
-const seoDescription = `Browse ${rows.length} conditions mapped to treatments, specialties, and accredited hospitals. Start from a diagnosis, land on an option list you can act on.`;
+const { bindChromeT } = await import("@/lib/chrome-i18n");
+const ct = bindChromeT(locale);
+const seoTitle = ct("lp.conditions.title");
+const seoDescription = ct("lp.conditions.desc").replace("{count}", String(rows.length));
 const path = "/conditions";
 
 const crumbs = breadcrumbJsonLd([
@@ -88,11 +93,11 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
-    <script type="application/ld+json" set:html={JSON.stringify(collectionLd)} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(collectionLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -106,10 +111,10 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
     </div>
 
     <EntityListingHero
-      eyebrow={`Condition index · ${rows.length} entries`}
-      h1First="Start from a"
-      h1Italic="diagnosis"
-      lede={`${rows.length} conditions mapped to treatments, specialties, and accredited hospitals. Not medical advice — a pathfinder so you land on an option list you can act on.`}
+      eyebrow={ct("lp.conditions.eyebrow").replace("{count}", String(rows.length))}
+      h1First={ct("lp.conditions.h1a")}
+      h1Italic={ct("lp.conditions.h1b")}
+      lede={seoDescription}
       stats={stats}
     />
 
@@ -143,7 +148,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
       <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
         {groups.map((g) => (
           <div id={`letter-${g.letter}`} style="scroll-margin-top: 160px; padding: 48px 0; border-top: 1px solid var(--color-border-soft);">
-            <div class="grid gap-10 lg:grid-cols-[0.22fr,1fr]">
+            <div class="grid gap-10 lg:grid-cols-[0.22fr_1fr]">
               <div class="lg:sticky lg:top-40 lg:self-start">
                 <div
                   class="display tnum"
@@ -201,6 +206,32 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
       </div>
     </section>
 
+    <HowItWorks
+      heading="How condition pages help your decision"
+      italicWord="your decision"
+      eyebrow="Condition navigation"
+      steps={[
+        { title: "Find your diagnosis", description: "79 conditions with structured workup, second-opinion triggers, and treatment-paths content. Search by name or browse by specialty." },
+        { title: "Read what good workup looks like", description: "Each condition page lists the tests you should already have done before flying. Bringing complete workup saves $1,500-3,000 in repeated tests at destination." },
+        { title: "Understand the second-opinion triggers", description: "Specific conditions warrant second opinions more than others. The condition page lists when to seek one, and where." },
+        { title: "Review treatment-paths and destinations", description: "Each condition has multiple treatment options across multiple destinations. The decision matrix helps narrow choices." },
+      ]}
+    />
+
+    <WhatToExpect
+      heading="What good condition workup includes"
+      italicWord="includes"
+      items={[
+        { label: "Imaging within 60-90 days", description: "Recent CT/MRI/ultrasound as relevant. Older imaging may need to be repeated at destination." },
+        { label: "Pathology with full markers", description: "For oncology cases, full IHC + molecular markers (HER2, EGFR, BRAF, etc.) — not just basic biopsy report." },
+        { label: "Specialist consultation note", description: "From the relevant specialty (cardiology, oncology, orthopedics) confirming the working diagnosis." },
+        { label: "Comorbidity management documentation", description: "Diabetes control (HbA1c), cardiac status, anticoagulation plan. These affect surgical risk and pre-op optimization." },
+        { label: "Travel-medical clearance", description: "Letter from a treating physician confirming you're medically fit for travel and the planned procedure." },
+      ]}
+    />
+
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

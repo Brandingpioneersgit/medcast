@@ -91,21 +91,23 @@ export function hospitalJsonLd(hospital: {
   const geo = hospital.lat && hospital.lng
     ? { "@type": "GeoCoordinates", latitude: Number(hospital.lat), longitude: Number(hospital.lng) }
     : undefined;
-  const postalAddr = hospital.city || hospital.country
-    ? {
-        "@type": "PostalAddress",
-        streetAddress: hospital.address || undefined,
-        addressLocality: hospital.city || undefined,
-        addressCountry: hospital.country || undefined,
-      }
-    : hospital.address;
+  const postalAddr = (() => {
+    const street = hospital.address || hospital.city || hospital.country || null;
+    if (!street) return null;
+    return {
+      "@type": "PostalAddress",
+      streetAddress: street,
+      ...(hospital.city ? { addressLocality: hospital.city } : {}),
+      ...(hospital.country ? { addressCountry: hospital.country } : {}),
+    };
+  })();
   return {
     "@context": "https://schema.org",
     "@type": ["Hospital", "MedicalOrganization"],
     name: hospital.name,
     description: hospital.description,
     url: hospital.url,
-    address: postalAddr,
+    ...(postalAddr ? { address: postalAddr } : {}),
     geo,
     telephone: hospital.phone,
     email: hospital.email,

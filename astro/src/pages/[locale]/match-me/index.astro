@@ -8,8 +8,11 @@ import MatchMe from "@/components/MatchMe.tsx";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
 import { listConditionsForMatching, getCalculatorMatrix } from "@/lib/queries";
 import { ChevronRight } from "lucide-react";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 
 export const prerender = false;
 
@@ -50,10 +53,10 @@ const stats = [
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -86,7 +89,7 @@ const stats = [
             </h2>
           </div>
           <MatchMe
-            client:load
+            client:idle
             conditions={conditions}
             countries={matrixData.countries}
             matrix={matrixData.matrix}
@@ -103,7 +106,7 @@ const stats = [
 
     <section style="background: var(--color-ink); color: var(--color-bg); padding: 56px 0;">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-        <div class="grid gap-6 lg:grid-cols-[1.5fr,1fr] items-end">
+        <div class="grid gap-6 lg:grid-cols-[1.5fr_1fr] items-end">
           <div>
             <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
               Skip the triage
@@ -125,6 +128,40 @@ const stats = [
         </div>
       </div>
     </section>
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow="If the quiz isn't your style"
+      heading="Other ways to triage your case"
+      lede="Same destination, different on-ramp. Pick the path that fits how much you already know about your case."
+      items={[
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported price bands across 9 destinations — no triage needed." },
+        { eyebrow: "Browse", label: "All 79 conditions", href: "/conditions", hint: "Pick your condition, see treatments + specialty + top destinations." },
+        { eyebrow: "Browse", label: "15 medical specialties", href: "/specialties", hint: "From cardiac surgery to transplant to fertility — full programs." },
+        { eyebrow: "Browse", label: "88 procedures", href: "/treatments", hint: "Procedure-first browsing with success rates and recovery time." },
+        { eyebrow: "Browse", label: "9 destination countries", href: "/countries", hint: "India, Turkey, Thailand, UAE, Germany, Singapore, Korea, Malaysia, Saudi." },
+        { eyebrow: "Compare", label: "Treatments side-by-side", href: "/compare/treatments", hint: "Cost, stay, recovery, success-rate columns across procedures." },
+        { eyebrow: "Compare", label: "Destination shootout", href: "/compare/countries", hint: "Hospitals, doctors, treatments, programs by country." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case within 48 hours." },
+        { eyebrow: "Action", label: "Get an itemised quote", href: "/quote", hint: "Three quotes, broken-out line items, 48 hours, no charge." },
+        { eyebrow: "Trust", label: "Medical board", href: "/medical-board", hint: "Named clinicians who review treatment content and routing." },
+        { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "How we route cases, score programs, and disclose conflicts." },
+        { eyebrow: "Reference", label: "Q&A library", href: "/qa", hint: "Specific patient questions with numbers — recovery, cost, who-not-when." },
+      ]}
+    />
+
+    <HowItWorks
+      heading="How the matching works"
+      italicWord="works"
+      steps={[
+        { title: "Tell us your concern", description: "Pick from 73 mapped conditions or describe your situation. The condition determines which specialty bucket your case routes to." },
+        { title: "Pick your timeline", description: "ASAP (2-4 weeks), 1-3 months, or flexible. Timeline affects which programs we surface (some have shorter wait times for international cases)." },
+        { title: "Pick your budget tier", description: "Value, mid-range, premium, or show everything. Filter the destination/program recommendations to match your cost expectations." },
+        { title: "Review your plan", description: "We show: recommended specialty, first-line procedure, alternative treatments, recommended destination with rationale, 3 specific hospital options." },
+        { title: "Connect", description: "If you want quotes from the recommended programs, submit your contact details. We follow up with itemized quotes within 48 hours." },
+      ]}
+      outroNote="The quiz takes 60-90 seconds and produces a starting framework. Real case-by-case routing happens during the quote phase."
+    />
 
     <SiteFooter locale={locale} />
   </main>

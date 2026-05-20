@@ -1,0 +1,594 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { getConditionPlaceData } from "@/lib/queries";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import {
+  getContent, getContentBatch, applyTranslated, isUntranslated,
+} from "@/lib/translate";
+import { breadcrumbJsonLd, localeUrl, faqJsonLd, withProvenance } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { ChevronRight } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const slug = Astro.params.slug;
+const placeSlug = Astro.params.place;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/condition/${slug}/${placeSlug}`, 308);
+if (!slug || !placeSlug) return new Response("Not found", { status: 404 });
+
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+const data = await getConditionPlaceData(slug, placeSlug);
+if (!data) return new Response("Not found", { status: 404 });
+
+const { condition: conditionRow, mode, country, city, hospitals: hospitalRows, doctors: doctorRows, priceRange } = data;
+
+const placeName = mode === "country" ? country!.name : city!.name;
+const placeCountrySlug = mode === "country" ? country!.slug : city!.country?.slug ?? "";
+const placeCountryName = mode === "country" ? country!.name : city!.country?.name ?? "";
+
+const FLAG: Record<string, string> = {
+  india: "🇮🇳", turkey: "🇹🇷", thailand: "🇹🇭", uae: "🇦🇪",
+  germany: "🇩🇪", singapore: "🇸🇬", "south-korea": "🇰🇷",
+  malaysia: "🇲🇾", "saudi-arabia": "🇸🇦",
+};
+const flag = FLAG[placeCountrySlug] ?? "🌐";
+
+// Translations
+const conditionMap = await getContent("condition", conditionRow.id, locale);
+const condition = applyTranslated(conditionRow, conditionMap, ["name", "description"]);
+
+const treatmentIds = conditionRow.treatments.map((ct) => ct.treatment.id);
+const treatmentMap = await getContentBatch("treatment", treatmentIds, locale);
+const conditionTreatments = conditionRow.treatments.map((ct) => ({
+  id: ct.treatment.id,
+  slug: ct.treatment.slug,
+  name: treatmentMap[ct.treatment.id]?.name ?? ct.treatment.name,
+  isPrimary: ct.isPrimary,
+  hospitalStayDays: ct.treatment.hospitalStayDays,
+  recoveryDays: ct.treatment.recoveryDays,
+  successRatePercent: ct.treatment.successRatePercent,
+  specialty: ct.treatment.specialty,
+}));
+
+const specialtyMap = await getContentBatch(
+  "specialty",
+  conditionRow.specialties.map((cs) => cs.specialty.id),
+  locale,
+);
+const conditionSpecialties = conditionRow.specialties.map((cs) => ({
+  slug: cs.specialty.slug,
+  name: specialtyMap[cs.specialty.id]?.name ?? cs.specialty.name,
+}));
+
+const hospitalIds = hospitalRows.map((h) => h.hospitalId);
+const hospitalMap = await getContentBatch("hospital", hospitalIds, locale);
+const hospitalsLocal = hospitalRows.map((h) => ({
+  ...h,
+  hospitalName: hospitalMap[h.hospitalId]?.name ?? h.hospitalName,
+}));
+
+// Aggregate stats
+const totalTreatmentOptions = conditionTreatments.length;
+const typicalRecovery = conditionTreatments
+  .map((t) => t.recoveryDays)
+  .filter((v): v is number => v != null);
+const minRecovery = typicalRecovery.length ? Math.min(...typicalRecovery) : null;
+const maxRecovery = typicalRecovery.length ? Math.max(...typicalRecovery) : null;
+const primaryTreatment = conditionTreatments.find((t) => t.isPrimary) ?? conditionTreatments[0];
+const successRates = conditionTreatments
+  .map((t) => t.successRatePercent ? Number(t.successRatePercent) : null)
+  .filter((v): v is number => v != null && v > 0);
+const avgSuccessRate = successRates.length
+  ? Math.round(successRates.reduce((a, b) => a + b, 0) / successRates.length)
+  : null;
+
+const path = `/condition/${slug}/${placeSlug}`;
+const url = localeUrl(locale, path);
+
+// HeadMeta auto-appends " | MedCasts" — keep base ≤55 chars
+const seoTitle = (mode === "country"
+  ? `${condition.name} Treatment in ${placeCountryName}`
+  : `${condition.name} Treatment in ${placeName}`).slice(0, 55);
+const seoDescription = priceRange
+  ? `${condition.name} treatment in ${placeName} starts from $${priceRange.min.toLocaleString()} across ${hospitalsLocal.length} accredited hospital${hospitalsLocal.length === 1 ? "" : "s"}. ${totalTreatmentOptions} treatment option${totalTreatmentOptions === 1 ? "" : "s"} reviewed by named clinicians.`
+  : `${condition.name} treatment options in ${placeName}. Compare accredited hospitals and request a free itemized quote.`;
+
+const crumbsLd = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Conditions", url: localeUrl(locale, "/conditions") },
+  { name: condition.name, url: localeUrl(locale, `/condition/${slug}`) },
+  { name: placeName, url },
+]);
+
+// FAQ specific to condition × place
+const faqList = [
+  {
+    question: `Where do most international patients go for ${condition.name} in ${placeCountryName}?`,
+    answer: `The most common destinations are tier-1 metro hospitals (Delhi NCR, Istanbul, Bangkok, Singapore, etc.) where the relevant specialty volumes are highest. Surgeon volume — not hospital prestige — is the strongest predictor of outcomes for ${condition.name}; we shortlist by case volume + recent peer-reviewed outcomes, not by ad spend.`,
+  },
+  {
+    question: `What does ${condition.name} treatment typically cost in ${placeCountryName}?`,
+    answer: priceRange
+      ? `Across the ${hospitalsLocal.length} accredited hospital${hospitalsLocal.length === 1 ? "" : "s"} we list, packaged costs start from about $${priceRange.min.toLocaleString()} and run up to $${priceRange.max.toLocaleString()} depending on procedure choice, complexity, and implant or device tier. We never publish a final number — your case manager itemises every line before you commit.`
+      : `Itemised costs depend on the specific procedure your team recommends, length of stay, and implant or device choices. Request a free 3-quote panel and we'll send a written breakdown within 48 hours.`,
+  },
+  {
+    question: `How long should I plan to stay in ${placeCountryName} for treatment?`,
+    answer: minRecovery && maxRecovery
+      ? `Most ${condition.name} cases need around ${minRecovery}–${maxRecovery} days in-country covering pre-op workup, the procedure itself, and the first follow-up before flying home. Plan an extra week buffer for travel + visa logistics.`
+      : `Most cases need 7–21 days in-country covering pre-op workup, procedure, and first follow-up. Plan an extra week buffer for travel + visa logistics.`,
+  },
+  {
+    question: `Should I get a second opinion before booking?`,
+    answer: `Yes — and it's free across our panel. Roughly 28% of cases we see don't actually need surgery, or need a different procedure than originally proposed. Share your imaging and current plan; a multidisciplinary panel returns a written opinion in 5–10 working days, no obligation to travel.`,
+  },
+  {
+    question: `Is ${placeCountryName} accredited for international medical patients?`,
+    answer: `We only list hospitals with active accreditation — JCI, NABH, ISO 9001, KTQ, HA-Thailand, or the local ministry license — and transparent itemised pricing. The accreditation badges shown on each hospital page link to the issuing body's directory so you can verify directly.`,
+  },
+];
+const faqSchema = faqJsonLd(faqList);
+
+// MedicalCondition JSON-LD
+const conditionJsonLd = withProvenance(
+  {
+    "@context": "https://schema.org",
+    "@type": "MedicalCondition",
+    name: `${condition.name} (${placeName})`,
+    description: condition.description ?? seoDescription,
+    url,
+    possibleTreatment: conditionTreatments.slice(0, 6).map((t) => ({
+      "@type": "MedicalProcedure",
+      name: t.name,
+      url: localeUrl(locale, `/treatment/${t.slug}/${placeSlug}`),
+    })),
+    relevantSpecialty: conditionSpecialties.map((s) => ({
+      "@type": "MedicalSpecialty",
+      name: s.name,
+    })),
+  },
+  { dateModified: conditionRow.updatedAt },
+);
+
+const untranslated = isUntranslated(locale, conditionMap);
+const noResults = hospitalsLocal.length === 0;
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=3600, stale-while-revalidate=86400",
+);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta
+      title={seoTitle}
+      description={seoDescription}
+      path={path}
+      locale={locale}
+      canonicalPath={`/condition/${slug}`}
+      noindex={untranslated || noResults}
+    />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(conditionJsonLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbsLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(faqSchema)} />
+  </Fragment>
+
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+    <SiteHeader locale={locale} />
+
+    {/* Breadcrumb */}
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <nav
+        aria-label="Breadcrumb"
+        class="mono mx-auto max-w-[1440px] px-7 md:px-10 flex items-center gap-2 flex-wrap py-4"
+        style="font-size: 12px; color: var(--color-ink-subtle);"
+      >
+        <a href={localizedPath(locale, "/conditions")} class="hover:text-ink">Conditions</a>
+        <ChevronRight size={12} />
+        <a href={localizedPath(locale, `/condition/${slug}`)} class="hover:text-ink">{condition.name}</a>
+        <ChevronRight size={12} />
+        <span style="color: var(--color-ink);">{placeName}</span>
+      </nav>
+    </div>
+
+    {/* Hero */}
+    <section style="padding: 56px 28px 0;">
+      <div class="mx-auto max-w-[1440px]">
+        {conditionSpecialties[0] && (
+          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent); margin-bottom: 8px;">
+            {conditionSpecialties.map((s) => s.name).join(" · ")}
+          </div>
+        )}
+        <div class="grid gap-10 lg:grid-cols-[2fr_1fr] lg:gap-[48px] items-start">
+          <div>
+            <h1
+              class="display display-tight"
+              style="font-size: clamp(2.5rem, 5.5vw, 4.25rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em;"
+            >
+              {condition.name} treatment in
+              <span style="font-style: italic;"> {flag} {placeName}</span>
+            </h1>
+            <p
+              class="serif mt-5"
+              style="font-size: 20px; line-height: 1.45; color: var(--color-ink-muted); max-width: 680px;"
+            >
+              {condition.description
+                ? condition.description.split("\n\n")[0].slice(0, 280)
+                : `Compare ${hospitalsLocal.length} accredited hospital${hospitalsLocal.length === 1 ? "" : "s"} treating ${condition.name} in ${placeName}, including costs, surgeon volumes, and recovery windows.`}
+            </p>
+
+            {/* Stat ribbon */}
+            <div
+              class="grid mt-8 py-5"
+              style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); border-top: 1px solid var(--color-ink); border-bottom: 1px solid var(--color-border);"
+            >
+              {[
+                priceRange && { l: "Starting price", v: `$${priceRange.min.toLocaleString()}` },
+                { l: "Hospitals", v: hospitalsLocal.length.toString() },
+                { l: "Treatment options", v: totalTreatmentOptions.toString() },
+                minRecovery && maxRecovery && { l: "Recovery window", v: `${minRecovery}–${maxRecovery} days` },
+                avgSuccessRate && { l: "Avg success rate", v: `${avgSuccessRate}%` },
+              ].filter(Boolean).slice(0, 4).map((s: any, i: number) => (
+                <div style={i === 0
+                  ? {paddingInline: "18px"}
+                  : {paddingInline: "18px", borderInlineStart: "1px solid var(--color-border)"}
+                }>
+                  <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">{s.l}</div>
+                  <div class="display tnum" style="font-size: 28px; margin-top: 4px;">{s.v}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Sticky quote panel */}
+          <aside class="lg:sticky lg:top-32 lg:self-start">
+            <div class="paper" style="padding: 22px;">
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">
+                Free panel review
+              </div>
+              <div class="display mt-1.5" style="font-size: 22px; line-height: 1.2; letter-spacing: -0.02em;">
+                For {condition.name} in {placeCountryName}
+              </div>
+              {priceRange && (
+                <div class="flex items-baseline gap-2 mt-3">
+                  <span class="display tnum" style="font-size: 32px; line-height: 1;">${Math.round(priceRange.min / 1000).toFixed(1)}k</span>
+                  <span class="tnum" style="font-size: 13px; color: var(--color-ink-subtle);">— ${priceRange.max.toLocaleString()}</span>
+                </div>
+              )}
+              <a
+                href={localizedPath(locale, `/contact?condition=${slug}&country=${placeCountrySlug || placeSlug}`)}
+                class="inline-flex items-center justify-center gap-2 w-full font-semibold mt-4"
+                style="background: var(--color-accent); color: #FFF; padding: 14px 22px; font-size: 15px; border-radius: 9999px;"
+              >
+                Get 3 free quotes
+                <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+              </a>
+              <a
+                href={localizedPath(locale, "/second-opinion")}
+                class="inline-flex items-center justify-center gap-2 w-full font-medium mt-2.5"
+                style="background: transparent; color: var(--color-ink); border: 1px solid var(--color-border); padding: 12px 22px; font-size: 14px; border-radius: 9999px;"
+              >
+                Free 2nd opinion (48 hr)
+              </a>
+              <div class="flex items-center gap-2 mt-4 mono justify-center" style="font-size: 11px; color: var(--color-ink-subtle);">
+                <span style="width: 6px; height: 6px; border-radius: 50%; background: #10B981;" />
+                Case manager replies in ~9 min
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    {/* Treatment options */}
+    {conditionTreatments.length > 0 && (
+      <section style="padding: 64px 28px;">
+        <div class="mx-auto max-w-[1440px]">
+          <div class="flex items-end justify-between flex-wrap gap-4 mb-8">
+            <div>
+              <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent); margin-bottom: 8px;">
+                Treatment options
+              </div>
+              <h2 class="display" style="font-size: clamp(1.75rem, 3.4vw, 2.5rem); line-height: 1.05; font-weight: 400; letter-spacing: -0.02em;">
+                How {condition.name} is treated in <span style="font-style: italic;">{placeName}</span>
+              </h2>
+            </div>
+            {primaryTreatment && (
+              <a
+                href={localizedPath(locale, `/treatment/${primaryTreatment.slug}/${placeSlug}`)}
+                class="inline-flex items-center gap-1 text-sm"
+                style="color: var(--color-accent);"
+              >
+                Most common: {primaryTreatment.name} →
+              </a>
+            )}
+          </div>
+
+          <ul class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+            {conditionTreatments.map((t) => (
+              <li>
+                <a
+                  href={localizedPath(locale, `/treatment/${t.slug}/${placeSlug}`)}
+                  class="paper block transition hover:-translate-y-0.5"
+                  style="padding: 22px; box-shadow: var(--shadow-xs); height: 100%;"
+                >
+                  {t.isPrimary && (
+                    <span class="mono" style="display: inline-block; font-size: 9.5px; padding: 2px 7px; background: var(--color-accent); color: #FFF; border-radius: 3px; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px;">First-line</span>
+                  )}
+                  <div class="serif" style="font-size: 19px; font-weight: 500; letter-spacing: -0.01em; color: var(--color-ink);">{t.name}</div>
+                  {t.specialty && (
+                    <div class="mono" style="font-size: 11px; color: var(--color-ink-subtle); margin-top: 4px;">{t.specialty.name}</div>
+                  )}
+                  <div class="grid gap-2 mt-4" style="grid-template-columns: 1fr 1fr;">
+                    {t.hospitalStayDays && (
+                      <div>
+                        <div class="mono" style="font-size: 9px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">Stay</div>
+                        <div class="tnum" style="font-size: 14px; margin-top: 2px;">{t.hospitalStayDays} days</div>
+                      </div>
+                    )}
+                    {t.recoveryDays && (
+                      <div>
+                        <div class="mono" style="font-size: 9px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">Recovery</div>
+                        <div class="tnum" style="font-size: 14px; margin-top: 2px;">~{t.recoveryDays} days</div>
+                      </div>
+                    )}
+                  </div>
+                  <div class="mono mt-4" style="font-size: 11px; color: var(--color-accent);">
+                    See {t.name} pricing in {placeName} →
+                  </div>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
+
+    {/* Ranked hospitals */}
+    {hospitalsLocal.length > 0 ? (
+      <section style="padding: 64px 28px; background: var(--color-paper); border-top: 1px solid var(--color-border);">
+        <div class="mx-auto max-w-[1440px]">
+          <div class="flex items-end justify-between flex-wrap gap-4 mb-7">
+            <h2 class="display" style="font-size: 32px; letter-spacing: -0.02em;">
+              Top {placeName} hospitals for {condition.name},
+              <span style="font-style: italic;"> ranked by value</span>
+            </h2>
+            <a
+              href={localizedPath(locale, `/condition/${slug}/doctors`)}
+              class="inline-flex items-center gap-1 text-sm"
+              style="color: var(--color-accent);"
+            >
+              See all specialists →
+            </a>
+          </div>
+
+          <div class="paper overflow-hidden" style="padding: 0;">
+            {hospitalsLocal.map((h, i) => (
+              <div
+                class="grid items-center gap-4 p-5 md:p-6"
+                style={i === 0
+                  ? {gridTemplateColumns: "36px 1.6fr 0.9fr 0.9fr 0.6fr auto"}
+                  : {gridTemplateColumns: "36px 1.6fr 0.9fr 0.9fr 0.6fr auto", borderTop: "1px solid var(--color-border-soft)"}
+                }
+              >
+                <div class="display tnum" style="font-size: 22px; color: var(--color-ink-subtle);">
+                  {String(i + 1).padStart(2, "0")}
+                </div>
+                <div class="min-w-0">
+                  <a href={localizedPath(locale, `/hospital/${h.hospitalSlug}`)}>
+                    <div class="serif font-medium hover:text-accent truncate" style="font-size: 17px; letter-spacing: -0.005em;">
+                      {h.hospitalName}
+                    </div>
+                  </a>
+                  <div class="mt-1 flex items-center gap-1.5" style="font-size: 12px; color: var(--color-ink-subtle);">
+                    <span>{flag}</span>
+                    {h.cityName}{mode === "country" && `, ${placeCountryName}`}
+                  </div>
+                </div>
+                <div>
+                  <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">From</div>
+                  <div class="display tnum mt-0.5" style="font-size: 19px;">
+                    {h.fromUsd ? `$${Number(h.fromUsd).toLocaleString()}` : "—"}
+                  </div>
+                </div>
+                <div>
+                  <div class="mono" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">Treatments</div>
+                  <div class="tnum mt-1" style="font-size: 14px;">
+                    {h.treatmentsOffered} of {totalTreatmentOptions}
+                  </div>
+                </div>
+                <div>
+                  {h.rating && Number(h.rating) > 0 ? (
+                    <div class="inline-flex items-center gap-1.5" style="font-size: 13px;">
+                      <span style="color: var(--color-saffron);">★</span>
+                      <span class="tnum">{Number(h.rating).toFixed(1)}</span>
+                    </div>
+                  ) : (
+                    <span style="font-size: 13px; color: var(--color-ink-subtle);">—</span>
+                  )}
+                </div>
+                <a
+                  href={localizedPath(locale, `/hospital/${h.hospitalSlug}`)}
+                  class="inline-flex items-center gap-1 font-semibold"
+                  style="background: var(--color-ink); color: var(--color-bg); padding: 8px 14px; font-size: 12.5px; border-radius: 9999px;"
+                >
+                  Quote
+                  <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    ) : (
+      <section style="padding: 64px 28px; background: var(--color-paper); border-top: 1px solid var(--color-border);">
+        <div class="mx-auto max-w-[1120px] text-center">
+          <h2 class="display" style="font-size: 28px; letter-spacing: -0.02em;">
+            No matched hospitals in {placeName} <span style="font-style: italic;">yet</span>.
+          </h2>
+          <p class="serif mt-3" style="font-size: 17px; color: var(--color-ink-muted); max-width: 560px; margin-inline: auto;">
+            Our coordinators can still match you to a panel hospital that treats {condition.name} — share your case and we'll send a written shortlist within 48 hours.
+          </p>
+          <a
+            href={localizedPath(locale, `/contact?condition=${slug}&country=${placeCountrySlug || placeSlug}`)}
+            class="inline-flex items-center gap-2 font-semibold mt-6"
+            style="background: var(--color-accent); color: #FFF; padding: 13px 22px; font-size: 14px; border-radius: 9999px;"
+          >
+            Request a panel match
+            <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+          </a>
+        </div>
+      </section>
+    )}
+
+    {/* Specialists */}
+    {doctorRows.length > 0 && (
+      <section style="padding: 64px 28px;">
+        <div class="mx-auto max-w-[1440px]">
+          <div class="flex items-end justify-between flex-wrap gap-4 mb-6">
+            <div>
+              <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent); margin-bottom: 8px;">
+                Specialists in {placeCountryName}
+              </div>
+              <h2 class="display" style="font-size: 28px; letter-spacing: -0.02em;">
+                Surgeons treating <span style="font-style: italic;">{condition.name}</span>
+              </h2>
+            </div>
+            <a
+              href={localizedPath(locale, `/condition/${slug}/doctors`)}
+              class="inline-flex items-center gap-1 text-sm"
+              style="color: var(--color-accent);"
+            >
+              All specialists →
+            </a>
+          </div>
+          <ul class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));">
+            {doctorRows.map((d) => (
+              <li>
+                <a
+                  href={localizedPath(locale, `/doctor/${d.slug}`)}
+                  class="paper block transition hover:-translate-y-0.5"
+                  style="padding: 18px; box-shadow: var(--shadow-xs);"
+                >
+                  <div class="serif" style="font-size: 16px; font-weight: 500; color: var(--color-ink);">
+                    {d.title ? `${d.title} ` : ""}{d.name}
+                  </div>
+                  <div style="font-size: 12.5px; color: var(--color-ink-subtle); margin-top: 4px;">
+                    {d.hospitalName} · {d.cityName}
+                  </div>
+                  {d.experienceYears && (
+                    <div class="mono mt-3" style="font-size: 11px; color: var(--color-ink-2);">
+                      {d.experienceYears}+ years experience
+                    </div>
+                  )}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
+
+    {/* FAQ */}
+    <section style="padding: 64px 28px; background: var(--color-paper); border-top: 1px solid var(--color-border);">
+      <div class="mx-auto max-w-[1120px]">
+        <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
+          <div>
+            <div class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">FAQ</div>
+            <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
+              {condition.name} in {placeName} — common questions
+            </h2>
+          </div>
+          <div class="divide-y" style="border-color: var(--color-border-soft);">
+            {faqList.map((f) => (
+              <details class="group py-5">
+                <summary class="flex cursor-pointer items-start justify-between gap-6">
+                  <span class="serif" style="font-size: 17px; font-weight: 500; line-height: 1.4;">{f.question}</span>
+                  <span class="mt-1 shrink-0 transition-transform group-open:rotate-45" style="color: var(--color-ink-subtle); font-size: 20px; line-height: 1;" aria-hidden="true">+</span>
+                </summary>
+                <p class="serif mt-3" style="color: var(--color-ink-muted); font-size: 15.5px; line-height: 1.6;">{f.answer}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {/* CTA */}
+    <section style="padding: 72px 28px; background: var(--color-ink); color: var(--color-bg);">
+      <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
+        <div>
+          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7;">Ready to plan</div>
+          <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.05; letter-spacing: -0.025em; font-weight: 400;">
+            Get 3 itemized quotes for {condition.name} in {placeName}
+            <span style="font-style: italic;"> this week.</span>
+          </h2>
+          <p class="serif mt-4" style="font-size: 17px; line-height: 1.55; max-width: 560px; opacity: 0.85;">
+            Share your imaging or current plan. A named case manager shortlists 3 hospitals and returns an itemized quote + travel plan in under 48 hours.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <a
+            href={localizedPath(locale, `/contact?condition=${slug}&country=${placeCountrySlug || placeSlug}`)}
+            class="inline-flex items-center gap-2 font-semibold"
+            style="background: var(--color-accent); color: #FFF; padding: 13px 22px; font-size: 15px; border-radius: 9999px;"
+          >
+            Request quotes
+            <ChevronRight className="h-4 w-4 mirror-x" />
+          </a>
+          <a
+            href={localizedPath(locale, "/second-opinion")}
+            class="inline-flex items-center gap-2 font-semibold"
+            style="background: transparent; color: var(--color-bg); border: 1px solid rgba(246,241,230,0.3); padding: 13px 22px; font-size: 15px; border-radius: 9999px;"
+          >
+            Free 2nd opinion
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <HowItWorks
+      heading='How to evaluate care for this condition in this destination'
+      italicWord='this destination'
+      eyebrow='Destination evaluation'
+      steps={[
+        { title: 'Match destination strength to condition', description: 'Some destinations excel at specific conditions. Verify the destination has high-volume programs for your specific case type.' },
+        { title: 'Compare hospital options', description: 'From the hospitals shown above, narrow to 2-3 candidates with strong sub-specialty match.' },
+        { title: 'Request itemized quotes', description: "Quotes from 2-3 hospitals enable real comparison. Generic 'package' quotes hide what's included." },
+        { title: 'Plan logistics', description: 'Visa, flights, accommodation, recovery support. Plan around the recovery window for this condition.' },
+      ]}
+    />
+    <ExploreGrid
+      locale={locale}
+      eyebrow={`${condition.name} in ${placeName}`}
+      heading={`Continue evaluating ${condition.name.toLowerCase()} care`}
+      lede={`Destination is one variable. These hubs widen the search by specialty, by surgeon, by treatment, and by alternative destinations.`}
+      items={[
+        { eyebrow: "Condition", label: `${condition.name} overview`, href: `/condition/${slug}`, hint: "Description, severity grading, treatment paths." },
+        { eyebrow: "Surgeons", label: `Doctors who treat ${condition.name}`, href: `/condition/${slug}/doctors`, hint: "Volume-ranked specialists across relevant specialties." },
+        ...(primaryTreatment ? [{ eyebrow: "Procedure", label: `${primaryTreatment.name} hub`, href: `/treatment/${primaryTreatment.slug}`, hint: "First-line treatment for this condition." }] : []),
+        ...(primaryTreatment && placeCountrySlug ? [{ eyebrow: "Cost", label: `${primaryTreatment.name} cost in ${placeCountryName}`, href: `/treatment/${primaryTreatment.slug}/${placeCountrySlug}`, hint: "Per-hospital pricing in this destination." }] : []),
+        ...(conditionSpecialties[0] ? [{ eyebrow: "Specialty", label: `${conditionSpecialties[0].name} hub`, href: `/specialty/${conditionSpecialties[0].slug}`, hint: `Programs and surgeons across ${conditionSpecialties[0].name.toLowerCase()}.` }] : []),
+        ...(conditionSpecialties[1] ? [{ eyebrow: "Specialty", label: `${conditionSpecialties[1].name}`, href: `/specialty/${conditionSpecialties[1].slug}`, hint: "Alternative specialty involved in care for this condition." }] : []),
+        ...(placeCountrySlug && placeCountryName ? [{ eyebrow: "Destination", label: `${placeCountryName} hospital hub`, href: `/country/${placeCountrySlug}`, hint: `Featured programs and pricing benchmarks across ${placeCountryName}.` }] : []),
+        ...(placeCountrySlug ? [{ eyebrow: "Visa", label: `${placeCountryName} medical visa`, href: `/visa/${placeCountrySlug}`, hint: "Documents, processing time, embassy guidance." }] : []),
+        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, and pricing." },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+      ]}
+    />
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

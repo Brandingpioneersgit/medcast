@@ -1,0 +1,490 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { db } from "@/lib/db";
+import {
+  doctors,
+  doctorSpecialties,
+  hospitals,
+  cities,
+  countries,
+  specialties,
+  treatments,
+} from "../../../../../src/lib/db/schema";
+import { eq, asc, and } from "drizzle-orm";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, SITE_NAME, SITE_URL } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { ChevronRight, Video, MapPin, Phone, ShieldCheck } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) {
+  return Astro.redirect(`/en/book/${Astro.params.doctorSlug ?? ""}`, 308);
+}
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+const doctorSlug = String(Astro.params.doctorSlug ?? "");
+
+// Resolve the doctor + their hospital/city/country + primary specialty
+// (doctors ↔ specialties is many-to-many; we take the first row for context).
+const row = (
+  await db
+    .select({
+      id: doctors.id,
+      slug: doctors.slug,
+      name: doctors.name,
+      title: doctors.title,
+      imageUrl: doctors.imageUrl,
+      consultationFeeUsd: doctors.consultationFeeUsd,
+      availableForVideoConsult: doctors.availableForVideoConsult,
+      experienceYears: doctors.experienceYears,
+      hospitalId: doctors.hospitalId,
+      hospitalName: hospitals.name,
+      hospitalSlug: hospitals.slug,
+      cityName: cities.name,
+      countryName: countries.name,
+      specialtyId: specialties.id,
+      specialtyName: specialties.name,
+      specialtySlug: specialties.slug,
+    })
+    .from(doctors)
+    .leftJoin(hospitals, eq(doctors.hospitalId, hospitals.id))
+    .leftJoin(cities, eq(hospitals.cityId, cities.id))
+    .leftJoin(countries, eq(cities.countryId, countries.id))
+    .leftJoin(doctorSpecialties, eq(doctorSpecialties.doctorId, doctors.id))
+    .leftJoin(specialties, eq(doctorSpecialties.specialtyId, specialties.id))
+    .where(and(eq(doctors.slug, doctorSlug), eq(doctors.isActive, true)))
+    .limit(1)
+    .catch(() => [])
+)[0];
+
+if (!row) {
+  return Astro.redirect(`/${locale}/doctors`, 302);
+}
+
+const doctorTreatments = row.specialtyId
+  ? await db
+      .select({ slug: treatments.slug, name: treatments.name })
+      .from(treatments)
+      .where(and(eq(treatments.specialtyId, row.specialtyId), eq(treatments.isActive, true)))
+      .orderBy(asc(treatments.name))
+      .limit(40)
+      .catch(() => [])
+  : [];
+
+// Some seed rows already embed the title in `name` ("Dr. Naresh Trehan"); only
+// prepend when the name doesn't already start with the title or a generic Dr/Prof.
+const NAME_TITLE_RE = /^(dr\.?|prof\.?|professor|mr\.?|ms\.?|mrs\.?)\s/i;
+const fullName =
+  row.title && !NAME_TITLE_RE.test(row.name) && !row.name.toLowerCase().startsWith(row.title.toLowerCase())
+    ? `${row.title} ${row.name}`
+    : row.name;
+const preTreatment = Astro.url.searchParams.get("treatment") ?? "";
+const preConsult = Astro.url.searchParams.get("type") ?? "in-person";
+
+const path = `/book/${row.slug}`;
+const pageUrl = localeUrl(locale, path);
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: tc("doctors") || "Doctors", url: localeUrl(locale, "/doctors") },
+  { name: fullName, url: localeUrl(locale, `/doctor/${row.slug}`) },
+  { name: "Book", url: pageUrl },
+]);
+
+// ContactPage schema — Google surfaces booking pages in "contact us" rich
+// results when this is present. mainEntity points at the doctor so the
+// schema links the booking flow back to the named clinician.
+const contactPageLd = {
+  "@context": "https://schema.org",
+  "@type": "ContactPage",
+  name: `Book ${fullName}`,
+  description: `Book a consultation with ${fullName}${row.hospitalName ? ` at ${row.hospitalName}` : ""}.`,
+  url: pageUrl,
+  mainEntity: {
+    "@type": "Physician",
+    name: fullName,
+    url: localeUrl(locale, `/doctor/${row.slug}`),
+    affiliation: row.hospitalName
+      ? {
+          "@type": "Hospital",
+          name: row.hospitalName,
+          url: row.hospitalSlug ? localeUrl(locale, `/hospital/${row.hospitalSlug}`) : undefined,
+        }
+      : undefined,
+    medicalSpecialty: row.specialtyName ?? undefined,
+  },
+  publisher: {
+    "@type": "Organization",
+    name: SITE_NAME,
+    url: SITE_URL,
+  },
+};
+
+// Earliest preferred date defaults to tomorrow at 10:00 local-ish.
+const now = new Date();
+const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+const minDate = tomorrow.toISOString().slice(0, 10);
+const defaultDate = tomorrow.toISOString().slice(0, 10);
+
+Astro.response.headers.set(
+  "Cache-Control",
+  "public, s-maxage=300, stale-while-revalidate=3600",
+);
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta
+      title={`Book ${fullName}${row.hospitalName ? ` · ${row.hospitalName}` : ""}`}
+      description={`Request a consultation with ${fullName}${row.specialtyName ? `, ${row.specialtyName}` : ""}${row.cityName && row.countryName ? `, ${row.cityName}, ${row.countryName}` : ""}. Reply within 24 hours.`}
+      path={path}
+      locale={locale}
+    />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(contactPageLd)} />
+  </Fragment>
+
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+    <SiteHeader locale={locale} />
+
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto max-w-[1440px] px-7 md:px-10 py-4">
+        <nav class="mono text-[12px] flex items-center gap-2 flex-wrap" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span aria-hidden="true" class="text-[var(--color-border-strong)]">/</span>
+          <a href={localizedPath(locale, "/doctors")} class="hover:text-ink">{tc("doctors") || "Doctors"}</a>
+          <span aria-hidden="true" class="text-[var(--color-border-strong)]">/</span>
+          <a href={localizedPath(locale, `/doctor/${row.slug}`)} class="hover:text-ink">{fullName}</a>
+          <span aria-hidden="true" class="text-[var(--color-border-strong)]">/</span>
+          <span style="color: var(--color-ink);">Book</span>
+        </nav>
+      </div>
+    </div>
+
+    <section style="padding: 48px 0 24px;">
+      <div class="mx-auto max-w-[1120px] px-7 md:px-10">
+        <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
+          Book consultation
+        </div>
+        <h1 class="display display-tight mt-3" style="font-size: clamp(2.25rem, 5vw, 3.5rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;">
+          Book with<br />
+          <span class="italic-display">{fullName}</span>
+        </h1>
+        <p class="serif mt-5" style="font-size: 18px; line-height: 1.5; color: var(--color-ink-muted); max-width: 640px;">
+          {row.specialtyName && (<><span>{row.specialtyName}</span> · </>)}
+          {row.hospitalName}
+          {row.cityName && row.countryName && (<>, {row.cityName}, {row.countryName}</>)}
+          . You'll receive a written confirmation with the appointment code within minutes; the coordinator confirms the slot within 24 hours.
+        </p>
+      </div>
+    </section>
+
+    <section style="padding: 16px 0 64px;">
+      <div class="mx-auto max-w-[1120px] px-7 md:px-10">
+        <div class="grid gap-8" style="grid-template-columns: minmax(0, 1fr) 320px;">
+          <form
+            method="post"
+            action="/api/v1/appointment"
+            class="paper"
+            style="padding: 32px;"
+            novalidate
+          >
+            <input type="hidden" name="doctor" value={row.slug} />
+            {row.hospitalSlug && <input type="hidden" name="hospital" value={row.hospitalSlug} />}
+            <input type="hidden" name="locale" value={locale} />
+            {/* Honeypot — real users never fill this; bots usually do. */}
+            <div style="position: absolute; left: -9999px; height: 0; overflow: hidden;" aria-hidden="true">
+              <label>
+                Leave this field blank
+                <input type="text" name="_hp" tabindex="-1" autocomplete="off" />
+              </label>
+            </div>
+
+            <div class="flex items-baseline justify-between flex-wrap gap-2">
+              <div class="serif" style="font-size: 24px; letter-spacing: -0.015em;">
+                Appointment <span class="italic-display">details</span>
+              </div>
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                ~ 2 minutes
+              </div>
+            </div>
+
+            <fieldset class="mt-6 border-0 p-0">
+              <legend class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Consultation type
+              </legend>
+              <div class="grid gap-2 md:grid-cols-3">
+                {[
+                  { v: "in-person", label: "In person", icon: "pin", desc: "Visit the clinic" },
+                  { v: "video", label: "Video", icon: "video", desc: "Secure video call", disabled: !row.availableForVideoConsult },
+                  { v: "phone", label: "Phone", icon: "phone", desc: "Voice only" },
+                ].map((opt) => (
+                  <label
+                    class="flex items-start gap-2 cursor-pointer transition-colors"
+                    style={`padding: 14px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); ${opt.disabled ? "opacity: 0.45; cursor: not-allowed;" : ""}`}
+                  >
+                    <input
+                      type="radio"
+                      name="consultationType"
+                      value={opt.v}
+                      checked={opt.v === preConsult || (preConsult === "video" && opt.v === "video" && !opt.disabled)}
+                      disabled={opt.disabled}
+                      class="mt-1 shrink-0"
+                    />
+                    <span>
+                      <span class="serif block" style="font-size: 14px; font-weight: 500;">{opt.label}</span>
+                      <span class="mono block mt-0.5" style="font-size: 10.5px; color: var(--color-ink-subtle);">{opt.desc}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              {!row.availableForVideoConsult && (
+                <p class="mono mt-2" style="font-size: 10.5px; color: var(--color-ink-subtle);">
+                  Video consult not available for {row.name} — request in-person or phone.
+                </p>
+              )}
+            </fieldset>
+
+            <div class="grid gap-4 md:grid-cols-2 mt-6">
+              <div>
+                <label class="block" for="preferredDate">
+                  <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                    Preferred date *
+                  </span>
+                  <input
+                    id="preferredDate"
+                    name="preferredDate"
+                    type="date"
+                    required
+                    min={minDate}
+                    value={defaultDate}
+                    class="w-full serif"
+                    style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14.5px; color: var(--color-ink);"
+                  />
+                </label>
+              </div>
+              <div>
+                <label class="block" for="alternativeDate">
+                  <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                    Alternative date
+                  </span>
+                  <input
+                    id="alternativeDate"
+                    name="alternativeDate"
+                    type="date"
+                    min={minDate}
+                    class="w-full serif"
+                    style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14.5px; color: var(--color-ink);"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {doctorTreatments.length > 0 && (
+              <label class="block mt-4" for="treatment">
+                <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                  Procedure / interest (optional)
+                </span>
+                <select
+                  id="treatment"
+                  name="treatment"
+                  class="w-full serif"
+                  style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14.5px; color: var(--color-ink);"
+                >
+                  <option value="">— Not sure yet —</option>
+                  {doctorTreatments.map((t) => (
+                    <option value={t.slug} selected={t.slug === preTreatment}>{t.name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            <label class="block mt-4" for="notes">
+              <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Anything the doctor should know
+              </span>
+              <textarea
+                id="notes"
+                name="notes"
+                rows="3"
+                placeholder="Existing diagnosis, prior procedures, urgency…"
+                class="w-full serif"
+                style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14.5px; color: var(--color-ink); font-family: inherit; resize: vertical;"
+              ></textarea>
+            </label>
+
+            <div class="serif mt-7" style="font-size: 18px; letter-spacing: -0.015em; padding-top: 24px; border-top: 1px solid var(--color-border-soft);">
+              About <span class="italic-display">you</span>
+            </div>
+
+            <div class="grid gap-4 md:grid-cols-2 mt-4">
+              <label class="block" for="patientName">
+                <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                  Full name *
+                </span>
+                <input
+                  id="patientName"
+                  name="patientName"
+                  type="text"
+                  required
+                  autocomplete="name"
+                  minlength="2"
+                  class="w-full serif"
+                  style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14.5px; color: var(--color-ink);"
+                />
+              </label>
+              <label class="block" for="patientPhone">
+                <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                  Phone (with country code) *
+                </span>
+                <input
+                  id="patientPhone"
+                  name="patientPhone"
+                  type="tel"
+                  inputmode="tel"
+                  autocomplete="tel"
+                  required
+                  placeholder="+1 555 ..."
+                  class="w-full serif"
+                  style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14.5px; color: var(--color-ink);"
+                />
+              </label>
+            </div>
+
+            <div class="grid gap-4 md:grid-cols-2 mt-4">
+              <label class="block" for="patientEmail">
+                <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                  Email
+                </span>
+                <input
+                  id="patientEmail"
+                  name="patientEmail"
+                  type="email"
+                  autocomplete="email"
+                  placeholder="you@example.com"
+                  class="w-full serif"
+                  style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14.5px; color: var(--color-ink);"
+                />
+              </label>
+              <label class="block" for="patientCountry">
+                <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                  Country
+                </span>
+                <input
+                  id="patientCountry"
+                  name="patientCountry"
+                  type="text"
+                  autocomplete="country-name"
+                  placeholder="Where you'll travel from"
+                  class="w-full serif"
+                  style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14.5px; color: var(--color-ink);"
+                />
+              </label>
+            </div>
+
+            <div class="flex items-center justify-between mt-8 flex-wrap gap-4">
+              <a
+                href={localizedPath(locale, `/doctor/${row.slug}`)}
+                class="mono uppercase inline-flex items-center gap-1"
+                style="color: var(--color-ink); padding: 10px 18px; font-size: 11px; letter-spacing: 0.12em; border-radius: 9999px; border: 1px solid var(--color-border);"
+              >
+                ← Back to profile
+              </a>
+              <button
+                type="submit"
+                class="inline-flex items-center gap-2 font-semibold"
+                style="background: var(--color-ink); color: var(--color-bg); padding: 14px 24px; font-size: 14px; border-radius: 9999px;"
+              >
+                Request appointment
+                <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+              </button>
+            </div>
+
+            <p class="mono mt-5" style="font-size: 10.5px; color: var(--color-ink-subtle); line-height: 1.5;">
+              <ShieldCheck className="h-3 w-3 inline-block align-text-bottom" /> Submitting this form does not commit you to treatment. We confirm availability within 24 hours and respond with a written quote before any payment is requested.
+            </p>
+          </form>
+
+          <aside class="hidden md:block">
+            <div class="paper" style="padding: 22px; position: sticky; top: 96px;">
+              <div class="flex items-start gap-3">
+                {row.imageUrl ? (
+                  <img
+                    src={row.imageUrl}
+                    alt={`${fullName} portrait`}
+                    width="56"
+                    height="56"
+                    loading="eager"
+                    decoding="async"
+                    style="width: 56px; height: 56px; border-radius: 9999px; object-fit: cover;"
+                  />
+                ) : (
+                  <div
+                    aria-hidden="true"
+                    style="width: 56px; height: 56px; border-radius: 9999px; background: var(--color-surface-elevated); border: 1px solid var(--color-border); display: flex; align-items: center; justify-content: center; font-family: var(--font-serif); font-size: 20px; color: var(--color-ink);"
+                  >
+                    {row.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <div class="serif" style="font-size: 16px; font-weight: 500; line-height: 1.2;">{fullName}</div>
+                  {row.specialtyName && (
+                    <div class="mono mt-1" style="font-size: 11px; color: var(--color-ink-subtle); text-transform: uppercase; letter-spacing: 0.08em;">
+                      {row.specialtyName}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <ul class="mt-4 space-y-2.5" style="font-size: 13px;">
+                {row.hospitalName && (
+                  <li class="flex items-start gap-2" style="color: var(--color-ink-muted);">
+                    <MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>{row.hospitalName}{row.cityName && (<>, {row.cityName}</>)}</span>
+                  </li>
+                )}
+                {row.availableForVideoConsult && (
+                  <li class="flex items-start gap-2" style="color: var(--color-accent);">
+                    <Video className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>Video consult available</span>
+                  </li>
+                )}
+                {row.consultationFeeUsd != null && (
+                  <li class="flex items-start gap-2" style="color: var(--color-ink-muted);">
+                    <Phone className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>Consult fee from ${row.consultationFeeUsd}</span>
+                  </li>
+                )}
+                {row.experienceYears != null && row.experienceYears > 0 && (
+                  <li class="flex items-start gap-2" style="color: var(--color-ink-muted);">
+                    <ShieldCheck className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>{row.experienceYears}+ years in practice</span>
+                  </li>
+                )}
+              </ul>
+
+              <div class="mt-5 pt-5" style="border-top: 1px dashed var(--color-border);">
+                <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                  What happens next
+                </div>
+                <ol class="mt-2 space-y-2.5" style="font-size: 12.5px; color: var(--color-ink-muted); line-height: 1.5;">
+                  <li><span class="serif" style="color: var(--color-ink); font-weight: 500;">1.</span> You receive a confirmation code (APT-…) within minutes.</li>
+                  <li><span class="serif" style="color: var(--color-ink); font-weight: 500;">2.</span> A coordinator confirms the slot within 24 hours.</li>
+                  <li><span class="serif" style="color: var(--color-ink); font-weight: 500;">3.</span> {row.name} reviews your case before the consult.</li>
+                </ol>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

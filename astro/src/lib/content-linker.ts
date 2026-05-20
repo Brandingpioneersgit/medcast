@@ -83,12 +83,65 @@ export interface LinkifyResult {
   linked: LinkableRow[];
 }
 
+/**
+ * Strip dangerous HTML before render. Allowlist approach — only the tags
+ * and attributes a blog post legitimately needs survive. Defends against:
+ *   - Compromised admin account injecting <script>/<iframe>/<object>
+ *   - DB column ever picking up untrusted data downstream
+ *   - Smuggled `javascript:` URLs and `onclick=`-style handlers
+ *
+ * Not a full DOMPurify replacement — limited to the subset of HTML the
+ * MedCasts editorial pipeline actually emits. Run *before* the auto-linker
+ * so links the linker injects aren't double-stripped.
+ */
+const ALLOWED_TAGS = new Set([
+  "p", "br", "hr", "blockquote",
+  "h1", "h2", "h3", "h4", "h5", "h6",
+  "strong", "b", "em", "i", "u", "s",
+  "ul", "ol", "li", "dl", "dt", "dd",
+  "a", "code", "pre",
+  "table", "thead", "tbody", "tr", "th", "td",
+  "figure", "figcaption", "img",
+]);
+const ALLOWED_ATTRS_BY_TAG: Record<string, Set<string>> = {
+  a: new Set(["href", "title", "rel", "target"]),
+  img: new Set(["src", "alt", "width", "height", "loading", "decoding"]),
+};
+const SAFE_URL_RE = /^(?:https?:|mailto:|tel:|\/|#)/i;
+
+export function sanitizeBlogHtml(html: string): string {
+  if (!html) return html;
+  return html.replace(/<\/?([a-zA-Z][\w-]*)\b([^>]*)>/g, (full, rawName: string, rawAttrs: string) => {
+    const name = rawName.toLowerCase();
+    const closing = full.startsWith("</");
+    if (!ALLOWED_TAGS.has(name)) return ""; // drop tag entirely
+    if (closing) return `</${name}>`;
+    const allowedAttrs = ALLOWED_ATTRS_BY_TAG[name];
+    if (!allowedAttrs) return `<${name}>`;
+    // Pull each attr=value pair from the tag's attributes.
+    const kept: string[] = [];
+    const attrRe = /([a-zA-Z][\w:-]*)\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/g;
+    let m: RegExpExecArray | null;
+    while ((m = attrRe.exec(rawAttrs)) !== null) {
+      const k = m[1].toLowerCase();
+      if (k.startsWith("on")) continue; // drop event handlers
+      if (!allowedAttrs.has(k)) continue;
+      const v = m[3] ?? m[4] ?? m[5] ?? "";
+      if ((k === "href" || k === "src") && !SAFE_URL_RE.test(v)) continue;
+      // Re-quote for safety, escape any embedded quote.
+      kept.push(`${k}="${v.replace(/"/g, "&quot;")}"`);
+    }
+    return kept.length ? `<${name} ${kept.join(" ")}>` : `<${name}>`;
+  });
+}
+
 export function linkifyBlogHtml(
   html: string,
   entities: LinkableRow[],
   localeHref: (p: string) => string,
 ): LinkifyResult {
   if (!html) return { html, linked: [] };
+  html = sanitizeBlogHtml(html);
   const candidates = buildCandidates(entities);
   const usedSlugs = new Set<string>();
   const linked: LinkableRow[] = [];

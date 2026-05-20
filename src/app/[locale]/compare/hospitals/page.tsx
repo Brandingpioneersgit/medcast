@@ -20,6 +20,7 @@ export async function generateMetadata({ params }: Props) {
     description: "Compare top hospitals by rating, pricing, beds, accreditations, and specialties. Find the best hospital for your treatment.",
     path: "/compare/hospitals",
     locale,
+    noindex: true,
   });
 }
 

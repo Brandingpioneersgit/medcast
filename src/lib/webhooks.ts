@@ -111,6 +111,71 @@ export function startWebhookDispatcher(): void {
   });
 }
 
+/**
+ * Replay a previously-recorded delivery. Reuses the saved payload + event,
+ * looks up the subscription's current url + secret, and records a new
+ * delivery row (so retries are auditable). Returns the new status.
+ */
+export async function replayDelivery(deliveryId: number): Promise<{ ok: boolean; status: number; body: string; error?: string }> {
+  const original = await db.query.webhookDeliveries.findFirst({
+    where: eq(webhookDeliveries.id, deliveryId),
+  });
+  if (!original) return { ok: false, status: 0, body: "", error: "Delivery not found" };
+
+  const sub = await db.query.webhookSubscriptions.findFirst({
+    where: eq(webhookSubscriptions.id, original.subscriptionId),
+  });
+  if (!sub) return { ok: false, status: 0, body: "", error: "Subscription deleted" };
+  if (!sub.enabled) return { ok: false, status: 0, body: "", error: "Subscription is disabled" };
+
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "User-Agent": "MedCasts-Webhook/1.0",
+    "X-MedCasts-Event": original.event,
+    "X-MedCasts-Timestamp": timestamp,
+    "X-MedCasts-Replay-Of": String(deliveryId),
+  };
+  if (sub.secret) {
+    headers["X-MedCasts-Signature"] = `sha256=${sign(sub.secret, original.payload, timestamp)}`;
+  }
+
+  let status = 0;
+  let body = "";
+  let ok = false;
+  let error: string | null = null;
+  try {
+    const res = await fetch(sub.url, {
+      method: "POST",
+      headers,
+      body: original.payload,
+      signal: AbortSignal.timeout(8_000),
+    });
+    status = res.status;
+    body = (await res.text()).slice(0, 2000);
+    ok = res.ok;
+  } catch (err) {
+    error = String(err).slice(0, 500);
+  }
+
+  try {
+    await db.insert(webhookDeliveries).values({
+      subscriptionId: sub.id,
+      event: original.event,
+      payload: original.payload,
+      responseStatus: status || null,
+      responseBody: body || null,
+      succeeded: ok,
+      error,
+      attempt: (original.attempt ?? 1) + 1,
+    });
+  } catch (err) {
+    console.warn("[webhook] failed to record replay delivery:", err);
+  }
+
+  return { ok, status, body, error: error ?? undefined };
+}
+
 export async function sendTestWebhook(subId: number): Promise<{ ok: boolean; status: number; body: string; error?: string }> {
   const sub = await db.query.webhookSubscriptions.findFirst({
     where: and(eq(webhookSubscriptions.id, subId), eq(webhookSubscriptions.enabled, true)),

@@ -1,0 +1,153 @@
+---
+// TripStrip — 5-stage horizontal "trip in photos" preview for country pages.
+// Visualises the medical-tourism arc: arrival → hotel → consult → procedure → recovery.
+// Cards 1-2 use country-keyed travel photos; 3-5 use medical photos
+// (kept consistent across countries because operating rooms look the same).
+
+interface Props {
+  countrySlug: string;
+  countryName: string;
+}
+
+const { countrySlug, countryName } = Astro.props;
+
+const UB = "https://images.unsplash.com";
+const u = (id: string, w = 800, h = 600): string =>
+  `${UB}/${id}?auto=format&fit=crop&w=${w}&h=${h}&q=72`;
+
+// Travel photos: airport / city skyline / hotel / urban scene per country.
+type TravelSet = { arrival: string; hotel: string };
+const COUNTRY_TRAVEL: Record<string, TravelSet> = {
+  india: { arrival: "photo-1517363898874-737b62a7db91", hotel: "photo-1582719508461-905c673771fd" },
+  thailand: { arrival: "photo-1552465011-b4e21bf6e79a", hotel: "photo-1564501049412-61c2a3083791" },
+  turkey: { arrival: "photo-1524231757912-21f4fe3a7200", hotel: "photo-1455587734955-081b22074882" },
+  germany: { arrival: "photo-1467269204594-9661b134dd2b", hotel: "photo-1566073771259-6a8506099945" },
+  "south-korea": { arrival: "photo-1517154421773-0529f29ea451", hotel: "photo-1568084680786-a84f91d1153c" },
+  malaysia: { arrival: "photo-1596422846543-75c6fc197f07", hotel: "photo-1571896349842-33c89424de2d" },
+  singapore: { arrival: "photo-1508964942454-1a56651d54ac", hotel: "photo-1455587734955-081b22074882" },
+  "united-arab-emirates": { arrival: "photo-1512453979798-5ea266f8880c", hotel: "photo-1571896349842-33c89424de2d" },
+  uae: { arrival: "photo-1512453979798-5ea266f8880c", hotel: "photo-1571896349842-33c89424de2d" },
+  "saudi-arabia": { arrival: "photo-1578895101408-1a36b834405b", hotel: "photo-1455587734955-081b22074882" },
+};
+const FALLBACK_TRAVEL: TravelSet = {
+  arrival: "photo-1488646953014-85cb44e25828",
+  hotel: "photo-1455587734955-081b22074882",
+};
+
+// Medical photos shared across countries — these don't vary by destination.
+const CONSULT = "photo-1559757148-5c350d0d3c56";
+const PROCEDURE = "photo-1666214280557-f1b5022eb634";
+const RECOVERY = "photo-1631815589968-fdb09a223b1e";
+
+const t = COUNTRY_TRAVEL[countrySlug] ?? FALLBACK_TRAVEL;
+
+const STAGES: Array<{ n: string; label: string; copy: string; img: string; tone: "amber" | "teal" }> = [
+  {
+    n: "01",
+    label: "Arrival",
+    copy: `Land in ${countryName}. Our case manager meets you at the gate; airport transfer is pre-paid in your quote.`,
+    img: u(t.arrival, 720, 540),
+    tone: "amber",
+  },
+  {
+    n: "02",
+    label: "Settle in",
+    copy: "Check into a recovery-friendly hotel within 15-20 min of the hospital. Family attendants stay free.",
+    img: u(t.hotel, 720, 540),
+    tone: "amber",
+  },
+  {
+    n: "03",
+    label: "Consult & imaging",
+    copy: "Meet your treating surgeon. Records reviewed, imaging repeated when needed, plan confirmed in writing.",
+    img: u(CONSULT, 720, 540),
+    tone: "teal",
+  },
+  {
+    n: "04",
+    label: "Procedure",
+    copy: "Treatment day. Family updates by WhatsApp throughout. Itemised bill issued before discharge.",
+    img: u(PROCEDURE, 720, 540),
+    tone: "teal",
+  },
+  {
+    n: "05",
+    label: "Recovery",
+    copy: "Stay 7-21 days for follow-up review. Travel-fitness sign-off, then home with a 90-day remote check-in.",
+    img: u(RECOVERY, 720, 540),
+    tone: "teal",
+  },
+];
+---
+
+<section style="padding: 56px 0;">
+  <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+    <div class="flex items-end justify-between flex-wrap gap-4 mb-7">
+      <div>
+        <span class="mono" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); text-transform: uppercase;">
+          Your trip, in photos
+        </span>
+        <h2 class="display mt-2" style="font-size: clamp(28px, 4vw, 40px); letter-spacing: -0.02em; line-height: 1.05;">
+          What going to {countryName}
+          <span style="font-style: italic; font-weight: 300; color: var(--color-accent);"> for surgery</span>
+          actually looks like
+        </h2>
+        <p class="serif mt-2" style="font-size: 15px; color: var(--color-ink-muted); max-width: 60ch;">
+          Five stages, two weeks on average. The arc is the same whether you fly in for a knee replacement or a transplant.
+        </p>
+      </div>
+    </div>
+
+    <div
+      class="trip-rail"
+      style="display: grid; grid-auto-flow: column; grid-auto-columns: minmax(260px, 1fr); gap: 14px; overflow-x: auto; padding-bottom: 12px; scroll-snap-type: x mandatory;"
+    >
+      {STAGES.map((s) => (
+        <article
+          class="paper"
+          style="padding: 0; overflow: hidden; border-radius: var(--radius-lg); scroll-snap-align: start; display: flex; flex-direction: column;"
+        >
+          <div style="position: relative; aspect-ratio: 4/3; overflow: hidden;">
+            <img
+              src={s.img}
+              alt={`${s.label} stage in ${countryName}`}
+              loading="lazy"
+              decoding="async"
+              width="720"
+              height="540"
+              style="width: 100%; height: 100%; object-fit: cover; display: block;"
+            />
+            <div
+              aria-hidden="true"
+              style="position: absolute; inset: 0; background: linear-gradient(180deg, transparent 50%, rgba(14,23,19,0.55) 100%);"
+            />
+            <span
+              class="mono"
+              style={`position: absolute; top: 10px; inset-inline-start: 10px; padding: 4px 9px; font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(251,248,241,.97); background: ${s.tone === "amber" ? "rgba(226,165,75,0.85)" : "rgba(10,93,84,0.82)"}; border-radius: 9999px;`}
+            >
+              {s.n} · {s.label}
+            </span>
+          </div>
+          <div style="padding: 14px 16px 18px;">
+            <p class="serif" style="font-size: 13.5px; line-height: 1.5; color: var(--color-ink-muted);">
+              {s.copy}
+            </p>
+          </div>
+        </article>
+      ))}
+    </div>
+
+    <p class="mono" style="margin-top: 14px; font-size: 10.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">
+      Average door-to-door · 14 days · 12 covered by hospital + recovery package
+    </p>
+  </div>
+</section>
+
+<style>
+  .trip-rail::-webkit-scrollbar { height: 8px; }
+  .trip-rail::-webkit-scrollbar-thumb {
+    background: rgba(10, 93, 84, 0.25);
+    border-radius: 9999px;
+  }
+  .trip-rail::-webkit-scrollbar-track { background: transparent; }
+</style>

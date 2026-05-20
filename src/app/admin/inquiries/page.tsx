@@ -1,128 +1,67 @@
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { contactInquiries } from "@/lib/db/schema";
-import { desc } from "drizzle-orm";
-import { Phone, Mail, MessageSquare, Clock } from "lucide-react";
+import { desc, sql, count } from "drizzle-orm";
+import { AdminPageHeader, StatRibbon } from "@/components/admin";
+import { AlertCircle } from "lucide-react";
+import { InquiriesTableClient } from "./table-client";
 
-type SLA = { label: string; cls: string };
+export const dynamic = "force-dynamic";
 
-function slaFor(status: string, createdAt: Date | null): SLA {
-  if (!createdAt || ["converted", "closed", "price_watch"].includes(status)) {
-    return { label: "—", cls: "text-gray-400" };
-  }
-  if (status !== "new") {
-    return { label: "engaged", cls: "text-gray-400" };
-  }
-  const minutes = Math.max(0, (Date.now() - createdAt.getTime()) / 60000);
-  if (minutes < 15) return { label: `${Math.round(minutes)}m`, cls: "bg-emerald-100 text-emerald-800" };
-  if (minutes < 60) return { label: `${Math.round(minutes)}m`, cls: "bg-amber-100 text-amber-800" };
-  if (minutes < 60 * 24) return { label: `${Math.round(minutes / 60)}h`, cls: "bg-red-100 text-red-800" };
-  return { label: `${Math.round(minutes / 1440)}d`, cls: "bg-red-200 text-red-900" };
-}
+// 2,000 covers ~6 months of leads at moderate volume. The DataTable below is
+// purely client-side, so larger scales should switch to a server-paginated
+// pattern (see /admin/hospitals for the template).
+const ROW_LIMIT = 2000;
 
 export default async function InquiriesAdminPage() {
   await requireAuth();
 
-  const inquiries = await db.select().from(contactInquiries).orderBy(desc(contactInquiries.createdAt)).limit(100);
+  const [inquiries, stats] = await Promise.all([
+    db
+      .select()
+      .from(contactInquiries)
+      .orderBy(desc(contactInquiries.createdAt))
+      .limit(ROW_LIMIT),
+    db
+      .select({
+        total: count(),
+        new: sql<number>`COUNT(*) FILTER (WHERE ${contactInquiries.status} = 'new')::int`,
+        contacted: sql<number>`COUNT(*) FILTER (WHERE ${contactInquiries.status} = 'contacted')::int`,
+        converted: sql<number>`COUNT(*) FILTER (WHERE ${contactInquiries.status} = 'converted')::int`,
+        breaching: sql<number>`COUNT(*) FILTER (WHERE ${contactInquiries.status} = 'new' AND ${contactInquiries.createdAt} < NOW() - INTERVAL '1 hour')::int`,
+      })
+      .from(contactInquiries)
+      .then((r) => r[0]),
+  ]);
 
-  const breaching = inquiries.filter((i) => i.status === "new" && i.createdAt && Date.now() - i.createdAt.getTime() > 60 * 60 * 1000).length;
-
-  const statusColors: Record<string, string> = {
-    new: "bg-green-50 text-green-700",
-    contacted: "bg-blue-50 text-blue-700",
-    qualified: "bg-purple-50 text-purple-700",
-    converted: "bg-teal-50 text-teal-700",
-    closed: "bg-gray-50 text-gray-600",
-    price_watch: "bg-indigo-50 text-indigo-700",
-  };
+  const truncated = stats.total > ROW_LIMIT;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Inquiries</h1>
-        <div className="flex items-center gap-3 text-sm">
-          {breaching > 0 && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-100 text-red-800 font-medium">
-              <Clock className="w-3.5 h-3.5" />
-              {breaching} breaching 1-hour SLA
-            </span>
-          )}
-          <span className="text-gray-500">{inquiries.length} total</span>
+      <AdminPageHeader
+        title="Inquiries"
+        subtitle="Patient quote and second-opinion requests. New inquiries should be triaged within 1 hour during business hours."
+        stats={
+          <StatRibbon
+            items={[
+              { label: "Total", value: stats.total.toLocaleString() },
+              { label: "New", value: stats.new.toLocaleString(), tone: stats.new > 0 ? "warn" : "success" },
+              { label: "Breaching SLA", value: stats.breaching.toLocaleString(), tone: stats.breaching > 0 ? "danger" : "success", sub: ">1hr in 'new'" },
+              { label: "Converted", value: stats.converted.toLocaleString(), tone: "success" },
+            ]}
+          />
+        }
+      />
+      {truncated && (
+        <div className="mb-4 flex items-start gap-3 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-sm">
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+          <div>
+            <strong>Showing latest {ROW_LIMIT.toLocaleString()} of {stats.total.toLocaleString()} inquiries.</strong>{" "}
+            Older inquiries beyond {ROW_LIMIT.toLocaleString()} are not visible — filter by status or use CSV export to access them, or contact the engineer to switch this list to server-paginated mode.
+          </div>
         </div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Patient</th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Contact</th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Condition</th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Source</th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">SLA</th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Date</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {inquiries.map((inq) => (
-              <tr key={inq.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4">
-                  <p className="font-medium text-gray-900 text-sm">{inq.name}</p>
-                  <p className="text-xs text-gray-400">{inq.country}</p>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="space-y-1">
-                    {inq.phone && (
-                      <a href={`tel:${inq.phone}`} className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-teal-600">
-                        <Phone className="w-3 h-3" /> {inq.phone}
-                      </a>
-                    )}
-                    {inq.email && (
-                      <a href={`mailto:${inq.email}`} className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-teal-600">
-                        <Mail className="w-3 h-3" /> {inq.email}
-                      </a>
-                    )}
-                    {inq.whatsappNumber && (
-                      <a href={`https://wa.me/${inq.whatsappNumber.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-green-600 hover:text-green-700">
-                        <MessageSquare className="w-3 h-3" /> WhatsApp
-                      </a>
-                    )}
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <p className="text-sm text-gray-600 max-w-xs truncate">{inq.medicalConditionSummary || "—"}</p>
-                </td>
-                <td className="px-6 py-4">
-                  <p className="text-xs text-gray-400 max-w-xs truncate">{inq.sourcePage || "—"}</p>
-                  {inq.utmSource && <p className="text-xs text-gray-300">utm: {inq.utmSource}</p>}
-                </td>
-                <td className="px-6 py-4">
-                  {(() => {
-                    const s = slaFor(inq.status, inq.createdAt);
-                    return (
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium tnum ${s.cls}`}>
-                        {s.label}
-                      </span>
-                    );
-                  })()}
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${statusColors[inq.status] || statusColors.new}`}>
-                    {inq.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-xs text-gray-500">
-                  {inq.createdAt?.toLocaleDateString()}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {inquiries.length === 0 && (
-          <p className="px-6 py-8 text-center text-sm text-gray-500">No inquiries yet</p>
-        )}
-      </div>
+      )}
+      <InquiriesTableClient rows={inquiries} />
     </div>
   );
 }

@@ -9,6 +9,9 @@ import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, itemListJsonLd } from "@/lib/seo";
 import { ChevronRight } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import PageCta from "@/components/PageCta.astro";
 
 export const prerender = false;
 
@@ -20,10 +23,10 @@ const specialties = await listSurgeonSpecialties();
 const totalDoctors = specialties.reduce((acc, s) => acc + s.docs, 0);
 
 const tc = getTranslator(locale, "common");
-
-const seoTitle = "Browse surgeons by specialty";
-const seoDescription =
-  `${totalDoctors.toLocaleString()} surgeons across ${specialties.length} specialties. Shortlist cardiac, orthopedic, oncology, neurosurgery and more by patient volume and experience.`;
+const { bindChromeT } = await import("@/lib/chrome-i18n");
+const ct = bindChromeT(locale);
+const seoTitle = ct("lp.surgeons.title");
+const seoDescription = ct("lp.surgeons.desc");
 const path = "/surgeons";
 
 const crumbs = breadcrumbJsonLd([
@@ -59,11 +62,11 @@ function restOfName(s: string) { const i = s.indexOf(" "); return i === -1 ? "" 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    {itemLd && <script type="application/ld+json" set:html={JSON.stringify(itemLd)} />}
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    {itemLd && <script type="application/ld+json" is:inline set:html={JSON.stringify(itemLd)} />}
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -77,10 +80,10 @@ function restOfName(s: string) { const i = s.indexOf(" "); return i === -1 ? "" 
     </div>
 
     <EntityListingHero
-      eyebrow={`Surgeons · ${totalDoctors.toLocaleString()} specialists`}
-      h1First="Surgeons"
-      h1Italic="by specialty"
-      lede={`${totalDoctors.toLocaleString()} specialists at hospitals credentialed across ${specialties.length} specialties. Directory rankings, not personal endorsements — a starting point. Our case manager refines the list to your specific condition.`}
+      eyebrow={ct("lp.surgeons.eyebrow")}
+      h1First={ct("lp.surgeons.h1a")}
+      h1Italic={ct("lp.surgeons.h1b")}
+      lede={seoDescription}
       stats={stats}
     />
 
@@ -116,6 +119,32 @@ function restOfName(s: string) { const i = s.indexOf(" "); return i === -1 ? "" 
       </div>
     </section>
 
+    <HowItWorks
+      heading="How to find the right surgeon"
+      italicWord="right surgeon"
+      eyebrow="Surgeon evaluation"
+      steps={[
+        { title: "Match by sub-specialty", description: "Pick by your specific procedure family. Sub-specialty experience matters more than general specialty designation. A 'cardiac surgeon' isn't the same as a 'mitral valve specialist'." },
+        { title: "Compare by case volume", description: "Personal annual case volume on your specific procedure is the strongest single outcome predictor. Look for 100+/year on your exact case type." },
+        { title: "Verify credentials independently", description: "Board certification, fellowship training, hospital privileges, peer-reviewed publications. Cross-check on PubMed, Google Scholar, ORCID." },
+        { title: "Drill into program context", description: "Top surgeons work in programs with strong multidisciplinary infrastructure (tumor boards, heart teams, sub-specialty clinics). Solo cowboys often produce average outcomes." },
+        { title: "Consultation before commitment", description: "Schedule a video consultation with your top 1-2 candidates. Communication quality during consultation predicts communication quality during your case." },
+      ]}
+    />
+
+    <WhatToExpect
+      heading="The volume thresholds that matter"
+      italicWord="that matter"
+      items={[
+        { label: "Top tier (200+/year)", description: "Surgeons doing 200+ procedures of your specific type annually typically reach the strongest outcomes ranges. Look for them at high-volume institutional programs." },
+        { label: "Strong tier (100-200/year)", description: "Experienced surgeons with consistent technique. Outcomes near top tier for most case complexity." },
+        { label: "Moderate tier (50-100/year)", description: "Acceptable for routine cases. For complex cases or rare procedures, consider higher-volume options." },
+        { label: "Below 50/year", description: "Complication rates measurably higher across cardiac, orthopedic, urologic, and oncologic surgery. Reasonable to skip for elective international travel." },
+      ]}
+    />
+
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

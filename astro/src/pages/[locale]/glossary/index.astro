@@ -8,7 +8,11 @@ import { sql } from "drizzle-orm";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, faqJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
+import { getContentBatch, applyTranslated } from "@/lib/translate";
 import { ChevronRight } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import PageCta from "@/components/PageCta.astro";
 
 export const prerender = false;
 
@@ -18,15 +22,19 @@ const locale = rawLocale as Locale;
 const tg = getTranslator(locale, "glossaryPage");
 const tc = getTranslator(locale, "common");
 
-type Row = { slug: string; term: string; category: string | null; short_definition: string };
-const terms = Array.from(
+type Row = { id: number; slug: string; term: string; category: string | null; short_definition: string };
+const rawTerms = Array.from(
   (await db
     .execute(sql`
-      SELECT slug, term, category, short_definition FROM glossary_terms
+      SELECT id, slug, term, category, short_definition FROM glossary_terms
       ORDER BY category, term
     `)
     .catch(() => [] as unknown[])) as Iterable<Row>,
 );
+
+const trMap: Record<number, Record<string, string>> = await getContentBatch("glossary", rawTerms.map((t) => t.id), locale).catch(() => ({}));
+const terms = rawTerms.map((t) => applyTranslated(t, trMap[t.id] ?? {}, ["term", "short_definition"]));
+const localeHasTranslations = locale === "en" || rawTerms.some((t) => Object.keys(trMap[t.id] ?? {}).length > 0);
 
 const byCategory = new Map<string, Row[]>();
 for (const t of terms) {
@@ -57,12 +65,12 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={locale !== "en"} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={!localeHasTranslations} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(faqSchema)} />
   </Fragment>
 
-  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -75,7 +83,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
       </div>
     </div>
 
-    <section style="padding: 56px 0;">
+    <section style="padding: 56px 0 32px;">
       <div class="mx-auto max-w-[1440px] px-7 md:px-10">
         <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
           {tg("eyebrow")}
@@ -90,23 +98,43 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
           {tg("lede")}
         </p>
 
-        {/* Category tabs (anchor links) */}
         <div class="mt-5 flex flex-wrap items-center gap-3" style="font-size: 12.5px; color: var(--color-ink-subtle);">
           <span class="mono">{terms.length} {tg("termsCount")} · {categories.length} {tg("categoriesCount")}</span>
         </div>
+      </div>
+    </section>
 
-        {/* Category tabs (anchor links) */}
-        <div class="flex flex-wrap gap-2 mt-7">
-          {categories.map((c) => (
-            <a
-              href={`#${c.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
-              class="inline-flex items-center"
-              style="padding: 6px 14px; border-radius: 9999px; font-size: 12px; font-weight: 500; background: var(--color-surface-elevated); color: var(--color-ink); border: 1px solid var(--color-border);"
-            >
-              {c}
-            </a>
-          ))}
+    {/* Sticky category tabs — stay visible while scrolling between sections */}
+    <nav
+      class="mc-glossary-tabs"
+      aria-label="Glossary categories"
+      style="position: sticky; top: 84px; z-index: 30; background: color-mix(in srgb, var(--color-bg) 92%, transparent); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-top: 1px solid var(--color-border-soft); border-bottom: 1px solid var(--color-border-soft); padding: 12px 0;"
+    >
+      <div class="mx-auto max-w-[1440px] px-7 md:px-10 overflow-x-auto">
+        <div class="flex flex-nowrap md:flex-wrap gap-2 min-w-max md:min-w-0">
+          {categories.map((c) => {
+            const id = c.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+            const count = byCategory.get(c)!.length;
+            return (
+              <a
+                href={`#${id}`}
+                data-category-tab={id}
+                class="inline-flex items-center gap-2 transition"
+                style="padding: 7px 14px; border-radius: 9999px; font-size: 12px; font-weight: 500; background: var(--color-surface-elevated); color: var(--color-ink); border: 1px solid var(--color-border); white-space: nowrap;"
+              >
+                {c}
+                <span class="tnum mono" style="font-size: 10px; padding: 0 5px; border-radius: 9999px; background: var(--color-bg); color: var(--color-ink-subtle);">
+                  {count}
+                </span>
+              </a>
+            );
+          })}
         </div>
+      </div>
+    </nav>
+
+    <section style="padding: 32px 0 0;">
+      <div class="mx-auto max-w-[1440px] px-7 md:px-10">
 
         {/* Category sections */}
         {categories.map((c) => (
@@ -165,6 +193,68 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
       </div>
     </section>
 
+    <script is:inline>
+      // Scroll-spy: highlight the visible category tab as the user scrolls
+      (function () {
+        const tabs = document.querySelectorAll("[data-category-tab]");
+        if (!tabs.length || !("IntersectionObserver" in window)) return;
+        const tabMap = new Map();
+        tabs.forEach((t) => tabMap.set(t.dataset.categoryTab, t));
+        const setActive = (id) => {
+          tabs.forEach((t) => {
+            const on = t.dataset.categoryTab === id;
+            t.style.background = on ? "var(--color-ink)" : "var(--color-surface-elevated)";
+            t.style.color = on ? "var(--color-bg)" : "var(--color-ink)";
+            t.style.borderColor = on ? "var(--color-ink)" : "var(--color-border)";
+          });
+        };
+        const sections = Array.from(tabMap.keys())
+          .map((id) => document.getElementById(id))
+          .filter(Boolean);
+        const io = new IntersectionObserver(
+          (entries) => {
+            const visible = entries
+              .filter((e) => e.isIntersecting)
+              .sort((a, b) => a.target.getBoundingClientRect().top - b.target.getBoundingClientRect().top)[0];
+            if (visible) setActive(visible.target.id);
+          },
+          { rootMargin: "-180px 0px -55% 0px", threshold: 0 }
+        );
+        sections.forEach((s) => io.observe(s));
+        // Smooth-scroll behaviour for the anchor click
+        tabs.forEach((t) => {
+          t.addEventListener("click", () => {
+            // brief immediate visual response while IO catches up
+            setActive(t.dataset.categoryTab);
+          });
+        });
+      })();
+    </script>
+
+    <HowItWorks
+      heading='How to use the glossary'
+      italicWord='the glossary'
+      eyebrow='Reference'
+      steps={[
+        { title: 'Browse by category', description: 'Pharmacology, imaging, surgery, recovery, insurance, regulatory, evidence, visa, payment, specialty terms. Pick the closest fit.' },
+        { title: 'Search by term', description: 'Use Cmd+K (or header search) to find a specific term across all 135 entries.' },
+        { title: "Read 'what this means for you'", description: 'Each term has a clinical definition + a patient-meaning section explaining why it matters in your decision.' },
+        { title: 'Cross-reference', description: 'Each entry links to related terms. Reading the cluster gives a fuller picture than a single definition.' },
+      ]}
+    />
+
+    <WhatToExpect
+      heading='Glossary structure'
+      italicWord='structure'
+      items={[
+        { label: 'Short definition', description: 'One-sentence definition for quick reference.' },
+        { label: 'Full definition', description: "Paragraph with clinical context and how it's used in practice." },
+        { label: 'Patient meaning', description: 'What the term means specifically for you as a patient making decisions.' },
+        { label: 'Related terms', description: 'Cross-links to terms that often come up together.' },
+      ]}
+    />
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

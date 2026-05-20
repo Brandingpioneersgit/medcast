@@ -1,74 +1,124 @@
 import { requireAuth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { doctors, hospitals } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
-import Link from "next/link";
-import { Plus, Edit2, Star } from "lucide-react";
+import { eq, desc, sql, count, and, or, ilike, asc } from "drizzle-orm";
+import { AdminPageHeader, StatRibbon, AdminPagination } from "@/components/admin";
+import { DoctorsTableClient } from "./table-client";
+import { DoctorsFilterBar } from "./filter-bar";
 
-export default async function DoctorsAdminPage() {
+export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 50;
+
+interface PageProps {
+  searchParams: Promise<{ q?: string; hospital?: string; status?: string; featured?: string; page?: string }>;
+}
+
+export default async function DoctorsAdminPage({ searchParams }: PageProps) {
   await requireAuth();
+  const sp = await searchParams;
 
-  const allDoctors = await db
-    .select({
-      id: doctors.id, name: doctors.name, slug: doctors.slug,
-      qualifications: doctors.qualifications, experienceYears: doctors.experienceYears,
-      rating: doctors.rating, isActive: doctors.isActive, isFeatured: doctors.isFeatured,
-      hospitalName: hospitals.name,
-    })
-    .from(doctors)
-    .innerJoin(hospitals, eq(doctors.hospitalId, hospitals.id))
-    .orderBy(desc(doctors.createdAt));
+  const q = (sp.q ?? "").trim();
+  const hospitalIdRaw = parseInt(sp.hospital ?? "", 10);
+  const hospitalId = Number.isFinite(hospitalIdRaw) && hospitalIdRaw > 0 ? hospitalIdRaw : null;
+  const status = sp.status ?? "";
+  const featured = sp.featured ?? "";
+  const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
+
+  const conds = [];
+  if (q) {
+    conds.push(
+      or(
+        ilike(doctors.name, `%${q}%`),
+        ilike(doctors.slug, `%${q}%`),
+        ilike(doctors.qualifications, `%${q}%`),
+      )!,
+    );
+  }
+  if (hospitalId !== null) conds.push(eq(doctors.hospitalId, hospitalId));
+  if (status === "active") conds.push(eq(doctors.isActive, true));
+  if (status === "inactive") conds.push(eq(doctors.isActive, false));
+  if (featured === "1") conds.push(eq(doctors.isFeatured, true));
+  if (featured === "0") conds.push(eq(doctors.isFeatured, false));
+
+  const whereClause = conds.length > 0 ? and(...conds) : undefined;
+
+  const [allDoctors, matchingCount, stats, hospitalOptions] = await Promise.all([
+    db
+      .select({
+        id: doctors.id,
+        name: doctors.name,
+        slug: doctors.slug,
+        qualifications: doctors.qualifications,
+        experienceYears: doctors.experienceYears,
+        rating: doctors.rating,
+        reviewCount: doctors.reviewCount,
+        isActive: doctors.isActive,
+        isFeatured: doctors.isFeatured,
+        hospitalName: hospitals.name,
+        hospitalId: doctors.hospitalId,
+      })
+      .from(doctors)
+      .innerJoin(hospitals, eq(doctors.hospitalId, hospitals.id))
+      .where(whereClause)
+      .orderBy(desc(doctors.isFeatured), desc(doctors.createdAt))
+      .limit(PAGE_SIZE)
+      .offset((page - 1) * PAGE_SIZE),
+    db
+      .select({ n: count() })
+      .from(doctors)
+      .innerJoin(hospitals, eq(doctors.hospitalId, hospitals.id))
+      .where(whereClause)
+      .then((r) => r[0]?.n ?? 0),
+    db
+      .select({
+        total: count(),
+        active: sql<number>`COUNT(*) FILTER (WHERE ${doctors.isActive} = true)::int`,
+        featured: sql<number>`COUNT(*) FILTER (WHERE ${doctors.isFeatured} = true)::int`,
+        thinBio: sql<number>`COUNT(*) FILTER (WHERE ${doctors.bio} IS NULL OR length(${doctors.bio}) < 200)::int`,
+      })
+      .from(doctors)
+      .then((r) => r[0]),
+    db
+      .select({ id: hospitals.id, name: hospitals.name })
+      .from(hospitals)
+      .innerJoin(doctors, eq(doctors.hospitalId, hospitals.id))
+      .groupBy(hospitals.id, hospitals.name)
+      .orderBy(asc(hospitals.name))
+      .limit(200),
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(matchingCount / PAGE_SIZE));
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Doctors</h1>
-        <Link href="/admin/doctors/new" className="flex items-center gap-2 bg-teal-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-teal-700">
-          <Plus className="w-4 h-4" /> Add Doctor
-        </Link>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Doctor</th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Hospital</th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Experience</th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Rating</th>
-              <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {allDoctors.map((d) => (
-              <tr key={d.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4">
-                  <p className="font-medium text-gray-900 text-sm">{d.name}</p>
-                  <p className="text-xs text-gray-400">{d.qualifications}</p>
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-600">{d.hospitalName}</td>
-                <td className="px-6 py-4 text-sm text-gray-600">{d.experienceYears}+ yrs</td>
-                <td className="px-6 py-4 text-sm">
-                  <span className="flex items-center gap-1">
-                    <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" /> {d.rating}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${d.isActive ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
-                    {d.isActive ? "Active" : "Inactive"}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <Link href={`/admin/doctors/${d.id}/edit`} className="inline-flex items-center gap-1 text-sm text-teal-600 hover:text-teal-700">
-                    <Edit2 className="w-3.5 h-3.5" /> Edit
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <AdminPageHeader
+        title="Doctors"
+        subtitle="Surgeon and specialist roster — qualifications, hospital affiliations, ratings, and visibility."
+        action={{ label: "Add doctor", href: "/admin/doctors/new" }}
+        stats={
+          <StatRibbon
+            items={[
+              { label: "Total", value: stats.total.toLocaleString() },
+              { label: "Active", value: stats.active.toLocaleString(), tone: "success" },
+              { label: "Featured", value: stats.featured.toLocaleString() },
+              { label: "Thin bios", value: stats.thinBio.toLocaleString(), tone: stats.thinBio > 0 ? "warn" : "success", sub: "<200 chars" },
+            ]}
+          />
+        }
+      />
+      <DoctorsFilterBar
+        hospitals={hospitalOptions}
+        totalRows={stats.total}
+        matchingRows={matchingCount}
+      />
+      <DoctorsTableClient rows={allDoctors} />
+      <AdminPagination
+        page={page}
+        totalPages={totalPages}
+        totalRows={matchingCount}
+        pageSize={PAGE_SIZE}
+      />
     </div>
   );
 }

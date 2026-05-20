@@ -9,6 +9,8 @@ import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, SITE_URL, SITE_NAME } from "@/lib/seo";
 import HowItWorks from "@/components/content/HowItWorks.astro";
 import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import PageCta from "@/components/PageCta.astro";
+import { careTeam, heroImage } from "@/lib/images";
 
 export const prerender = false;
 
@@ -59,15 +61,35 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
 
     <section style="border-bottom: 1px solid var(--color-border); padding: 64px 28px;">
       <div class="mx-auto max-w-[80rem]">
-        <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
-          Editorial integrity
-        </p>
-        <h1 class="display display-tight mt-3" style="font-size: clamp(2rem, 5vw, 3.75rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;">
-          Medical <span class="italic-display">review panel.</span>
-        </h1>
-        <p class="lede mt-6 max-w-[46rem]">
-          MedCasts is a coordinator, not a medical provider. Every directory and editorial page that touches clinical detail is reviewed by a practicing specialist before publication and re-checked quarterly. This page lists who they are, what they review, and how we verify their credentials.
-        </p>
+        <div class="grid gap-10 lg:grid-cols-[1fr_0.55fr] lg:items-center">
+          <div>
+            <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
+              Editorial integrity
+            </p>
+            <h1 class="display display-tight mt-3" style="font-size: clamp(2rem, 5vw, 3.75rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;">
+              Medical <span class="italic-display">review panel.</span>
+            </h1>
+            <p class="lede mt-6 max-w-[46rem]">
+              MedCasts is a coordinator, not a medical provider. Every directory and editorial page that touches clinical detail is reviewed by a practicing specialist before publication and re-checked quarterly. This page lists who they are, what they review, and how we verify their credentials.
+            </p>
+          </div>
+          <div class="relative paper-flat overflow-hidden" style="aspect-ratio: 4/5; border-radius: var(--radius-lg);">
+            <img
+              src={careTeam("medical-board")}
+              alt="Senior physician portrait"
+              width="600"
+              height="750"
+              loading="eager"
+              decoding="async"
+              style="width: 100%; height: 100%; object-fit: cover;"
+            />
+            <div class="image-veil" />
+            <div class="absolute" style="inset-inline-start: 16px; inset-block-end: 16px; inset-inline-end: 16px;">
+              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: rgba(251,248,241,0.78);">Quarterly re-checked · license verified</div>
+              <div class="serif" style="font-size: 16px; font-weight: 500; color: #FBF8F1; line-height: 1.3; margin-top: 4px;">Practising specialists, not staff writers.</div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -86,7 +108,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
             </p>
             <p class="mt-4" style="color: var(--color-ink-muted); line-height: 1.6;">
               If you are a practicing specialist interested in serving on the panel, write to
-              <a href="mailto:partnerships@medcasts.com" style="color: var(--color-ink); font-weight: 500;"> partnerships@medcasts.com</a> with your registration details and specialty. Panel members receive a modest honorarium and a permanent profile here.
+              <a href="mailto:medcastsdigital@gmail.com" style="color: var(--color-ink); font-weight: 500;"> medcastsdigital@gmail.com</a> with your registration details and specialty. Panel members receive a modest honorarium and a permanent profile here.
             </p>
           </div>
         </div>
@@ -223,6 +245,8 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
       ]}
     />
 
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

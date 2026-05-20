@@ -13,6 +13,9 @@ import { breadcrumbJsonLd, localeUrl, collectionPageJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { hospitalCover } from "@/lib/images";
 import { ChevronRight } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import PageCta from "@/components/PageCta.astro";
 
 export const prerender = false;
 
@@ -82,8 +85,10 @@ const totalDoctors = rows.reduce((s, r) => s + r.doctors, 0);
 const lowestFrom = rows.reduce((m, r) => (r.fromUsd && (!m || r.fromUsd < m) ? r.fromUsd : m), null as number | null);
 
 const tc = getTranslator(locale, "common");
-const seoTitle = "Medical travel destinations";
-const seoDescription = `Compare ${rows.length} medical-tourism destinations — hospital count, doctor availability, starting prices, visa shape. Transparent data per country.`;
+const { bindChromeT } = await import("@/lib/chrome-i18n");
+const ct = bindChromeT(locale);
+const seoTitle = ct("lp.countries.title");
+const seoDescription = ct("lp.countries.desc").replace("{count}", String(rows.length));
 const path = "/countries";
 
 const crumbs = breadcrumbJsonLd([
@@ -111,11 +116,11 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
-    <script type="application/ld+json" set:html={JSON.stringify(collectionLd)} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(collectionLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -129,10 +134,10 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
     </div>
 
     <EntityListingHero
-      eyebrow={`Destinations · ${rows.length} countries`}
-      h1First="Where patients travel"
-      h1Italic="for care"
-      lede={`${rows.length} medical-tourism destinations, ${totalHospitals.toLocaleString()} accredited hospitals. Honest trade-offs per country — strengths, watch-outs, visa shape, language support.`}
+      eyebrow={ct("lp.countries.eyebrow").replace("{count}", String(rows.length))}
+      h1First={ct("lp.countries.h1a")}
+      h1Italic={ct("lp.countries.h1b")}
+      lede={seoDescription}
       stats={stats}
     />
 
@@ -206,6 +211,37 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
       </div>
     </section>
 
+    <HowItWorks
+      heading="How to choose a destination"
+      italicWord="destination"
+      eyebrow="Destination guide"
+      steps={[
+        { title: "Match procedure to destination strength", description: "India for cardiac/transplant/orthopedic value, Turkey for cosmetic/dental/hair, Korea for liver transplant + advanced GI, Germany for complex re-do, UAE for premium." },
+        { title: "Consider travel logistics", description: "Flight time, visa complexity, distance from family. Long-haul to India is a different proposition than 4-hour Turkey for European patients." },
+        { title: "Match climate to recovery window", description: "October-March for India, April-October for Turkey, year-round for UAE/Singapore. Heat and humidity affect recovery comfort." },
+        { title: "Match budget to destination tier", description: "India top-tier programs offer best cost-quality ratio. Turkey/Thailand mid-tier. Singapore/UAE/Germany premium." },
+        { title: "Evaluate program-specific fit", description: "Country is the framing; program is the decision. Always drill down to specific hospitals + surgeons." },
+      ]}
+    />
+
+    <WhatToExpect
+      heading="Where each destination shines"
+      italicWord="shines"
+      items={[
+        { label: "India", description: "Highest case volumes globally for many specialties; best cost-quality ratio at top-tier programs (Apollo, Medanta, Fortis Escorts, Tata Memorial). Best for cardiac, transplant, orthopedic, oncology." },
+        { label: "Turkey", description: "Strong on cosmetic, dental, hair transplant, bariatric. Premium cardiac and oncology at Acıbadem and Memorial. Closest non-European destination for European patients." },
+        { label: "Thailand", description: "Best service experience and English-language infrastructure. Bumrungrad is the global benchmark for international patient care. Mid-tier pricing." },
+        { label: "Korea", description: "World leader in liver transplant (Asan), advanced GI surgery, refractive eye surgery. Premium cosmetic in Gangnam." },
+        { label: "Germany", description: "Premium for complex re-do procedures, multi-organ transplant, neuro-oncology. Highest cost; best outcomes for highest-complexity cases." },
+        { label: "UAE", description: "Cleveland Clinic Abu Dhabi clones US standards; Dubai/Mediclinic for regional referrals. Premium pricing, premium service, US/UK-trained staff." },
+        { label: "Singapore", description: "Asia's premium; best for second opinions and rare-disease workup. Premium pricing reflects best-in-class outcomes." },
+        { label: "Saudi Arabia", description: "Vision 2030-driven investment in healthcare. King Faisal Specialist Hospital for complex cardiac and oncology. Premium pricing." },
+        { label: "Malaysia", description: "MHTC-coordinated cost-competitive Asian alternative. Strong for cardiology, fertility, oncology. Mid-tier pricing." },
+      ]}
+    />
+
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

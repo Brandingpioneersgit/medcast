@@ -1,0 +1,183 @@
+---
+/**
+ * Condition context — diagnostic workup, when to escalate to a specialist,
+ * and "before you book travel" checklist for a given condition.
+ *
+ * ~300-400 words of clinical-credibility content per condition page.
+ */
+
+interface Props {
+  conditionName: string;
+  /** Optional specialty name — used to tailor the "who you should see" phrasing */
+  specialtyName?: string | null;
+  severityLevel?: string | null;
+  symptomsList?: string[] | null;
+}
+
+const {
+  conditionName,
+  specialtyName,
+  severityLevel,
+  symptomsList,
+} = Astro.props;
+
+const isHighSeverity = severityLevel?.toLowerCase() === "severe" || severityLevel?.toLowerCase() === "high";
+
+const REFERRAL_TARGET = specialtyName
+  ? `a ${specialtyName.toLowerCase()} specialist`
+  : "a relevant subspecialist";
+
+// Generic diagnostic-workup framework — applies across most conditions
+const WORKUP = [
+  {
+    label: "First-line clinical assessment",
+    blurb: `History, physical exam, and risk-factor review by a senior generalist or ${specialtyName ? specialtyName.toLowerCase() + " specialist" : "specialist"}. Symptoms list, family history, prior workup notes, and current medication list should travel with the patient.`,
+  },
+  {
+    label: "Standard imaging + labs",
+    blurb: `Baseline blood work, condition-specific imaging (ultrasound / X-ray / MRI / CT — depending on indication), and ECG / pulmonary function as relevant. Bring digital copies of any prior imaging — saves repeat scans and the cost that goes with them.`,
+  },
+  {
+    label: "Specialist diagnostic workup",
+    blurb: `Procedure-specific tests — biopsy, cardiac catheterisation, endoscopy, or genetic / molecular profiling depending on the suspected diagnosis. Done at the centre that will treat, ideally, so results integrate cleanly into the treatment plan.`,
+  },
+  {
+    label: "Multidisciplinary review (where indicated)",
+    blurb: `Cancer, complex cardiac, transplant, and rare-disease cases should be reviewed by a multidisciplinary panel — surgical, medical, imaging, and pathology — before any treatment commits. Single-discipline plans for complex disease are a quality red flag.`,
+  },
+];
+
+const ESCALATE_NOW = isHighSeverity ? [
+  `Acute worsening of established symptoms — sudden chest pain, shortness of breath at rest, neurological deficit, severe bleeding, persistent high fever.`,
+  `Loss of consciousness, severe persistent vomiting, or any focal neurological event.`,
+  `Symptoms in the early hours of onset that fit a time-sensitive treatment window (stroke, MI, sepsis) — every hour costs outcome.`,
+  `If you are travelling internationally for treatment and develop these symptoms in transit, divert to the nearest emergency department; do not wait to reach the planned destination.`,
+] : [
+  `New, persistent, or worsening symptoms beyond the usual pattern — particularly anything that disrupts work, sleep, or daily function for >2 weeks.`,
+  `Symptoms accompanied by red-flag features (unintentional weight loss, night sweats, bleeding, severe pain, neurological signs).`,
+  `Any "this feels different" instinct — especially with recurrent or chronic conditions where you know your baseline well.`,
+  `A second-opinion misalignment with your current care plan — when two qualified clinicians disagree, the case warrants a third review before committing.`,
+];
+
+const PRE_TRAVEL = [
+  `Confirm your specific diagnosis is fully worked up before you commit to a treatment plan abroad. Travelling for the workup is fine; travelling for treatment without the workup done is not.`,
+  `Get your case reviewed remotely by the destination centre's team before you book flights — credible international patient programs review imaging + reports before they confirm the surgical plan.`,
+  `Bring a digital + physical copy of your full medical record: imaging on USB drive in DICOM format, labs in PDF, current medication list with dosages, allergies, and any prior surgical reports.`,
+  `Plan for ${specialtyName === "Oncology" ? "longer recovery + post-discharge therapy continuation" : "the post-op rehabilitation phase"} before you fly — the surgery itself is rarely the bottleneck.`,
+  `Confirm that follow-up imaging and any necessary in-person reviews can be done at home — a treatment plan that requires repeat international trips is more burdensome (and more expensive) than the headline procedure.`,
+];
+---
+
+<section
+  aria-labelledby="condition-context-heading"
+  style="padding: 64px 28px; border-top: 1px solid var(--color-border-soft);"
+>
+  <div class="mx-auto max-w-[1080px]">
+    <p
+      class="mono uppercase"
+      style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);"
+    >
+      Clinical context
+    </p>
+    <h2
+      id="condition-context-heading"
+      class="display display-tight mt-3"
+      style="font-size: clamp(1.75rem, 3.5vw, 2.5rem); line-height: 1.05; font-weight: 400; letter-spacing: -0.025em;"
+    >
+      Working up <span class="italic-display">{conditionName.toLowerCase()}</span> properly
+    </h2>
+    <p class="serif mt-5" style="font-size: 16.5px; line-height: 1.55; color: var(--color-ink-muted); max-width: 70ch;">
+      A condition like {conditionName.toLowerCase()} is rarely well-served by jumping straight to treatment shopping. The sequence below is what {REFERRAL_TARGET} would expect to see completed — and the absence of any step is the right cue to delay travel decisions.
+    </p>
+
+    {symptomsList && symptomsList.length > 0 && (
+      <div class="mt-8 paper" style="padding: 18px 22px;">
+        <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); margin-bottom: 8px;">
+          Common presenting symptoms
+        </div>
+        <div class="flex flex-wrap gap-2">
+          {symptomsList.slice(0, 12).map((s) => (
+            <span class="inline-flex items-center" style="font-size: 12.5px; padding: 4px 12px; border: 1px solid var(--color-border); border-radius: 9999px; color: var(--color-ink); background: var(--color-bg);">
+              {s}
+            </span>
+          ))}
+        </div>
+        <p class="mt-3" style="font-size: 12.5px; line-height: 1.55; color: var(--color-ink-subtle); font-style: italic;">
+          Symptom presence varies — some patients have multiple, others one, and a meaningful proportion of {conditionName.toLowerCase()} presents asymptomatically and is found on screening.
+        </p>
+      </div>
+    )}
+
+    {/* Diagnostic workup */}
+    <div class="mt-10">
+      <div
+        class="mono uppercase"
+        style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding-bottom: 12px; border-bottom: 1px solid var(--color-ink);"
+      >
+        Diagnostic workup, in sequence
+      </div>
+      <ol>
+        {WORKUP.map((step, i) => (
+          <li class="grid items-start gap-5 py-4" style="grid-template-columns: 60px 1fr; border-bottom: 1px solid var(--color-border-soft);">
+            <div class="mono tnum" style="font-size: 16px; font-weight: 600; color: var(--color-accent);">
+              {String(i + 1).padStart(2, "0")}
+            </div>
+            <div>
+              <div class="serif" style="font-size: 16px; font-weight: 500; color: var(--color-ink); letter-spacing: -0.005em;">
+                {step.label}
+              </div>
+              <p class="mt-1.5" style="font-size: 14.5px; line-height: 1.55; color: var(--color-ink-muted);">
+                {step.blurb}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+
+    {/* Two-column: when to escalate + pre-travel checklist */}
+    <div class="mt-10 grid gap-x-10 gap-y-8" style="grid-template-columns: 1fr;">
+      <div>
+        <div
+          class="mono uppercase"
+          style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-coral, #B6463E); padding-bottom: 12px; border-bottom: 1px solid var(--color-coral, #B6463E);"
+        >
+          When to escalate {isHighSeverity ? "urgently" : "to specialist review"}
+        </div>
+        <ul class="mt-3">
+          {ESCALATE_NOW.map((e) => (
+            <li class="flex items-start gap-3 py-2.5">
+              <span class="mt-1 shrink-0" aria-hidden="true" style="width: 4px; height: 4px; border-radius: 50%; background: var(--color-coral, #B6463E);"></span>
+              <span style="font-size: 14.5px; line-height: 1.55; color: var(--color-ink);">{e}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div>
+        <div
+          class="mono uppercase"
+          style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding-bottom: 12px; border-bottom: 1px solid var(--color-ink);"
+        >
+          Before you book international travel
+        </div>
+        <ul class="mt-3">
+          {PRE_TRAVEL.map((p) => (
+            <li class="flex items-start gap-3 py-2.5">
+              <span class="mt-1 shrink-0" aria-hidden="true" style="width: 4px; height: 4px; border-radius: 50%; background: var(--color-accent);"></span>
+              <span style="font-size: 14.5px; line-height: 1.55; color: var(--color-ink);">{p}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  @media (min-width: 880px) {
+    section[aria-labelledby="condition-context-heading"] > div > .grid {
+      grid-template-columns: 1fr 1fr !important;
+    }
+  }
+</style>

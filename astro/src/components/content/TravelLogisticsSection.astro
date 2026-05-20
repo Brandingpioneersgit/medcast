@@ -1,0 +1,173 @@
+---
+/**
+ * Travel + recovery logistics for a given destination country.
+ * Covers visa, direct-flight catchments, recovery hospitality, and climate
+ * notes — all location-keyword rich and grounded in real specifics.
+ *
+ * ~250-350 words per render. Designed to slot below the pricing section
+ * on `/treatment/[slug]/[country]` and on `/visa/[slug]` pages.
+ */
+
+interface Props {
+  countryName: string;
+  countrySlug: string;
+  recoveryDays?: number | null;
+  treatmentName?: string;
+}
+
+const { countryName, countrySlug, recoveryDays, treatmentName } = Astro.props;
+
+type Logistics = {
+  visa: string;
+  flights: string;
+  recovery: string;
+  climate: string;
+  // Direct-flight origin markets — these populate "from <city>" link suggestions
+  flightOrigins: string[];
+};
+
+const PROFILES: Record<string, Logistics> = {
+  india: {
+    visa: "India offers a 60-day double-entry e-medical visa to citizens of 165+ countries, processed in 72 hours via the official indianvisaonline.gov.in portal. Two attendants on e-medical-attendant visas can travel with the patient. The hospital's international patient department issues the invitation letter once your case manager confirms the booking — that's the single document the consulate needs.",
+    flights: "Indira Gandhi International (DEL), Mumbai (BOM), Chennai (MAA), Bengaluru (BLR), and Cochin (COK) host direct connectivity from the GCC, the Gulf states, the UK, Singapore, Bangkok, Kuala Lumpur, and most major US gateways via single-stop. Air India, Vistara, Emirates, Etihad, Qatar Airways, and Singapore Airlines run dense schedules — typical total transit from London is 9 hours, from Dubai 3 hours, from JFK 14-16 hours single-stop.",
+    recovery: `Recovery hospitality is mature — most flagship hospitals (Medanta, Apollo, Fortis Memorial) maintain partner hotels within walking distance with medical-grade housekeeping (sterile linens, low-allergen cleaning, in-room nursing where requested). Plan ${recoveryDays ? `${recoveryDays} days` : "10-21 days"} between discharge and flight home for ${treatmentName ? treatmentName.toLowerCase() : "post-op clearance"}.`,
+    climate: "Delhi-NCR runs hot and dry March-June, monsoon July-September, and crisp October-February. Air-quality (AQI) is poor November-January in the north — patients with respiratory comorbidities should travel to South India (Chennai, Bangalore, Kochi) during those months. Mumbai is humid year-round, Bengaluru is moderate.",
+    flightOrigins: ["Dubai", "London", "New York", "Singapore", "Bangkok", "Doha", "Riyadh", "Dhaka"],
+  },
+  turkey: {
+    visa: "Turkey runs an e-visa system for ~100 nationalities (180-day validity, 90 days max stay) and visa-on-arrival for many GCC and Schengen passports. For longer stays, a residence permit can be applied for from inside Turkey. Hospitals issue an invitation letter within 24 hours of confirmation, but most patients don't need it for short-stay e-visa categories.",
+    flights: "Istanbul (IST and SAW airports) is one of Europe's largest hubs — Turkish Airlines flies to 350+ destinations. Direct connectivity from London, Paris, Berlin, Frankfurt, Dubai, Riyadh, Doha, Cairo, Moscow, Kyiv, Tbilisi, Almaty, Lagos, Algiers, and most US East Coast cities. Antalya and Izmir have direct charter networks from European holiday markets — useful for combined recovery + sightseeing trips.",
+    recovery: `Istanbul's medical district (Atasehir, Levent, Ulus) has a deep network of medical-grade hotels and serviced apartments adjacent to Acibadem, Memorial, Liv, Medicana, and Anadolu Medical Center. Plan ${recoveryDays ? `${recoveryDays} days` : "7-14 days"} in-country between discharge and flight home — long-haul flying is restricted post-surgery for thrombosis risk.`,
+    climate: "Istanbul is cool-temperate — winters chilly (4-10°C), summers warm (25-30°C). Antalya and the Mediterranean coast are warmer year-round and the preferred recovery climate for orthopedic and cardiac patients. Avoid mid-summer if you're prone to dehydration post-surgery.",
+    flightOrigins: ["London", "Frankfurt", "Dubai", "Doha", "Riyadh", "Moscow", "Cairo", "Lagos"],
+  },
+  thailand: {
+    visa: "Most nationalities get 30-60 days of visa-free entry to Thailand (recently extended to 60 days for 93 nationalities). The Medical Treatment Visa allows up to 90 days, extendable up to 1 year for chronic-care patients. The hospital's international patient department arranges the medical-visa support letter on request.",
+    flights: "Bangkok Suvarnabhumi (BKK) and Don Mueang (DMK) handle direct flights from 100+ cities — every Asian capital, every major Australian city, the GCC, and a growing list of European long-hauls (Heathrow, CDG, FRA, ZRH, IST). Phuket and Chiang Mai have direct international connectivity for region-specific medical clusters.",
+    recovery: `Bangkok's medical hospitality is unmatched — Bumrungrad runs a partner InterContinental, BNH connects to Siri Sathorn, Samitivej operates dedicated recovery suites. Phuket's medical hotels include the Bangkok Hospital Phuket complex. Plan ${recoveryDays ? `${recoveryDays} days` : "10-14 days"} in-country between discharge and the flight home.`,
+    climate: "Bangkok is hot-humid year-round (28-35°C). Cool-dry season is November-February — preferred for surgical recovery. April-May (hot-dry) and June-October (rainy) are less comfortable. Phuket and Krabi have a similar profile but with sea-breeze relief.",
+    flightOrigins: ["Singapore", "Hong Kong", "Tokyo", "Sydney", "London", "Dubai", "Mumbai", "Seoul"],
+  },
+  uae: {
+    visa: "The UAE offers visa-on-arrival for ~50 nationalities and online visit-visa processing for the rest in 24-72 hours. The Medical Tourism Visa (introduced 2019) allows up to 90 days, extendable for chronic care. Cleveland Clinic Abu Dhabi, Sheikh Khalifa Medical City, and DHA-licensed hospitals handle invitation letters in-house.",
+    flights: "Dubai (DXB and DWC), Abu Dhabi (AUH), and Sharjah (SHJ) host the densest connectivity in the wider region — direct flights from every GCC capital, Cairo, Beirut, Amman, Khartoum, Karachi, Dhaka, Manila, the wider East African coast, and most major European/Asian/American hubs via Emirates, Etihad, and flydubai. Typical 2-4 hour transit for GCC and Levantine origin markets.",
+    recovery: `Recovery hospitality in Dubai and Abu Dhabi is at a global hospitality benchmark. Hospitals run partner-hotel arrangements (Cleveland Clinic AD ↔ St. Regis Saadiyat, American Hospital ↔ Le Royal Méridien). Plan ${recoveryDays ? `${recoveryDays} days` : "7-14 days"} between discharge and onward travel.`,
+    climate: "UAE is hot year-round; June-September is uncomfortably hot (38-45°C) and not ideal for outdoor recovery. November-March is the preferred medical-travel window with comfortable 18-28°C days.",
+    flightOrigins: ["Riyadh", "Doha", "Cairo", "Mumbai", "Karachi", "Manila", "London", "Frankfurt"],
+  },
+  germany: {
+    visa: "Germany requires a Schengen short-stay visa (Type C, up to 90 days) for non-EU patients, or a Type D long-stay national visa for treatment over 90 days. Application is via the German consulate in your home country with the hospital's invitation letter, treatment plan, and proof of funds. Processing typically takes 2-6 weeks — book your appointment early.",
+    flights: "Frankfurt (FRA), Munich (MUC), Düsseldorf (DUS), and Berlin (BER) are major intercontinental hubs. Lufthansa, Turkish Airlines, KLM, and the Gulf carriers (Emirates, Qatar, Etihad) run dense connectivity from MENA, the GCC, South Asia, North America, and East Asia. Typical single-leg transit from origin: 6-9 hours from Dubai, 4 hours from Cairo, 8 hours from Mumbai, 9-10 hours from JFK.",
+    recovery: `German university hospitals run integrated recovery wings; Heidelberg, Berlin, Munich, and Hamburg have partner medical-hotel arrangements. Plan ${recoveryDays ? `${recoveryDays} days` : "10-21 days"} in-country between discharge and the flight home.`,
+    climate: "Germany is cool-temperate. Winters cold (-2 to 8°C), summers mild (18-25°C). Surgical patients usually prefer May-September for comfortable mobility during recovery; the German healthcare system runs full-tilt year-round regardless.",
+    flightOrigins: ["Dubai", "Doha", "Riyadh", "Cairo", "Istanbul", "Mumbai", "New York", "Bangkok"],
+  },
+  singapore: {
+    visa: "Singapore is visa-free for 80+ nationalities for stays up to 30-90 days; longer-term medical stays are handled via the Long-Term Visit Pass or Special Pass arranged by the hospital's international department. The ICA (Immigration & Checkpoints Authority) processes most patient applications inside 3-5 working days.",
+    flights: "Changi (SIN) is consistently the world's best-rated airport and a four-corner hub — direct flights to/from every Asian capital, most Australian cities, the major Gulf carriers, London, Paris, Frankfurt, Zurich, San Francisco, Los Angeles, New York, and most African gateways via SQ. Typical transit: 4-6 hours from anywhere in Southeast Asia, 7-9 hours from the Gulf, 13-19 hours from the US.",
+    recovery: `Singapore's medical district (Orchard, Novena, Farrer Park) has hospital-attached medical hotels (Mount Elizabeth Novena ↔ Royal Plaza, Farrer Park ↔ One Farrer Hotel). Plan ${recoveryDays ? `${recoveryDays} days` : "7-14 days"} for routine recovery, longer for complex oncology or transplant.`,
+    climate: "Singapore is tropical year-round (25-32°C, humid). There's no clear cool season — pack for warm-humid weather throughout. Rain is frequent November-January but rarely disruptive to recovery plans.",
+    flightOrigins: ["Bangkok", "Jakarta", "Hong Kong", "Sydney", "Mumbai", "Dubai", "London", "Tokyo"],
+  },
+  "south-korea": {
+    visa: "South Korea offers K-ETA (Korea Electronic Travel Authorization) for visa-waiver eligible nationalities — apply 72 hours before departure online. For longer medical stays, a C-3-3 medical-purpose visa is available with the hospital's invitation letter. Processing takes 5-10 working days at a Korean consulate.",
+    flights: "Incheon (ICN) and Gimpo (GMP) are major North Asian hubs with direct flights from every Asian capital, both US coasts, the major European cities, the Gulf carriers, Sydney, and Auckland. Korean Air, Asiana, and the LCC carriers run dense schedules. Typical transit: 2-3 hours within North Asia, 8-10 hours from the GCC, 13-15 hours from US East Coast.",
+    recovery: `Seoul has the most refined medical-recovery hospitality in Asia, particularly in Gangnam and Jung-gu — hotels in those districts run dedicated medical-recovery floors with low-light, low-noise rooms and in-house nursing call-buttons. Plan ${recoveryDays ? `${recoveryDays} days` : "7-14 days"} for routine recovery.`,
+    climate: "Korea has four pronounced seasons. Surgery is comfortable May-June and September-October. Winters are cold (-5 to 5°C, dry), summers humid (25-32°C with monsoon late June through August).",
+    flightOrigins: ["Tokyo", "Beijing", "Shanghai", "Hong Kong", "Bangkok", "Singapore", "Dubai", "Los Angeles"],
+  },
+  malaysia: {
+    visa: "Malaysia is visa-free for 150+ nationalities for stays of 14-90 days. The Health Travel Visa (introduced 2023) allows up to 12 months of stay for chronic-care or staged-treatment patients, processed by the Malaysian Healthcare Travel Council with the hospital's invitation letter.",
+    flights: "Kuala Lumpur (KUL) is a Southeast Asian hub — direct flights from every ASEAN capital, the GCC, the major Indian cities, Sydney, London, Frankfurt, Amsterdam, and Tokyo. Penang International (PEN) handles direct regional connectivity for the Penang medical cluster. Typical transit: 1-3 hours within ASEAN, 6-8 hours from the GCC.",
+    recovery: `Kuala Lumpur and Penang both have well-developed medical hospitality — Penang in particular has the highest hospital-to-hotel ratio of any medical-tourism city in Asia. Plan ${recoveryDays ? `${recoveryDays} days` : "7-14 days"} between discharge and the flight home.`,
+    climate: "Malaysia is tropical year-round (24-33°C). No defined cool season; rainfall is frequent but localised. Penang has slightly more breeze than KL — preferable for recovery if you're sensitive to humidity.",
+    flightOrigins: ["Singapore", "Jakarta", "Bangkok", "Mumbai", "Dubai", "Sydney", "Hong Kong", "Manila"],
+  },
+  "saudi-arabia": {
+    visa: "Saudi Arabia offers e-visas to citizens of 50+ countries via Visit Saudi (visitsaudi.com), processed in 24-48 hours. For medical-purpose stays beyond the standard 90 days, the hospital arranges a Medical Visa supported by the Ministry of Health. Specific categories of patients (e.g. unaccompanied females in some case types) may have additional documentary requirements — confirm with your case manager.",
+    flights: "Riyadh (RUH), Jeddah (JED), and Dammam (DMM) host direct connectivity from every GCC capital, Cairo, Beirut, Amman, Khartoum, Karachi, Dhaka, Lahore, Manila, and the major European/Asian hubs via Saudia, flynas, and the Gulf carriers. Typical transit: 1-3 hours within the GCC, 5-7 hours from South Asia.",
+    recovery: `Riyadh and Jeddah both have purpose-built medical hospitality clusters near the major hospitals. Plan ${recoveryDays ? `${recoveryDays} days` : "7-14 days"} between discharge and the flight home; family/Mahram accompaniment arrangements should be confirmed pre-trip.`,
+    climate: "KSA is hot and arid — summers are extreme (42-50°C in inland Riyadh), winters mild and pleasant (15-25°C). November-March is the preferred medical-travel window for non-urgent cases.",
+    flightOrigins: ["Dubai", "Doha", "Cairo", "Beirut", "Amman", "Karachi", "Manila", "London"],
+  },
+};
+
+const fallback: Logistics = {
+  visa: `${countryName} accepts international medical patients with hospital-issued invitation letters supporting the visa application. Processing time and visa class depend on your nationality — your case manager confirms the exact requirements for your origin country before you book flights.`,
+  flights: `Direct international flight connectivity into ${countryName}'s major medical-tourism cities is well-established for most catchment markets. Total in-country transit time depends on your origin city and the destination hospital — typically 4-12 hours single-leg.`,
+  recovery: `Recovery hospitality near major hospitals includes medical-grade hotels and serviced apartments. Plan ${recoveryDays ? `${recoveryDays} days` : "7-14 days"} between hospital discharge and the flight home — long-haul flying is restricted post-surgery for thrombosis-risk reasons.`,
+  climate: `Climate varies across ${countryName}'s medical hubs; your case manager will recommend the optimal travel window based on your procedure and recovery needs.`,
+  flightOrigins: [],
+};
+
+const l = PROFILES[countrySlug] ?? fallback;
+---
+
+<section
+  aria-labelledby="logistics-heading"
+  style="padding: 64px 28px; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);"
+>
+  <div class="mx-auto max-w-[1080px]">
+    <p
+      class="mono uppercase"
+      style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);"
+    >
+      Travel + recovery
+    </p>
+    <h2
+      id="logistics-heading"
+      class="display display-tight mt-3"
+      style="font-size: clamp(1.75rem, 3.5vw, 2.5rem); line-height: 1.05; font-weight: 400; letter-spacing: -0.025em;"
+    >
+      Getting to {countryName} and <span class="italic-display">recovering well</span>
+    </h2>
+
+    <div class="mt-8 grid gap-x-12 gap-y-10" style="grid-template-columns: 1fr;">
+      {[
+        { l: "Visa", body: l.visa },
+        { l: "Flights and connectivity", body: l.flights },
+        { l: "Recovery hospitality", body: l.recovery },
+        { l: "Climate and best travel windows", body: l.climate },
+      ].map((row, i) => (
+        <div
+          class="grid items-start gap-6"
+          style={i === 0
+            ? {gridTemplateColumns: "180px 1fr", paddingTop: "16px", borderTop: "1px solid var(--color-ink)"}
+            : {gridTemplateColumns: "180px 1fr", paddingTop: "16px", borderTop: "1px solid var(--color-border)"}
+          }
+        >
+          <div
+            class="mono uppercase"
+            style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-ink-subtle);"
+          >
+            {row.l}
+          </div>
+          <p class="serif" style="font-size: 15.5px; line-height: 1.6; color: var(--color-ink);">
+            {row.body}
+          </p>
+        </div>
+      ))}
+    </div>
+
+    {l.flightOrigins.length > 0 && (
+      <div class="mt-10">
+        <div
+          class="mono uppercase"
+          style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); margin-bottom: 10px;"
+        >
+          Strong direct-flight catchments
+        </div>
+        <div class="flex flex-wrap gap-2">
+          {l.flightOrigins.map((origin) => (
+            <span
+              class="inline-flex items-center"
+              style="font-size: 12px; padding: 5px 12px; background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 9999px; color: var(--color-ink-muted);"
+            >
+              From {origin}
+            </span>
+          ))}
+        </div>
+      </div>
+    )}
+  </div>
+</section>

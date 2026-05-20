@@ -1,0 +1,169 @@
+---
+/**
+ * Shared end-of-page CTA block. Drops into any non-conversion page to
+ * give users a clear next step without extra prop wiring. Three CTAs:
+ *  primary  → /quote          (highest-intent — get a quote)
+ *  secondary→ /second-opinion (mid-funnel — free 48hr review)
+ *  tertiary → /contact        (low-friction — talk to a coordinator)
+ *
+ * Variants by `tone`:
+ *  - "default"   parchment paper card, dark-ink primary button (works site-wide)
+ *  - "ink"       full dark-ink panel for high-contrast section break
+ *  - "accent"    accent-mist tinted card (used after editorial content)
+ *
+ * Optional `entityName`/`entitySlug` pre-fills the quote/contact URL with
+ * that context (so the form lands with the right preselect).
+ *
+ * Place above SiteFooter on any page that doesn't already have a hero
+ * lead-form or sticky-quote panel.
+ */
+import { localizedPath, type Locale } from "@/lib/i18n";
+import { ChevronRight, MessageCircle, Stethoscope, FileText } from "lucide-react";
+
+interface Props {
+  locale: Locale;
+  /** Override the headline copy (defaults: "Ready when you are."). */
+  headline?: string;
+  /** Override the supporting line. */
+  lede?: string;
+  /** Visual treatment. */
+  tone?: "default" | "ink" | "accent";
+  /**
+   * Pre-fill the contact/quote URL with entity context. Use when the page
+   * is scoped to a single hospital/treatment/condition/etc.
+   */
+  entityKind?: "hospital" | "doctor" | "treatment" | "condition" | "specialty" | "country" | "city" | null;
+  entitySlug?: string | null;
+  entityName?: string | null;
+  /** Hide the secondary "free second opinion" pill (e.g. on the second-opinion page itself). */
+  hideSecondOpinion?: boolean;
+  /** Hide the tertiary contact pill (e.g. on the contact page itself). */
+  hideContact?: boolean;
+}
+
+const {
+  locale,
+  headline = "Ready when you are.",
+  lede = "Three ways forward — pick the one that fits where you're at right now.",
+  tone = "default",
+  entityKind = null,
+  entitySlug = null,
+  entityName = null,
+  hideSecondOpinion = false,
+  hideContact = false,
+} = Astro.props;
+
+// Build entity-aware URLs. Quote/contact accept `topic` + entity params so
+// the form lands pre-filled.
+function withCtx(path: string): string {
+  if (!entityKind || !entitySlug) return localizedPath(locale, path);
+  const sep = path.includes("?") ? "&" : "?";
+  const params = new URLSearchParams();
+  params.set(entityKind, entitySlug);
+  if (entityName) params.set("name", entityName);
+  return `${localizedPath(locale, path)}${sep}${params.toString()}`;
+}
+
+const quoteHref = withCtx("/quote");
+const secondOpinionHref = localizedPath(locale, "/second-opinion");
+const contactHref = withCtx("/contact");
+
+const isInk = tone === "ink";
+const isAccent = tone === "accent";
+
+const sectionStyle = isInk
+  ? "background: var(--color-ink); color: var(--color-bg);"
+  : isAccent
+  ? "background: var(--color-accent-mist); color: var(--color-ink);"
+  : "background: var(--color-paper); color: var(--color-ink);";
+
+const cardClass = isInk ? "" : "paper";
+---
+
+<section class="border-t" style={`${sectionStyle} border-color: var(--color-border-soft); padding: 56px 0 64px;`} aria-labelledby="page-cta-heading">
+  <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+    <div class="grid gap-10 md:grid-cols-[1.2fr_1fr] md:items-end">
+      <div>
+        <p class="mono uppercase" style={`font-size: 11px; letter-spacing: 0.14em; color: ${isInk ? "color-mix(in srgb, var(--color-bg) 65%, transparent)" : "var(--color-accent)"};`}>
+          {entityName ? `Next step · ${entityName}` : "Take the next step"}
+        </p>
+        <h2
+          id="page-cta-heading"
+          class="display display-tight mt-3"
+          style={`font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.05; letter-spacing: -0.025em; font-weight: 400; color: ${isInk ? "var(--color-bg)" : "var(--color-ink)"};`}
+        >
+          {headline}
+        </h2>
+        <p class="serif mt-4" style={`font-size: 17px; line-height: 1.5; max-width: 50ch; color: ${isInk ? "color-mix(in srgb, var(--color-bg) 78%, transparent)" : "var(--color-ink-muted)"};`}>
+          {lede}
+        </p>
+      </div>
+
+      <div class="grid gap-3" style="min-width: 0;">
+        {/* Primary — get a quote */}
+        <a
+          href={quoteHref}
+          class={`${cardClass} group flex items-center justify-between gap-4 transition hover:-translate-y-0.5`}
+          style={`padding: 18px 22px; ${isInk ? "background: var(--color-bg); color: var(--color-ink);" : "background: var(--color-ink); color: var(--color-bg);"}`}
+        >
+          <div class="flex items-center gap-3 min-w-0">
+            <FileText className="h-4 w-4 shrink-0" />
+            <div class="min-w-0">
+              <div class="serif" style="font-size: 15.5px; line-height: 1.25; font-weight: 500;">
+                Get a free quote
+              </div>
+              <div class="mono uppercase mt-0.5" style="font-size: 10px; letter-spacing: 0.12em; opacity: 0.7;">
+                3 itemised quotes · 48 hr · no charge
+              </div>
+            </div>
+          </div>
+          <ChevronRight className="h-4 w-4 mirror-x shrink-0 transition-transform group-hover:translate-x-0.5" />
+        </a>
+
+        {/* Secondary — free second opinion */}
+        {!hideSecondOpinion && (
+          <a
+            href={secondOpinionHref}
+            class={`${cardClass} group flex items-center justify-between gap-4 transition hover:-translate-y-0.5`}
+            style={`padding: 16px 22px; ${isInk ? "background: transparent; color: var(--color-bg); border: 1px solid color-mix(in srgb, var(--color-bg) 30%, transparent);" : ""}`}
+          >
+            <div class="flex items-center gap-3 min-w-0">
+              <span style={isInk ? "color: var(--color-bg);" : "color: var(--color-accent);"} class="shrink-0"><Stethoscope className="h-4 w-4" /></span>
+              <div class="min-w-0">
+                <div class="serif" style="font-size: 15px; line-height: 1.25;">
+                  Free second opinion
+                </div>
+                <div class="mono uppercase mt-0.5" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); opacity: 0.85;">
+                  Independent panel review · 48 hr
+                </div>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 mirror-x shrink-0 opacity-50 group-hover:opacity-100 transition-opacity" />
+          </a>
+        )}
+
+        {/* Tertiary — talk to a coordinator */}
+        {!hideContact && (
+          <a
+            href={contactHref}
+            class={`${cardClass} group flex items-center justify-between gap-4 transition hover:-translate-y-0.5`}
+            style={`padding: 16px 22px; ${isInk ? "background: transparent; color: var(--color-bg); border: 1px solid color-mix(in srgb, var(--color-bg) 30%, transparent);" : ""}`}
+          >
+            <div class="flex items-center gap-3 min-w-0">
+              <span style={isInk ? "color: var(--color-bg);" : "color: var(--color-accent);"} class="shrink-0"><MessageCircle className="h-4 w-4" /></span>
+              <div class="min-w-0">
+                <div class="serif" style="font-size: 15px; line-height: 1.25;">
+                  Talk to a coordinator
+                </div>
+                <div class="mono uppercase mt-0.5" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); opacity: 0.85;">
+                  WhatsApp · email · phone · 9 min reply
+                </div>
+              </div>
+            </div>
+            <ChevronRight className="h-4 w-4 mirror-x shrink-0 opacity-50 group-hover:opacity-100 transition-opacity" />
+          </a>
+        )}
+      </div>
+    </div>
+  </div>
+</section>

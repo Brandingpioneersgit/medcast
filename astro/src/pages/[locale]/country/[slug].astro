@@ -5,7 +5,8 @@ import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import Price from "@/components/Price.astro";
 import PriceRange from "@/components/PriceRange.astro";
-import { getCountryBySlug, listFaqsFor } from "@/lib/queries";
+import { getCountryBySlug, listFaqsFor, listLinkableEntities } from "@/lib/queries";
+import { linkifyBlogHtml } from "@/lib/content-linker";
 import { getCountrySections } from "@/lib/content-sections";
 import {
   getContent,
@@ -16,12 +17,14 @@ import {
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, itemListJsonLd, touristDestinationJsonLd, faqJsonLd, withProvenance } from "@/lib/seo";
-import { hospitalCover, countryBanner } from "@/lib/images";
+import { hospitalCover, countryBanner, patientHero, regionForCountry, journeyScene, heroImage } from "@/lib/images";
+import { pageImageFor } from "@/lib/page-images";
 import TripStrip from "@/components/TripStrip.astro";
 import LastUpdated from "@/components/LastUpdated.astro";
 import CompareToggle from "@/components/CompareToggle.astro";
 import TravelLogisticsSection from "@/components/content/TravelLogisticsSection.astro";
 import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 import MobileQuoteBar from "@/components/MobileQuoteBar.astro";
 import EngagementFab from "@/components/EngagementFab.astro";
 import { ChevronRight, MapPin, Building2, Users, Globe } from "lucide-react";
@@ -34,24 +37,38 @@ if (!isLocale(rawLocale)) return Astro.redirect(`/en/country/${slug}`, 308);
 if (!slug) return new Response("Not found", { status: 404 });
 
 const locale = rawLocale as Locale;
-const data = await getCountryBySlug(slug);
+const [data, heroOverride, linkables] = await Promise.all([
+  getCountryBySlug(slug),
+  pageImageFor("country", slug, "hero"),
+  listLinkableEntities().catch(() => [] as Awaited<ReturnType<typeof listLinkableEntities>>),
+]);
 if (!data) return new Response(`Not found: ${slug}`, { status: 404 });
 
 const tc = getTranslator(locale, "common");
 
 const rawData = data;
-const countryMap = await getContent("country", rawData.country.id, locale);
+const [countryMap, faqRows, countryContentRow, hospitalMap, treatmentMap] = await Promise.all([
+  getContent("country", rawData.country.id, locale),
+  listFaqsFor("country", rawData.country.id),
+  getCountrySections(rawData.country.id),
+  getContentBatch("hospital", rawData.topHospitals.map((h) => h.id), locale),
+  getContentBatch("treatment", rawData.topTreatments.map((t) => t.id), locale),
+]);
 const country = applyTranslated(rawData.country, countryMap, ["name"]);
 // Wave 2.14 — body sections come from translations table; EN fallback below.
 const introTr = countryMap.intro ?? null;
 const strengthTr = countryMap.strength ?? null;
 const watchOutTr = countryMap.watchOut ?? null;
+
+function linkifyText(s: string | null | undefined): string {
+  if (!s) return "";
+  const safe = s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return linkifyBlogHtml(`<p>${safe}</p>`, linkables, (p: string) => localizedPath(locale, p)).html;
+}
 const { hospitalCount, doctorCount, cityCount, topHospitals, topTreatments, cityList } = rawData;
 const untranslated = isUntranslated(locale, countryMap);
 
-const faqRows = await listFaqsFor("country", country.id);
 const faqSchema = faqRows.length > 0 ? faqJsonLd(faqRows) : null;
-const countryContentRow = await getCountrySections(country.id);
 const countrySections = countryContentRow?.content_sections ?? null;
 
 // Country-keyed safety + accreditation registry deep-links. Public registers; we
@@ -108,17 +125,24 @@ const safetyLinks: SafetyLink[] = SAFETY_REGISTRIES[country.slug] ?? [
   { label: "JCI accredited hospitals", sub: "Joint Commission International registry", url: "https://www.jointcommissioninternational.org/who-we-are/accredited-organizations/" },
 ];
 
-const hospitalIds = topHospitals.map((h) => h.id);
-const hospitalMap = await getContentBatch("hospital", hospitalIds, locale);
 const hospitalsXl = topHospitals.map((h) => applyTranslated(h, hospitalMap[h.id] ?? {}, ["name", "description"]));
-
-const treatmentIds = topTreatments.map((t) => t.id);
-const treatmentMap = await getContentBatch("treatment", treatmentIds, locale);
 const treatmentsXl = topTreatments.map((t) => applyTranslated(t, treatmentMap[t.id] ?? {}, ["name"]));
 
-const seoTitle = `Medical Travel to ${country.name}: Hospitals, Costs, Visa`;
-const lowPrice = topTreatments[0]?.lo ? `from $${Math.round(Number(topTreatments[0].lo)).toLocaleString()}` : "";
-const seoDescription = `${country.name} has ${hospitalCount.toLocaleString()} hospitals listed on MedCasts, ${doctorCount.toLocaleString()} specialists, treatment packages ${lowPrice}. Compare and get a free quote.`.slice(0, 160);
+// Local-SEO title: "Best Hospitals in {Country} for International Patients
+// ({year})". Highest-volume local intent + fresh-year hint. Drops the
+// generic "Medical Travel to" framing that doesn't match user search.
+const countryYear = new Date().getFullYear();
+const seoTitle = `Best Hospitals in ${country.name} for International Patients (${countryYear})`;
+
+const lowPrice = topTreatments[0]?.lo
+  ? `from $${Math.round(Number(topTreatments[0].lo)).toLocaleString()}`
+  : "";
+const topCountrySpecialty = (topTreatments[0] as { specialty?: string | null } | undefined)?.specialty ?? null;
+const seoDescription = (
+  topCountrySpecialty
+    ? `Compare ${hospitalCount.toLocaleString()} accredited hospitals + ${doctorCount.toLocaleString()} specialists in ${country.name}. ${topCountrySpecialty} ${lowPrice}. JCI/NABH-credentialed. Free quote in 11 min.`
+    : `Compare ${hospitalCount.toLocaleString()} accredited hospitals + ${doctorCount.toLocaleString()} specialists in ${country.name}. Treatment packages ${lowPrice}. JCI/NABH-credentialed. Free quote in 11 min.`
+).slice(0, 160);
 
 // Country-specific copy — concrete local detail beats AI-generated blandness.
 const COUNTRY_INTRO: Record<string, { intro: string; strength: string; watchOut: string }> = {
@@ -246,8 +270,8 @@ Astro.response.headers.set(
     {/* Hero banner */}
     <section class="relative overflow-hidden" style="height: 360px;">
       <img
-        src={countryBanner(country.slug, 1600, 720)}
-        alt={`${country.name} skyline — medical travel destination`}
+        src={countryBanner(country.slug, 1600, 720, heroOverride?.url)}
+        alt={heroOverride?.altText ?? `${country.name} skyline — medical travel destination`}
         width="1600"
         height="720"
         loading="eager"
@@ -277,19 +301,18 @@ Astro.response.headers.set(
 
     {/* Intro */}
     <section class="mx-auto max-w-7xl px-6 pt-10 md:pt-14 pb-10">
-      <p class="lede max-w-3xl">
-        {ctx?.intro ??
-          `${country.name} is a destination for international medical care. ${hospitalCount.toLocaleString()} hospitals across ${cityCount} cities handle overseas patients.`}
-      </p>
+      <div class="lede max-w-3xl" set:html={ctx?.intro
+          ? linkifyText(ctx.intro)
+          : `<p>${country.name} is a destination for international medical care. ${hospitalCount.toLocaleString()} hospitals across ${cityCount} cities handle overseas patients.</p>`} />
       {ctx && (
         <div class="mt-8 grid md:grid-cols-2 gap-4 max-w-4xl">
           <div class="rounded-xl border border-border bg-surface p-5">
             <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">What it's known for</p>
-            <p class="mt-2 text-sm text-ink-muted">{ctx.strength}</p>
+            <div class="mt-2 text-sm text-ink-muted" set:html={linkifyText(ctx.strength)} />
           </div>
           <div class="rounded-xl border border-amber-300/60 bg-amber-50/60 dark:border-amber-700/40 dark:bg-amber-950/20 p-5">
             <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-700 dark:text-amber-400">Before you book</p>
-            <p class="mt-2 text-sm text-ink-muted">{ctx.watchOut}</p>
+            <div class="mt-2 text-sm text-ink-muted" set:html={linkifyText(ctx.watchOut)} />
           </div>
         </div>
       )}
@@ -334,6 +357,40 @@ Astro.response.headers.set(
       </a>
     </section>
 
+    {/* Patients we route to this destination — origin photos */}
+    <section class="border-t border-border" style="background: var(--color-paper);">
+      <div class="mx-auto max-w-7xl px-6 py-12 md:py-14">
+        <div class="mono uppercase mb-6" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
+          Who travels to {country.name}
+        </div>
+        <ul class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+          {[
+            { region: "africa" as const, label: "Sub-Saharan Africa", origins: "Nigeria · Kenya · Ghana" },
+            { region: "middle_east" as const, label: "Gulf & Levant", origins: "Saudi · UAE · Iraq" },
+            { region: "cis" as const, label: "CIS & Caucasus", origins: "Russia · Kazakhstan · Uzbekistan" },
+            { region: "south_asia" as const, label: "South Asia", origins: "Bangladesh · Pakistan · Nepal" },
+          ].map((p, i) => (
+            <li class="relative paper-flat overflow-hidden" style="aspect-ratio: 4/5; border-radius: var(--radius-lg);">
+              <img
+                src={patientHero(`${slug}-${p.region}-${i}`, p.region, 480)}
+                alt={`Patients from ${p.label} travelling to ${country.name}`}
+                width="480"
+                height="600"
+                loading="lazy"
+                decoding="async"
+                style="width: 100%; height: 100%; object-fit: cover;"
+              />
+              <div class="image-veil-strong" />
+              <div class="absolute" style="inset-inline-start: 14px; inset-block-end: 14px; inset-inline-end: 14px;">
+                <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: rgba(251,248,241,0.78);">{p.origins}</div>
+                <div class="serif" style="font-size: 14px; font-weight: 500; color: #FBF8F1; line-height: 1.3; margin-top: 4px;">{p.label}</div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+
     {/* Your trip in photos — 5-stage arrival → recovery preview */}
     <section class="border-t border-border">
       <TripStrip countrySlug={country.slug} countryName={country.name} />
@@ -342,7 +399,7 @@ Astro.response.headers.set(
     {/* Safety & accreditation proof — country-specific verifiable links */}
     <section class="border-t border-border" style="background: var(--color-paper);">
       <div class="mx-auto max-w-7xl px-6 py-12 md:py-14">
-        <div class="grid gap-8 lg:grid-cols-[0.45fr,1fr] lg:gap-12 items-start">
+        <div class="grid gap-8 lg:grid-cols-[0.45fr_1fr] lg:gap-12 items-start">
           <div>
             <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">Safety & accreditation</div>
             <h2 class="display mt-2" style="font-size: 28px; line-height: 1.05; letter-spacing: -0.02em;">
@@ -396,7 +453,10 @@ Astro.response.headers.set(
                       src={hospitalCover({ coverImageUrl: h.coverImageUrl, countrySlug: country.slug })}
                       alt={h.name}
                       class="h-40 w-full object-cover"
+                      width="480"
+                      height="160"
                       loading="lazy"
+                      decoding="async"
                     />
                     <div class="image-veil" />
                   </div>
@@ -559,12 +619,14 @@ Astro.response.headers.set(
                 <a
                   href={localizedPath(locale, `/city/${c.slug}`)}
                   class="group flex items-center justify-between rounded-lg border border-border bg-surface p-3 transition hover:border-border-strong"
+                  title={`Hospitals in ${c.name}, ${country.name}`}
+                  aria-label={`Hospitals in ${c.name}, ${country.name}`}
                 >
                   <div class="min-w-0">
                     <p class="font-medium text-ink group-hover:text-accent transition-colors truncate">
-                      {c.name}
+                      Hospitals in {c.name}
                     </p>
-                    <p class="text-xs text-ink-subtle mt-0.5">{c.hospital_count} hospitals</p>
+                    <p class="text-xs text-ink-subtle mt-0.5">{c.hospital_count} programs · {country.name}</p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-ink-subtle shrink-0 mirror-x" />
                 </a>
@@ -578,7 +640,7 @@ Astro.response.headers.set(
     {/* FAQ */}
     {faqRows.length > 0 && (
       <section style="padding: 56px 28px; border-top: 1px solid var(--color-border);">
-        <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+        <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[0.35fr_1fr]">
           <div>
             <div class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">FAQ</div>
             <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
@@ -603,7 +665,7 @@ Astro.response.headers.set(
     {/* CTA */}
     <section class="border-t border-border py-14">
       <div class="mx-auto max-w-7xl px-6">
-        <div class="rounded-2xl border border-border bg-surface p-8 md:p-10 grid gap-6 md:grid-cols-[1fr,auto] md:items-center">
+        <div class="rounded-2xl border border-border bg-surface p-8 md:p-10 grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
           <div>
             <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-subtle">Considering {country.name}?</p>
             <h2 class="mt-2 font-display text-2xl md:text-3xl leading-tight">
@@ -776,6 +838,35 @@ Astro.response.headers.set(
         "JCI accreditation registry",
         "International airport authority data",
         "Hospital itemised quote sheets",
+      ]}
+    />
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow={`${country.name} medical travel`}
+      heading={`Other lenses on ${country.name}`}
+      lede={`The destination hub gives you the overview. These hubs cut the same data by city, by procedure, by specialty, and by visa logistics — so you can decide what matters most for your case.`}
+      items={[
+        { eyebrow: "Hospitals", label: `All ${country.name} hospitals`, href: `/hospitals?country=${slug}`, hint: `Filter by city, specialty, accreditation across ${hospitalCount.toLocaleString()} programs.` },
+        { eyebrow: "Doctors", label: `${country.name} surgeons`, href: `/doctors?country=${slug}`, hint: `Volume-ranked physician directory across ${doctorCount.toLocaleString()} surgeons.` },
+        ...(topTreatments[0] ? [{ eyebrow: "Procedure", label: `${topTreatments[0].name} in ${country.name}`, href: `/treatment/${topTreatments[0].slug}/${slug}`, hint: "Most-priced procedure for this destination — full cost breakdown." }] : []),
+        ...(topTreatments[1] ? [{ eyebrow: "Procedure", label: `${topTreatments[1].name} cost in ${country.name}`, href: `/treatment/${topTreatments[1].slug}/${slug}`, hint: "Per-hospital pricing and recovery timeline." }] : []),
+        ...(topTreatments[2] ? [{ eyebrow: "Procedure", label: `${topTreatments[2].name} in ${country.name}`, href: `/treatment/${topTreatments[2].slug}/${slug}`, hint: "Top hospitals priced for this procedure." }] : []),
+        ...cityList.slice(0, 6).map((c) => ({
+          eyebrow: "City",
+          label: `Hospitals in ${c.name}`,
+          href: `/city/${c.slug}`,
+          hint: `${c.hospital_count} programs in ${c.name}, ${country.name}.`,
+        })),
+        { eyebrow: "Visa", label: `${country.name} medical visa`, href: `/visa/${slug}`, hint: `Documents, processing time, embassy guidance for ${country.name}.` },
+        { eyebrow: "From UK", label: `Travelling from the UK to ${country.name}`, href: "/from/united-kingdom", hint: "NHS waitlist relief, insurer compatibility, payment routes." },
+        { eyebrow: "From USA", label: `Travelling from the US to ${country.name}`, href: "/from/usa", hint: "Cost-vs-domestic, insurer reimbursement, Cigna/Aetna/Blue Shield routes." },
+        { eyebrow: "From Canada", label: `Travelling from Canada to ${country.name}`, href: "/from/canada", hint: "Provincial wait times, OHIP/MSP coordination, repatriation support." },
+        { eyebrow: "From Australia", label: `Travelling from Australia to ${country.name}`, href: "/from/australia", hint: "Medicare overseas exclusions, private health interaction, flights." },
+        { eyebrow: "Compare", label: "Destination shootout", href: "/compare/countries", hint: `Hospitals, doctors, treatments — compared across all destinations.` },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get specialty + destination + 3 hospitals." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
       ]}
     />
 

@@ -14,11 +14,16 @@ import { getTreatmentSections } from "@/lib/content-sections";
 import {
   getContent,
   applyTranslated,
+  isUntranslated,
+  localizedTitle,
+  localizedDescription,
 } from "@/lib/translate";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, treatmentJsonLd, withProvenance } from "@/lib/seo";
 import { ChevronRight, Check, X } from "lucide-react";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 
 export const prerender = false;
 
@@ -115,12 +120,23 @@ const FAQS = [
 ];
 
 const currentYearStr = currentYear.toString();
-const seoTitle = cheapest && loPrice
-  ? `${treatment.name} Cost Abroad: $${Math.round(loPrice).toLocaleString()}+ (${currentYearStr})`
-  : `${treatment.name} Cost`;
-const seoDescription = cheapest && loPrice
+// HeadMeta auto-appends " | MedCasts" — keep base ≤55 chars
+const _treatShort = treatment.name.length > 30 ? `${treatment.name.slice(0, 30).trim()}…` : treatment.name;
+const _seoTitleFallback = cheapest && loPrice
+  ? `${_treatShort} Cost — From $${Math.round(loPrice).toLocaleString()}`.slice(0, 55)
+  : `${_treatShort} Cost`;
+const _seoDescFallback = cheapest && loPrice
   ? `${treatment.name} costs from $${Math.round(loPrice).toLocaleString()} in ${cheapest.country_name}. Compare ${data.byCountry.length} destinations, ${totalHospitals.toLocaleString()} hospitals. Updated ${currentYearStr}.`.slice(0, 160)
   : `${treatment.name} cost comparison across international medical destinations. Updated ${currentYearStr}.`;
+const seoTitle = localizedTitle(locale, _seoTitleFallback, treatment.metaTitle, treatmentMap);
+const seoDescription = localizedDescription(
+  locale,
+  treatment.description,
+  treatment.metaDescription,
+  _seoDescFallback,
+  treatmentMap,
+);
+const costUntranslated = isUntranslated(locale, treatmentMap);
 
 const path = `/cost/${slug}`;
 const url = localeUrl(locale, path);
@@ -162,7 +178,7 @@ Astro.response.headers.set(
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={costUntranslated} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(jsonLd)} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(faqLd)} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
@@ -190,7 +206,7 @@ Astro.response.headers.set(
             {specialty.name} · Updated {currentYearStr}
           </p>
         )}
-        <div class="grid gap-10 lg:grid-cols-[1.5fr,1fr] lg:gap-14 mt-3">
+        <div class="grid gap-10 lg:grid-cols-[1.5fr_1fr] lg:gap-14 mt-3">
           <div>
             <h1
               class="display display-tight"
@@ -400,7 +416,7 @@ Astro.response.headers.set(
     {/* FAQ */}
     <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft);">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-        <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+        <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
           <div>
             <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
               04 · FAQ
@@ -427,7 +443,7 @@ Astro.response.headers.set(
     {/* Dark CTA */}
     <section style="background: var(--color-ink); color: var(--color-bg); padding: 72px 0;">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-        <div class="grid gap-8 lg:grid-cols-[1.5fr,1fr] items-end">
+        <div class="grid gap-8 lg:grid-cols-[1.5fr_1fr] items-end">
           <div>
             <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
               Need a number tied to your case
@@ -576,6 +592,28 @@ Astro.response.headers.set(
       ]}
     />
 
+    <ExploreGrid
+      locale={locale}
+      eyebrow={`${treatment.name} cost`}
+      heading={`Use these to size and route your ${treatment.name.toLowerCase()} case`}
+      lede={`Cost ranges are ballpark. These hubs help you turn the number into a destination shortlist, a surgeon shortlist, and a real itemised quote.`}
+      items={[
+        { eyebrow: "Procedure", label: `Full ${treatment.name} page`, href: `/treatment/${slug}`, hint: "Description, recovery timeline, success rates, top hospitals priced." },
+        ...(specialty ? [{ eyebrow: "Specialty", label: `${specialty.name} hub`, href: `/specialty/${specialty.slug}`, hint: `All programs and procedures under ${specialty.name}.` }] : []),
+        ...(data.byCountry[0] ? [{ eyebrow: "Destination", label: `Cost in ${data.byCountry[0].country_name}`, href: `/treatment/${slug}/${data.byCountry[0].country_slug}`, hint: `Cheapest sampled destination — ${data.byCountry[0].hospital_count} hospitals priced.` }] : []),
+        ...(data.byCountry[1] ? [{ eyebrow: "Destination", label: `Cost in ${data.byCountry[1].country_name}`, href: `/treatment/${slug}/${data.byCountry[1].country_slug}`, hint: `Alternative destination with ${data.byCountry[1].hospital_count} priced programs.` }] : []),
+        ...(data.byCountry[2] ? [{ eyebrow: "Destination", label: `Cost in ${data.byCountry[2].country_name}`, href: `/treatment/${slug}/${data.byCountry[2].country_slug}`, hint: `${data.byCountry[2].hospital_count} hospitals offering this procedure.` }] : []),
+        { eyebrow: "Open data", label: "Global Price Index", href: "/pricing-index", hint: "Median package pricing across procedures × destinations · CC BY 4.0." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Search any procedure and destination, see real hospital-reported pricing." },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get specialty + destination + 3-hospital shortlist." },
+        { eyebrow: "Compare", label: "Treatments side-by-side", href: "/compare/treatments", hint: "Cost, stay, recovery, success-rate columns across procedures." },
+        { eyebrow: "Compare", label: "Destination shootout", href: "/compare/countries", hint: "Hospitals, doctors, treatments, programs by country." },
+        { eyebrow: "Reference", label: "All accreditation bodies", href: "/accreditation", hint: "JCI, NABH, ISO 9001 — what each one means clinically and pricing implications." },
+        { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "Pricing methodology, data sources, AI disclosure, corrections SLA." },
+      ]}
+    />
+
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

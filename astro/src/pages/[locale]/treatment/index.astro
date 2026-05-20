@@ -12,6 +12,7 @@ import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, collectionPageJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { ChevronRight } from "lucide-react";
+import PageCta from "@/components/PageCta.astro";
 
 export const prerender = false;
 
@@ -148,7 +149,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
       <div class="mx-auto max-w-[1440px] px-7 md:px-10">
         {groups.map((g) => (
           <div id={`letter-${g.letter}`} style="scroll-margin-top: 160px; padding: 48px 0; border-top: 1px solid var(--color-border-soft);">
-            <div class="grid gap-10 lg:grid-cols-[0.22fr,1fr]">
+            <div class="grid gap-10 lg:grid-cols-[0.22fr_1fr]">
               <div class="lg:sticky lg:top-40 lg:self-start">
                 <div
                   class="display tnum letter-heading"
@@ -224,6 +225,8 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
       ]}
     />
 
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

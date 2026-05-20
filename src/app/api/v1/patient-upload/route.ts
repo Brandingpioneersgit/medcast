@@ -43,7 +43,10 @@ export async function POST(request: NextRequest) {
   const key = `patient-reports/${yyyy}/${mm}/${randomCode(12)}-${safeName}`;
 
   const uploadUrl = presignR2({ method: "PUT", key, contentType, expiresIn: 900 });
-  const downloadUrl = presignR2({ method: "GET", key, expiresIn: 7 * 24 * 3600 });
+  // 24h download window — case workers re-presign on demand from the admin
+  // panel for ongoing access. Was 7d; tightened for PHI-handling hygiene.
+  const DOWNLOAD_TTL_SECONDS = 24 * 3600;
+  const downloadUrl = presignR2({ method: "GET", key, expiresIn: DOWNLOAD_TTL_SECONDS });
 
   return NextResponse.json({
     uploadUrl,
@@ -51,6 +54,7 @@ export async function POST(request: NextRequest) {
     key,
     inquiryId: inquiryId ?? null,
     expiresIn: 900,
+    downloadExpiresIn: DOWNLOAD_TTL_SECONDS,
     maxSizeMb: MAX_SIZE_MB,
   });
 }

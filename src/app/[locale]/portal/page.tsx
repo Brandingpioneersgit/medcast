@@ -16,6 +16,7 @@ export async function generateMetadata({ params }: Props) {
       "Check your inquiry, appointment, and referral status in one place. Secure lookup by email and code.",
     path: "/portal",
     locale,
+    noindex: true,
   });
 }
 

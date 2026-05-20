@@ -33,6 +33,13 @@ interface Props {
   modifiedAt?: string;
   /** Author display name (article type pages). */
   author?: string;
+  /**
+   * Pagination context for listing pages. When set, emits `<link rel="prev">`
+   * + `<link rel="next">` so Google understands the paged sequence even when
+   * pages 2+ are noindex'd. Pass the canonical-path-relative URL (no host).
+   */
+  prevUrl?: string;
+  nextUrl?: string;
 }
 
 const {
@@ -50,6 +57,8 @@ const {
   publishedAt,
   modifiedAt,
   author,
+  prevUrl,
+  nextUrl,
 } = Astro.props;
 
 const fullTitle = `${title} | ${SITE_NAME}`;
@@ -72,6 +81,8 @@ const ogImage =
 <title>{fullTitle}</title>
 <meta name="description" content={description} />
 <link rel="canonical" href={canonical} />
+{prevUrl && <link rel="prev" href={prevUrl} />}
+{nextUrl && <link rel="next" href={nextUrl} />}
 {noindex && <meta name="robots" content="noindex, nofollow" />}
 
 {Object.entries(langs).map(([code, href]) => (

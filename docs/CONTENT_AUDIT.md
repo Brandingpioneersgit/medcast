@@ -1,7 +1,7 @@
 # MedCasts — Site Audit: Content, Media, Pages
 
 Audited 2026-04-20. Site = Astro (public) + Next.js (admin).
-Live DB state + route inventory below. Target: parity with Claude Design handoff + true medical-tourism SEO depth.
+Live DB state + route inventory below. Target: parity with the design handoff + true medical-tourism SEO depth.
 
 ---
 

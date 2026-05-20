@@ -11,8 +11,11 @@ import { getTranslator } from "@/lib/messages";
 import { getContent, getContentBatch, applyTranslated, isUntranslated } from "@/lib/translate";
 import { ChevronRight } from "lucide-react";
 import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
-import { getReviewerFor, listCitationsFor } from "@/lib/queries";
+import { getReviewerFor, listCitationsFor, listLinkableEntities } from "@/lib/queries";
+import { linkifyBlogHtml } from "@/lib/content-linker";
 import Citations from "@/components/content/Citations.astro";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 
 export const prerender = false;
 
@@ -65,6 +68,22 @@ const rawRelated = relatedSlugs.length > 0
   : [];
 const relatedMap: Record<number, Record<string, string>> = await getContentBatch("glossary", rawRelated.map((r) => r.id), locale).catch(() => ({}));
 const relatedTerms = rawRelated.map((r) => applyTranslated(r, relatedMap[r.id] ?? {}, ["term", "short_definition"]));
+
+const linkables = await listLinkableEntities().catch(() => []);
+const filteredLinkables = linkables.filter(
+  (e) => !(e.kind === "glossary" && e.slug === termSlug),
+);
+const longDefParas = (term.long_definition ?? "")
+  .split(/\n\s*\n+/)
+  .map((p) => p.trim())
+  .filter(Boolean);
+const longDefHtml = longDefParas.length > 0
+  ? linkifyBlogHtml(
+      longDefParas.map((p) => `<p>${p.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`).join("\n"),
+      filteredLinkables,
+      (p: string) => localizedPath(locale, p),
+    ).html
+  : "";
 
 const seoTitle = `${term.term} — defined plainly`;
 const seoDescription = term.short_definition.slice(0, 160);
@@ -144,23 +163,15 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
           {term.short_definition}
         </p>
 
-        {term.long_definition && (
-          <div class="prose-editorial mt-8" style="max-width: none;">
-            {term.long_definition
-              .split(/\n\s*\n+/)
-              .map((para) => para.trim())
-              .filter(Boolean)
-              .map((para) => (
-                <p>{para}</p>
-              ))}
-          </div>
+        {longDefHtml && (
+          <div class="prose-editorial mt-8" style="max-width: none;" set:html={longDefHtml} />
         )}
 
         {relatedTerms.length > 0 && (
           <section class="mt-12 pt-10" style="border-top: 1px solid var(--color-border);">
-            <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">
+            <h2 class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">
               See also
-            </div>
+            </h2>
             <ul class="mt-5 grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
               {relatedTerms.map((r) => (
                 <li>
@@ -209,6 +220,27 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
 
     <Citations citations={citations} />
 
+    <ExploreGrid
+      locale={locale}
+      eyebrow="Where this fits"
+      heading="Use this term, find the care"
+      lede="Definitions are useful only if they connect to a real next step. These hubs map this term back to specialties, destinations, accreditation bodies, and decision tools."
+      items={[
+        { eyebrow: "Glossary", label: "All medical-travel terms", href: "/glossary", hint: "Plain-language definitions across 13 categories." },
+        { eyebrow: "Care hub", label: "Browse 15 specialties", href: "/specialties", hint: "Cardiac, oncology, transplant, ortho, ENT, cosmetic — every program we route." },
+        { eyebrow: "Care hub", label: "All 88 procedures", href: "/treatments", hint: "Surgical and non-surgical procedures with success rates and cost ranges." },
+        { eyebrow: "Care hub", label: "79 mapped conditions", href: "/conditions", hint: "From condition to specialty to treatment, in one click." },
+        { eyebrow: "Reference", label: "Accreditation bodies", href: "/accreditation", hint: "JCI, NABH, ISO 9001, KTQ — what each one means clinically." },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions → specialty + destination + 3-hospital shortlist." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported price bands across 9 destinations." },
+        { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "How we source definitions, review them, and disclose AI use." },
+        { eyebrow: "Trust", label: "Medical board", href: "/medical-board", hint: "Named clinicians who review terminology and treatment content." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review within 48 hours — no charge." },
+        { eyebrow: "Reference", label: "Q&A library", href: "/qa", hint: "30 patient-style questions answered with specific numbers + ranges." },
+        { eyebrow: "Browse", label: "Full sitemap", href: "/sitemap-browse", hint: "Every hub, listing, and tool in one structured index." },
+      ]}
+    />
+
     {/* EEAT signals */}
     <MethodologyBlock locale={locale}
       reviewerName={reviewer?.fullName ?? null}
@@ -223,6 +255,8 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
       ]}
     />
 
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

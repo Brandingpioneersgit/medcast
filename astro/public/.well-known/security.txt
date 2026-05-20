@@ -1,0 +1,5 @@
+Contact: mailto:security@medcasts.com
+Expires: 2027-05-01T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://medcasts.com/.well-known/security.txt
+Policy: https://medcasts.com/editorial-policy

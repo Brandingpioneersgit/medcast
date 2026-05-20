@@ -14,6 +14,8 @@ import { asc, eq, sql } from "drizzle-orm";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
 
 export const prerender = false;
 
@@ -80,10 +82,10 @@ const sections: Section[] = [
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} />
 
     <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
@@ -194,6 +196,34 @@ const sections: Section[] = [
       </div>
     </section>
 
+    <HowItWorks
+      heading='How to navigate the site'
+      italicWord='navigate'
+      eyebrow='Site map'
+      steps={[
+        { title: 'Search by procedure', description: '/treatments lists 88 procedures. Each has cost, destinations, surgeons, recovery details, and questions to ask.' },
+        { title: 'Search by condition', description: '/conditions lists 79 conditions. Each links to relevant treatments, specialists, and second-opinion guidance.' },
+        { title: 'Search by specialty', description: '/specialties lists 15 specialties. Each shows top destinations, programs, and surgeon volume thresholds.' },
+        { title: 'Search by destination', description: '/countries lists 9 destinations. Each has logistics, payment, climate, and program quality guidance.' },
+        { title: 'Compare', description: '/compare/ has side-by-side comparison tools for treatments, countries, hospitals, and doctors.' },
+        { title: 'Get a quote', description: '/quote starts the inquiry process. Itemized quotes from 3 hospitals within 48 hours.' },
+      ]}
+    />
+
+    <WhatToExpect
+      heading='Indexed surfaces'
+      italicWord='Indexed surfaces'
+      items={[
+        { label: 'Treatments', description: '88 procedures, each with deep candidacy and recovery content.' },
+        { label: 'Conditions', description: '79 conditions, each with workup and second-opinion guidance.' },
+        { label: 'Specialties', description: '15 specialties, each with sub-specialty mapping and program-quality signals.' },
+        { label: 'Countries', description: '9 destinations, each with practical travel and treatment guidance.' },
+        { label: 'Hospitals', description: '9,254 hospitals, top 500 with deep program profiles.' },
+        { label: 'Doctors', description: '847 surgeon profiles with specialty-keyed evaluation framework.' },
+        { label: 'Cost guides', description: '88 cost-of-treatment pages and 792 cost-by-country pages.' },
+        { label: 'Reference', description: '143 Q&A posts, 135 glossary terms, 61 blog posts, 13 accreditation explainers.' },
+      ]}
+    />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

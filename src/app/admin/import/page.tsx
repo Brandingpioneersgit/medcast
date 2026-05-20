@@ -1,4 +1,5 @@
 import { requireAuth } from "@/lib/auth";
+import { AdminPageHeader } from "@/components/admin";
 import { BulkImportClient } from "@/components/admin/bulk-import";
 
 export default async function ImportPage() {
@@ -6,8 +7,10 @@ export default async function ImportPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">Bulk Import</h1>
-      <p className="text-gray-500 mb-6">Upload CSV files to import hospitals, doctors, or treatments in bulk.</p>
+      <AdminPageHeader
+        title="Bulk import"
+        subtitle="Upload a CSV to add or update hospitals, doctors, or treatments. Every row is validated locally before anything reaches the database — fix or skip invalid rows in the dry-run preview."
+      />
       <BulkImportClient />
     </div>
   );

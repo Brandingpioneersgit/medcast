@@ -340,13 +340,15 @@ body {
   line-height: 1.55;
 }
 
-/* Display type uses serif by default */
+/* Display type uses serif by default. Color inherits from the
+   container so headings remain legible inside dark-ink CTA sections
+   that set `color: var(--color-bg)` on the section wrapper. */
 h1, h2, h3, h4 {
   font-family: var(--font-display);
   font-weight: 500;
   letter-spacing: -0.015em;
   line-height: 1.15;
-  color: var(--color-ink);
+  color: inherit;
 }
 
 /* Lead text — editorial serif, slightly larger than the design min */
@@ -456,15 +458,18 @@ summary:focus-visible {
   color: var(--color-ink-subtle);
 }
 
-/* Paper card — warm cream with hairline border */
+/* Paper card — warm cream with hairline border. Force ink text so
+   cards remain legible when dropped inside dark-ink CTA sections. */
 .paper {
   background: var(--color-paper);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
+  color: var(--color-ink);
 }
 .paper-flat {
   background: var(--color-paper);
   border: 1px solid var(--color-border);
+  color: var(--color-ink);
 }
 
 /* Photo block — editorial gradient placeholder */
@@ -582,3 +587,853 @@ summary:focus-visible {
 .prose-editorial li { margin-top: 0.5em; }
 .prose-editorial hr { border: 0; border-top: 1px solid var(--color-border); margin: 2.5em 0; }
 .prose-editorial img { border-radius: var(--radius-lg); }
+
+/* Skip-to-content link — visually hidden until keyboard-focused.
+   Sits in the top-start corner once revealed so it doesn't shift layout. */
+.mc-skip-link {
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  background: var(--color-ink);
+  color: var(--color-bg);
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: 0 0 8px 0;
+  z-index: 100;
+  transform: translateY(-110%);
+  transition: transform 120ms ease-out;
+}
+.mc-skip-link:focus,
+.mc-skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Mobile padding tame — entity pages use inline `padding: Xpx 28px` literals.
+   Squeeze the inline padding on small screens so content has more room. */
+@media (max-width: 640px) {
+  section[style*="padding: 56px 28px"],
+  section[style*="padding: 64px 28px"],
+  section[style*="padding: 72px 28px"] {
+    padding-left: 18px !important;
+    padding-right: 18px !important;
+  }
+}
+
+/* Print styles — patients often print hospital/doctor profiles to bring to
+   their primary clinician or family. Strip nav chrome, dark backgrounds,
+   and floating CTAs. Force ink on parchment for toner economy. */
+@media print {
+  /* Drop floating + persistent UI noise */
+  #mc-fab,
+  #mc-compare-dock,
+  #mc-compare-toast,
+  [data-scroll-cta],
+  .mc-skip-link,
+  .no-print,
+  /* Hide site nav + footer; we want the entity content alone */
+  header[role="banner"],
+  nav[aria-label="Breadcrumb"],
+  footer[role="contentinfo"] {
+    display: none !important;
+  }
+  /* Force backgrounds to white so dark sections don't waste toner. */
+  *, *::before, *::after {
+    background: transparent !important;
+    color: #000 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  body {
+    background: #fff !important;
+    font-size: 11pt;
+    line-height: 1.45;
+  }
+  /* Anchors: surface their URL in parens after the link text. */
+  a[href]:not([href^="#"])::after {
+    content: " (" attr(href) ")";
+    font-size: 9pt;
+    color: #444 !important;
+  }
+  /* Don't expand internal anchors (#section) — noise. */
+  a[href^="#"]::after { content: ""; }
+  /* Page break hints */
+  h1, h2, h3 { page-break-after: avoid; }
+  img, figure, table { page-break-inside: avoid; }
+  /* Page geometry */
+  @page { size: A4; margin: 18mm; }
+}
+
+/* Skeleton loaders — shimmer placeholders for client-island fetches.
+   Used by QuoteCalculator + MatchMe while their lazy hospital fetch resolves. */
+.mc-skel {
+  background: linear-gradient(
+    90deg,
+    var(--color-border) 0%,
+    var(--color-border-soft, #E7E1D1) 50%,
+    var(--color-border) 100%
+  );
+  background-size: 200% 100%;
+  animation: mc-skel-shimmer 1.4s infinite ease-in-out;
+}
+.mc-skeleton-row {
+  animation: mc-skel-fade-in 240ms ease-out both;
+}
+@keyframes mc-skel-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@keyframes mc-skel-fade-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mc-skel { animation: none; }
+  .mc-skeleton-row { animation: none; }
+}
+
+/* ===== Section vertical rhythm =====
+   Replaces hand-rolled `padding: 56px / 64px / 72px / 88px` with a
+   3-step scale + max-width clamp. CSS attribute selectors pull every
+   inline-style padding into the same vertical rhythm so existing pages
+   adopt the rhythm without a code-wide rewrite. */
+:root {
+  --section-y-sm: 48px;   /* divider rows, related, FAQ shoulder */
+  --section-y-md: 72px;   /* default content section */
+  --section-y-lg: 96px;   /* hero-adjacent / final CTA */
+  --section-x:    20px;   /* mobile horizontal */
+  --section-x-md: 32px;   /* desktop horizontal */
+  --content-max: 80rem;   /* unified content width — 1280px */
+}
+
+/* Map literal inline paddings onto the vertical scale.
+   Targets ANY element with `style="...padding: Npx ..."` regardless of trailing values. */
+[style*="padding: 32px 0"],
+[style*="padding: 32px 28px"],
+[style*="padding: 40px 0"],
+[style*="padding: 48px 0"],
+[style*="padding: 48px 28px"] {
+  padding-top: var(--section-y-sm) !important;
+  padding-bottom: var(--section-y-sm) !important;
+}
+[style*="padding: 56px 0"],
+[style*="padding: 56px 28px"],
+[style*="padding: 64px 0"],
+[style*="padding: 64px 28px"] {
+  padding-top: var(--section-y-md) !important;
+  padding-bottom: var(--section-y-md) !important;
+}
+[style*="padding: 72px 0"],
+[style*="padding: 72px 28px"],
+[style*="padding: 80px 0"],
+[style*="padding: 88px 0"],
+[style*="padding: 96px 0"] {
+  padding-top: var(--section-y-lg) !important;
+  padding-bottom: var(--section-y-lg) !important;
+}
+
+/* Mobile — collapse the rhythm one notch to keep pages from feeling sparse on phones. */
+@media (max-width: 640px) {
+  :root {
+    --section-y-sm: 36px;
+    --section-y-md: 52px;
+    --section-y-lg: 64px;
+  }
+}
+
+/* Mc-section utility for new code — preferred going forward. */
+.mc-section { padding: var(--section-y-md) var(--section-x); }
+.mc-section-sm { padding: var(--section-y-sm) var(--section-x); }
+.mc-section-lg { padding: var(--section-y-lg) var(--section-x); }
+@media (min-width: 768px) {
+  .mc-section, .mc-section-sm, .mc-section-lg { padding-inline: var(--section-x-md); }
+}
+
+/* ===== Icon weight normalization =====
+   Inline SVGs across pages use mixed stroke-widths (1.2 / 1.5 / 2 / 2.4).
+   Unify on a 1.7 default — feels balanced at small sizes (10–16px) without
+   looking spindly. Pages that explicitly want a different weight can keep
+   their stroke-width attribute (it wins over CSS for SVG-presentation attrs
+   only on the element it's set on, so this only kicks in where unset). */
+svg[fill="none"][stroke="currentColor"]:not([stroke-width]) {
+  stroke-width: 1.7;
+}
+/* Star glyphs — unify the saffron-rated stars on hospital/doctor cards. */
+svg[stroke="var(--color-saffron)"]:not([stroke-width]) { stroke-width: 1.4; }
+
+/* Smooth out the corner joins on small icons. */
+svg[stroke="currentColor"][fill="none"] {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ============================================================
+   DESIGN SYSTEM v2 — typography, pills, elevation, dividers, focus
+   Applied via attribute-selector remapping so existing inline
+   styles inherit without rewriting every callsite.
+   ============================================================ */
+
+/* ---------- Typography: round half-pixels onto a clean scale ----------
+   Body sizes: 10 / 11 / 12 / 13 / 14 / 16 / 18 / 22 / 28 / 36 / 56
+   Rounding: 9.5→10, 10.5→11, 11.5→12, 12.5→12, 13.5→14, 14.5→14,
+             15.5→16, 16.5→16, 22→22, 24→24, 26→28, 30→32, 32→32, 34→36 */
+[style*="font-size: 9.5px"]   { font-size: 10px !important; }
+[style*="font-size: 10.5px"]  { font-size: 11px !important; }
+[style*="font-size: 11.5px"]  { font-size: 12px !important; }
+[style*="font-size: 12.5px"]  { font-size: 12px !important; }
+[style*="font-size: 13.5px"]  { font-size: 13px !important; }
+[style*="font-size: 14.5px"]  { font-size: 14px !important; }
+[style*="font-size: 15.5px"]  { font-size: 15px !important; }
+[style*="font-size: 16.5px"]  { font-size: 16px !important; }
+
+/* Heading scale: collapse 26/30/34 onto 28/32/36 so the scale is musical. */
+[style*="font-size: 26px"] { font-size: 28px !important; }
+[style*="font-size: 30px"] { font-size: 32px !important; }
+[style*="font-size: 34px"] { font-size: 36px !important; }
+
+/* Letter-spacing: collapse 5+ values to 3 (-0.005, -0.015, -0.025).
+   These read as "tight body / tight display / tight hero" in the IDE. */
+[style*="letter-spacing: -0.005em"] { letter-spacing: -0.005em; }
+[style*="letter-spacing: -0.01em"]  { letter-spacing: -0.015em !important; }
+[style*="letter-spacing: -0.015em"] { letter-spacing: -0.015em; }
+[style*="letter-spacing: -0.02em"]  { letter-spacing: -0.025em !important; }
+[style*="letter-spacing: -0.025em"] { letter-spacing: -0.025em; }
+[style*="letter-spacing: -0.03em"]  { letter-spacing: -0.025em !important; }
+
+/* Mono microcopy — bump letter-spacing slightly so 10–11px isn't claustrophobic. */
+[style*="letter-spacing: 0.1em"]  { letter-spacing: 0.11em !important; }
+[style*="letter-spacing: 0.12em"] { letter-spacing: 0.12em; }
+[style*="letter-spacing: 0.14em"] { letter-spacing: 0.14em; }
+[style*="letter-spacing: 0.16em"] { letter-spacing: 0.14em !important; }
+
+/* ---------- Pill button system ----------
+   4 sizes — applied via attribute selectors that catch existing inline pads. */
+:where([style*="border-radius: 9999px"]) {
+  /* Subtle weight + transition on every pill regardless of size. */
+  font-weight: 500;
+  transition: background-color 140ms ease, color 140ms ease, transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+/* Remap: chips/badges (xs) */
+[style*="padding: 2px 7px"][style*="border-radius: 9999px"],
+[style*="padding: 3px 8px"][style*="border-radius: 9999px"],
+[style*="padding: 3px 9px"][style*="border-radius: 9999px"],
+[style*="padding: 3px 10px"][style*="border-radius: 9999px"],
+[style*="padding: 4px 10px"][style*="border-radius: 9999px"],
+[style*="padding: 5px 12px"][style*="border-radius: 9999px"] {
+  padding-block: 4px !important;
+  padding-inline: 10px !important;
+  font-size: 10.5px;
+}
+/* Remap: compact (sm) — most common slug, currently 6px-9px varieties. */
+[style*="padding: 6px 12px"][style*="border-radius: 9999px"],
+[style*="padding: 6px 14px"][style*="border-radius: 9999px"],
+[style*="padding: 7px 12px"][style*="border-radius: 9999px"],
+[style*="padding: 7px 14px"][style*="border-radius: 9999px"],
+[style*="padding: 8px 12px"][style*="border-radius: 9999px"],
+[style*="padding: 8px 14px"][style*="border-radius: 9999px"],
+[style*="padding: 9px 14px"][style*="border-radius: 9999px"],
+[style*="padding: 9px 16px"][style*="border-radius: 9999px"] {
+  padding-block: 8px !important;
+  padding-inline: 14px !important;
+}
+/* Remap: default CTA (md) */
+[style*="padding: 10px 18px"][style*="border-radius: 9999px"],
+[style*="padding: 10px 20px"][style*="border-radius: 9999px"],
+[style*="padding: 11px 18px"][style*="border-radius: 9999px"],
+[style*="padding: 12px 18px"][style*="border-radius: 9999px"] {
+  padding-block: 11px !important;
+  padding-inline: 20px !important;
+}
+/* Remap: hero CTA (lg) */
+[style*="padding: 13px 22px"][style*="border-radius: 9999px"],
+[style*="padding: 13px 24px"][style*="border-radius: 9999px"],
+[style*="padding: 14px 22px"][style*="border-radius: 9999px"],
+[style*="padding: 14px 24px"][style*="border-radius: 9999px"] {
+  padding-block: 14px !important;
+  padding-inline: 24px !important;
+  font-size: 14.5px;
+}
+/* Cursor on every interactive pill — covers anchor + button uniformly. */
+a[style*="border-radius: 9999px"], button[style*="border-radius: 9999px"] { cursor: pointer; }
+
+/* Dark-ink (primary) pills get a subtle press effect on hover/active. */
+a[style*="background: var(--color-ink)"][style*="border-radius: 9999px"]:hover,
+button[style*="background: var(--color-ink)"][style*="border-radius: 9999px"]:hover {
+  background: var(--color-ink-2, #1C2A25) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(14, 23, 19, 0.18);
+}
+a[style*="background: var(--color-ink)"][style*="border-radius: 9999px"]:active,
+button[style*="background: var(--color-ink)"][style*="border-radius: 9999px"]:active {
+  transform: translateY(0);
+}
+
+/* Outline pills — fill on hover instead of going translucent */
+a[style*="border: 1px solid var(--color-ink)"][style*="border-radius: 9999px"]:hover,
+button[style*="border: 1px solid var(--color-ink)"][style*="border-radius: 9999px"]:hover {
+  background: var(--color-ink) !important;
+  color: var(--color-bg) !important;
+}
+
+/* Accent pills — slightly stronger shadow on hover for CTA emphasis */
+a[style*="background: var(--color-accent)"][style*="border-radius: 9999px"]:hover,
+button[style*="background: var(--color-accent)"][style*="border-radius: 9999px"]:hover {
+  background: var(--color-accent-hover, var(--color-accent)) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 22px rgba(10, 93, 84, 0.22);
+}
+
+/* ---------- Card elevation + hover ---------- */
+.paper {
+  /* Bump the resting shadow so cards feel separated from parchment bg. */
+  box-shadow: 0 1px 0 rgba(14, 23, 19, 0.04), 0 1px 2px rgba(14, 23, 19, 0.06);
+  transition: box-shadow 200ms ease, transform 200ms ease, border-color 200ms ease;
+}
+/* Cards that wrap a link or have transition class — add a real hover lift. */
+a.paper:hover,
+.paper:has(> a.group):hover,
+.paper.transition:hover,
+li > a.paper:hover {
+  box-shadow: 0 2px 4px rgba(14, 23, 19, 0.05), 0 12px 28px rgba(14, 23, 19, 0.10);
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--color-border) 80%, var(--color-ink));
+}
+
+/* ---------- Form inputs: visible focus + better resting ---------- */
+input:not([type=checkbox]):not([type=radio]),
+textarea,
+select {
+  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+}
+input:not([type=checkbox]):not([type=radio]):focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 0;
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+/* Hospital sticky-quote panel + similar boxed labels → hover/focus border tighten. */
+label:has(input:focus-visible),
+label:has(textarea:focus-visible),
+label:has(select:focus-visible) {
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+
+/* Buttons — universal focus ring */
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+a[style*="border-radius: 9999px"]:focus-visible,
+button[style*="border-radius: 9999px"]:focus-visible {
+  outline-offset: 3px;
+}
+
+/* ---------- Dividing rules ----------
+   Bump default border opacity so parchment-on-parchment isn't featherweight. */
+:root {
+  --color-border: #D9D3C3;     /* was the same — keep but use everywhere */
+  --color-border-soft: #E7E1D1; /* sub-divider, still visible */
+  --color-border-strong: #B8AE93; /* deliberate emphasis */
+}
+/* Dashed dividers used inside cards — bump weight slightly for visibility. */
+[style*="border-top: 1px dashed var(--color-border)"],
+[style*="border-bottom: 1px dashed var(--color-border)"] {
+  border-color: var(--color-border-strong) !important;
+  border-style: dashed !important;
+}
+
+/* ---------- Stat cells: clean dividers + larger figures ---------- */
+.stat-cell {
+  padding: 16px 18px;
+}
+.stat-cell .display.tnum,
+.stat-cell .display {
+  /* Snap stat figure sizes to a tight scale — variance across pages was disruptive. */
+  letter-spacing: -0.025em;
+}
+
+/* ---------- Section nav strip (hospital page) — taller, with active underline ----------
+   The strip is identified by `.sticky` + `overflow-x-auto` flex inside hero. */
+[style*="top: 72px"][class*="sticky"][class*="overflow-x-auto"],
+[class*="sticky"][class*="overflow-x-auto"] > a[href^="#"] {
+  scroll-margin-top: 120px;
+}
+/* Anchor links inside the hospital section nav — beef up vertical padding. */
+nav a[href^="#"]:not([class*="paper"]):hover,
+[class*="overflow-x-auto"] > a[href^="#"]:hover {
+  color: var(--color-ink) !important;
+}
+/* Make the active section nav link visually anchored on hover */
+[class*="overflow-x-auto"] > a[href^="#"] {
+  position: relative;
+}
+[class*="overflow-x-auto"] > a[href^="#"]:hover::after,
+[class*="overflow-x-auto"] > a[href^="#"]:focus-visible::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--color-ink);
+}
+
+/* ---------- Smooth scrolling for anchor jumps (TOC, section nav, etc.) ---------- */
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .paper, button, a { transition: none !important; }
+}
+
+/* ============================================================
+   COMPARE TABLES — shared polish so all 4 compare pages match
+   ============================================================ */
+[style*="border-collapse"] thead th,
+[style*="border-collapse"] tbody td {
+  font-family: inherit;
+  vertical-align: top;
+}
+.overflow-x-auto > table {
+  min-width: 720px;
+}
+/* Header row — consistent eyebrow look */
+[style*="border-collapse"] thead th {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ink-subtle);
+  font-weight: 500;
+  text-align: start;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-paper);
+}
+/* Body cells — readable density */
+[style*="border-collapse"] tbody td {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--color-ink);
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+[style*="border-collapse"] tbody tr:last-child td {
+  border-bottom: 0;
+}
+/* Hover on table rows — subtle parchment lift */
+[style*="border-collapse"] tbody tr {
+  transition: background-color 140ms ease;
+}
+[style*="border-collapse"] tbody tr:hover {
+  background: color-mix(in srgb, var(--color-paper) 70%, var(--color-bg));
+}
+/* First-column emphasis (entity name) */
+[style*="border-collapse"] tbody td:first-child {
+  font-family: var(--font-display, "Fraunces", serif);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--color-ink);
+}
+/* Horizontal-scroll hint on mobile — fade right edge so users know to swipe */
+@media (max-width: 768px) {
+  .overflow-x-auto {
+    position: relative;
+    -webkit-overflow-scrolling: touch;
+    mask-image: linear-gradient(90deg, #000 0%, #000 92%, transparent 100%);
+    -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 92%, transparent 100%);
+  }
+  .overflow-x-auto::after {
+    content: "Swipe →";
+    position: sticky;
+    inset-inline-end: 0;
+    inset-block-start: 50%;
+    background: var(--color-ink);
+    color: var(--color-bg);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    border-radius: 9999px;
+    pointer-events: none;
+    /* Display only when content is wider than viewport — pure CSS detection. */
+    opacity: 0.8;
+  }
+}
+
+/* Doctor profile portrait — cap height on tablets/phones so the 4/5
+   aspect doesn't fill the screen. Desktop lets it fill the 0.8fr column. */
+.mc-doctor-portrait { max-width: 280px; }
+@media (min-width: 1024px) {
+  .mc-doctor-portrait { max-width: none; }
+}
+
+/* Grid cards on home — once the .paper anchor is `flex flex-col h-full`,
+   push the LAST direct child (CTA / footer) to the bottom so cards align
+   visually regardless of inner-content length. */
+.paper.h-full.flex.flex-col > *:last-child { margin-top: auto; }
+/* For nested flex layouts (PhotoBlock + content area), the content area
+   should grow to fill available space. */
+.paper.h-full.flex.flex-col > div:not(:first-child):not(:last-child) {
+  flex: 1 1 auto;
+}
+
+/* Tools strip — emoji icon size + softer accent-mist tile */
+.home-tool .display.tnum {
+  font-family: var(--font-display, "Fraunces", serif);
+  font-weight: 500;
+}
+
+/* Container utility — extracted from a 92x-repeated motif across pages.
+   Equivalent to: `mx-auto w-full max-w-[80rem] px-5 md:px-8`. New components
+   should use this; existing call sites can migrate incrementally. */
+.mc-container {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 80rem;
+  padding-inline: 1.25rem;
+}
+@media (min-width: 768px) {
+  .mc-container { padding-inline: 2rem; }
+}
+
+/* ============================================================
+   MOBILE RESPONSIVENESS GUARDS
+   Applied via attribute selectors so existing pages with inline
+   styles inherit mobile-correct behavior without per-page rewrites.
+   ============================================================ */
+
+/* ---------- Global overflow guard ----------
+   Stop horizontal page scroll caused by inline negative-margin floats
+   or absolutely-positioned children that overflow the viewport on phones. */
+html, body { overflow-x: hidden; max-width: 100%; }
+
+/* Long tokens (URLs, hospital names with no spaces, codes) wrap instead
+   of forcing horizontal page scroll. Body keeps normal break behavior. */
+@media (max-width: 768px) {
+  h1, h2, h3, h4, h5, h6,
+  .display, .display-tight, .serif, .lede,
+  p, li, dd, dt, td, th, label, span, a, button, summary {
+    overflow-wrap: anywhere;
+    word-wrap: break-word;
+  }
+  /* But never break inside the price formatter (numerics + currency) */
+  .tnum, [data-no-break] { overflow-wrap: normal; word-break: keep-all; }
+}
+
+/* ---------- Section horizontal padding scaling ----------
+   Many sections use inline `padding: <Y>px 28px`. Map ALL such patterns
+   to a smaller horizontal padding on phones so content has breathing room. */
+@media (max-width: 640px) {
+  [style*=" 28px;"][style*="padding:"],
+  [style*=" 28px ;"][style*="padding:"],
+  section[style*="px 28px"],
+  div[style*="px 28px"] {
+    padding-left: 18px !important;
+    padding-right: 18px !important;
+  }
+  /* Hero strips that use 56px horizontal padding */
+  [style*="padding: 56px"][style*="px 56px"] {
+    padding-left: 18px !important;
+    padding-right: 18px !important;
+  }
+}
+
+/* ---------- Inline multi-column grids that break on mobile ----------
+   Many pages set grid-template-columns inline (with both space and Tailwind
+   comma syntax). Force single column on phones; let the natural <md grid
+   class collapses keep their behavior on tablets. */
+@media (max-width: 768px) {
+  /* Catch any inline grid template with fr-units paired in 2 or 3 columns.
+     Substring matches every "fr,Xfr" / "fr Xfr" combo currently in the codebase. */
+  [style*="grid-template-columns:"][style*="fr,1fr"],
+  [style*="grid-template-columns:"][style*="fr 1fr"],
+  /* Generic: any fixed width (px or rem) followed by 1fr partner */
+  [style*="grid-template-columns:"][style*="px 1fr"],
+  [style*="grid-template-columns:"][style*="px,1fr"],
+  [style*="grid-template-columns:"][style*="rem 1fr"],
+  [style*="grid-template-columns:"][style*="rem,1fr"],
+  [style*="grid-template-columns:"][style*="1fr 1fr 1fr"],
+  [style*="grid-template-columns:"][style*="fr,1.4fr"],
+  [style*="grid-template-columns:"][style*="fr,1.5fr"],
+  [style*="grid-template-columns:"][style*="fr,2fr"],
+  [style*="grid-template-columns:"][style*="fr,0.28fr"],
+  [style*="grid-template-columns:"][style*="fr,0.3fr"],
+  [style*="grid-template-columns:"][style*=",1fr"],
+  [style*="grid-template-columns:"][style*=",1.5fr"],
+  [style*="grid-template-columns:"][style*=",2fr"],
+  [style*="grid-template-columns:"][style*=",22rem"],
+  [style*="grid-template-columns:"][style*=",auto"],
+  [style*="grid-template-columns:"][style*="auto,1fr"],
+  /* Fixed pixel/rem leading column with a 1fr partner */
+  [style*="grid-template-columns: 56px"],
+  [style*="grid-template-columns: 64px"],
+  [style*="grid-template-columns: 72px"],
+  [style*="grid-template-columns: 80px"],
+  [style*="grid-template-columns: 96px"],
+  [style*="grid-template-columns: 1fr 100px"],
+  [style*="grid-template-columns: 1.2fr 1fr 1fr auto"],
+  [style*="grid-template-columns: 16rem"],
+  [style*="grid-template-columns: 18rem"],
+  [style*="grid-template-columns: 20rem"],
+  [style*="grid-template-columns: 22rem"],
+  [style*="grid-template-columns: 24rem"],
+  [style*="grid-template-columns: 240px"],
+  [style*="grid-template-columns: 260px"],
+  [style*="grid-template-columns: 280px"],
+  [style*="grid-template-columns: 300px"],
+  [style*="grid-template-columns: 320px"],
+  [style*="grid-template-columns: 360px"],
+  [style*="grid-template-columns: 380px"],
+  [style*="grid-template-columns: 400px"],
+  [style*="grid-template-columns: 420px"],
+  [style*="1fr 320px"],
+  [style*="1fr 360px"],
+  [style*="1fr 380px"],
+  [style*="1fr 400px"],
+  [style*="1fr 420px"],
+  /* Tailwind grid-cols-4/6 inline equivalents — too tight on phones */
+  [style*="repeat(4, minmax(0, 1fr))"],
+  [style*="repeat(6, minmax(0, 1fr))"] {
+    grid-template-columns: 1fr !important;
+  }
+  /* 3-up grids drop to 2 on phones (still scannable) */
+  [style*="repeat(3, minmax(0, 1fr))"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  /* Step number + title + duration → stack with smaller number */
+  [style*="grid-template-columns: 56px 1fr 100px"] > *:nth-child(3),
+  [style*="grid-template-columns: 64px 1fr 100px"] > *:nth-child(3) {
+    grid-column: 1 / -1;
+    margin-top: 4px;
+    text-align: start !important;
+    padding-top: 0 !important;
+  }
+}
+@media (max-width: 480px) {
+  /* On tiny phones, even 2-up gets cramped → 1 column */
+  [style*="repeat(2, minmax(0, 1fr))"],
+  [style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ---------- Tables: force horizontal scroll on mobile ----------
+   Tables already wrapped in `.overflow-x-auto` (compare pages) keep their
+   existing wrapper behavior. Naked tables get overflow added programmatically. */
+@media (max-width: 768px) {
+  /* Belt-and-braces: add overflow scroll via a wrapper-like behavior on the
+     table itself if it isn't already wrapped. The :not() guard checks the
+     *direct parent* via the table's own classes since CSS lacks parent selectors. */
+  table:not(.mc-table-stacked) {
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* For tables wrapped in .overflow-x-auto, ensure they have a minimum width
+     so columns don't squish — still scrollable. */
+  .overflow-x-auto > table {
+    min-width: 600px;
+  }
+}
+
+/* ---------- Floating absolute cards: hide or reposition on mobile ----------
+   Hero floating cards use negative `inset-inline-start: -44px` etc.
+   On screens narrower than the lg breakpoint, those parents are hidden
+   already (lg:hidden). Belt-and-braces: anything absolutely positioned
+   with negative inset on mobile gets pulled back inside the viewport. */
+@media (max-width: 1024px) {
+  [style*="inset-inline-start: -28px"],
+  [style*="inset-inline-start: -32px"],
+  [style*="inset-inline-start: -44px"],
+  [style*="inset-inline-end: -28px"],
+  [style*="inset-inline-end: -32px"],
+  [style*="inset-inline-end: -44px"] {
+    inset-inline-start: 0 !important;
+    inset-inline-end: 0 !important;
+  }
+}
+
+/* ---------- Hero / display heading clamp safety ----------
+   Some clamp(...) values use 7vw which renders ~25px at 360px viewport.
+   That's fine. But fixed font-size: 56px / 64px / 72px / 88px on
+   mobile is too big and causes line-break issues. Cap them. */
+@media (max-width: 480px) {
+  [style*="font-size: 88px"] { font-size: 40px !important; line-height: 1.05 !important; }
+  [style*="font-size: 72px"] { font-size: 38px !important; line-height: 1.05 !important; }
+  [style*="font-size: 64px"] { font-size: 36px !important; line-height: 1.08 !important; }
+  [style*="font-size: 56px"] { font-size: 32px !important; line-height: 1.1 !important; }
+  [style*="font-size: 48px"] { font-size: 28px !important; line-height: 1.15 !important; }
+  [style*="font-size: 44px"] { font-size: 26px !important; line-height: 1.15 !important; }
+  [style*="font-size: 42px"] { font-size: 26px !important; line-height: 1.18 !important; }
+  [style*="font-size: 40px"] { font-size: 25px !important; line-height: 1.18 !important; }
+  [style*="font-size: 38px"] { font-size: 24px !important; line-height: 1.2 !important; }
+}
+
+/* ---------- Inline width / min-width on cards ---------- */
+@media (max-width: 480px) {
+  /* Floating quote/testimonial cards with fixed width get fluid */
+  [style*="width: 300px"],
+  [style*="width: 320px"],
+  [style*="width: 340px"],
+  [style*="width: 360px"] {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  /* Sticky right-rail panels with min-width */
+  [style*="min-width: 320px"],
+  [style*="min-width: 340px"],
+  [style*="min-width: 360px"],
+  [style*="min-width: 380px"] {
+    min-width: 0 !important;
+  }
+}
+
+/* ---------- Header search input — hide kbd shortcut on small screens ---------- */
+@media (max-width: 768px) {
+  .site-header [data-command-trigger] kbd {
+    display: none;
+  }
+  .site-header [data-command-trigger] {
+    min-width: 0 !important;
+  }
+}
+
+/* ---------- Site header utility strip — drop emergency phone on small phones ---------- */
+@media (max-width: 380px) {
+  .site-header .opacity-60 { display: none !important; }
+}
+
+/* ---------- Header chrome: tighter horizontal padding on phones ----------
+   The header uses `mx-auto max-w-[1440px] px-7` (28px). Squeeze on phones. */
+@media (max-width: 640px) {
+  .site-header .px-7 { padding-left: 16px !important; padding-right: 16px !important; }
+}
+
+/* ---------- Stat / metric cells — prevent number squeeze ---------- */
+@media (max-width: 480px) {
+  .stat-cell, .stat-ribbon-cell {
+    padding: 12px 10px !important;
+  }
+  .stat-cell .display, .stat-ribbon-cell .display {
+    font-size: clamp(20px, 6vw, 28px) !important;
+  }
+}
+
+/* ---------- Forms: stack form fields ----------
+   Inline `grid-template-columns: 1fr 1fr` form rows collapse on phone. */
+@media (max-width: 640px) {
+  form [style*="grid-template-columns: 1fr 1fr"],
+  form [style*="grid-template-columns: 1fr 1fr 1fr"],
+  form [style*="grid-template-columns: 1fr 1fr 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ---------- Sticky elements: don't stick on phones (often overlap content) ---------- */
+@media (max-width: 768px) {
+  .lg\:sticky, [class*="sticky"][style*="top:"][class*="lg:"],
+  aside.sticky, aside [class*="sticky"] {
+    position: static !important;
+    top: auto !important;
+  }
+}
+
+/* ---------- Tab bars / pill rows: enable horizontal scroll instead of wrap ---------- */
+@media (max-width: 640px) {
+  /* Long pill rows (filter chips, anchor nav) get scroll instead of breaking grid */
+  nav[aria-label*="Section"],
+  nav[aria-label*="section"],
+  [data-pill-row] {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap !important;
+  }
+  [data-pill-row]::-webkit-scrollbar { display: none; }
+}
+
+/* ---------- Hospital / doctor / treatment hero 2-col → stack ---------- */
+@media (max-width: 1024px) {
+  /* Inline 2-col hero patterns from entity pages */
+  [style*="grid-template-columns: 1.5fr 1fr"],
+  [style*="grid-template-columns: 0.8fr 1.5fr 1fr"],
+  [style*="grid-template-columns: 1.5fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ---------- Compare dock + FAB: don't cover content on phones ---------- */
+@media (max-width: 640px) {
+  #mc-compare-dock {
+    inset-inline: 12px !important;
+    inset-block-end: 12px !important;
+    inset-inline-end: 12px !important;
+    inset-inline-start: 12px !important;
+    transform: none !important;
+    width: auto !important;
+    max-width: calc(100% - 24px) !important;
+  }
+  #mc-fab {
+    inset-block-end: 80px !important; /* clear mobile tab bar if present */
+  }
+}
+
+/* ---------- Image-veil hero: weaken left wash on phones so content reads ---------- */
+@media (max-width: 768px) {
+  .image-veil-hero {
+    background: linear-gradient(
+      180deg,
+      rgba(246, 241, 230, 0.55) 0%,
+      rgba(246, 241, 230, 0.92) 70%,
+      rgba(246, 241, 230, 0.97) 100%
+    );
+  }
+}
+
+/* ---------- Lists with inline `gap` and many children - wrap properly ---------- */
+@media (max-width: 480px) {
+  [style*="gap: 32px"],
+  [style*="gap: 40px"],
+  [style*="gap: 48px"],
+  [style*="gap: 56px"],
+  [style*="gap: 64px"],
+  [style*="gap: 72px"] {
+    gap: 24px !important;
+  }
+}
+
+/* ---------- Auto-fit grids: lower the minmax floor on phones ---------- */
+@media (max-width: 480px) {
+  [style*="minmax(320px"],
+  [style*="minmax(300px"],
+  [style*="minmax(280px"] {
+    grid-template-columns: 1fr !important;
+  }
+  [style*="minmax(240px"],
+  [style*="minmax(220px"] {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+  }
+}
+
+/* ---------- Buttons / CTAs in hero: full-width on phones ---------- */
+@media (max-width: 480px) {
+  .hero-cta-row,
+  [data-hero-ctas] {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .hero-cta-row > a,
+  .hero-cta-row > button,
+  [data-hero-ctas] > a,
+  [data-hero-ctas] > button {
+    width: 100%;
+    justify-content: center;
+  }
+}

@@ -1,0 +1,38 @@
+---
+type Item = { label: string; description: string };
+type Props = {
+  eyebrow?: string;
+  heading: string;
+  italicWord?: string;
+  items: Item[];
+  layout?: "two-column" | "single";
+};
+const { eyebrow = "What to expect", heading, italicWord, items, layout = "two-column" } = Astro.props as Props;
+const isTwoCol = layout === "two-column";
+---
+
+<section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft);">
+  <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+    <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+      {eyebrow}
+    </div>
+    <h2 class="display mb-7" style="font-size: 28px; letter-spacing: -0.02em;">
+      {italicWord ? (
+        <Fragment>
+          {heading.replace(italicWord, "")}<span style="font-style: italic;">{italicWord}</span>
+        </Fragment>
+      ) : heading}
+    </h2>
+
+    <div class={isTwoCol ? "grid gap-5 md:grid-cols-2" : "space-y-4"}>
+      {items.map((item) => (
+        <div class="paper" style="padding: 22px;">
+          <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent); margin-bottom: 10px;">
+            {item.label}
+          </div>
+          <p style="font-size: 14.5px; line-height: 1.55;">{item.description}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

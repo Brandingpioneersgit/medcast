@@ -5,12 +5,16 @@ import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import LastUpdated from "@/components/LastUpdated.astro";
 import { listSurgeonsForSpecialty } from "@/lib/queries";
-import { getContent, getContentBatch, applyTranslated } from "@/lib/translate";
+import { getContent, getContentBatch, applyTranslated, isUntranslated } from "@/lib/translate";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, itemListJsonLd, withProvenance } from "@/lib/seo";
 import { Award, ChevronRight, MapPin, Users } from "lucide-react";
 import { doctorPortrait } from "@/lib/images";
+import { sql as rawSql } from "@/lib/db";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 
 export const prerender = false;
 
@@ -26,6 +30,10 @@ if (data.doctors.length === 0) return new Response(`No surgeons listed for ${spe
 
 const specialtyMap = await getContent("specialty", data.specialty.id, locale);
 const specialty = applyTranslated(data.specialty, specialtyMap, ["name", "description"]);
+
+// Pull specialty content_sections for volume thresholds + surgeon questions
+const specSecRow = await rawSql`SELECT content_sections FROM specialties WHERE id = ${data.specialty.id} LIMIT 1`;
+const specSections: any = specSecRow[0]?.content_sections ?? null;
 
 const doctorMap = await getContentBatch("doctor", data.doctors.map((d) => d.id), locale);
 const doctors = data.doctors.map((d) => ({
@@ -64,7 +72,7 @@ const BUCKET_COPY: Record<"senior" | "established" | "early", { title: string; n
   },
 };
 
-const seoTitle = `${specialty.name} surgeons — rankings by volume & experience`;
+const seoTitle = `${specialty.name} Surgeons Abroad — Top by Volume`;
 const seoDescription =
   `${data.total.toLocaleString()} surgeons practising at hospitals credentialed for ${specialty.name}, ordered by patient volume and experience. Request a surgeon shortlist matched to your case.`.slice(0, 160);
 const path = `/surgeons/${specialtyParam}`;
@@ -94,7 +102,7 @@ Astro.response.headers.set(
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={isUntranslated(locale, specialtyMap)} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(itemLd)} />
   </Fragment>
@@ -233,6 +241,79 @@ Astro.response.headers.set(
       </div>
     </section>
 
+    {specSections && (
+      <>
+        {specSections.surgeonVolumeThresholds && specSections.surgeonVolumeThresholds.length > 0 && (
+          <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Volume benchmarks
+              </div>
+              <h2 class="display mb-7" style="font-size: 26px; letter-spacing: -0.02em;">
+                Surgeon volume <span style="font-style: italic;">benchmarks for {specialty.name.toLowerCase()}</span>
+              </h2>
+              <div class="paper overflow-hidden" style="padding: 0;">
+                {specSections.surgeonVolumeThresholds.map((t: any, i: number) => (
+                  <div
+                    class="grid items-start gap-4 p-5"
+                    style={`grid-template-columns: 220px 1fr; ${i > 0 ? "border-top: 1px solid var(--color-border-soft);" : ""}`}
+                  >
+                    <span class="mono uppercase" style="font-size: 12px; letter-spacing: 0.08em; color: var(--color-accent);">{t.range}</span>
+                    <span style="font-size: 15px; line-height: 1.5;">{t.quality}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {specSections.questionsForProgram && specSections.questionsForProgram.length > 0 && (
+          <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft);">
+            <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+              <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Consultation questions
+              </div>
+              <h2 class="display mb-7" style="font-size: 26px; letter-spacing: -0.02em;">
+                What to <span style="font-style: italic;">ask any candidate</span>
+              </h2>
+              <ol class="space-y-3">
+                {specSections.questionsForProgram.map((q: string, i: number) => (
+                  <li class="flex gap-4 items-start paper" style="padding: 16px 22px;">
+                    <span class="display tnum" style="font-size: 24px; line-height: 1; opacity: 0.35; min-width: 36px;">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <p style="font-size: 15.5px; line-height: 1.5;">{q}</p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </section>
+        )}
+      </>
+    )}
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow={`${specialty.name} surgeons`}
+      heading="Different routes to the same shortlist"
+      lede={`Volume-ranked surgeon list is one cut. These hubs let you re-rank by destination, by procedure, or by hospital — and check the underlying specialty content alongside.`}
+      items={[
+        { eyebrow: "Specialty", label: `${specialty.name} hub`, href: `/specialty/${specialtyParam}`, hint: `Programs, sub-specialties, and procedures across ${specialty.name.toLowerCase()}.` },
+        { eyebrow: "Hospitals", label: `Hospitals offering ${specialty.name.toLowerCase()}`, href: `/hospitals?specialty=${specialtyParam}`, hint: "Programs credentialed for this specialty across our network." },
+        { eyebrow: "Best of", label: `Best ${specialty.name.toLowerCase()} programs`, href: "/best", hint: "Editorially ranked by specialty × country with methodology disclosed." },
+        { eyebrow: "Browse", label: "9 destination countries", href: "/countries", hint: "Filter surgeon directory by country — cost-of-care, accreditation profile." },
+        { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure success rates, recovery time, hospital pricing." },
+        { eyebrow: "Browse", label: "All 79 conditions", href: "/conditions", hint: "Map condition → specialty → first-line treatment." },
+        { eyebrow: "Compare", label: "Doctor comparison", href: "/compare/doctors", hint: "Surgeons compared on volume, fees, languages, video-consult availability." },
+        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, and pricing." },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
+        { eyebrow: "Trust", label: "Medical board", href: "/medical-board", hint: "Named clinicians who review surgeon directory + treatment content." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+      ]}
+    />
+
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

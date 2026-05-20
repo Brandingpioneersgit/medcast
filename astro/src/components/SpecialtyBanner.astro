@@ -1,0 +1,614 @@
+---
+// Branded specialty banner — replaces generic stock photos with a custom
+// gradient + lucide icon illustration that matches the medcasts palette.
+// Used on /specialty/[slug], /specialties, /treatment/[slug] heroes, and
+// home page specialty cards.
+
+import {
+  HeartPulse,
+  Bone,
+  Dna,
+  Brain,
+  HeartHandshake,
+  Stethoscope,
+  Sparkles,
+  Baby,
+  Eye,
+  Smile,
+  Scale,
+  Droplets,
+  Flower2,
+  Ear,
+  Activity,
+} from "lucide-react";
+
+interface Props {
+  slug?: string | null;
+  name?: string | null;
+  /** CSS aspect ratio expression. Defaults to 16/10 — matches PhotoBlock default. */
+  aspect?: string;
+  label?: string;
+  rounded?: boolean;
+  class?: string;
+}
+
+const {
+  slug,
+  name,
+  aspect = "16/10",
+  label,
+  rounded = true,
+  class: className = "",
+} = Astro.props;
+
+type Theme = {
+  icon: any;
+  // CSS gradient string
+  gradient: string;
+  // Soft accent for halo behind icon
+  halo: string;
+  // Visible text/icon color
+  fg: string;
+  // Pattern hint — "arc" | "dots" | "lines"
+  motif: "arc" | "dots" | "lines";
+};
+
+// Per-specialty theming. Gradients pulled from the brand palette
+// (forest teal, deep ink, accent mist, saffron, coral, ocean).
+const THEMES: Record<string, Theme> = {
+  "cardiac-surgery": {
+    icon: HeartPulse,
+    gradient: "linear-gradient(135deg, #0A5D54 0%, #073D37 70%, #0E1713 100%)",
+    halo: "rgba(232, 90, 79, 0.18)",
+    fg: "#F6F1E6",
+    motif: "lines",
+  },
+  cardiology: {
+    icon: HeartPulse,
+    gradient: "linear-gradient(135deg, #0A5D54 0%, #073D37 70%, #0E1713 100%)",
+    halo: "rgba(232, 90, 79, 0.18)",
+    fg: "#F6F1E6",
+    motif: "lines",
+  },
+  orthopedics: {
+    icon: Bone,
+    gradient: "linear-gradient(135deg, #1C2A25 0%, #0E1713 60%, #0A5D54 100%)",
+    halo: "rgba(226, 165, 75, 0.16)",
+    fg: "#F6F1E6",
+    motif: "arc",
+  },
+  oncology: {
+    icon: Dna,
+    gradient: "linear-gradient(135deg, #2C1A3A 0%, #0E1713 65%, #0A5D54 100%)",
+    halo: "rgba(232, 90, 79, 0.20)",
+    fg: "#F6F1E6",
+    motif: "dots",
+  },
+  "neurology-neurosurgery": {
+    icon: Brain,
+    gradient: "linear-gradient(135deg, #0E1713 0%, #1C2A25 50%, #073D37 100%)",
+    halo: "rgba(143, 188, 219, 0.18)",
+    fg: "#F6F1E6",
+    motif: "dots",
+  },
+  neurology: {
+    icon: Brain,
+    gradient: "linear-gradient(135deg, #0E1713 0%, #1C2A25 50%, #073D37 100%)",
+    halo: "rgba(143, 188, 219, 0.18)",
+    fg: "#F6F1E6",
+    motif: "dots",
+  },
+  "organ-transplant": {
+    icon: HeartHandshake,
+    gradient: "linear-gradient(135deg, #073D37 0%, #0A5D54 60%, #0E1713 100%)",
+    halo: "rgba(246, 241, 230, 0.16)",
+    fg: "#F6F1E6",
+    motif: "arc",
+  },
+  transplants: {
+    icon: HeartHandshake,
+    gradient: "linear-gradient(135deg, #073D37 0%, #0A5D54 60%, #0E1713 100%)",
+    halo: "rgba(246, 241, 230, 0.16)",
+    fg: "#F6F1E6",
+    motif: "arc",
+  },
+  "gi-surgery": {
+    icon: Activity,
+    gradient: "linear-gradient(135deg, #1C2A25 0%, #073D37 70%, #0A5D54 100%)",
+    halo: "rgba(226, 165, 75, 0.14)",
+    fg: "#F6F1E6",
+    motif: "lines",
+  },
+  gastroenterology: {
+    icon: Activity,
+    gradient: "linear-gradient(135deg, #1C2A25 0%, #073D37 70%, #0A5D54 100%)",
+    halo: "rgba(226, 165, 75, 0.14)",
+    fg: "#F6F1E6",
+    motif: "lines",
+  },
+  urology: {
+    icon: Droplets,
+    gradient: "linear-gradient(135deg, #073D37 0%, #0A5D54 60%, #1C2A25 100%)",
+    halo: "rgba(143, 188, 219, 0.20)",
+    fg: "#F6F1E6",
+    motif: "arc",
+  },
+  gynecology: {
+    icon: Flower2,
+    gradient: "linear-gradient(135deg, #2C1A3A 0%, #0E1713 60%, #073D37 100%)",
+    halo: "rgba(232, 90, 79, 0.16)",
+    fg: "#F6F1E6",
+    motif: "dots",
+  },
+  "fertility-ivf": {
+    icon: Baby,
+    gradient: "linear-gradient(135deg, #073D37 0%, #0A5D54 50%, #2C1A3A 100%)",
+    halo: "rgba(246, 241, 230, 0.20)",
+    fg: "#F6F1E6",
+    motif: "dots",
+  },
+  fertility: {
+    icon: Baby,
+    gradient: "linear-gradient(135deg, #073D37 0%, #0A5D54 50%, #2C1A3A 100%)",
+    halo: "rgba(246, 241, 230, 0.20)",
+    fg: "#F6F1E6",
+    motif: "dots",
+  },
+  "cosmetic-surgery": {
+    icon: Sparkles,
+    gradient: "linear-gradient(135deg, #0E1713 0%, #2C1A3A 50%, #0A5D54 100%)",
+    halo: "rgba(226, 165, 75, 0.20)",
+    fg: "#F6F1E6",
+    motif: "dots",
+  },
+  "plastic-surgery": {
+    icon: Sparkles,
+    gradient: "linear-gradient(135deg, #0E1713 0%, #2C1A3A 50%, #0A5D54 100%)",
+    halo: "rgba(226, 165, 75, 0.20)",
+    fg: "#F6F1E6",
+    motif: "dots",
+  },
+  "hair-transplant": {
+    icon: Sparkles,
+    gradient: "linear-gradient(135deg, #1C2A25 0%, #2C1A3A 60%, #073D37 100%)",
+    halo: "rgba(226, 165, 75, 0.18)",
+    fg: "#F6F1E6",
+    motif: "lines",
+  },
+  ophthalmology: {
+    icon: Eye,
+    gradient: "linear-gradient(135deg, #073D37 0%, #1C2A25 50%, #0E1713 100%)",
+    halo: "rgba(143, 188, 219, 0.22)",
+    fg: "#F6F1E6",
+    motif: "arc",
+  },
+  eye: {
+    icon: Eye,
+    gradient: "linear-gradient(135deg, #073D37 0%, #1C2A25 50%, #0E1713 100%)",
+    halo: "rgba(143, 188, 219, 0.22)",
+    fg: "#F6F1E6",
+    motif: "arc",
+  },
+  dental: {
+    icon: Smile,
+    gradient: "linear-gradient(135deg, #0A5D54 0%, #073D37 60%, #0E1713 100%)",
+    halo: "rgba(246, 241, 230, 0.22)",
+    fg: "#F6F1E6",
+    motif: "lines",
+  },
+  dentistry: {
+    icon: Smile,
+    gradient: "linear-gradient(135deg, #0A5D54 0%, #073D37 60%, #0E1713 100%)",
+    halo: "rgba(246, 241, 230, 0.22)",
+    fg: "#F6F1E6",
+    motif: "lines",
+  },
+  "bariatric-surgery": {
+    icon: Scale,
+    gradient: "linear-gradient(135deg, #1C2A25 0%, #0A5D54 70%, #073D37 100%)",
+    halo: "rgba(226, 165, 75, 0.18)",
+    fg: "#F6F1E6",
+    motif: "arc",
+  },
+  "ent-otolaryngology": {
+    icon: Ear,
+    gradient: "linear-gradient(135deg, #073D37 0%, #1C2A25 60%, #0E1713 100%)",
+    halo: "rgba(143, 188, 219, 0.18)",
+    fg: "#F6F1E6",
+    motif: "arc",
+  },
+  ent: {
+    icon: Ear,
+    gradient: "linear-gradient(135deg, #073D37 0%, #1C2A25 60%, #0E1713 100%)",
+    halo: "rgba(143, 188, 219, 0.18)",
+    fg: "#F6F1E6",
+    motif: "arc",
+  },
+  "pediatric-surgery": {
+    icon: Baby,
+    gradient: "linear-gradient(135deg, #0A5D54 0%, #1C2A25 60%, #2C1A3A 100%)",
+    halo: "rgba(246, 241, 230, 0.20)",
+    fg: "#F6F1E6",
+    motif: "dots",
+  },
+  pediatric: {
+    icon: Baby,
+    gradient: "linear-gradient(135deg, #0A5D54 0%, #1C2A25 60%, #2C1A3A 100%)",
+    halo: "rgba(246, 241, 230, 0.20)",
+    fg: "#F6F1E6",
+    motif: "dots",
+  },
+  "general-surgery": {
+    icon: Stethoscope,
+    gradient: "linear-gradient(135deg, #0E1713 0%, #1C2A25 60%, #0A5D54 100%)",
+    halo: "rgba(246, 241, 230, 0.18)",
+    fg: "#F6F1E6",
+    motif: "lines",
+  },
+};
+
+const FALLBACK: Theme = {
+  icon: Stethoscope,
+  gradient: "linear-gradient(135deg, #0A5D54 0%, #073D37 60%, #0E1713 100%)",
+  halo: "rgba(246, 241, 230, 0.18)",
+  fg: "#F6F1E6",
+  motif: "arc",
+};
+
+const theme = (slug && THEMES[slug]) || FALLBACK;
+const Icon = theme.icon;
+const captionLabel = label ?? name ?? null;
+
+// Deterministic but pseudo-random pattern offsets so each specialty
+// has its own visual fingerprint without per-render randomness.
+function strHash(s: string): number {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+  return h;
+}
+const seed = strHash(slug ?? name ?? "default");
+const arcOffsetX = 30 + (seed % 40); // 30–70%
+const arcOffsetY = 20 + ((seed >> 4) % 30); // 20–50%
+---
+
+<div
+  class:list={[
+    "mc-spec-banner relative overflow-hidden",
+    rounded && "rounded-[var(--radius-lg)]",
+    className,
+  ]}
+  data-motif={theme.motif}
+  data-slug={slug ?? ""}
+  style={`aspect-ratio: ${aspect}; background: ${theme.gradient};`}
+>
+  {/* Halo glow behind icon */}
+  <div
+    class="mc-spec-halo absolute pointer-events-none"
+    style={`
+      width: 70%;
+      height: 100%;
+      inset-inline-start: 18%;
+      top: -12%;
+      background: radial-gradient(circle at center, ${theme.halo} 0%, transparent 65%);
+    `}
+    aria-hidden="true"
+  />
+
+  {/* Motif: arc */}
+  {theme.motif === "arc" && (
+    <svg
+      class="mc-spec-arc absolute inset-0 w-full h-full pointer-events-none"
+      viewBox="0 0 800 500"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id={`arc-${seed}`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color={theme.fg} stop-opacity="0.18" />
+          <stop offset="100%" stop-color={theme.fg} stop-opacity="0" />
+        </linearGradient>
+      </defs>
+      <circle
+        cx={arcOffsetX * 8}
+        cy={arcOffsetY * 5}
+        r="280"
+        fill="none"
+        stroke={`url(#arc-${seed})`}
+        stroke-width="1.5"
+      />
+      <circle
+        cx={arcOffsetX * 8 + 40}
+        cy={arcOffsetY * 5 + 30}
+        r="180"
+        fill="none"
+        stroke={theme.fg}
+        stroke-opacity="0.08"
+        stroke-width="1"
+      />
+      <circle
+        cx={arcOffsetX * 8 - 60}
+        cy={arcOffsetY * 5 + 80}
+        r="120"
+        fill="none"
+        stroke={theme.fg}
+        stroke-opacity="0.06"
+        stroke-width="1"
+      />
+    </svg>
+  )}
+
+  {/* Motif: dots */}
+  {theme.motif === "dots" && (
+    <div
+      class="mc-spec-dots absolute inset-0 pointer-events-none"
+      style={`
+        background-image: radial-gradient(${theme.fg}33 1px, transparent 1.5px);
+        background-size: 26px 26px;
+        background-position: 0 0;
+        opacity: 0.35;
+        mask-image: linear-gradient(135deg, black 30%, transparent 75%);
+        -webkit-mask-image: linear-gradient(135deg, black 30%, transparent 75%);
+      `}
+      aria-hidden="true"
+    />
+  )}
+
+  {/* Motif: lines (ECG-ish horizontal pulses for cardiac/dental/general feel) */}
+  {theme.motif === "lines" && (
+    <svg
+      class="mc-spec-lines absolute inset-0 w-full h-full pointer-events-none"
+      viewBox="0 0 800 500"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <path
+        class="mc-spec-ecg"
+        d="M 0 280 L 200 280 L 220 200 L 240 360 L 260 280 L 800 280"
+        fill="none"
+        stroke={theme.fg}
+        stroke-opacity="0.10"
+        stroke-width="1.25"
+      />
+      <path
+        d="M 0 380 L 800 380"
+        fill="none"
+        stroke={theme.fg}
+        stroke-opacity="0.05"
+        stroke-width="1"
+      />
+      <path
+        d="M 0 180 L 800 180"
+        fill="none"
+        stroke={theme.fg}
+        stroke-opacity="0.05"
+        stroke-width="1"
+      />
+    </svg>
+  )}
+
+  {/* Center icon */}
+  <div
+    class="absolute inset-0 flex items-center justify-center pointer-events-none"
+    style={`color: ${theme.fg};`}
+    aria-hidden="true"
+  >
+    <div class="mc-spec-icon" style="opacity: 0.92;">
+      <Icon strokeWidth={1.4} />
+    </div>
+  </div>
+
+  {/* Bottom-edge ink wash for caption legibility */}
+  <div
+    class="absolute inset-x-0 bottom-0 pointer-events-none"
+    style="height: 40%; background: linear-gradient(180deg, transparent 0%, rgba(14,23,19,0.42) 100%);"
+    aria-hidden="true"
+  />
+
+  {/* Caption */}
+  {captionLabel && (
+    <div
+      class="mono absolute"
+      style={`bottom: 14px; inset-inline-start: 16px; font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(246,241,230,0.92); text-shadow: 0 1px 6px rgba(14,23,19,0.55);`}
+    >
+      {captionLabel}
+    </div>
+  )}
+
+  <slot />
+</div>
+
+<style is:global>
+  /* Size the central icon proportionally to the banner so it scales
+     with the parent without over-dominating tall aspects. */
+  .mc-spec-banner .mc-spec-icon svg {
+    width: clamp(64px, 22cqw, 168px);
+    height: auto;
+  }
+  .mc-spec-banner {
+    container-type: inline-size;
+  }
+
+  /* ----- Idle animations -----
+     Each icon has a gentle baseline breathe; per-slug overrides give
+     specialty-appropriate motion (heartbeat for cardiac, blink for eye,
+     slow rotate for DNA, etc). All animations halt under
+     prefers-reduced-motion. */
+
+  .mc-spec-banner .mc-spec-icon {
+    transform-origin: center;
+    will-change: transform, opacity;
+    animation: mc-breathe 5.6s ease-in-out infinite;
+  }
+  .mc-spec-banner .mc-spec-icon svg {
+    transform-origin: center;
+    transition: transform 480ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  /* Halo pulses softly behind the icon */
+  .mc-spec-banner .mc-spec-halo {
+    animation: mc-halo 6.2s ease-in-out infinite;
+    transform-origin: center;
+    will-change: transform, opacity;
+  }
+
+  /* Motif: arc — slow rotation on the SVG; gives a subtle drift to the
+     concentric circles without making the page feel busy. */
+  .mc-spec-banner[data-motif="arc"] .mc-spec-arc {
+    transform-origin: 60% 40%;
+    animation: mc-arc-rotate 60s linear infinite;
+  }
+
+  /* Motif: dots — diagonal drift via background-position. */
+  .mc-spec-banner[data-motif="dots"] .mc-spec-dots {
+    animation: mc-dots-drift 24s linear infinite;
+  }
+
+  /* Motif: lines — ECG sweep. The pulse path is dashed and the offset
+     animates so a bright segment runs along the trace. */
+  .mc-spec-banner[data-motif="lines"] .mc-spec-ecg {
+    stroke-dasharray: 80 1200;
+    animation: mc-ecg-sweep 3.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  }
+
+  /* Per-slug overrides ----------------------------------------------- */
+
+  /* Cardiac → real heartbeat (lub-dub) */
+  .mc-spec-banner[data-slug="cardiac-surgery"] .mc-spec-icon,
+  .mc-spec-banner[data-slug="cardiology"] .mc-spec-icon {
+    animation: mc-heartbeat 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  }
+
+  /* Oncology (DNA) → slow rotate */
+  .mc-spec-banner[data-slug="oncology"] .mc-spec-icon {
+    animation: mc-spin 22s linear infinite;
+  }
+
+  /* Ophthalmology (Eye) → blink */
+  .mc-spec-banner[data-slug="ophthalmology"] .mc-spec-icon,
+  .mc-spec-banner[data-slug="eye"] .mc-spec-icon {
+    animation: mc-blink 5s ease-in-out infinite;
+  }
+
+  /* Cosmetic / hair / plastic (Sparkles) → twinkle */
+  .mc-spec-banner[data-slug="cosmetic-surgery"] .mc-spec-icon,
+  .mc-spec-banner[data-slug="plastic-surgery"] .mc-spec-icon,
+  .mc-spec-banner[data-slug="hair-transplant"] .mc-spec-icon {
+    animation: mc-twinkle 3.2s ease-in-out infinite;
+  }
+
+  /* Fertility / pediatric (Baby) → gentle bob */
+  .mc-spec-banner[data-slug="fertility-ivf"] .mc-spec-icon,
+  .mc-spec-banner[data-slug="fertility"] .mc-spec-icon,
+  .mc-spec-banner[data-slug="pediatric-surgery"] .mc-spec-icon,
+  .mc-spec-banner[data-slug="pediatric"] .mc-spec-icon {
+    animation: mc-bob 4.4s ease-in-out infinite;
+  }
+
+  /* Urology (Droplets) → drip */
+  .mc-spec-banner[data-slug="urology"] .mc-spec-icon {
+    animation: mc-drip 3.6s ease-in-out infinite;
+  }
+
+  /* Gynecology (Flower) → slow rotate */
+  .mc-spec-banner[data-slug="gynecology"] .mc-spec-icon {
+    animation: mc-spin 30s linear infinite;
+  }
+
+  /* Hover amplification — lift icon, accelerate halo, brighten ECG.
+     Triggers from either the banner itself or any hovered ancestor link. */
+  .mc-spec-banner:hover .mc-spec-icon svg,
+  a:hover .mc-spec-banner .mc-spec-icon svg,
+  button:hover .mc-spec-banner .mc-spec-icon svg {
+    transform: scale(1.08);
+  }
+  .mc-spec-banner:hover .mc-spec-halo,
+  a:hover .mc-spec-banner .mc-spec-halo,
+  button:hover .mc-spec-banner .mc-spec-halo {
+    animation-duration: 2.8s;
+  }
+  .mc-spec-banner:hover[data-motif="lines"] .mc-spec-ecg,
+  a:hover .mc-spec-banner[data-motif="lines"] .mc-spec-ecg,
+  button:hover .mc-spec-banner[data-motif="lines"] .mc-spec-ecg {
+    animation-duration: 1.8s;
+    stroke-opacity: 0.22;
+  }
+
+  /* ----- Keyframes ----- */
+
+  @keyframes mc-breathe {
+    0%, 100% { transform: scale(1); opacity: 0.92; }
+    50%      { transform: scale(1.025); opacity: 1; }
+  }
+
+  @keyframes mc-halo {
+    0%, 100% { opacity: 0.85; transform: scale(1); }
+    50%      { opacity: 1;    transform: scale(1.08); }
+  }
+
+  @keyframes mc-heartbeat {
+    0%   { transform: scale(1); }
+    14%  { transform: scale(1.10); }
+    28%  { transform: scale(0.99); }
+    42%  { transform: scale(1.06); }
+    70%  { transform: scale(1); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes mc-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+
+  @keyframes mc-blink {
+    0%, 88%, 100% { transform: scaleY(1); }
+    92%           { transform: scaleY(0.08); }
+    96%           { transform: scaleY(1); }
+  }
+
+  @keyframes mc-twinkle {
+    0%, 100% { transform: scale(1) rotate(0deg);  opacity: 0.92; }
+    35%      { transform: scale(1.08) rotate(8deg); opacity: 1; }
+    70%      { transform: scale(0.98) rotate(-6deg); opacity: 0.85; }
+  }
+
+  @keyframes mc-bob {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50%      { transform: translateY(-6px) scale(1.02); }
+  }
+
+  @keyframes mc-drip {
+    0%, 100% { transform: translateY(0) scale(1); }
+    40%      { transform: translateY(2px) scale(1.05, 0.95); }
+    50%      { transform: translateY(4px) scaleY(1.06); }
+    60%      { transform: translateY(2px) scale(1.05, 0.95); }
+  }
+
+  @keyframes mc-arc-rotate {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+
+  @keyframes mc-dots-drift {
+    from { background-position: 0 0; }
+    to   { background-position: 52px 52px; }
+  }
+
+  @keyframes mc-ecg-sweep {
+    0%   { stroke-dashoffset: 1280; stroke-opacity: 0.10; }
+    40%  { stroke-opacity: 0.32; }
+    100% { stroke-dashoffset: 0;    stroke-opacity: 0.10; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mc-spec-banner .mc-spec-icon,
+    .mc-spec-banner .mc-spec-halo,
+    .mc-spec-banner .mc-spec-arc,
+    .mc-spec-banner .mc-spec-dots,
+    .mc-spec-banner .mc-spec-ecg {
+      animation: none !important;
+    }
+    .mc-spec-banner .mc-spec-icon svg {
+      transition: none;
+    }
+  }
+</style>

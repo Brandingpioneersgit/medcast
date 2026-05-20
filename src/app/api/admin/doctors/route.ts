@@ -3,16 +3,18 @@ import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { doctors, doctorSpecialties } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { recordAudit } from "@/lib/audit";
+import { assertNotStale, ConcurrencyError, concurrencyResponse } from "@/lib/admin/concurrency";
 
-async function requireAdmin() {
+async function requireSession() {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  return null;
+  if (!session) return { session: null, res: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  return { session, res: null };
 }
 
 export async function POST(request: NextRequest) {
-  const authError = await requireAdmin();
-  if (authError) return authError;
+  const { session, res } = await requireSession();
+  if (res || !session) return res!;
 
   const data = await request.json();
 
@@ -45,17 +47,34 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  await recordAudit({
+    actor: session.email,
+    action: "doctor.create",
+    entityType: "doctor",
+    entityId: doctor.id,
+    diff: JSON.stringify({ created: { name: doctor.name, slug: doctor.slug, hospitalId: doctor.hospitalId } }),
+    request,
+  });
+
   return NextResponse.json({ success: true, doctor }, { status: 201 });
 }
 
 export async function PUT(request: NextRequest) {
-  const authError = await requireAdmin();
-  if (authError) return authError;
+  const { session, res } = await requireSession();
+  if (res || !session) return res!;
 
   const id = Number(request.nextUrl.searchParams.get("id"));
   if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
 
   const data = await request.json();
+  const before = await db.query.doctors.findFirst({ where: eq(doctors.id, id) });
+
+  try {
+    await assertNotStale(doctors, id, data.expectedUpdatedAt);
+  } catch (err) {
+    if (err instanceof ConcurrencyError) return concurrencyResponse(err);
+    throw err;
+  }
 
   const [doctor] = await db.update(doctors)
     .set({
@@ -93,17 +112,35 @@ export async function PUT(request: NextRequest) {
     }
   }
 
+  await recordAudit({
+    actor: session.email,
+    action: "doctor.update",
+    entityType: "doctor",
+    entityId: id,
+    diff: JSON.stringify({ before: { name: before?.name, slug: before?.slug, isActive: before?.isActive, isFeatured: before?.isFeatured }, after: { name: doctor.name, slug: doctor.slug, isActive: doctor.isActive, isFeatured: doctor.isFeatured } }),
+    request,
+  });
+
   return NextResponse.json({ success: true, doctor });
 }
 
 export async function DELETE(request: NextRequest) {
-  const authError = await requireAdmin();
-  if (authError) return authError;
+  const { session, res } = await requireSession();
+  if (res || !session) return res!;
 
   const id = Number(request.nextUrl.searchParams.get("id"));
   if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });
 
   await db.update(doctors).set({ isActive: false }).where(eq(doctors.id, id));
+
+  await recordAudit({
+    actor: session.email,
+    action: "doctor.delete",
+    entityType: "doctor",
+    entityId: id,
+    diff: JSON.stringify({ softDelete: true }),
+    request,
+  });
 
   return NextResponse.json({ success: true });
 }

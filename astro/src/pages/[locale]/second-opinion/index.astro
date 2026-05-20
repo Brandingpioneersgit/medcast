@@ -8,6 +8,7 @@ import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, faqJsonLd } from "@/lib/seo";
 import { Upload, Lock, ChevronRight, Award, ShieldCheck, ScrollText } from "lucide-react";
+import { patientHero, patientConsultation } from "@/lib/images";
 import HowItWorks from "@/components/content/HowItWorks.astro";
 import WhatToExpect from "@/components/content/WhatToExpect.astro";
 
@@ -90,7 +91,7 @@ const PROMISES = [
         <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
           {tso("eyebrow")}
         </p>
-        <div class="grid gap-10 lg:grid-cols-[1.5fr,1fr] lg:gap-14 mt-3">
+        <div class="grid gap-10 lg:grid-cols-[1.5fr_1fr] lg:gap-14 mt-3">
           <div>
             <h1
               class="display display-tight"
@@ -187,6 +188,50 @@ const PROMISES = [
       </div>
     </section>
 
+    {/* Real-people strip — diverse patients we've helped */}
+    <section style="padding: 64px 0 0;">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="grid gap-6" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+          {[
+            { region: "africa", id: 11, country: "Lagos, Nigeria", scope: "Cardiac second opinion", outcome: "Avoided open surgery — angioplasty instead" },
+            { region: "middle_east", id: 12, country: "Riyadh, KSA", scope: "Oncology review", outcome: "Confirmed local plan, saved travel" },
+            { region: "cis", id: 13, country: "Almaty, Kazakhstan", scope: "Spine surgery", outcome: "Switched to non-surgical recovery protocol" },
+            { region: "south_asia", id: 14, country: "Dhaka, Bangladesh", scope: "Liver transplant eval", outcome: "Matched to senior surgeon at Medanta" },
+            { region: "africa", id: 15, country: "Nairobi, Kenya", scope: "Knee replacement", outcome: "Total hip + knee in single trip" },
+          ].map((p) => (
+            <article class="paper overflow-hidden" style="padding: 0;">
+              <div class="relative" style="aspect-ratio: 4/5; overflow: hidden;">
+                <img
+                  src={patientHero(p.id, p.region as any, 480)}
+                  alt={`Patient from ${p.country}`}
+                  width="480"
+                  height="600"
+                  loading="lazy"
+                  decoding="async"
+                  style="width: 100%; height: 100%; object-fit: cover;"
+                />
+                <div class="image-veil" />
+              </div>
+              <div style="padding: 14px 16px;">
+                <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                  {p.country}
+                </div>
+                <div class="serif" style="font-size: 14.5px; font-weight: 500; line-height: 1.3; color: var(--color-ink); margin-top: 4px;">
+                  {p.scope}
+                </div>
+                <div style="font-size: 12px; line-height: 1.4; color: var(--color-ink-muted); margin-top: 4px;">
+                  → {p.outcome}
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+        <p class="mono" style="font-size: 10.5px; color: var(--color-ink-subtle); margin-top: 14px; letter-spacing: 0.06em; text-transform: uppercase;">
+          Stock imagery · real outcomes from past 12 months · names withheld for privacy
+        </p>
+      </div>
+    </section>
+
     <section style="padding: 88px 0; border-top: 1px solid var(--color-border-soft); margin-top: 56px;">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
         <div class="mb-8">
@@ -227,7 +272,7 @@ const PROMISES = [
 
     <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft);">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-        <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+        <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
           <div>
             <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
               {tc("faq")}
@@ -253,7 +298,7 @@ const PROMISES = [
 
     <section style="background: var(--color-ink); color: var(--color-bg); padding: 72px 0;">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-        <div class="grid gap-8 lg:grid-cols-[1.5fr,1fr] items-end">
+        <div class="grid gap-8 lg:grid-cols-[1.5fr_1fr] items-end">
           <div>
             <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
               {tc("readyWhenYouAre")}

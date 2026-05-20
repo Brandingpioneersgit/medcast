@@ -13,8 +13,13 @@ import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, itemListJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { ChevronRight, X } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
 import { hospitalCover } from "@/lib/images";
 import CompareToggle from "@/components/CompareToggle.astro";
+import EntityFilters, { type FacetSpec } from "@/components/EntityFilters.astro";
+import AccreditationLogo from "@/components/AccreditationLogo.astro";
+import PageCta from "@/components/PageCta.astro";
 
 export const prerender = false;
 
@@ -26,17 +31,49 @@ const url = new URL(Astro.request.url);
 const pageParam = parseInt(url.searchParams.get("page") ?? "1", 10);
 const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
 const sortParam = url.searchParams.get("sort");
-const sort =
+const sort: "featured" | "rating" | "reviews" | "beds" =
   sortParam === "rating" || sortParam === "reviews" || sortParam === "beds"
     ? sortParam
     : "featured";
-const countryFilter = url.searchParams.get("country") ?? undefined;
-const specialtyFilter = url.searchParams.get("specialty") ?? undefined;
+
+const countryFilters = url.searchParams.getAll("country").filter(Boolean);
+const specialtyFilters = url.searchParams.getAll("specialty").filter(Boolean);
+const accredFilters = url.searchParams.getAll("accreditation").filter(Boolean);
+const minRatingRaw = parseFloat(url.searchParams.get("minRating") ?? "0");
+const minBedsRaw = parseFloat(url.searchParams.get("minBeds") ?? "0");
+const establishedRaw = parseFloat(url.searchParams.get("establishedAfter") ?? "0");
+const minRating = Number.isFinite(minRatingRaw) && minRatingRaw > 0 ? minRatingRaw : 0;
+const minBeds = Number.isFinite(minBedsRaw) && minBedsRaw > 0 ? Math.floor(minBedsRaw) : 0;
+const establishedAfter = Number.isFinite(establishedRaw) && establishedRaw > 0 ? Math.floor(establishedRaw) : 0;
+const airportTransfer = url.searchParams.get("airportTransfer") === "1";
+const hasVirtualTour = url.searchParams.get("hasVirtualTour") === "1";
+const verifiedOnly = url.searchParams.get("verified") === "1";
 
 const [{ rows, total, totalPages }, options] = await Promise.all([
-  listHospitals({ page, sort, country: countryFilter, specialty: specialtyFilter }),
-  getHospitalFilterOptions({ country: countryFilter, specialty: specialtyFilter }),
+  listHospitals({
+    page, sort,
+    country: countryFilters,
+    specialty: specialtyFilters,
+    accreditation: accredFilters,
+    minRating, minBeds, establishedAfter,
+    airportTransfer, hasVirtualTour, verified: verifiedOnly,
+  }),
+  getHospitalFilterOptions({
+    country: countryFilters,
+    specialty: specialtyFilters,
+    accreditation: accredFilters,
+    minRating, minBeds,
+  }),
 ]);
+
+const hasAnyFilter =
+  countryFilters.length > 0 || specialtyFilters.length > 0 || accredFilters.length > 0
+  || minRating > 0 || minBeds > 0 || establishedAfter > 0
+  || airportTransfer || hasVirtualTour || verifiedOnly;
+const filterCount =
+  countryFilters.length + specialtyFilters.length + accredFilters.length
+  + (minRating > 0 ? 1 : 0) + (minBeds > 0 ? 1 : 0) + (establishedAfter > 0 ? 1 : 0)
+  + (airportTransfer ? 1 : 0) + (hasVirtualTour ? 1 : 0) + (verifiedOnly ? 1 : 0);
 
 // Batch-fetch accreditation chips for visible rows
 const hospitalIds = rows.map((h) => h.id);
@@ -64,8 +101,11 @@ const FLAG_MAP: Record<string, string> = {
 function countryFlag(s: string | null | undefined): string { return s ? (FLAG_MAP[s] ?? "🌐") : "🌐"; }
 
 const tc = getTranslator(locale, "common");
-const seoTitle = `${total > 0 ? total.toLocaleString() : "All"} accredited hospitals`;
-const seoDescription = `Browse ${total.toLocaleString()} accredited hospitals worldwide. Compare specialties, ratings, costs. Transparent pricing, multilingual care.`;
+const { bindChromeT } = await import("@/lib/chrome-i18n");
+const ct = bindChromeT(locale);
+const countText = total > 0 ? total.toLocaleString() : "All";
+const seoTitle = ct("lp.hospitals.title").replace("{count}", countText);
+const seoDescription = ct("lp.hospitals.desc").replace("{count}", total.toLocaleString());
 const path = "/hospitals";
 
 const crumbs = breadcrumbJsonLd([
@@ -81,15 +121,40 @@ const itemLd = page === 1 && rows.length > 0
 
 Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-revalidate=3600");
 
-type Patch = { sort?: string; country?: string; specialty?: string };
-function buildHref(patch: Patch): string {
+type Patch = {
+  sort?: string;
+  countries?: string[];
+  specialties?: string[];
+  accreditations?: string[];
+  minRating?: number;
+  minBeds?: number;
+  establishedAfter?: number;
+  airportTransfer?: boolean;
+  hasVirtualTour?: boolean;
+  verified?: boolean;
+};
+function buildHref(patch: Patch = {}): string {
   const params = new URLSearchParams();
   const s = patch.sort ?? sort;
-  const c = patch.country !== undefined ? patch.country : countryFilter;
-  const sp = patch.specialty !== undefined ? patch.specialty : specialtyFilter;
+  const co = patch.countries ?? countryFilters;
+  const sp = patch.specialties ?? specialtyFilters;
+  const ac = patch.accreditations ?? accredFilters;
+  const mr = patch.minRating !== undefined ? patch.minRating : minRating;
+  const mb = patch.minBeds !== undefined ? patch.minBeds : minBeds;
+  const ey = patch.establishedAfter !== undefined ? patch.establishedAfter : establishedAfter;
+  const at = patch.airportTransfer !== undefined ? patch.airportTransfer : airportTransfer;
+  const vt = patch.hasVirtualTour !== undefined ? patch.hasVirtualTour : hasVirtualTour;
+  const vf = patch.verified !== undefined ? patch.verified : verifiedOnly;
   if (s && s !== "featured") params.set("sort", s);
-  if (c) params.set("country", c);
-  if (sp) params.set("specialty", sp);
+  for (const x of co) params.append("country", x);
+  for (const x of sp) params.append("specialty", x);
+  for (const x of ac) params.append("accreditation", x);
+  if (mr > 0) params.set("minRating", String(mr));
+  if (mb > 0) params.set("minBeds", String(mb));
+  if (ey > 0) params.set("establishedAfter", String(ey));
+  if (at) params.set("airportTransfer", "1");
+  if (vt) params.set("hasVirtualTour", "1");
+  if (vf) params.set("verified", "1");
   const qs = params.toString();
   const base = localizedPath(locale, path);
   return qs ? `${base}?${qs}` : base;
@@ -103,29 +168,165 @@ const SORTS = [
 ];
 
 const activeChips: Array<{ label: string; remove: string }> = [];
-if (countryFilter) {
-  const c = options.countries.find((x) => x.slug === countryFilter);
-  activeChips.push({ label: c?.name ?? countryFilter, remove: buildHref({ country: "" }) });
+for (const slug of countryFilters) {
+  const c = options.countries.find((x) => x.slug === slug);
+  activeChips.push({
+    label: c?.name ?? slug,
+    remove: buildHref({ countries: countryFilters.filter((x) => x !== slug) }),
+  });
 }
-if (specialtyFilter) {
-  const s = options.specialties.find((x) => x.slug === specialtyFilter);
-  activeChips.push({ label: s?.name ?? specialtyFilter, remove: buildHref({ specialty: "" }) });
+for (const slug of specialtyFilters) {
+  const sp = options.specialties.find((x) => x.slug === slug);
+  activeChips.push({
+    label: sp?.name ?? slug,
+    remove: buildHref({ specialties: specialtyFilters.filter((x) => x !== slug) }),
+  });
+}
+for (const slug of accredFilters) {
+  const ac = options.accreditations.find((x) => x.slug === slug);
+  activeChips.push({
+    label: ac?.name ?? slug,
+    remove: buildHref({ accreditations: accredFilters.filter((x) => x !== slug) }),
+  });
+}
+if (minRating > 0) activeChips.push({ label: `${minRating.toFixed(1)}★ +`, remove: buildHref({ minRating: 0 }) });
+if (minBeds > 0) activeChips.push({ label: `${minBeds.toLocaleString()}+ beds`, remove: buildHref({ minBeds: 0 }) });
+if (establishedAfter > 0) activeChips.push({ label: `Built after ${establishedAfter}`, remove: buildHref({ establishedAfter: 0 }) });
+if (airportTransfer) activeChips.push({ label: "Airport transfer", remove: buildHref({ airportTransfer: false }) });
+if (hasVirtualTour) activeChips.push({ label: "Virtual tour", remove: buildHref({ hasVirtualTour: false }) });
+if (verifiedOnly) activeChips.push({ label: "Verified", remove: buildHref({ verified: false }) });
+
+// Smart relax suggestions for empty results.
+const relaxSuggestions: Array<{ label: string; href: string }> = [];
+if (rows.length === 0) {
+  if (countryFilters.length > 0 && specialtyFilters.length > 0) {
+    relaxSuggestions.push({
+      label: `Hospitals in ${countryFilters.length === 1 ? (options.countries.find((x) => x.slug === countryFilters[0])?.name ?? countryFilters[0]) : `${countryFilters.length} countries`} — any specialty`,
+      href: buildHref({ specialties: [] }),
+    });
+    relaxSuggestions.push({
+      label: `${specialtyFilters.length === 1 ? (options.specialties.find((x) => x.slug === specialtyFilters[0])?.name ?? specialtyFilters[0]) : `${specialtyFilters.length} specialties`} — anywhere`,
+      href: buildHref({ countries: [] }),
+    });
+  }
+  if (accredFilters.length > 0) relaxSuggestions.push({ label: "Drop accreditation filter", href: buildHref({ accreditations: [] }) });
+  if (minRating > 0) relaxSuggestions.push({ label: "Drop minimum rating", href: buildHref({ minRating: 0 }) });
+  if (minBeds > 0) relaxSuggestions.push({ label: "Drop minimum beds", href: buildHref({ minBeds: 0 }) });
 }
 
 const paginationBase = buildHref({});
 
-const selfCanonicalFilter = countryFilter && !specialtyFilter;
-const shouldNoindex = page > 1 || !!specialtyFilter;
-const canonicalQuery = selfCanonicalFilter
-  ? new URLSearchParams({ country: countryFilter! }).toString()
+const isCleanFacet =
+  countryFilters.length <= 1 && specialtyFilters.length === 0 && accredFilters.length === 0
+  && minRating === 0 && minBeds === 0;
+const shouldNoindex = page > 1 || !isCleanFacet || specialtyFilters.length > 0;
+const canonicalQuery = isCleanFacet && countryFilters.length === 1
+  ? new URLSearchParams({ country: countryFilters[0] }).toString()
   : "";
 
-const stats = page === 1 && !countryFilter && !specialtyFilter ? [
+// rel=prev/next URLs preserve all current filters via buildHref(); host
+// is prepended so the link matches the spec.
+function pageHref(p: number): string {
+  const params = new URLSearchParams();
+  if (sort && sort !== "featured") params.set("sort", sort);
+  for (const x of countryFilters) params.append("country", x);
+  for (const x of specialtyFilters) params.append("specialty", x);
+  for (const x of accredFilters) params.append("accreditation", x);
+  if (minRating > 0) params.set("minRating", String(minRating));
+  if (minBeds > 0) params.set("minBeds", String(minBeds));
+  if (establishedAfter > 0) params.set("establishedAfter", String(establishedAfter));
+  if (airportTransfer) params.set("airportTransfer", "1");
+  if (hasVirtualTour) params.set("hasVirtualTour", "1");
+  if (verifiedOnly) params.set("verified", "1");
+  if (p > 1) params.set("page", String(p));
+  const qs = params.toString();
+  return qs ? `${localeUrl(locale, path)}?${qs}` : localeUrl(locale, path);
+}
+const prevUrl = page > 1 ? pageHref(page - 1) : undefined;
+const nextUrl = page < totalPages ? pageHref(page + 1) : undefined;
+
+const stats = page === 1 && !hasAnyFilter ? [
   { l: "Accredited", v: total.toLocaleString() },
   { l: "Countries", v: options.countries.length.toString() },
   { l: "Specialties", v: options.specialties.length.toString() },
   { l: "Reply time", v: "9 min" },
 ] : [];
+
+// Always render every currently-selected facet — even if cross-facet counts dropped to 0.
+function ensureSelected(
+  rowsIn: Array<{ slug: string; name: string; n: number }>,
+  selected: string[],
+): Array<{ slug: string; name: string; n: number }> {
+  const present = new Set(rowsIn.map((r) => r.slug));
+  const missing = selected.filter((s) => !present.has(s));
+  if (missing.length === 0) return rowsIn;
+  return [...rowsIn, ...missing.map((slug) => ({ slug, name: slug, n: 0 }))];
+}
+const allCountryOptions = ensureSelected(options.countries, countryFilters);
+const allSpecialtyOptions = ensureSelected(options.specialties, specialtyFilters);
+const allAccredOptions = ensureSelected(options.accreditations, accredFilters);
+const countriesWithFlag = allCountryOptions.map((c) => ({ ...c, flag: countryFlag(c.slug) }));
+const accredsWithLogo = allAccredOptions.map((a) => ({ ...a, logoCode: a.slug }));
+
+const facets: FacetSpec[] = [
+  {
+    kind: "toggle",
+    label: "Quick filters",
+    toggles: [
+      { name: "verified",        label: "Editorial verified",     selected: verifiedOnly,    hint: "checked by our team" },
+      { name: "airportTransfer", label: "Airport transfer",       selected: airportTransfer, hint: "included with stay" },
+      { name: "hasVirtualTour",  label: "Virtual tour available", selected: hasVirtualTour,  hint: "see the facility online" },
+    ],
+  },
+  {
+    kind: "checkbox",
+    label: "Country",
+    name: "country",
+    options: countriesWithFlag,
+    selected: countryFilters,
+  },
+  {
+    kind: "checkbox",
+    label: "Specialty",
+    name: "specialty",
+    options: allSpecialtyOptions,
+    selected: specialtyFilters,
+  },
+  {
+    kind: "checkbox",
+    label: "Accreditation",
+    name: "accreditation",
+    options: accredsWithLogo,
+    selected: accredFilters,
+  },
+  {
+    kind: "range",
+    label: "Min rating",
+    name: "minRating",
+    min: 0, max: 5, step: 0.5,
+    value: minRating,
+    readout: minRating > 0 ? `${minRating.toFixed(1)}★` : "Any",
+    marks: ["Any", "3.0", "5.0"],
+  },
+  {
+    kind: "range",
+    label: "Min beds",
+    name: "minBeds",
+    min: 0, max: 1000, step: 50,
+    value: minBeds,
+    readout: minBeds > 0 ? `${minBeds.toLocaleString()}+ beds` : "Any",
+    marks: ["Any", "500", "1000+"],
+  },
+  {
+    kind: "range",
+    label: "Established after",
+    name: "establishedAfter",
+    min: 0, max: 2020, step: 10,
+    value: establishedAfter,
+    readout: establishedAfter > 0 ? `After ${establishedAfter}` : "Any",
+    marks: ["Any", "1990", "2020"],
+  },
+];
 ---
 
 <BaseLayout locale={locale}>
@@ -137,6 +338,8 @@ const stats = page === 1 && !countryFilter && !specialtyFilter ? [
       locale={locale}
       noindex={shouldNoindex}
       pathQuery={canonicalQuery}
+      prevUrl={prevUrl}
+      nextUrl={nextUrl}
     />
     {itemLd && <script type="application/ld+json" set:html={JSON.stringify(itemLd)} />}
     <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
@@ -156,81 +359,69 @@ const stats = page === 1 && !countryFilter && !specialtyFilter ? [
     </div>
 
     <EntityListingHero
-      eyebrow={`${total.toLocaleString()} accredited · ${options.countries.length} countries`}
-      h1First="Browse"
-      h1Italic="hospitals"
-      lede="Every listing is verified for active accreditation, outcomes reporting and price transparency — and continuously re-vetted by our medical panel."
+      eyebrow={ct("lp.hospitals.eyebrow").replace("{count}", total.toLocaleString()).replace("{countries}", String(options.countries.length))}
+      h1First={ct("lp.hospitals.h1a")}
+      h1Italic={ct("lp.hospitals.h1b")}
+      lede={seoDescription}
       stats={stats}
     />
 
     <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-8 pb-12">
-      <div class="grid gap-10 lg:grid-cols-[16rem,1fr] xl:grid-cols-[18rem,1fr]">
-        <aside class="hidden lg:block sticky top-24 self-start">
-          <div class="space-y-8">
-            {options.countries.length > 0 && (
-              <div>
-                <p class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                  Country
-                </p>
-                <ul class="space-y-1.5">
-                  {options.countries.slice(0, 12).map((c) => {
-                    const active = c.slug === countryFilter;
-                    return (
-                      <li>
-                        <a
-                          href={buildHref({ country: active ? "" : c.slug })}
-                          class="flex items-center justify-between text-sm hover:text-accent transition-colors"
-                          style={active ? "color: var(--color-accent); font-weight: 600;" : "color: var(--color-ink-muted);"}
-                        >
-                          <span class="flex items-center gap-2"><span aria-hidden="true">{countryFlag(c.slug)}</span> {c.name}</span>
-                          <span class="tnum text-xs" style="color: var(--color-ink-subtle);">
-                            {c.n.toLocaleString()}
-                          </span>
-                        </a>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            )}
+      {/* Single shared form — sidebar + drawer reference it via form="hospital-filters" */}
+      <form
+        id="hospital-filters"
+        method="get"
+        action={localizedPath(locale, path)}
+        data-mc-hospital-filters
+      >
+        {sort !== "featured" && <input type="hidden" name="sort" value={sort} />}
+      </form>
 
-            {options.specialties.length > 0 && (
-              <div>
-                <p class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
-                  Specialty
-                </p>
-                <ul class="space-y-1.5">
-                  {options.specialties.slice(0, 12).map((s) => {
-                    const active = s.slug === specialtyFilter;
-                    return (
-                      <li>
-                        <a
-                          href={buildHref({ specialty: active ? "" : s.slug })}
-                          class="flex items-center justify-between text-sm hover:text-accent transition-colors"
-                          style={active ? "color: var(--color-accent); font-weight: 600;" : "color: var(--color-ink-muted);"}
-                        >
-                          <span>{s.name}</span>
-                          <span class="tnum text-xs" style="color: var(--color-ink-subtle);">
-                            {s.n.toLocaleString()}
-                          </span>
-                        </a>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            )}
-          </div>
+      <div class="grid gap-10 lg:grid-cols-[16rem_1fr] xl:grid-cols-[18rem_1fr]">
+        <aside
+          class="hidden lg:block sticky top-24 self-start"
+          style="max-height: calc(100vh - 7rem); overflow-y: auto; padding-right: 4px;"
+        >
+          <EntityFilters facets={facets} formId="hospital-filters" variant="sidebar" />
+          <noscript>
+            <button
+              type="submit"
+              form="hospital-filters"
+              class="mono uppercase w-full mt-4"
+              style="font-size: 11px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 10px 16px; border-radius: 9999px; border: 0;"
+            >
+              Apply filters
+            </button>
+          </noscript>
         </aside>
 
         <div class="min-w-0">
+          <h2 class="sr-only">Browse hospitals{hasAnyFilter ? " — filtered" : ""}</h2>
           <div
             class="mb-6 flex flex-wrap items-center justify-between gap-3 pb-4"
             style="border-bottom: 1px solid var(--color-border);"
           >
             <span class="serif text-[14px]" style="color: var(--color-ink-muted);">
               <span class="display tnum text-ink">{total.toLocaleString()}</span> hospital{total === 1 ? "" : "s"}
+              {hasAnyFilter && rows.length > 0 && (
+                <span class="ms-2 mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                  Page {page} of {totalPages}
+                </span>
+              )}
             </span>
+            <button
+              type="button"
+              class="mc-mobile-filter-trigger lg:hidden"
+              data-mc-mobile-filter-trigger
+              aria-haspopup="dialog"
+              aria-expanded="false"
+              aria-controls="hospital-filter-drawer"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                <path d="M2 4h12M4 8h8M6 12h4" stroke-linecap="round" />
+              </svg>
+              <span>Filter{filterCount > 0 ? ` · ${filterCount}` : "s"}</span>
+            </button>
             <div class="flex items-center gap-1 -mx-1 overflow-x-auto">
               <span class="mono uppercase px-1 whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                 Sort
@@ -276,13 +467,29 @@ const stats = page === 1 && !countryFilter && !specialtyFilter ? [
 
           {rows.length === 0 ? (
             <div class="paper text-center py-20" style="color: var(--color-ink-muted);">
-              <p class="serif text-lg mb-2">No hospitals match these filters.</p>
+              <p class="serif text-lg mb-3">No hospitals match these filters.</p>
+              <p class="text-sm mb-5">Try relaxing one constraint — accreditation requirements are usually the strictest.</p>
+              {relaxSuggestions.length > 0 && (
+                <ul class="flex flex-wrap items-center justify-center gap-2 mb-5" style="list-style: none; padding: 0;">
+                  {relaxSuggestions.map((s) => (
+                    <li>
+                      <a
+                        href={s.href}
+                        class="mono uppercase"
+                        style="font-size: 10.5px; letter-spacing: 0.12em; border: 1px solid var(--color-border); padding: 8px 14px; border-radius: 9999px; color: var(--color-ink); background: var(--color-bg); display: inline-block;"
+                      >
+                        {s.label} →
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <a
                 href={localizedPath(locale, path)}
                 class="inline-block mt-2 mono uppercase text-[11px]"
                 style="color: var(--color-accent); letter-spacing: 0.12em;"
               >
-                Clear filters →
+                Clear all filters →
               </a>
             </div>
           ) : (
@@ -322,14 +529,17 @@ const stats = page === 1 && !countryFilter && !specialtyFilter ? [
                         </h3>
                         {codes.length > 0 && (
                           <div class="mt-3 flex flex-wrap gap-1.5">
-                            {codes.slice(0, 3).map((c) => (
+                            {codes.slice(0, 4).map((c) => (
+                              <AccreditationLogo code={c} size="sm" />
+                            ))}
+                            {codes.length > 4 && (
                               <span
                                 class="mono uppercase"
-                                style="font-size: 9.5px; letter-spacing: 0.1em; border: 1px solid var(--color-accent); color: var(--color-accent); padding: 2px 7px; border-radius: 9999px;"
+                                style="font-size: 10px; letter-spacing: 0.1em; color: var(--color-ink-subtle); align-self: center;"
                               >
-                                {c}
+                                +{codes.length - 4}
                               </span>
-                            ))}
+                            )}
                           </div>
                         )}
                         <div
@@ -360,6 +570,181 @@ const stats = page === 1 && !countryFilter && !specialtyFilter ? [
       </div>
     </section>
 
+    {/* MOBILE DRAWER — same EntityFilters component, same form id */}
+    <dialog
+      id="hospital-filter-drawer"
+      class="mc-hospital-drawer lg:hidden"
+      data-mc-hospital-drawer
+      aria-label="Filter hospitals"
+    >
+      <div class="mc-hospital-drawer-panel">
+        <div class="mc-hospital-drawer-head">
+          <div>
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+              Filter
+            </div>
+            <div class="serif" style="font-size: 17px; letter-spacing: -0.005em;">
+              {total.toLocaleString()} hospital{total === 1 ? "" : "s"}
+            </div>
+          </div>
+          <button
+            type="button"
+            data-mc-hospital-close
+            aria-label="Close filters"
+            class="mono"
+            style="width: 38px; height: 38px; line-height: 1; font-size: 22px; background: none; border: 1px solid var(--color-border); border-radius: 9999px; color: var(--color-ink); cursor: pointer;"
+          >×</button>
+        </div>
+        <div class="mc-hospital-drawer-body">
+          <EntityFilters facets={facets} formId="hospital-filters" variant="drawer" />
+        </div>
+        <div class="mc-hospital-drawer-foot">
+          {hasAnyFilter ? (
+            <a
+              href={localizedPath(locale, path)}
+              class="mono uppercase"
+              style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-ink-muted); padding: 12px 16px; border: 1px solid var(--color-border); border-radius: 9999px;"
+            >Clear all</a>
+          ) : (
+            <span></span>
+          )}
+          <button
+            type="submit"
+            form="hospital-filters"
+            class="font-semibold"
+            style="background: var(--color-ink); color: var(--color-bg); padding: 13px 22px; border-radius: 9999px; font-size: 14px; border: 0; cursor: pointer;"
+          >Show {total.toLocaleString()} result{total === 1 ? "" : "s"}</button>
+        </div>
+      </div>
+    </dialog>
+
+    <HowItWorks
+      heading="How to use this hospital directory"
+      italicWord="directory"
+      eyebrow="Buyer's guide"
+      steps={[
+        { title: "Filter by destination", description: "9 active destination countries. India for highest volume + value, Turkey for cosmetic/dental/bariatric, Thailand for service experience, Germany/Korea for complex cases, UAE for premium." },
+        { title: "Filter by accreditation", description: "JCI is the strongest international signal. Combined with country-specific accreditations (NABH, HA, KOIHA) is stronger still. Don't filter purely on accreditation — combine with surgeon volume." },
+        { title: "Compare top 3 candidates", description: "Use the compare tool to put 3 hospitals side-by-side. Look at: bed count, established year, accreditations, specialty count, sample pricing." },
+        { title: "Drill into the specialty", description: "Click into the hospital's specific department for your case. Hospital-wide reputation matters less than department-specific volume on your procedure." },
+        { title: "Request itemized quote", description: "Request quotes from your top 2-3 programs. Itemized quotes (not package marketing) are what enables real comparison." },
+      ]}
+      outroNote="The directory contains 9,254 hospitals across 9 destinations. Most patients narrow to 3-5 candidates within 30 minutes."
+    />
+
+    <WhatToExpect
+      heading="What separates a good hospital from a great one"
+      italicWord="great one"
+      items={[
+        { label: "Surgeon volume on your procedure", description: "Institutional reputation can hide wide variation between surgeons. Ask for the specific surgeon's annual case volume on your exact procedure." },
+        { label: "Multiple accreditations", description: "JCI + country-specific (NABH/HA/KOIHA) + ISO 9001 is a triangulated quality signal. Single accreditation is a baseline." },
+        { label: "Transparent outcome data", description: "Programs that publish 30-day mortality, revision rates, and complication rates are typically the strongest." },
+        { label: "ICU + intensivist availability", description: "For complex procedures, ICU step-down with cardiac/neuro intensivist on call 24/7 makes the difference between safe and risky." },
+        { label: "International patient infrastructure", description: "Multilingual coordinators, dedicated international wings, post-discharge telemedicine — these aren't luxury; they're risk management." },
+        { label: "Honest about case selection", description: "The best programs decline cases that don't fit them. A program willing to take any case is sometimes a program operating at the margin." },
+      ]}
+    />
+
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>
+
+<style>
+  .mc-mobile-filter-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 1px solid var(--color-border);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    padding: 8px 14px;
+    border-radius: 9999px;
+    cursor: pointer;
+    font-family: var(--font-mono, ui-monospace, monospace);
+  }
+  @media (min-width: 1024px) {
+    .mc-mobile-filter-trigger { display: none; }
+  }
+  .mc-hospital-drawer {
+    border: 0; padding: 0; margin: 0;
+    width: 100%; height: 100%;
+    max-width: none; max-height: none;
+    background: rgba(14, 23, 19, 0.4);
+  }
+  .mc-hospital-drawer:not([open]) { display: none; }
+  .mc-hospital-drawer::backdrop { background: rgba(14, 23, 19, 0.4); }
+  .mc-hospital-drawer-panel {
+    position: fixed;
+    inset: auto 0 0 0;
+    background: var(--color-bg);
+    border-top-left-radius: 14px;
+    border-top-right-radius: 14px;
+    max-height: 85vh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    box-shadow: 0 -10px 30px rgba(14,23,19,0.18);
+  }
+  .mc-hospital-drawer-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding: 18px 20px;
+    border-bottom: 1px solid var(--color-border-soft);
+  }
+  .mc-hospital-drawer-body {
+    overflow-y: auto;
+    padding: 18px 20px 4px;
+  }
+  .mc-hospital-drawer-foot {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--color-border-soft);
+  }
+</style>
+
+<script is:inline>
+  (() => {
+    const form = document.querySelector("[data-mc-hospital-filters]");
+    const trigger = document.querySelector("[data-mc-mobile-filter-trigger]");
+    const drawer = document.querySelector("[data-mc-hospital-drawer]");
+
+    // Auto-submit on change (debounced) — keeps URL canonical & SSR-cacheable.
+    if (form) {
+      let timer;
+      form.addEventListener("change", (e) => {
+        const t = e.target;
+        if (t && t.matches && t.matches("[data-mc-ef-search]")) return;
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          form.querySelectorAll("input[type=range]").forEach((r) => {
+            if (parseFloat(r.value) === 0) r.disabled = true;
+          });
+          form.submit();
+        }, 200);
+      });
+    }
+
+    // Drawer open/close.
+    if (trigger && drawer) {
+      const closes = drawer.querySelectorAll("[data-mc-hospital-close]");
+      const open = () => {
+        try { drawer.showModal(); } catch (_) { drawer.setAttribute("open", ""); }
+        trigger.setAttribute("aria-expanded", "true");
+        document.body.style.overflow = "hidden";
+      };
+      const close = () => {
+        try { drawer.close(); } catch (_) { drawer.removeAttribute("open"); }
+        trigger.setAttribute("aria-expanded", "false");
+        document.body.style.overflow = "";
+      };
+      trigger.addEventListener("click", open);
+      closes.forEach((b) => b.addEventListener("click", close));
+      drawer.addEventListener("click", (e) => {
+        if (e.target === drawer) close();
+      });
+    }
+  })();
+</script>

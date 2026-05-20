@@ -11,7 +11,11 @@ export type TranslatableType =
   | "condition"
   | "country"
   | "city"
-  | "blog_post";
+  | "blog_post"
+  | "glossary"
+  | "qa_post"
+  | "visa_info"
+  | "testimonial";
 
 export async function getContent(
   translatableType: TranslatableType,
@@ -81,4 +85,43 @@ export function isUntranslated(
 ): boolean {
   if (locale === defaultLocale) return false;
   return maps.every((m) => !m || Object.keys(m).length === 0);
+}
+
+/**
+ * Pick a locale-aware SEO title.
+ *
+ * On the default locale we keep the SEO-tuned `metaTitle` column when set.
+ * On any other locale, prefer the (already-translated via `applyTranslated`)
+ * `name` field — otherwise the English `metaTitle` would override it on
+ * non-EN SERPs.
+ *
+ * Optionally accepts a translated meta map and reads `metaTitle` from there
+ * if a row exists (future-proofing once meta fields are seeded).
+ */
+export function localizedTitle(
+  locale: string,
+  translatedName: string,
+  englishMetaTitle: string | null | undefined,
+  translatedMap?: Record<string, string>,
+): string {
+  if (translatedMap?.metaTitle) return translatedMap.metaTitle;
+  if (locale === defaultLocale) return englishMetaTitle || translatedName;
+  return translatedName;
+}
+
+/**
+ * Same logic for meta description.
+ */
+export function localizedDescription(
+  locale: string,
+  translatedDescription: string | null | undefined,
+  englishMetaDescription: string | null | undefined,
+  fallback: string,
+  translatedMap?: Record<string, string>,
+): string {
+  if (translatedMap?.metaDescription) return translatedMap.metaDescription;
+  if (locale === defaultLocale) {
+    return englishMetaDescription || translatedDescription?.slice(0, 160) || fallback;
+  }
+  return translatedDescription?.slice(0, 160) || fallback;
 }

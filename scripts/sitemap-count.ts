@@ -1,5 +1,4 @@
-import postgres from "postgres";
-
+import postgres from "./lib/postgres";
 async function main() {
   const sql = postgres(process.env.DATABASE_URL!, { max: 1, prepare: false });
   const locales = 8;

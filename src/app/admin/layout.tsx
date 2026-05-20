@@ -1,6 +1,10 @@
 import type { ReactNode } from "react";
 import "@/app/globals.css";
-import { AdminSidebar } from "@/components/admin/sidebar";
+import {
+  AdminSidebar,
+  ToastProvider,
+  ConfirmDialogProvider,
+} from "@/components/admin";
 import { getSession } from "@/lib/auth";
 
 export const metadata = {
@@ -16,11 +20,14 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <AdminSidebar session={session} />
-      <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-        {children}
-      </main>
-    </div>
+    <ToastProvider>
+      <div className="flex h-screen bg-gray-50">
+        <AdminSidebar session={session} />
+        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+          {children}
+        </main>
+        <ConfirmDialogProvider />
+      </div>
+    </ToastProvider>
   );
 }

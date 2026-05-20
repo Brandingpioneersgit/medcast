@@ -1,7 +1,7 @@
 ---
-import { getTranslator } from "@/lib/messages";
 import { localizedPath, type Locale } from "@/lib/i18n";
-import { Menu, X, Search } from "lucide-react";
+import { bindChromeT } from "@/lib/chrome-i18n";
+import { Menu, X, Search, ChevronDown } from "lucide-react";
 import McLogo from "@/components/McLogo.astro";
 import HeaderSwitchers from "@/components/HeaderSwitchers.astro";
 
@@ -12,20 +12,155 @@ interface Props {
 }
 
 const { locale, sticky = true, active = "" } = Astro.props;
-const tc = getTranslator(locale, "common");
+const t = bindChromeT(locale);
 const isRTL = locale === "ar";
 
-const navLinks = [
-  { key: "hospitals", href: "/hospitals", label: tc("hospitals") },
-  { key: "treatments", href: "/treatments", label: tc("treatments") },
-  { key: "doctors", href: "/doctors", label: tc("doctors") },
-  { key: "destinations", href: "/countries", label: isRTL ? "الوجهات" : "Destinations" },
-  { key: "second-opinion", href: "/second-opinion", label: isRTL ? "الرأي الثاني" : "Second opinion" },
+type NavLeaf = { href: string; label: string; description?: string; eyebrow?: string };
+type NavGroup = { heading: string; links: NavLeaf[] };
+type NavItem =
+  | { kind: "link"; key: string; href: string; label: string }
+  | { kind: "menu"; key: string; label: string; groups: NavGroup[]; cta?: NavLeaf };
+
+const navItems: NavItem[] = [
+  {
+    kind: "menu",
+    key: "browse",
+    label: t("nav.browse"),
+    groups: [
+      {
+        heading: t("nav.h.care"),
+        links: [
+          { href: "/treatments", label: t("nav.treatments"), description: t("navd.treatments") },
+          { href: "/specialties", label: t("nav.specialties"), description: t("navd.specialties") },
+          { href: "/conditions", label: t("nav.conditions"), description: t("navd.conditions") },
+        ],
+      },
+      {
+        heading: t("nav.h.providers"),
+        links: [
+          { href: "/hospitals", label: t("nav.hospitals"), description: t("navd.hospitals") },
+          { href: "/doctors", label: t("nav.doctors"), description: t("navd.doctors") },
+          { href: "/surgeons", label: t("nav.surgeons"), description: t("navd.surgeons") },
+        ],
+      },
+      {
+        heading: t("nav.h.destinations"),
+        links: [
+          { href: "/countries", label: t("nav.allDestinations"), description: t("navd.allDestinations") },
+          { href: "/best", label: t("nav.bestOf"), description: t("navd.bestOf") },
+          { href: "/sitemap-browse", label: t("nav.siteMap"), description: t("navd.siteMap") },
+        ],
+      },
+    ],
+  },
+  {
+    kind: "menu",
+    key: "tools",
+    label: t("nav.tools"),
+    groups: [
+      {
+        heading: t("nav.h.plan"),
+        links: [
+          { href: "/calculator", label: t("nav.calculator"), description: t("navd.calculator") },
+          { href: "/match-me", label: t("nav.matchMe"), description: t("navd.matchMe") },
+          { href: "/quote", label: t("nav.quote"), description: t("navd.quote") },
+          { href: "/find-specialist", label: t("nav.findSpecialist"), description: t("navd.findSpecialist") },
+        ],
+      },
+      {
+        heading: t("nav.h.compare"),
+        links: [
+          { href: "/compare/hospitals", label: t("nav.compareHospitals") },
+          { href: "/compare/doctors", label: t("nav.compareDoctors") },
+          { href: "/compare/treatments", label: t("nav.compareTreatments") },
+          { href: "/compare/countries", label: t("nav.compareCountries") },
+        ],
+      },
+      {
+        heading: t("nav.h.research"),
+        links: [
+          { href: "/qa", label: t("nav.qa"), description: t("navd.qa") },
+          { href: "/glossary", label: t("nav.glossary"), description: t("navd.glossary") },
+          { href: "/pricing-index", label: t("nav.priceIndex"), description: t("navd.priceIndex") },
+          { href: "/blog", label: t("nav.blog") },
+        ],
+      },
+    ],
+    cta: {
+      eyebrow: t("navc.toolsEyebrow"),
+      href: "/calculator",
+      label: t("navc.toolsLabel"),
+      description: t("navc.toolsDesc"),
+    },
+  },
+  {
+    kind: "menu",
+    key: "help",
+    label: t("nav.help"),
+    groups: [
+      {
+        heading: t("nav.h.guidance"),
+        links: [
+          { href: "/second-opinion", label: t("nav.secondOpinion"), description: t("navd.secondOpinion") },
+          { href: "/services", label: t("nav.services"), description: t("navd.services") },
+          { href: "/insurance", label: t("nav.insurance"), description: t("navd.insurance") },
+          { href: "/referral", label: t("nav.referral"), description: t("navd.referral") },
+        ],
+      },
+      {
+        heading: t("nav.h.travelling"),
+        links: [
+          { href: "/portal", label: t("nav.portal"), description: t("navd.portal") },
+          { href: "/quote-plan", label: t("nav.quotePlan"), description: t("navd.quotePlan") },
+        ],
+      },
+      {
+        heading: t("nav.h.urgent"),
+        links: [
+          { href: "/emergency", label: t("nav.emergency"), description: t("navd.emergency") },
+          { href: "/emergency-triage", label: t("nav.triage") },
+          { href: "/incident-report", label: t("nav.incident"), description: t("navd.incident") },
+        ],
+      },
+    ],
+    cta: {
+      eyebrow: t("navc.helpEyebrow"),
+      href: "/second-opinion",
+      label: t("navc.helpLabel"),
+      description: t("navc.helpDesc"),
+    },
+  },
+  {
+    kind: "menu",
+    key: "about",
+    label: t("nav.about"),
+    groups: [
+      {
+        heading: t("nav.h.who"),
+        links: [
+          { href: "/about", label: t("nav.aboutMc") },
+          { href: "/medical-board", label: t("nav.medicalBoard") },
+          { href: "/editorial-policy", label: t("nav.editorial") },
+          { href: "/accreditation", label: t("nav.accreditation") },
+        ],
+      },
+      {
+        heading: t("nav.h.community"),
+        links: [
+          { href: "/contact", label: t("nav.contact") },
+          { href: "/for-hospitals", label: t("nav.forHospitals") },
+          { href: "/privacy-policy", label: t("nav.privacy") },
+          { href: "/terms", label: t("nav.terms") },
+        ],
+      },
+    ],
+  },
 ];
 
 const path = Astro.url.pathname;
-function isActive(key: string, href: string) {
+function isActive(key: string, href?: string) {
   if (active === key) return true;
+  if (!href) return false;
   return path === localizedPath(locale, href) || path.startsWith(localizedPath(locale, href) + "/");
 }
 ---
@@ -46,18 +181,16 @@ function isActive(key: string, href: string) {
             style="background: #6EE7B7; box-shadow: 0 0 8px #6EE7B7;"
             aria-hidden="true"
           />
-          <span class="hidden sm:inline">
-            {isRTL ? "منسقون متاحون · متوسط الرد ٩ دقائق" : "Coordinators online · avg reply 9 min"}
-          </span>
-          <span class="sm:hidden">{isRTL ? "متاح الآن" : "Online"}</span>
+          <span class="hidden sm:inline">{t("u.coordinatorsOnline")}</span>
+          <span class="sm:hidden">{t("u.online")}</span>
         </span>
-        <span class="hidden md:inline opacity-60 truncate">
-          {isRTL ? "طوارئ ٢٤/٧: +٩١ ٨٠٠ ٦٢١ ٠٠٠" : "24/7 emergency: +91 800 621 000"}
-        </span>
+        <a href={localizedPath(locale, "/emergency")} class="hidden md:inline opacity-60 hover:opacity-100 truncate">
+          {t("u.emergency24")}
+        </a>
       </div>
       <div class="flex items-center gap-3 md:gap-4 shrink-0">
         <a href={localizedPath(locale, "/portal")} class="opacity-80 hover:opacity-100 hidden sm:inline">
-          {isRTL ? "تتبع حالتي" : "Track case"}
+          {t("u.trackCase")}
         </a>
         <span class="opacity-40 hidden sm:inline">·</span>
         <HeaderSwitchers locale={locale} pathname={path} />
@@ -67,21 +200,64 @@ function isActive(key: string, href: string) {
 
   {/* Main nav */}
   <div class="mx-auto max-w-[1440px] px-7 flex items-center justify-between gap-6 py-4 md:py-5">
-    <div class="flex items-center" style="gap: 36px;">
-      <a href={localizedPath(locale, "/")} class="shrink-0">
+    <div class="flex items-center" style="gap: 32px;">
+      <a href={localizedPath(locale, "/")} class="shrink-0" aria-label="MedCasts home">
         <McLogo size={32} color="var(--color-ink)" />
       </a>
-      <nav aria-label="Primary" class="hidden lg:flex items-center" style="gap: 22px;">
-        {navLinks.map((l) => {
-          const on = isActive(l.key, l.href);
+      <nav aria-label="Primary" class="hidden lg:flex items-center" data-primary-nav style="gap: 4px;">
+        {navItems.map((item) => {
+          const on = item.kind === "link" ? isActive(item.key, item.href) : isActive(item.key);
+          if (item.kind === "link") {
+            return (
+              <a
+                href={localizedPath(locale, item.href)}
+                class="nav-trigger"
+                aria-current={on ? "page" : undefined}
+                data-active={on ? "true" : undefined}
+              >
+                {item.label}
+              </a>
+            );
+          }
           return (
-            <a
-              href={localizedPath(locale, l.href)}
-              class="relative pb-1"
-              style={`font-size: 14px; font-weight: 500; color: ${on ? "var(--color-ink)" : "var(--color-ink-muted)"}; border-bottom: 2px solid ${on ? "var(--color-ink)" : "transparent"};`}
-            >
-              {l.label}
-            </a>
+            <details class="nav-menu" data-nav-menu={item.key}>
+              <summary
+                class="nav-trigger nav-trigger-menu"
+                aria-haspopup="true"
+                data-active={on ? "true" : undefined}
+              >
+                {item.label}
+                <ChevronDown className="h-3 w-3 nav-chev" aria-hidden="true" />
+              </summary>
+              <div class="nav-panel" role="menu">
+                <div class="nav-panel-inner">
+                  <div class="nav-panel-grid">
+                    {item.groups.map((g) => (
+                      <div class="nav-group" role="none">
+                        <div class="nav-group-heading mono">{g.heading}</div>
+                        <ul class="nav-group-list">
+                          {g.links.map((l) => (
+                            <li>
+                              <a href={localizedPath(locale, l.href)} class="nav-leaf" role="menuitem">
+                                <span class="nav-leaf-label">{l.label}</span>
+                                {l.description && <span class="nav-leaf-desc">{l.description}</span>}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                  {item.cta && (
+                    <a href={localizedPath(locale, item.cta.href)} class="nav-cta" role="menuitem">
+                      {item.cta.eyebrow && <span class="mono nav-cta-eyebrow">{item.cta.eyebrow}</span>}
+                      <span class="nav-cta-label serif">{item.cta.label}</span>
+                      {item.cta.description && <span class="nav-cta-desc">{item.cta.description}</span>}
+                    </a>
+                  )}
+                </div>
+              </div>
+            </details>
           );
         })}
       </nav>
@@ -91,12 +267,12 @@ function isActive(key: string, href: string) {
       <button
         type="button"
         data-command-trigger
-        aria-label="Quick navigation"
-        class="hidden md:flex items-center gap-2 min-w-[260px] transition-colors hover:border-border-strong"
+        aria-label={t("u.quickNav")}
+        class="hidden md:flex items-center gap-2 min-w-[230px] transition-colors hover:border-border-strong"
         style="padding: 8px 14px; border-radius: 9999px; border: 1px solid var(--color-border); background: var(--color-paper); font-size: 13px; color: var(--color-ink-subtle); cursor: pointer;"
       >
         <Search className="h-3.5 w-3.5" />
-        <span>{isRTL ? "ابحث عن علاج، مستشفى، طبيب" : "Treatment, hospital, doctor…"}</span>
+        <span>{t("u.searchPlaceholder")}</span>
         <kbd
           class="mono ms-auto"
           style="font-size: 10px; padding: 2px 6px; border: 1px solid var(--color-border); border-radius: 4px;"
@@ -107,11 +283,11 @@ function isActive(key: string, href: string) {
         class="inline-flex items-center gap-1.5 font-medium transition-colors"
         style="background: var(--color-ink); color: var(--color-bg); border: 1px solid var(--color-ink); padding: 10px 18px; font-size: 14px; border-radius: 9999px; letter-spacing: -0.005em;"
       >
-        {tc("getQuote")}
+        {t("g.getQuote")}
       </a>
       <button
         type="button"
-        aria-label="Open menu"
+        aria-label={t("u.openMenu")}
         aria-controls="mobile-nav"
         aria-expanded="false"
         data-mobile-nav-toggle
@@ -124,35 +300,77 @@ function isActive(key: string, href: string) {
     </div>
   </div>
 
+  {/* Mobile menu */}
   <div
     id="mobile-nav"
     data-mobile-nav
     class="lg:hidden hidden"
-    style="background: var(--color-bg); border-top: 1px solid var(--color-border);"
+    style="background: var(--color-bg); border-top: 1px solid var(--color-border); max-height: calc(100dvh - 120px); overflow-y: auto;"
   >
-    <nav aria-label="Mobile" class="mx-auto max-w-[1440px] px-7 py-4 flex flex-col">
-      {navLinks.map((l) => (
-        <a
-          href={localizedPath(locale, l.href)}
-          class="py-3 text-base transition-colors"
-          style="color: var(--color-ink); border-bottom: 1px solid var(--color-border-soft);"
-        >
-          {l.label}
-        </a>
-      ))}
-      <a
-        href={localizedPath(locale, "/blog")}
-        class="py-3 text-base transition-colors"
-        style="color: var(--color-ink); border-bottom: 1px solid var(--color-border-soft);"
-      >
-        Blog
-      </a>
+    <nav aria-label={t("u.mobile")} class="mx-auto max-w-[1440px] px-7 py-4 flex flex-col">
+      {navItems.map((item) => {
+        if (item.kind === "link") {
+          return (
+            <a
+              href={localizedPath(locale, item.href)}
+              class="py-3 text-base"
+              style="color: var(--color-ink); border-bottom: 1px solid var(--color-border-soft); font-weight: 500;"
+            >
+              {item.label}
+            </a>
+          );
+        }
+        return (
+          <details class="mobile-nav-section" style="border-bottom: 1px solid var(--color-border-soft);">
+            <summary class="flex items-center justify-between py-3 cursor-pointer list-none" style="color: var(--color-ink); font-weight: 500;">
+              <span>{item.label}</span>
+              <ChevronDown className="h-4 w-4 mobile-nav-chev transition-transform" />
+            </summary>
+            <div class="pb-3" style="padding-inline-start: 4px;">
+              {item.groups.map((g) => (
+                <div class="pt-2 pb-1">
+                  <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-ink-subtle); padding: 6px 0;">
+                    {g.heading}
+                  </div>
+                  <ul class="flex flex-col">
+                    {g.links.map((l) => (
+                      <li>
+                        <a
+                          href={localizedPath(locale, l.href)}
+                          class="block py-2"
+                          style="font-size: 14.5px; color: var(--color-ink);"
+                        >
+                          {l.label}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+              {item.cta && (
+                <a
+                  href={localizedPath(locale, item.cta.href)}
+                  class="mt-2 block paper"
+                  style="padding: 14px 16px;"
+                >
+                  {item.cta.eyebrow && (
+                    <div class="mono" style="font-size: 10px; color: var(--color-accent); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 4px;">
+                      {item.cta.eyebrow}
+                    </div>
+                  )}
+                  <div class="serif" style="font-size: 15.5px; font-weight: 500; color: var(--color-ink);">{item.cta.label}</div>
+                </a>
+              )}
+            </div>
+          </details>
+        );
+      })}
       <a
         href={localizedPath(locale, "/contact")}
-        class="py-3 text-base transition-colors"
-        style="color: var(--color-ink);"
+        class="mt-4 inline-flex items-center justify-center font-medium"
+        style="background: var(--color-ink); color: var(--color-bg); padding: 12px 20px; font-size: 14px; border-radius: 9999px;"
       >
-        {tc("contactUs")}
+        {t("g.getQuote")}
       </a>
     </nav>
   </div>
@@ -163,7 +381,6 @@ function isActive(key: string, href: string) {
     background: rgba(246, 241, 230, 0.96);
     border-bottom: 1px solid var(--color-border);
   }
-  /* Backdrop-blur only on devices that support it cheaply — avoids scroll jank on pre-2018 Android. */
   @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     .site-header {
       background: rgba(246, 241, 230, 0.85);
@@ -171,20 +388,189 @@ function isActive(key: string, href: string) {
       -webkit-backdrop-filter: saturate(160%) blur(14px);
     }
   }
+
+  /* Top-level trigger (link or menu summary) */
+  .nav-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-ink-muted);
+    transition: color 120ms, background 120ms;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+  }
+  .nav-trigger::-webkit-details-marker { display: none; }
+  .nav-trigger::marker { content: ""; }
+  .nav-trigger:hover { color: var(--color-ink); background: rgba(14, 23, 19, 0.04); }
+  .nav-trigger[data-active="true"] { color: var(--color-ink); }
+  .nav-trigger:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  .nav-trigger-menu .nav-chev {
+    opacity: 0.6;
+    transition: transform 160ms;
+  }
+  .nav-menu[open] .nav-trigger-menu .nav-chev { transform: rotate(180deg); }
+
+  /* Dropdown panel */
+  .nav-menu {
+    position: relative;
+  }
+  .nav-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    inset-inline-start: 0;
+    z-index: 50;
+    min-width: 640px;
+    max-width: 880px;
+    background: var(--color-paper);
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    box-shadow: var(--shadow-lg);
+    animation: navFade 140ms ease-out;
+  }
+  @keyframes navFade {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .nav-panel-inner {
+    padding: 22px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .nav-panel-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(180px, 1fr));
+    gap: 18px 28px;
+  }
+  .nav-menu[data-nav-menu="about"] .nav-panel-grid {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+  .nav-menu[data-nav-menu="about"] .nav-panel { min-width: 480px; }
+  .nav-group-heading {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    margin-bottom: 10px;
+  }
+  .nav-group-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .nav-leaf {
+    display: block;
+    padding: 8px 10px;
+    margin: 0 -10px;
+    border-radius: 8px;
+    transition: background 120ms;
+  }
+  .nav-leaf:hover { background: rgba(14, 23, 19, 0.04); }
+  .nav-leaf:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+  }
+  .nav-leaf-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--color-ink);
+    line-height: 1.3;
+  }
+  .nav-leaf-desc {
+    display: block;
+    font-size: 12px;
+    color: var(--color-ink-subtle);
+    line-height: 1.35;
+    margin-top: 2px;
+  }
+
+  .nav-cta {
+    display: block;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: var(--color-ink);
+    color: var(--color-bg);
+    transition: background 120ms;
+  }
+  .nav-cta:hover { background: var(--color-accent); }
+  .nav-cta-eyebrow {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-saffron);
+    margin-bottom: 4px;
+  }
+  .nav-cta-label {
+    display: block;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  .nav-cta-desc {
+    display: block;
+    font-size: 12px;
+    opacity: 0.75;
+    margin-top: 2px;
+  }
+
+  .mobile-nav-section[open] .mobile-nav-chev { transform: rotate(180deg); }
+  .mobile-nav-section summary::-webkit-details-marker { display: none; }
+  .mobile-nav-section summary::marker { content: ""; }
 </style>
 
 <script is:inline>
   (() => {
+    // Mobile menu toggle (existing behaviour, preserved)
     const btn = document.querySelector("[data-mobile-nav-toggle]");
     const panel = document.querySelector("[data-mobile-nav]");
     const openIcon = btn?.querySelector("[data-menu-open-icon]");
     const closeIcon = btn?.querySelector("[data-menu-close-icon]");
-    if (!btn || !panel) return;
-    btn.addEventListener("click", () => {
-      const open = panel.classList.toggle("hidden") === false;
-      btn.setAttribute("aria-expanded", String(open));
-      openIcon?.classList.toggle("hidden", open);
-      closeIcon?.classList.toggle("hidden", !open);
+    if (btn && panel) {
+      btn.addEventListener("click", () => {
+        const open = panel.classList.toggle("hidden") === false;
+        btn.setAttribute("aria-expanded", String(open));
+        openIcon?.classList.toggle("hidden", open);
+        closeIcon?.classList.toggle("hidden", !open);
+      });
+    }
+
+    // Desktop dropdowns: open at most one at a time + close on outside click + esc
+    const primaryNav = document.querySelector("[data-primary-nav]");
+    if (!primaryNav) return;
+    const menus = primaryNav.querySelectorAll("details[data-nav-menu]");
+
+    menus.forEach((menu) => {
+      menu.addEventListener("toggle", () => {
+        if (menu.open) {
+          menus.forEach((other) => {
+            if (other !== menu) other.open = false;
+          });
+        }
+      });
+    });
+
+    document.addEventListener("click", (e) => {
+      const target = e.target;
+      if (!(target instanceof Node)) return;
+      menus.forEach((m) => {
+        if (m.open && !m.contains(target)) m.open = false;
+      });
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        menus.forEach((m) => { if (m.open) m.open = false; });
+      }
     });
   })();
 </script>

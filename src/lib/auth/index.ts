@@ -4,20 +4,43 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 const SESSION_COOKIE = "admin_session";
 const SESSION_SECRET = process.env.NEXTAUTH_SECRET || "dev-secret";
+if (process.env.NODE_ENV === "production" && SESSION_SECRET === "dev-secret") {
+  throw new Error(
+    "NEXTAUTH_SECRET is not set in production. Admin session tokens cannot be safely signed.",
+  );
+}
 
-// Simple JWT-like token using base64 (production: use proper JWT)
+// HMAC-signed token: `<base64url(payload)>.<base64url(signature)>`.
+// The previous version was base64-only — anyone could forge a session by
+// encoding their own payload. Now the signature is verified before the
+// payload is trusted.
+function sign(payload: string): string {
+  return createHmac("sha256", SESSION_SECRET).update(payload).digest("base64url");
+}
+
 function encodeToken(payload: { id: number; email: string; role: string }): string {
   const data = JSON.stringify({ ...payload, exp: Date.now() + 24 * 60 * 60 * 1000 });
-  return Buffer.from(data).toString("base64url");
+  const body = Buffer.from(data).toString("base64url");
+  return `${body}.${sign(body)}`;
 }
 
 function decodeToken(token: string): { id: number; email: string; role: string; exp: number } | null {
   try {
-    const data = JSON.parse(Buffer.from(token, "base64url").toString());
-    if (data.exp < Date.now()) return null;
+    const dot = token.lastIndexOf(".");
+    if (dot <= 0) return null;
+    const body = token.slice(0, dot);
+    const sig = token.slice(dot + 1);
+    const expected = sign(body);
+    const a = Buffer.from(sig, "base64url");
+    const b = Buffer.from(expected, "base64url");
+    // Constant-time compare to defeat sig-length / timing oracles.
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+    const data = JSON.parse(Buffer.from(body, "base64url").toString());
+    if (typeof data.exp !== "number" || data.exp < Date.now()) return null;
     return data;
   } catch {
     return null;
@@ -43,7 +66,9 @@ export async function createSession(user: { id: number; email: string; role: str
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    // strict — admin cookie should never accompany cross-site requests.
+    // The admin UI lives only at /admin/* on this same origin.
+    sameSite: "strict",
     maxAge: 86400,
     path: "/",
   });

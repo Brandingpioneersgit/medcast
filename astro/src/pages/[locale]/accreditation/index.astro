@@ -3,12 +3,16 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
+import AccreditationLogo from "@/components/AccreditationLogo.astro";
 import { db } from "@/lib/db";
 import { sql } from "drizzle-orm";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { ChevronRight } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import PageCta from "@/components/PageCta.astro";
 
 export const prerender = false;
 
@@ -44,8 +48,8 @@ const totalHospitals = Array.from(
   `)) as Iterable<{ c: number }>,
 )[0]?.c ?? 0;
 
-const seoTitle = "Hospital accreditations — JCI, NABH, ISO, and more";
-const seoDescription = `Find hospitals certified by ${rows.length} international and national accreditation bodies — JCI, NABH, ISO 9001, HA Thailand, KTQ, and more. ${totalHospitals.toLocaleString()} accredited hospitals across 9 destinations.`;
+const seoTitle = "Hospital Accreditations — JCI, NABH, ISO";
+const seoDescription = `${rows.length} accreditation bodies across ${totalHospitals.toLocaleString()} hospitals — JCI, NABH, ISO 9001, HA Thailand, KTQ, KOIHA, and more.`.slice(0, 158);
 const path = "/accreditation";
 
 const crumbs = breadcrumbJsonLd([
@@ -62,10 +66,10 @@ Astro.response.headers.set(
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} />
 
     <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
@@ -92,7 +96,7 @@ Astro.response.headers.set(
           International and national healthcare accreditation filters out hospitals that don't meet minimum quality, safety, and patient-experience standards. Below is every certifying body we verify against, and the hospital count currently certified by each.
         </p>
 
-        <div class="grid gap-14 lg:grid-cols-[2fr,1fr] mt-10">
+        <div class="grid gap-14 lg:grid-cols-[2fr_1fr] mt-10">
           <div>
             <div class="grid gap-3">
               {rows.map((a) => (
@@ -103,12 +107,7 @@ Astro.response.headers.set(
                 >
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-3 flex-wrap">
-                      <span
-                        class="inline-flex items-center"
-                        style="padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; background: var(--color-accent-soft); color: var(--color-accent-strong);"
-                      >
-                        {a.acronym ?? a.name}
-                      </span>
+                      <AccreditationLogo code={a.acronym ?? a.slug} title={a.name} size="md" />
                       {a.acronym && (
                         <span class="serif" style="font-size: 16px; font-weight: 500;">{a.name}</span>
                       )}
@@ -173,6 +172,30 @@ Astro.response.headers.set(
       </div>
     </section>
 
+    <HowItWorks
+      heading='How to read accreditation signals'
+      italicWord='accreditation signals'
+      eyebrow='Quality framework'
+      steps={[
+        { title: 'Identify the accrediting body', description: 'JCI is global; NABH (India), HA (Thailand), KOIHA (Korea), MSQH (Malaysia), CBAHI (Saudi), USHAŞ (Turkey), KTQ (Germany) are country-specific.' },
+        { title: 'Verify currency of accreditation', description: "Accreditations expire and require re-evaluation. Check the body's public registry to confirm the hospital is currently accredited, not 'previously accredited'." },
+        { title: 'Stack the signals', description: 'Multiple accreditations from independent bodies are stronger than any single one. JCI + NABH + ISO 9001 is a strong triangulated signal.' },
+        { title: 'Drill into procedure capability', description: 'Accreditation is institutional baseline. For your specific procedure, also confirm surgeon volume and program-specific outcomes.' },
+      ]}
+    />
+
+    <WhatToExpect
+      heading="What accreditation does and doesn't tell you"
+      italicWord="doesn't tell you"
+      items={[
+        { label: 'What it tells you', description: 'The hospital meets baseline patient-safety, infection-control, and process-quality standards. Re-evaluated periodically by an independent body.' },
+        { label: "What it doesn't tell you", description: "Whether the specific surgeon you'd work with is high-volume on your procedure. Whether outcomes for your specific case type are strong." },
+        { label: 'How to combine signals', description: 'Accreditation + surgeon volume + program-specific outcome data + patient outcomes = comprehensive evaluation. Any one alone is insufficient.' },
+        { label: 'Verification', description: "Search the accrediting body's website for the hospital. Don't accept the hospital's claim alone." },
+      ]}
+    />
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

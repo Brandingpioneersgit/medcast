@@ -9,14 +9,35 @@ type Props = {
 };
 
 export default function ContactDoctor({ doctorSlug, doctorName, hospitalName, specialtyName, locale }: Props) {
-  const [form, setForm] = useState({ name: "", phone: "", email: "", countryOfOrigin: "", notes: "" });
+  const [form, setForm] = useState({ name: "", phone: "", email: "", countryOfOrigin: "", notes: "", hp: "" });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  function clientValidate(): string | null {
+    const name = form.name.trim();
+    const phone = form.phone.trim();
+    const country = form.countryOfOrigin.trim();
+    if (name.length < 2) return "Please enter your full name (at least 2 characters).";
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 7 || digits.length > 15) {
+      return "Please enter a valid phone number with country code (e.g. +91 800 621 000).";
+    }
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      return "That email doesn't look right — double-check the format.";
+    }
+    if (!country) return "Tell us your country of origin so we can route to the right desk.";
+    return null;
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (submitting) return;
+    const validationError = clientValidate();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     setError(null);
     setSubmitting(true);
     try {
@@ -32,6 +53,7 @@ export default function ContactDoctor({ doctorSlug, doctorName, hospitalName, sp
           notes: form.notes || undefined,
           locale,
           source: `/doctor/${doctorSlug}`,
+          _hp: form.hp,
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -54,7 +76,7 @@ export default function ContactDoctor({ doctorSlug, doctorName, hospitalName, sp
           Sent
         </p>
         <p className="mt-2 font-display text-xl" style={{ color: "var(--color-accent-deep)" }}>
-          We've got your case. A case manager will reach out on WhatsApp within 11 minutes.
+          We've got your case. A case manager will reach out on WhatsApp within a few hours during business hours.
         </p>
         <p className="mt-2 text-[13.5px]" style={{ color: "var(--color-accent-deep)" }}>
           They'll confirm {doctorName}'s availability and come back with an itemised quote.
@@ -65,6 +87,21 @@ export default function ContactDoctor({ doctorSlug, doctorName, hospitalName, sp
 
   return (
     <form onSubmit={onSubmit} className="rounded-xl border border-border bg-surface p-5 md:p-6">
+      {/* Honeypot — visible to bots only. Real users never tab here.
+          Server reads `_hp` and silently drops the request when set. */}
+      <div aria-hidden="true" style={{ position: "absolute", left: "-9999px", top: "auto", width: 1, height: 1, overflow: "hidden" }}>
+        <label>
+          Website
+          <input
+            type="text"
+            name="_hp"
+            tabIndex={-1}
+            autoComplete="off"
+            value={form.hp}
+            onChange={(e) => setForm({ ...form, hp: e.target.value })}
+          />
+        </label>
+      </div>
       <p className="mono uppercase" style={{ fontSize: 11, letterSpacing: "0.14em", color: "var(--color-ink-subtle)" }}>
         Message {doctorName.split(" ").slice(0, 2).join(" ")}'s team
       </p>
@@ -73,7 +110,7 @@ export default function ContactDoctor({ doctorSlug, doctorName, hospitalName, sp
       </h3>
       <p className="mt-2 text-sm text-ink-muted">
         {hospitalName ? `${doctorName} at ${hospitalName}${specialtyName ? ` · ${specialtyName}` : ""}. ` : ""}
-        We'll confirm availability and come back with a quote — usually in 11 minutes.
+        We'll confirm availability and come back with a quote — usually within a few hours during business hours.
       </p>
 
       <div className="mt-5 grid gap-3 md:grid-cols-2">
@@ -137,7 +174,7 @@ export default function ContactDoctor({ doctorSlug, doctorName, hospitalName, sp
         >
           {submitting ? "Sending…" : `Send to ${doctorName.split(" ").slice(-1)[0]}'s team`}
         </button>
-        <p className="text-[12px] text-ink-subtle">Free · reply in 11 min on business hours · no spam.</p>
+        <p className="text-[12px] text-ink-subtle">Free · reply during business hours · no spam.</p>
       </div>
     </form>
   );

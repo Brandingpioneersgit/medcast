@@ -1,0 +1,205 @@
+---
+// HospitalMap — static map strip showing hospital pin (and nearest airport
+// when known). Uses Mapbox Static Images API. Renders a graceful fallback
+// "location card" with neighbourhood metadata when token is missing.
+//
+// Mapbox Static API:
+//   https://api.mapbox.com/styles/v1/{user}/{style}/static/
+//     pin-l-hospital+0a5d54({lng},{lat}),
+//     pin-l-airport+e2a54b({alng},{alat})/
+//     auto/1200x280@2x
+//     ?access_token=...
+//   "auto" = best-fit bbox over all markers — perfect for the
+//   hospital + airport "fly in, recover here" framing.
+
+interface Props {
+  lat: number | null;
+  lng: number | null;
+  /** "exact" → hospital coords; "city" → city center; "country" → country capital. */
+  precision?: "exact" | "city" | "country";
+  hospitalName: string;
+  cityName?: string | null;
+  countryName?: string | null;
+  airportDistanceKm?: number | null;
+  airportName?: string | null;
+  airportLat?: number | null;
+  airportLng?: number | null;
+  height?: number;
+}
+
+const {
+  lat,
+  lng,
+  precision = "exact",
+  hospitalName,
+  cityName,
+  countryName,
+  airportDistanceKm,
+  airportName,
+  airportLat,
+  airportLng,
+  height = 280,
+} = Astro.props;
+const isApprox = precision !== "exact";
+const cleanCityCap = cityName && cityName.toLowerCase() !== "unknown" ? cityName : null;
+const approxLabel =
+  precision === "city" ? `Approximate · ${cleanCityCap ?? countryName ?? "area"}`
+  : precision === "country" ? `Approximate · ${countryName ?? "country"}`
+  : null;
+
+const token = import.meta.env.PUBLIC_MAPBOX_TOKEN ?? import.meta.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? null;
+
+function buildMapboxUrl(): string | null {
+  if (!token || lat == null || lng == null) return null;
+  const style = "mapbox/light-v11";
+  const hPin = `pin-l-hospital+0a5d54(${lng},${lat})`;
+  const parts = [hPin];
+  if (airportLat != null && airportLng != null) {
+    parts.push(`pin-l-airport+e2a54b(${airportLng},${airportLat})`);
+  }
+  // "auto" picks the best bbox to fit all pins; fall back to fixed zoom when single pin.
+  const bbox = parts.length > 1 ? "auto" : `${lng},${lat},14`;
+  return `https://api.mapbox.com/styles/v1/${style}/static/${parts.join(",")}/${bbox}/1200x${height}@2x?access_token=${token}&padding=80,80,80,80`;
+}
+
+const mapUrl = buildMapboxUrl();
+const hasMap = !!mapUrl;
+const hasCoords = lat != null && lng != null;
+
+// OpenStreetMap iframe fallback — works without any API key.
+// Bbox half-width scales with precision: exact ≈ 1 km, city ≈ 7 km, country ≈ 20 km.
+const osmDelta = precision === "exact" ? 0.012 : precision === "city" ? 0.07 : 0.2;
+const osmEmbed = hasCoords
+  ? `https://www.openstreetmap.org/export/embed.html?bbox=${lng! - osmDelta},${lat! - osmDelta},${lng! + osmDelta},${lat! + osmDelta}&layer=mapnik&marker=${lat},${lng}`
+  : null;
+---
+
+<div class="paper" style={`overflow: hidden; padding: 0; border-radius: var(--radius-lg);`}>
+  {hasMap ? (
+    <a
+      href={`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=15/${lat}/${lng}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={`display: block; height: ${height}px; position: relative;`}
+      aria-label={`Open ${hospitalName} location in maps`}
+    >
+      <img
+        src={mapUrl}
+        alt={`Map showing ${hospitalName}${airportName ? ` and ${airportName}` : ""}`}
+        loading="lazy"
+        decoding="async"
+        width="1200"
+        height={height}
+        style="width: 100%; height: 100%; object-fit: cover; display: block;"
+      />
+      {/* Caption strip */}
+      <div
+        style="position: absolute; bottom: 0; inset-inline: 0; padding: 14px 18px; background: linear-gradient(180deg, transparent 0%, rgba(14,23,19,0.78) 100%); color: rgba(251,248,241,.96); display: flex; gap: 18px; flex-wrap: wrap; align-items: center;"
+      >
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="width: 10px; height: 10px; border-radius: 9999px; background: var(--color-accent, #0A5D54); box-shadow: 0 0 0 3px rgba(10,93,84,0.25);"></span>
+          <span class="mono" style="font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;">
+            {hospitalName}
+          </span>
+        </div>
+        {airportName && (
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="width: 10px; height: 10px; border-radius: 9999px; background: #E2A54B; box-shadow: 0 0 0 3px rgba(226,165,75,0.25);"></span>
+            <span class="mono" style="font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;">
+              {airportName}{airportDistanceKm ? ` · ${Math.round(airportDistanceKm)} km` : ""}
+            </span>
+          </div>
+        )}
+      </div>
+    </a>
+  ) : osmEmbed ? (
+    <div style={`position: relative; height: ${height}px;`}>
+      <iframe
+        src={osmEmbed}
+        title={`Map of ${hospitalName}`}
+        loading="lazy"
+        referrerpolicy="no-referrer-when-downgrade"
+        style="position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block;"
+      />
+      <div
+        style="position: absolute; bottom: 0; inset-inline: 0; padding: 14px 18px; background: linear-gradient(180deg, transparent 0%, rgba(14,23,19,0.78) 100%); color: rgba(251,248,241,.96); display: flex; gap: 18px; flex-wrap: wrap; align-items: center; pointer-events: none;"
+      >
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="width: 10px; height: 10px; border-radius: 9999px; background: var(--color-accent, #0A5D54); box-shadow: 0 0 0 3px rgba(10,93,84,0.25);"></span>
+          <span class="mono" style="font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;">
+            {hospitalName}{cleanCityCap ? ` · ${cleanCityCap}` : ""}
+          </span>
+        </div>
+        {airportName && airportDistanceKm && (
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="width: 10px; height: 10px; border-radius: 9999px; background: #E2A54B; box-shadow: 0 0 0 3px rgba(226,165,75,0.25);"></span>
+            <span class="mono" style="font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;">
+              {airportName} · {Math.round(airportDistanceKm)} km
+            </span>
+          </div>
+        )}
+      </div>
+      <a
+        href={`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=15/${lat}/${lng}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="mono uppercase"
+        style="position: absolute; top: 10px; right: 10px; background: var(--color-ink); color: var(--color-bg); padding: 6px 10px; border-radius: 9999px; font-size: 10px; letter-spacing: 0.1em; text-decoration: none;"
+      >
+        Open in Maps ↗
+      </a>
+      {isApprox && approxLabel && (
+        <div
+          class="mono uppercase"
+          style="position: absolute; top: 10px; left: 10px; background: rgba(251,248,241,0.92); color: var(--color-ink-muted); padding: 4px 10px; border-radius: 9999px; font-size: 9.5px; letter-spacing: 0.1em; pointer-events: none;"
+        >
+          {approxLabel}
+        </div>
+      )}
+    </div>
+  ) : (
+    <div
+      style={`min-height: ${height}px; display: grid; grid-template-columns: 1fr 1fr; gap: 0; background: linear-gradient(135deg, #0A5D54 0%, #073D37 100%); color: rgba(251,248,241,.96);`}
+    >
+      <div style="padding: 28px 32px; display: flex; flex-direction: column; justify-content: center;">
+        <span class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.75;">
+          Location
+        </span>
+        <div class="display" style="font-size: 28px; line-height: 1.1; margin-top: 6px; letter-spacing: -0.01em;">
+          {cityName ?? hospitalName}{countryName ? <><span style="opacity:.6">, </span>{countryName}</> : null}
+        </div>
+        {hasCoords && (
+          <div class="mono" style="font-size: 11.5px; opacity: 0.78; margin-top: 8px;">
+            {lat!.toFixed(4)}, {lng!.toFixed(4)}
+          </div>
+        )}
+      </div>
+      <div style="padding: 28px 32px; display: flex; flex-direction: column; justify-content: center; border-inline-start: 1px solid rgba(251,248,241,0.12);">
+        {airportName ? (
+          <>
+            <span class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.75;">
+              Nearest airport
+            </span>
+            <div class="display" style="font-size: 22px; line-height: 1.15; margin-top: 6px;">
+              {airportName}
+            </div>
+            {airportDistanceKm && (
+              <div class="mono tnum" style="font-size: 12px; opacity: 0.85; margin-top: 6px;">
+                ~{Math.round(airportDistanceKm)} km · ~{Math.max(15, Math.round(airportDistanceKm * 1.5))} min by car
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <span class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.75;">
+              Get door-to-door logistics
+            </span>
+            <div style="font-size: 14px; line-height: 1.5; margin-top: 8px; opacity: 0.9;">
+              Our case manager confirms airport transfer, traveller-friendly hotels nearby, and a route from the gate to the ward.
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )}
+</div>

@@ -8,6 +8,7 @@ import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, SITE_NAME, SITE_URL } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { ChevronRight } from "lucide-react";
+import { journeyScene } from "@/lib/images";
 
 export const prerender = false;
 
@@ -46,7 +47,7 @@ const contactPageLd = {
       {
         "@type": "ContactPoint",
         contactType: "customer support",
-        email: "hello@medcasts.com",
+        email: "medcastsdigital@gmail.com",
         availableLanguage: ["en", "ar", "ru", "fr", "pt", "bn", "tr", "hi"],
       },
     ],
@@ -78,6 +79,22 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
 
     <section style="padding: 64px 28px;">
       <div class="mx-auto" style="max-width: 540px;">
+        <div class="relative paper-flat overflow-hidden mb-8" style="aspect-ratio: 16/9; border-radius: var(--radius-lg);">
+          <img
+            src={journeyScene("portal-hero")}
+            alt="Patient and family at home"
+            width="800"
+            height="450"
+            loading="eager"
+            decoding="async"
+            style="width: 100%; height: 100%; object-fit: cover;"
+          />
+          <div class="image-veil" />
+          <div class="absolute" style="inset-inline-start: 16px; inset-block-end: 14px; inset-inline-end: 16px;">
+            <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: rgba(251,248,241,0.78);">6-stage timeline</div>
+            <div class="serif" style="font-size: 15px; font-weight: 500; color: #FBF8F1; line-height: 1.3; margin-top: 3px;">Track your case from records → recovery</div>
+          </div>
+        </div>
         <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent); text-align: center;">Case lookup</div>
         <h1 class="display display-tight mt-3 text-center" style="font-size: clamp(2rem, 4.5vw, 3rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;">
           Enter your <span class="italic-display">tracking code</span>
@@ -86,6 +103,7 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
           Your coordinator sent a 10-character code by email and WhatsApp when your case opened. Enter it below to see stage, appointments, and messages.
         </p>
 
+        <h2 class="sr-only">Look up your case by tracking code</h2>
         <form method="get" class="paper mt-8" style="padding: 24px; box-shadow: var(--shadow-md);">
           <label class="block">
             <span class="mono block mb-2" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Tracking code</span>

@@ -1,0 +1,327 @@
+---
+import AccreditationLogo from "@/components/AccreditationLogo.astro";
+
+type CheckboxOption = { slug: string; name: string; n: number; flag?: string; logoCode?: string };
+
+export type FacetSpec = CheckboxFacet | RangeFacet | ToggleFacet;
+
+type CheckboxFacet = {
+      kind: "checkbox";
+      /** Eyebrow label (e.g. "Country"). */
+      label: string;
+      /** Form input name — value submitted as repeated `?name=slug` keys. */
+      name: string;
+      /** All available options (with cross-facet counts). Already includes any selected slug. */
+      options: CheckboxOption[];
+      /** Currently-selected slugs. */
+      selected: string[];
+      /** Show a typeahead search box above the list. Defaults to true if options.length > 8. */
+      search?: boolean;
+    };
+
+type ToggleFacet = {
+      kind: "toggle";
+      /** Group label (e.g. "Quick filters"). Optional — toggles can sit ungrouped under a single label. */
+      label: string;
+      /** Each toggle is a single boolean URL param; checked if `selected` is truthy. */
+      toggles: Array<{ name: string; label: string; selected: boolean; hint?: string }>;
+    };
+
+type RangeFacet = {
+      kind: "range";
+      /** Eyebrow label (e.g. "Min experience"). */
+      label: string;
+      /** Form input name. */
+      name: string;
+      min: number;
+      max: number;
+      step: number;
+      /** Current value. 0 = "any" (no filter). */
+      value: number;
+      /** Right-aligned readout text. */
+      readout: string;
+      /** Three labels under the slider: low / mid / high. */
+      marks: [string, string, string];
+    };
+
+interface Props {
+  facets: FacetSpec[];
+  /** id of the surrounding <form>. Inputs use `form="..."` so they can sit anywhere in the DOM. */
+  formId: string;
+  /** "sidebar" caps list height tighter than "drawer". */
+  variant?: "sidebar" | "drawer";
+}
+
+const { facets, formId, variant = "sidebar" } = Astro.props;
+const compact = variant === "sidebar";
+const eyebrowStyle = "font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);";
+---
+
+<div class={`mc-ef-groups ${compact ? "mc-ef-compact" : ""}`}>
+  {facets.map((f) => {
+    if (f.kind === "checkbox") {
+      const showSearch = f.search ?? f.options.length > 8;
+      return (
+        <div class="mc-ef-group" data-mc-ef-group>
+          <div class="mc-ef-head">
+            <p class="mono uppercase" style={eyebrowStyle}>{f.label}</p>
+            {f.selected.length > 0 && (
+              <span class="mono" style="font-size: 10px; color: var(--color-accent);">
+                · {f.selected.length}
+              </span>
+            )}
+          </div>
+          {showSearch && (
+            <input
+              type="search"
+              placeholder={`Filter ${f.label.toLowerCase()}…`}
+              class="mc-ef-search"
+              data-mc-ef-search
+              aria-label={`Filter ${f.label} list`}
+            />
+          )}
+          <ul class="mc-ef-list">
+            {f.options.map((o) => {
+              const checked = f.selected.includes(o.slug);
+              return (
+                <li data-mc-ef-item data-mc-ef-name={o.name.toLowerCase()}>
+                  <label class={`mc-ef-row ${checked ? "is-checked" : ""}`}>
+                    <input
+                      type="checkbox"
+                      name={f.name}
+                      value={o.slug}
+                      checked={checked}
+                      form={formId}
+                    />
+                    {o.flag && <span class="mc-ef-row-flag" aria-hidden="true">{o.flag}</span>}
+                    {o.logoCode && (
+                      <span class="mc-ef-row-logo" aria-hidden="true">
+                        <AccreditationLogo code={o.logoCode} size="sm" showText={false} />
+                      </span>
+                    )}
+                    <span class="mc-ef-row-name">{o.name}</span>
+                    <span class="mc-ef-row-count tnum">{o.n.toLocaleString()}</span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      );
+    }
+    if (f.kind === "toggle") {
+      return (
+        <div class="mc-ef-group">
+          <div class="mc-ef-head">
+            <p class="mono uppercase" style={eyebrowStyle}>{f.label}</p>
+          </div>
+          <ul class="mc-ef-toggles">
+            {f.toggles.map((t) => (
+              <li>
+                <label class={`mc-ef-toggle ${t.selected ? "is-checked" : ""}`}>
+                  <input
+                    type="checkbox"
+                    name={t.name}
+                    value="1"
+                    checked={t.selected}
+                    form={formId}
+                  />
+                  <span class="mc-ef-toggle-label">
+                    {t.label}
+                    {t.hint && <span class="mc-ef-toggle-hint"> · {t.hint}</span>}
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+      );
+    }
+    return (
+      <div class="mc-ef-group">
+        <div class="mc-ef-head">
+          <p class="mono uppercase" style={eyebrowStyle}>{f.label}</p>
+          <span class="mono tnum" style="font-size: 11px; color: var(--color-ink);" data-mc-ef-readout={f.name}>
+            {f.readout}
+          </span>
+        </div>
+        <input
+          type="range"
+          name={f.name}
+          min={f.min}
+          max={f.max}
+          step={f.step}
+          value={f.value}
+          form={formId}
+          class="mc-ef-range"
+          data-mc-ef-range={f.name}
+          data-mc-ef-format={JSON.stringify({ name: f.name })}
+          aria-label={f.label}
+        />
+        <div class="mc-ef-range-marks mono">
+          <span>{f.marks[0]}</span><span>{f.marks[1]}</span><span>{f.marks[2]}</span>
+        </div>
+      </div>
+    );
+  })}
+</div>
+
+<style>
+  .mc-ef-groups { display: flex; flex-direction: column; gap: 22px; }
+  .mc-ef-group { display: flex; flex-direction: column; gap: 8px; }
+  .mc-ef-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    text-transform: uppercase;
+  }
+  .mc-ef-search {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-bg);
+    font-size: 12.5px;
+    color: var(--color-ink);
+  }
+  .mc-ef-search:focus { outline: none; border-color: var(--color-accent); }
+  .mc-ef-list {
+    list-style: none;
+    margin: 0; padding: 0;
+    display: flex; flex-direction: column;
+    gap: 1px;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  .mc-ef-compact .mc-ef-list { max-height: 220px; }
+  .mc-ef-row {
+    display: flex; align-items: center;
+    gap: 9px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--color-ink-muted);
+    transition: background-color 120ms;
+  }
+  .mc-ef-row:hover { background: var(--color-paper); color: var(--color-ink); }
+  .mc-ef-row.is-checked { color: var(--color-ink); font-weight: 500; }
+  .mc-ef-row input[type="checkbox"] {
+    width: 14px; height: 14px;
+    accent-color: var(--color-accent);
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .mc-ef-row-flag { flex-shrink: 0; }
+  .mc-ef-row-logo { flex-shrink: 0; display: inline-flex; }
+  .mc-ef-row-logo .mc-accred {
+    background: transparent;
+    border: 0;
+    padding: 0;
+  }
+  .mc-ef-toggles {
+    list-style: none;
+    margin: 0; padding: 0;
+    display: flex; flex-direction: column;
+    gap: 1px;
+  }
+  .mc-ef-toggle {
+    display: flex; align-items: center;
+    gap: 9px;
+    padding: 7px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12.5px;
+    color: var(--color-ink-muted);
+    transition: background-color 120ms;
+  }
+  .mc-ef-toggle:hover { background: var(--color-paper); color: var(--color-ink); }
+  .mc-ef-toggle.is-checked { color: var(--color-ink); font-weight: 500; }
+  .mc-ef-toggle input[type="checkbox"] {
+    width: 14px; height: 14px;
+    accent-color: var(--color-accent);
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .mc-ef-toggle-label { flex: 1; min-width: 0; }
+  .mc-ef-toggle-hint { font-size: 11px; color: var(--color-ink-subtle); font-weight: 400; }
+  .mc-ef-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mc-ef-row-count { font-size: 11px; color: var(--color-ink-subtle); }
+  .mc-ef-range {
+    -webkit-appearance: none; appearance: none;
+    width: 100%;
+    height: 4px;
+    background: var(--color-border);
+    border-radius: 9999px;
+    outline: none;
+    cursor: pointer;
+  }
+  .mc-ef-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    cursor: pointer;
+    border: 2px solid var(--color-bg);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+  }
+  .mc-ef-range::-moz-range-thumb {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    cursor: pointer;
+    border: 2px solid var(--color-bg);
+  }
+  .mc-ef-range-marks {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-ink-subtle);
+    margin-top: 2px;
+  }
+</style>
+
+<script is:inline>
+  (() => {
+    function init() {
+      // Per-group typeahead.
+      document.querySelectorAll("[data-mc-ef-group]").forEach((group) => {
+        const search = group.querySelector("[data-mc-ef-search]");
+        const items = group.querySelectorAll("[data-mc-ef-item]");
+        if (!search) return;
+        search.addEventListener("input", () => {
+          const q = search.value.trim().toLowerCase();
+          items.forEach((it) => {
+            const name = it.getAttribute("data-mc-ef-name") || "";
+            it.style.display = !q || name.includes(q) ? "" : "none";
+          });
+        });
+      });
+      // Live range readouts. Each readout's data-mc-ef-readout attr holds the input name;
+      // the page can override formatting by listening to the input event itself.
+      document.querySelectorAll("[data-mc-ef-range]").forEach((r) => {
+        const name = r.getAttribute("data-mc-ef-range");
+        const out = document.querySelector("[data-mc-ef-readout='" + name + "']");
+        if (!out) return;
+        const fmt = (v) => {
+          // Default formatter — page-specific format strings are handled via custom event.
+          if (name === "minYears") return v > 0 ? v + "+ yrs" : "Any";
+          if (name === "minRating") return v > 0 ? parseFloat(v).toFixed(1) + "★" : "Any";
+          if (name === "minBeds") return v > 0 ? v + "+ beds" : "Any";
+          if (name === "maxFee") return v > 0 ? "≤ $" + v : "Any";
+          if (name === "establishedAfter") return v > 0 ? "After " + v : "Any";
+          return v > 0 ? String(v) : "Any";
+        };
+        r.addEventListener("input", () => { out.textContent = fmt(r.value); });
+      });
+    }
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
+  })();
+</script>

@@ -1,0 +1,171 @@
+---
+/**
+ * "What's typically included in your quote" — itemised package expectations.
+ *
+ * Two-column layout: included by default vs typically billed separately.
+ * Adds ~250-350 words of trust-signal content per page.
+ */
+
+interface Props {
+  treatmentName: string;
+  hospitalStayDays?: number | null;
+  recoveryDays?: number | null;
+}
+
+const { treatmentName, hospitalStayDays, recoveryDays } = Astro.props;
+
+const INCLUDED = [
+  {
+    label: "Surgeon and anesthesiology fees",
+    detail: "Lead surgeon fee, named consultant assists, anesthesia consultant — all line-itemised in the quote at the named-consultant level, not as a pooled charge.",
+  },
+  {
+    label: "Operating-theatre time and standard implants",
+    detail: "OT time at the agreed hospital tier, single-use sterile consumables, and the implant brand specified in your quote (you'll see Zimmer-Biomet vs DJO vs Smith & Nephew called out by name where applicable).",
+  },
+  {
+    label: hospitalStayDays
+      ? `${hospitalStayDays}-night standard ward stay`
+      : "Standard inpatient ward stay",
+    detail: `Inpatient nursing, routine medications, pathology, in-house imaging, daily consultant rounds, and physiotherapy where indicated — for the duration the surgeon's care plan calls for.`,
+  },
+  {
+    label: "First post-op follow-up consultation",
+    detail: "One in-person follow-up before discharge clearance, plus a written discharge summary in English with imaging and pathology attached.",
+  },
+  {
+    label: "International-patient department support",
+    detail: "Visa-invitation letter, airport pickup, hospital-direct check-in, in-language interpretation where needed, and discharge-day medication walkthrough.",
+  },
+];
+
+const SEPARATE = [
+  {
+    label: "ICU days beyond the standard care plan",
+    detail: "Routine ICU is included; days beyond the surgeon's expected protocol (e.g. unexpected post-op complication) are billed at a published per-night ICU rate. Always ask for the rate at quote stage.",
+  },
+  {
+    label: "Premium implants or upgraded brands",
+    detail: "If the surgeon recommends a premium implant (e.g. ceramic-on-ceramic hip, custom-cut knee, drug-eluting stent variant), the price differential is shown line-item at quote review.",
+  },
+  {
+    label: "Pre-op tests not covered in the package",
+    detail: "Most pre-op blood work, ECG, and chest X-ray are included; advanced imaging (MRI, CT, PET) and cardiac stress tests beyond the package list are billed separately.",
+  },
+  {
+    label: "Extended pharmacy and home-care medications",
+    detail: "Take-home medications past the discharge-day supply, branded substitutes for generics in the package, and specialty therapeutics (e.g. immunotherapy, novel anti-coagulants) are quoted separately.",
+  },
+  {
+    label: "Travel, accommodation, and recovery hotel",
+    detail: `Flights, family member accommodation, and recovery-period stay (typically ${recoveryDays ? `${recoveryDays} days post-discharge` : "1-3 weeks post-discharge"}) are not bundled — but our coordinators can arrange medical-grade hotel rates with the hospital's negotiated partners.`,
+  },
+  {
+    label: "Revisions, second surgeries, complications",
+    detail: "If a surgical revision is medically indicated within the agreed warranty window (varies by procedure and hospital — typically 90 days for cosmetic, 1 year for orthopedic), pricing terms are spelt out before you sign.",
+  },
+];
+---
+
+<section
+  aria-labelledby="whats-included-heading"
+  style="padding: 64px 28px; border-top: 1px solid var(--color-border-soft);"
+>
+  <div class="mx-auto max-w-[1080px]">
+    <p
+      class="mono uppercase"
+      style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);"
+    >
+      Quote anatomy
+    </p>
+    <h2
+      id="whats-included-heading"
+      class="display display-tight mt-3"
+      style="font-size: clamp(1.75rem, 3.5vw, 2.5rem); line-height: 1.05; font-weight: 400; letter-spacing: -0.025em;"
+    >
+      What's <span class="italic-display">typically included</span> in your {treatmentName.toLowerCase()} quote
+    </h2>
+    <p class="serif mt-5" style="font-size: 16.5px; line-height: 1.55; color: var(--color-ink-muted); max-width: 70ch;">
+      Every quote we surface is itemised at this level before you commit. The line below names what you should expect inside the package versus what's typically billed separately — read both sides before comparing prices across hospitals.
+    </p>
+
+    <div
+      class="mt-10 grid gap-8 md:gap-12"
+      style="grid-template-columns: 1fr;"
+    >
+      <div>
+        <div
+          class="flex items-center gap-2"
+          style="padding-bottom: 12px; border-bottom: 1px solid var(--color-ink);"
+        >
+          <span
+            class="inline-flex items-center justify-center"
+            style="width: 22px; height: 22px; border-radius: 50%; background: var(--color-accent-soft); color: var(--color-accent);"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </span>
+          <h3
+            class="serif"
+            style="font-size: 18px; font-weight: 500; color: var(--color-ink); letter-spacing: -0.005em;"
+          >
+            Included in the package
+          </h3>
+        </div>
+        <ul class="mt-2">
+          {INCLUDED.map((it) => (
+            <li class="py-4" style="border-bottom: 1px solid var(--color-border-soft);">
+              <div
+                class="serif"
+                style="font-size: 15.5px; font-weight: 500; color: var(--color-ink); letter-spacing: -0.005em;"
+              >
+                {it.label}
+              </div>
+              <p class="mt-1" style="font-size: 13.5px; line-height: 1.55; color: var(--color-ink-muted);">
+                {it.detail}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div>
+        <div
+          class="flex items-center gap-2"
+          style="padding-bottom: 12px; border-bottom: 1px solid var(--color-ink);"
+        >
+          <span
+            class="inline-flex items-center justify-center"
+            style="width: 22px; height: 22px; border-radius: 50%; background: rgba(182, 70, 62, 0.12); color: var(--color-coral, #B6463E);"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </span>
+          <h3
+            class="serif"
+            style="font-size: 18px; font-weight: 500; color: var(--color-ink); letter-spacing: -0.005em;"
+          >
+            Typically billed separately
+          </h3>
+        </div>
+        <ul class="mt-2">
+          {SEPARATE.map((it) => (
+            <li class="py-4" style="border-bottom: 1px solid var(--color-border-soft);">
+              <div
+                class="serif"
+                style="font-size: 15.5px; font-weight: 500; color: var(--color-ink); letter-spacing: -0.005em;"
+              >
+                {it.label}
+              </div>
+              <p class="mt-1" style="font-size: 13.5px; line-height: 1.55; color: var(--color-ink-muted);">
+                {it.detail}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>

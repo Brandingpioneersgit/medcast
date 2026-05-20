@@ -1,0 +1,49 @@
+---
+type Step = { title: string; description: string };
+type Props = {
+  eyebrow?: string;
+  heading: string;
+  italicWord?: string;
+  steps: Step[];
+  outroNote?: string;
+};
+const { eyebrow = "How this works", heading, italicWord, steps, outroNote } = Astro.props as Props;
+---
+
+<section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+  <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+    <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+      {eyebrow}
+    </div>
+    <h2 class="display mb-10" style="font-size: 32px; line-height: 1.05; letter-spacing: -0.02em;">
+      {italicWord ? (
+        <Fragment>
+          {heading.replace(italicWord, "")}<span style="font-style: italic;">{italicWord}</span>
+        </Fragment>
+      ) : heading}
+    </h2>
+
+    <ol class="space-y-0">
+      {steps.map((s, i) => (
+        <li
+          class="grid items-start gap-5 md:gap-8 py-6"
+          style={`grid-template-columns: 60px 220px 1fr; ${i > 0 ? "border-top: 1px solid var(--color-border-soft);" : ""}`}
+        >
+          <span class="display tnum" style="font-size: 32px; line-height: 1; opacity: 0.35;">
+            {String(i + 1).padStart(2, "0")}
+          </span>
+          <span class="mono uppercase" style="font-size: 12px; letter-spacing: 0.1em; color: var(--color-accent); padding-top: 5px;">
+            {s.title}
+          </span>
+          <span style="font-size: 15.5px; line-height: 1.6;">{s.description}</span>
+        </li>
+      ))}
+    </ol>
+
+    {outroNote && (
+      <p class="mt-8 mono" style="font-size: 13px; color: var(--color-ink-subtle); line-height: 1.6; max-width: 56rem;">
+        {outroNote}
+      </p>
+    )}
+  </div>
+</section>

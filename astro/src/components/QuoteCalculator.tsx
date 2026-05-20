@@ -52,7 +52,7 @@ export default function QuoteCalculator({ treatments, countries, matrix, locale,
   const [hospitals, setHospitals] = useState<HospitalResult[]>([]);
   const [loadingH, setLoadingH] = useState(false);
 
-  const [form, setForm] = useState({ name: "", phone: "", email: "", countryOfOrigin: "", notes: "" });
+  const [form, setForm] = useState({ name: "", phone: "", email: "", countryOfOrigin: "", notes: "", hp: "" });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -113,9 +113,27 @@ export default function QuoteCalculator({ treatments, countries, matrix, locale,
     if (tSlug) void loadHospitals(tSlug, slug);
   }
 
+  function clientValidate(): string | null {
+    const name = form.name.trim();
+    const phone = form.phone.trim();
+    const country = form.countryOfOrigin.trim();
+    if (name.length < 2) return "Please enter your full name (at least 2 characters).";
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 7 || digits.length > 15) {
+      return "Please enter a valid phone number with country code (e.g. +91 800 621 000).";
+    }
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      return "That email doesn't look right — double-check the format.";
+    }
+    if (!country) return "Tell us your country of origin so we can route to the right desk.";
+    return null;
+  }
+
   async function submitLead(e: React.FormEvent) {
     e.preventDefault();
     if (submitting) return;
+    const v = clientValidate();
+    if (v) { setFormError(v); return; }
     setFormError(null);
     setSubmitting(true);
     try {
@@ -134,6 +152,7 @@ export default function QuoteCalculator({ treatments, countries, matrix, locale,
           timeline: TIMELINE_LABELS[timeline],
           notes: form.notes || undefined,
           locale,
+          _hp: form.hp,
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -240,7 +259,7 @@ export default function QuoteCalculator({ treatments, countries, matrix, locale,
 
             {countriesForTreatment.length === 0 ? (
               <p className="mt-6 text-sm text-ink-muted">
-                No priced hospitals on record for this procedure yet. Our case manager can still find you options — skip ahead and we'll reply within 11 minutes.{" "}
+                No priced hospitals on record for this procedure yet. Our case manager can still find you options — skip ahead and we'll reply within a few hours during business hours.{" "}
                 <button type="button" className="underline hover:text-accent" onClick={() => { setCSlug(null); setStep(3); }}>
                   Continue without a destination →
                 </button>
@@ -288,7 +307,7 @@ export default function QuoteCalculator({ treatments, countries, matrix, locale,
             </h2>
 
             {/* Estimate card */}
-            <div className="mt-5 grid gap-4 md:grid-cols-[1fr,1fr]">
+            <div className="mt-5 grid gap-4 md:grid-cols-[1fr_1fr]">
               <div className="rounded-xl border border-border bg-accent-soft p-5">
                 <div className="mono uppercase" style={{ fontSize: 10.5, letterSpacing: "0.14em", color: "var(--color-accent)" }}>
                   Estimated all-in cost
@@ -380,7 +399,27 @@ export default function QuoteCalculator({ treatments, countries, matrix, locale,
                   })()}
                 </div>
               </div>
-              {loadingH && <p className="mt-4 text-sm text-ink-muted">Finding your matches…</p>}
+              {loadingH && (
+                <ul aria-busy="true" aria-live="polite" className="mt-4 grid grid-cols-1 gap-3">
+                  {[0, 1, 2].map((i) => (
+                    <li
+                      key={i}
+                      className="rounded-xl border border-border bg-surface p-3 mc-skeleton-row"
+                      style={{ animationDelay: `${i * 80}ms` }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-14 w-14 shrink-0 rounded-md mc-skel" />
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="mc-skel h-3.5 rounded" style={{ width: "62%" }} />
+                          <div className="mc-skel h-3 rounded" style={{ width: "38%" }} />
+                        </div>
+                        <div className="mc-skel h-3.5 w-20 rounded" />
+                      </div>
+                    </li>
+                  ))}
+                  <li className="sr-only">Finding your matches…</li>
+                </ul>
+              )}
               {!loadingH && hospitals.length === 0 && !selectedCountry && (
                 <p className="mt-4 text-sm text-ink-muted">
                   You haven't picked a destination — send the form below and we'll shortlist across all 9 destinations.
@@ -403,7 +442,7 @@ export default function QuoteCalculator({ treatments, countries, matrix, locale,
                           className="group flex items-center gap-4 rounded-lg border border-border bg-surface p-4 transition-colors hover:border-border-strong"
                         >
                           {h.cover_image_url && (
-                            <img src={h.cover_image_url} alt="" className="h-14 w-14 shrink-0 rounded-md object-cover" loading="lazy" />
+                            <img src={h.cover_image_url} alt="" width={56} height={56} className="h-14 w-14 shrink-0 rounded-md object-cover" loading="lazy" />
                           )}
                           <div className="min-w-0 flex-1">
                             <div className="flex items-baseline justify-between gap-3">
@@ -435,7 +474,21 @@ export default function QuoteCalculator({ treatments, countries, matrix, locale,
 
             {/* Lead form */}
             <form onSubmit={submitLead} className="mt-8 rounded-xl border border-border bg-surface p-5 md:p-6">
-              <h3 className="font-display text-xl">Get a firm quote in 11 minutes</h3>
+              {/* Honeypot — server reads `_hp` and silently drops bot submissions. */}
+              <div aria-hidden="true" style={{ position: "absolute", left: "-9999px", top: "auto", width: 1, height: 1, overflow: "hidden" }}>
+                <label>
+                  Website
+                  <input
+                    type="text"
+                    name="_hp"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={form.hp}
+                    onChange={(e) => setForm({ ...form, hp: e.target.value })}
+                  />
+                </label>
+              </div>
+              <h3 className="font-display text-xl">Get a firm quote within a few hours during business hours</h3>
               <p className="mt-1 text-sm text-ink-muted">
                 We'll match you with a case manager who confirms surgeon availability + an itemised quote. Free, no spam.
               </p>
@@ -494,7 +547,7 @@ export default function QuoteCalculator({ treatments, countries, matrix, locale,
                   {submitting ? "Sending…" : "Get my quote"}
                 </button>
                 <p className="text-[12px] text-ink-subtle">
-                  By submitting you agree to be contacted on WhatsApp. We reply in 11 min on business hours.
+                  By submitting you agree to be contacted on WhatsApp. We reply during business hours.
                 </p>
               </div>
             </form>

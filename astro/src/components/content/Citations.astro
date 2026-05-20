@@ -1,0 +1,71 @@
+---
+/**
+ * Sources & references — outbound citations on YMYL pages (condition,
+ * blog, glossary). Rendered only when the entity has at least one
+ * citation populated; absent otherwise so we never advertise an empty
+ * "Sources" heading.
+ *
+ * Outbound links use rel="noopener nofollow ugc" because the editorial
+ * team can populate URLs that change beyond our control. nofollow keeps
+ * link equity from leaking; noopener is standard tab-safety; ugc makes
+ * the intent explicit ("user/curator-generated content").
+ */
+import type { Citation } from "@/lib/queries";
+
+interface Props {
+  citations: Citation[];
+  /** Heading copy — defaults to "Sources & references". */
+  title?: string;
+}
+
+const { citations, title = "Sources & references" } = Astro.props;
+
+if (citations.length === 0) {
+  // No-op: don't render the section at all when empty.
+}
+
+function formatAccessed(d: Date | null): string {
+  if (!d) return "";
+  try {
+    return new Date(d).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  } catch {
+    return "";
+  }
+}
+---
+
+{citations.length > 0 && (
+  <section class="border-t border-border pt-10 mt-12" style="border-color: var(--color-border);">
+    <div class="mx-auto max-w-[80rem] px-5 md:px-8">
+      <div class="mono uppercase mb-4" style="font-size: 10.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+        {title}
+      </div>
+      <ol class="space-y-3" style="font-size: 14px; line-height: 1.55; color: var(--color-ink);">
+        {citations.map((c, i) => (
+          <li class="flex gap-3 items-start">
+            <span class="mono tnum" style="min-width: 24px; color: var(--color-ink-subtle); font-size: 12px;">
+              {String(i + 1).padStart(2, "0")}
+            </span>
+            <div class="min-w-0">
+              <a
+                href={c.url}
+                rel="noopener nofollow ugc"
+                target="_blank"
+                class="serif"
+                style="color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--color-border);"
+              >
+                {c.title}
+              </a>
+              <div class="mono uppercase mt-1" style="font-size: 10.5px; letter-spacing: 0.08em; color: var(--color-ink-subtle);">
+                {c.source}
+                {c.authors && <span> · {c.authors}</span>}
+                {c.publishedYear && <span> · {c.publishedYear}</span>}
+                {c.accessedAt && <span> · accessed {formatAccessed(c.accessedAt)}</span>}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  </section>
+)}

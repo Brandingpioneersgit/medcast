@@ -9,6 +9,9 @@ import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { getCalculatorMatrix } from "@/lib/queries";
 import { ChevronRight } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 
 export const prerender = false;
 
@@ -34,9 +37,10 @@ const TRUST_POINTS = [
   { eyebrow: "03", title: "Surgeon-specific", body: "Final number accounts for BMI, comorbidities, implant brand, room tier, and stay length." },
 ];
 
-const seoTitle = "Treatment cost calculator — pricing across 9 destinations";
-const seoDescription =
-  "Pick a procedure and destination, see real hospital-reported price bands, shortlist surgeons, and get a human quote in 11 minutes.";
+const { bindChromeT } = await import("@/lib/chrome-i18n");
+const ct = bindChromeT(locale);
+const seoTitle = ct("lp.calculator.title");
+const seoDescription = ct("lp.calculator.desc");
 const path = "/calculator";
 
 const crumbs = breadcrumbJsonLd([
@@ -53,10 +57,10 @@ Astro.response.headers.set(
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -72,13 +76,13 @@ Astro.response.headers.set(
     <section class="pt-12 md:pt-16 pb-10">
       <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
         <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
-          Cost estimate · Transparent pricing
+          {ct("lp.calculator.eyebrow")}
         </p>
         <h1 class="mt-3 display display-tight" style="font-size: clamp(2.25rem, 5vw, 4.5rem); line-height: 0.98; font-weight: 400; letter-spacing: -0.03em;">
-          Treatment <span class="italic-display">cost calculator</span>
+          {ct("lp.calculator.h1a")} <span class="italic-display">{ct("lp.calculator.h1b")}</span>
         </h1>
         <p class="serif mt-5 max-w-[48rem]" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">
-          Price bands below come from real hospital quote sheets on our books — not ad-driven averages. Pick a procedure, pick a destination, and see the shortlist before you share your details.
+          {seoDescription}
         </p>
 
         <div
@@ -121,7 +125,7 @@ Astro.response.headers.set(
             </a>
           </div>
           <QuoteCalculator
-            client:load
+            client:idle
             treatments={treatments}
             countries={countries}
             matrix={matrix}
@@ -162,7 +166,7 @@ Astro.response.headers.set(
 
     <section style="background: var(--color-ink); color: var(--color-bg); padding: 72px 0;">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-        <div class="grid gap-8 lg:grid-cols-[1.5fr,1fr] items-end">
+        <div class="grid gap-8 lg:grid-cols-[1.5fr_1fr] items-end">
           <div>
             <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
               Want a number tied to your case
@@ -194,6 +198,50 @@ Astro.response.headers.set(
         </div>
       </div>
     </section>
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow="Pricing context"
+      heading="Where the numbers come from, and what to do next"
+      lede="The calculator shows ranges. These pages show the underlying data, the methodology, and the routes to a real itemised quote."
+      items={[
+        { eyebrow: "Open data", label: "Global Price Index", href: "/pricing-index", hint: "Median package pricing across 9 destinations · CC BY 4.0 · CSV + JSON downloads." },
+        { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure cost ranges, success rates, recovery time." },
+        { eyebrow: "Browse", label: "9 destination countries", href: "/countries", hint: "Cost-of-care profile, hospital programs, visa playbooks." },
+        { eyebrow: "Browse", label: "15 specialties", href: "/specialties", hint: "Cardiac, oncology, transplant, ortho, fertility, ENT, cosmetic." },
+        { eyebrow: "Triage", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
+        { eyebrow: "Compare", label: "Treatments side-by-side", href: "/compare/treatments", hint: "Cost, stay, recovery columns across procedures." },
+        { eyebrow: "Compare", label: "Destination shootout", href: "/compare/countries", hint: "Hospitals, doctors, treatments, programs per country." },
+        { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "Sourcing, pricing methodology, AI disclosure, corrections SLA." },
+        { eyebrow: "Trust", label: "Accreditation hub", href: "/accreditation", hint: "JCI, NABH, ISO 9001 — what each one means clinically." },
+        { eyebrow: "Reference", label: "Glossary of terms", href: "/glossary", hint: "Plain-language definitions for procedures and travel logistics." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours." },
+        { eyebrow: "Action", label: "Get itemised quotes", href: "/quote", hint: "Three quotes broken into line items — surgeon, OR, implant, stay." },
+      ]}
+    />
+
+    <HowItWorks
+      heading="How the cost calculator works"
+      italicWord="works"
+      steps={[
+        { title: "Pick your procedure", description: "Search 88 procedures across 15 specialties. We use the same procedure naming convention as the WHO ICD-11 catalog and major US billing codes — so 'CABG' and 'coronary artery bypass grafting' both find the same entry." },
+        { title: "Select destination", description: "9 destination countries. Each has a baseline pricing structure reflecting local cost of care, surgeon compensation, and currency. We don't include US/UK/Australia in this calculator (cost of care is fundamentally different)." },
+        { title: "View price band", description: "We show low, mid, and high price ranges by hospital tier within the destination. Mid-range is what most patients actually pay; the low range is bottom-tier programs we'd usually steer away from." },
+        { title: "Get hospital options", description: "If you proceed, we show 3-5 specific hospital options with current pricing. These are itemized quotes — surgeon fee, implant, hospital stay, anesthesia broken out — not package marketing." },
+      ]}
+      outroNote="Calculator shows ranges based on hospital-reported pricing collected over the past 90 days. Final cost depends on your specific case complexity, implant choice, length of stay, and destination program. Get an itemized quote for binding pricing."
+    />
+
+    <WhatToExpect
+      heading="Reading the price ranges honestly"
+      italicWord="honestly"
+      items={[
+        { label: "Low range", description: "Bottom-tier programs in the destination. Often technically capable but lacking some quality infrastructure (limited ICU, less experienced surgeons on rare cases). For routine procedures, sometimes appropriate; for complex cases, we generally steer toward mid-tier." },
+        { label: "Mid range", description: "Where most international patients land. Top-tier programs with substantial international-patient experience, full clinical infrastructure, and transparent pricing. The 'right answer' for most cases." },
+        { label: "High range", description: "Premium programs (often featured Western-affiliate hospitals or new-wave premium destinations). Charge a premium for amenities and concierge experience; clinical outcomes typically not better than mid-range." },
+        { label: "What's not in the range", description: "Travel costs, accommodation, meals, attendant logistics, complications, follow-up imaging, post-op medications. Real total trip cost typically 1.5-2.5× the procedure quote." },
+      ]}
+    />
 
     <SiteFooter locale={locale} />
   </main>

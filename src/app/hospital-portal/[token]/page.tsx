@@ -62,6 +62,8 @@ export default async function HospitalPortalPage({ params }: { params: Promise<{
             bedCapacity: h.bedCapacity ?? null,
             establishedYear: h.establishedYear ?? null,
             airportDistanceKm: h.airportDistanceKm?.toString() ?? "",
+            latitude: h.latitude?.toString() ?? "",
+            longitude: h.longitude?.toString() ?? "",
             coverImageUrl: h.coverImageUrl ?? "",
           }}
         />

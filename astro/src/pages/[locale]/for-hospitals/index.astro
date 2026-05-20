@@ -11,6 +11,8 @@ import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
 import { ChevronRight, Check } from "lucide-react";
 import HowItWorks from "@/components/content/HowItWorks.astro";
 import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import PageCta from "@/components/PageCta.astro";
+import { patientHero, careTeam } from "@/lib/images";
 
 export const prerender = false;
 
@@ -96,6 +98,55 @@ const QUALIFIES = [
       stats={stats}
     />
 
+    {/* Patient origin showcase — partners want to see who's coming */}
+    <section style="padding: 32px 0 0;">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="mono uppercase mb-4" style="font-size: 10.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+          Patients we route
+        </div>
+        <ul class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+          {[
+            { region: "africa", id: 21, label: "Sub-Saharan Africa", flow: "→ India · Turkey", share: "31%" },
+            { region: "middle_east", id: 22, label: "Gulf & Levant", flow: "→ India · UAE · Germany", share: "27%" },
+            { region: "cis", id: 23, label: "CIS & Caucasus", flow: "→ Turkey · India", share: "19%" },
+            { region: "south_asia", id: 24, label: "South Asia", flow: "→ India · Thailand", share: "16%" },
+            { region: "africa", id: 25, label: "North Africa", flow: "→ Turkey · UAE", share: "7%" },
+          ].map((p) => (
+            <li>
+              <article class="paper overflow-hidden" style="padding: 0;">
+                <div class="relative" style="aspect-ratio: 1/1; overflow: hidden;">
+                  <img
+                    src={patientHero(p.id, p.region as any, 360)}
+                    alt={`Patient origin: ${p.label}`}
+                    width="360"
+                    height="360"
+                    loading="lazy"
+                    decoding="async"
+                    style="width: 100%; height: 100%; object-fit: cover;"
+                  />
+                  <div class="image-veil" />
+                  <div class="absolute mono tnum" style="inset-block-start: 10px; inset-inline-end: 10px; font-size: 11px; font-weight: 600; color: #FBF8F1; background: rgba(14,23,19,0.55); padding: 2px 8px; border-radius: 9999px;">
+                    {p.share}
+                  </div>
+                </div>
+                <div style="padding: 12px 14px;">
+                  <div class="serif" style="font-size: 14px; font-weight: 500; line-height: 1.3; color: var(--color-ink);">
+                    {p.label}
+                  </div>
+                  <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.1em; color: var(--color-ink-subtle); margin-top: 4px;">
+                    {p.flow}
+                  </div>
+                </div>
+              </article>
+            </li>
+          ))}
+        </ul>
+        <p class="mono uppercase" style="font-size: 10.5px; letter-spacing: 0.06em; color: var(--color-ink-subtle); margin-top: 14px;">
+          Lead origin distribution · trailing 12 months · stock imagery
+        </p>
+      </div>
+    </section>
+
     <section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft); margin-top: 24px;">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
         <div class="mb-8">
@@ -159,7 +210,7 @@ const QUALIFIES = [
 
     <section style="padding: 72px 0; border-top: 1px solid var(--color-border-soft);">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-        <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+        <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
           <div>
             <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
               03 · Qualifies
@@ -182,7 +233,7 @@ const QUALIFIES = [
 
     <section style="background: var(--color-ink); color: var(--color-bg); padding: 72px 0;">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-        <div class="grid gap-8 lg:grid-cols-[1.5fr,1fr] items-end">
+        <div class="grid gap-8 lg:grid-cols-[1.5fr_1fr] items-end">
           <div>
             <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
               Explore partnership
@@ -253,6 +304,8 @@ const QUALIFIES = [
       ]}
     />
 
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

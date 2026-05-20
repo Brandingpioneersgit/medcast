@@ -10,7 +10,19 @@ function urlFor(locale: string, path: string): string {
   return locale === defaultLocale ? `${SITE_URL}${p === "/" ? "" : p}` : `${SITE_URL}/${locale}${p === "/" ? "" : p}`;
 }
 
-export type SitemapEntry = string | { path: string; lastmod?: Date | string | null };
+export type SitemapEntry =
+  | string
+  | {
+      path: string;
+      lastmod?: Date | string | null;
+      /**
+       * If set, only emit hreflang alternates for these locales (+ x-default).
+       * Default locale is always included. Used when an entity has translation
+       * rows only for a subset of locales — emits noindex'd URLs for the
+       * remaining locales is wasted crawl budget.
+       */
+      translatedLocales?: readonly string[];
+    };
 
 function toLastmod(d: Date | string | null | undefined): string | null {
   if (!d) return null;
@@ -37,7 +49,11 @@ export function buildLocalizedSitemap(
     const entry = typeof e === "string" ? { path: e } : e;
     const lines: string[] = ["  <url>"];
     lines.push(`    <loc>${xmlEscape(urlFor(defaultLocale, entry.path))}</loc>`);
-    for (const l of locales) {
+    const emitLocales =
+      entry.translatedLocales && entry.translatedLocales.length > 0
+        ? Array.from(new Set([defaultLocale, ...entry.translatedLocales]))
+        : (locales as readonly string[]);
+    for (const l of emitLocales) {
       lines.push(`    <xhtml:link rel="alternate" hreflang="${l}" href="${xmlEscape(urlFor(l, entry.path))}"/>`);
     }
     lines.push(`    <xhtml:link rel="alternate" hreflang="x-default" href="${xmlEscape(urlFor(defaultLocale, entry.path))}"/>`);

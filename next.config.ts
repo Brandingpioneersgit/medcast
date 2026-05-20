@@ -93,6 +93,7 @@ const nextConfig: NextConfig = {
   },
   compress: true,
   poweredByHeader: false,
+  staticPageGenerationTimeout: 300,
   experimental: {
     optimizePackageImports: ["lucide-react", "next-intl", "drizzle-orm"],
   },

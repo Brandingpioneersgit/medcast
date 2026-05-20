@@ -6,6 +6,8 @@ import SiteFooter from "@/components/SiteFooter.astro";
 import { db } from "@/lib/db";
 import { countries } from "../../../../../src/lib/db/schema";
 import { eq, sql } from "drizzle-orm";
+import { listLinkableEntities } from "@/lib/queries";
+import { linkifyBlogHtml } from "@/lib/content-linker";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, faqJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
@@ -15,6 +17,8 @@ import TravelLogisticsSection from "@/components/content/TravelLogisticsSection.
 import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
 import HowItWorks from "@/components/content/HowItWorks.astro";
 import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 
 export const prerender = false;
 
@@ -60,6 +64,15 @@ const visaRes = await db.execute(sql`
 const rawVisa: VisaRow | null = Array.from(visaRes as Iterable<VisaRow>)[0] ?? null;
 const visaMap = rawVisa ? await getContent("visa_info", rawVisa.id, locale).catch(() => ({})) : {};
 const visa = rawVisa ? applyTranslated(rawVisa, visaMap, ["overview", "requirements", "tips"]) : null;
+
+const linkables = await listLinkableEntities().catch(() => []);
+function linkifyText(s: string | null | undefined): string {
+  if (!s) return "";
+  const safe = s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return linkifyBlogHtml(`<p>${safe}</p>`, linkables, (p: string) => localizedPath(locale, p)).html;
+}
+const overviewHtml = linkifyText(visa?.overview);
+const tipsHtml = linkifyText(visa?.tips);
 const visaUntranslated = isUntranslated(locale, visaMap);
 
 type CountRow = { c: number };
@@ -157,7 +170,7 @@ Astro.response.headers.set(
 
     {/* Hero */}
     <section style="padding: 56px 28px;">
-      <div class="mx-auto max-w-[1440px] grid gap-10 lg:grid-cols-[2fr,1fr] items-start">
+      <div class="mx-auto max-w-[1440px] grid gap-10 lg:grid-cols-[2fr_1fr] items-start">
         <div>
           <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent); margin-bottom: 12px;">
             Visa playbook
@@ -182,9 +195,7 @@ Astro.response.headers.set(
           </div>
 
           {visa?.overview && (
-            <p class="serif mt-6 max-w-[680px]" style="font-size: 20px; line-height: 1.45; color: var(--color-ink-muted);">
-              {visa.overview}
-            </p>
+            <div class="serif mt-6 max-w-[680px]" style="font-size: 20px; line-height: 1.45; color: var(--color-ink-muted);" set:html={overviewHtml} />
           )}
 
           <div
@@ -244,7 +255,7 @@ Astro.response.headers.set(
     {reqList.length > 0 && (
       <section style="padding: 48px 28px; background: var(--color-paper); border-top: 1px solid var(--color-border);">
         <div class="mx-auto max-w-[1120px]">
-          <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+          <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
             <div>
               <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">Requirements</div>
               <h2 class="display mt-3" style="font-size: 30px; letter-spacing: -0.02em;">What you'll need</h2>
@@ -270,9 +281,7 @@ Astro.response.headers.set(
               <AlertCircle className="h-5 w-5 shrink-0 mt-1" />
               <div>
                 <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent); text-transform: uppercase;">Insider tip</div>
-                <p class="serif mt-2" style="font-size: 17px; line-height: 1.5; color: var(--color-ink);">
-                  {visa.tips}
-                </p>
+                <div class="serif mt-2" style="font-size: 17px; line-height: 1.5; color: var(--color-ink);" set:html={tipsHtml} />
               </div>
             </div>
           </div>
@@ -314,7 +323,7 @@ Astro.response.headers.set(
     </section>
 
     <section style="padding: 56px 28px; border-top: 1px solid var(--color-border);">
-      <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+      <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[0.35fr_1fr]">
         <div>
           <div class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">FAQ</div>
           <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
@@ -352,7 +361,7 @@ Astro.response.headers.set(
     />
 
     <section style="padding: 72px 28px; border-top: 1px solid var(--color-border); background: var(--color-ink); color: var(--color-bg);">
-      <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[1fr,auto] lg:items-end">
+      <div class="mx-auto max-w-[1120px] grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
           <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7;">Ready when you are</div>
           <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.05; letter-spacing: -0.025em; font-weight: 400;">
@@ -409,6 +418,28 @@ Astro.response.headers.set(
       ]}
     />
 
+    <ExploreGrid
+      locale={locale}
+      eyebrow={`${country.name} medical travel`}
+      heading={`Plan the rest of your ${country.name} trip`}
+      lede={`Visa is one piece. These pages cover the destination programs, the hospitals you'll choose between, and the logistics around the medical stay.`}
+      items={[
+        { eyebrow: "Destination", label: `${country.name} hospital hub`, href: `/country/${country.slug}`, hint: `Featured programs, accreditation profile, and pricing benchmarks for ${country.name}.` },
+        { eyebrow: "Hospitals", label: `All hospitals in ${country.name}`, href: `/hospitals?country=${country.slug}`, hint: "Filter by city, specialty, and accreditation." },
+        { eyebrow: "Doctors", label: `Surgeons in ${country.name}`, href: `/doctors?country=${country.slug}`, hint: "Volume-ranked physician directory across specialties." },
+        { eyebrow: "Reference", label: "All destinations", href: "/countries", hint: "Compare 9 medical-travel destinations side by side." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across 88 procedures × 9 destinations." },
+        { eyebrow: "Open data", label: "Pricing index", href: "/pricing-index", hint: "CC BY 4.0 dataset — median package pricing per country × treatment." },
+        { eyebrow: "Compare", label: "Destination shootout", href: "/compare/countries", hint: "Hospitals, doctors, treatments, programs by country." },
+        { eyebrow: "Triage", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + hospital shortlist." },
+        { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure success rates, recovery time, cost ranges." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+        { eyebrow: "Action", label: "Get itemised quotes", href: "/quote", hint: "Three quotes with line-item breakdowns within 48 hours." },
+        { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "How we verify visa rules, source pricing, and disclose AI use." },
+      ]}
+    />
+
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

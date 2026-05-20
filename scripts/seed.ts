@@ -519,7 +519,7 @@ async function seed() {
   // ADMIN USER
   // ============================================================
   const bcrypt = await import("bcryptjs");
-  const hash = await bcrypt.hash("admin123", 10);
+  const hash = await bcrypt.hash("admin123", 12);
   await db.insert(schema.adminUsers).values({
     name: "Admin",
     email: "admin@medcasts.com",

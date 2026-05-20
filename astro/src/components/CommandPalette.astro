@@ -10,11 +10,23 @@
  * the overlay.
  */
 import { type Locale, localizedPath } from "@/lib/i18n";
+import { formatUsd } from "@/lib/currency";
 
 interface Props {
   locale: Locale;
 }
 const { locale } = Astro.props;
+
+// Pre-format the popular-treatment hints in the user's currency. These are
+// static seed values (refresh quarterly with real DB minima), but they should
+// still respect the currency cookie so the ⌘K palette feels coherent.
+const fmt = async (usd: number) => `From ${await formatUsd(Astro.cookies, usd)}`;
+const HINT_CABG = await fmt(3800);
+const HINT_KNEE = await fmt(2900);
+const HINT_HAIR = await fmt(1800);
+const HINT_IVF = await fmt(2400);
+const HINT_GASTRIC = await fmt(4200);
+const HINT_LIVER = await fmt(28000);
 
 // Seed entries — cover the main jumps. A full search can be layered later.
 const items: Array<{ label: string; href: string; hint: string; group: string }> = [
@@ -43,12 +55,12 @@ const items: Array<{ label: string; href: string; hint: string; group: string }>
   { label: "UAE", href: "/country/uae", hint: "Premium Gulf care", group: "Destinations" },
   { label: "Singapore", href: "/country/singapore", hint: "Complex oncology", group: "Destinations" },
 
-  { label: "CABG (Heart Bypass)", href: "/treatment/cabg-heart-bypass", hint: "From $3,800", group: "Popular treatments" },
-  { label: "Knee Replacement", href: "/treatment/total-knee-replacement", hint: "From $2,900", group: "Popular treatments" },
-  { label: "Hair Transplant FUE", href: "/treatment/hair-transplant-fue", hint: "From $1,800", group: "Popular treatments" },
-  { label: "IVF cycle", href: "/treatment/ivf-cycle", hint: "From $2,400", group: "Popular treatments" },
-  { label: "Gastric Sleeve", href: "/treatment/gastric-sleeve", hint: "From $4,200", group: "Popular treatments" },
-  { label: "Liver transplant", href: "/treatment/liver-transplant", hint: "From $28,000", group: "Popular treatments" },
+  { label: "CABG (Heart Bypass)", href: "/treatment/cabg-heart-bypass", hint: HINT_CABG, group: "Popular treatments" },
+  { label: "Knee Replacement", href: "/treatment/total-knee-replacement", hint: HINT_KNEE, group: "Popular treatments" },
+  { label: "Hair Transplant FUE", href: "/treatment/hair-transplant-fue", hint: HINT_HAIR, group: "Popular treatments" },
+  { label: "IVF cycle", href: "/treatment/ivf-cycle", hint: HINT_IVF, group: "Popular treatments" },
+  { label: "Gastric Sleeve", href: "/treatment/gastric-sleeve", hint: HINT_GASTRIC, group: "Popular treatments" },
+  { label: "Liver transplant", href: "/treatment/liver-transplant", hint: HINT_LIVER, group: "Popular treatments" },
 
   { label: "Cardiac Surgery", href: "/specialty/cardiac-surgery", hint: "15 specialties", group: "Specialties" },
   { label: "Oncology", href: "/specialty/oncology", hint: "Tumor boards", group: "Specialties" },

@@ -4,14 +4,17 @@ import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import EntityListingHero from "@/components/EntityListingHero.astro";
-import { listDoctors } from "@/lib/queries";
-import { db } from "@/lib/db";
-import { sql } from "drizzle-orm";
+import Pagination from "@/components/Pagination.astro";
+import { listDoctors, getDoctorFilterOptions } from "@/lib/queries";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, itemListJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, X } from "lucide-react";
 import { doctorPortrait } from "@/lib/images";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import EntityFilters, { type FacetSpec } from "@/components/EntityFilters.astro";
+import PageCta from "@/components/PageCta.astro";
 
 export const prerender = false;
 
@@ -22,20 +25,60 @@ const locale = rawLocale as Locale;
 const url = new URL(Astro.request.url);
 const pageParam = parseInt(url.searchParams.get("page") ?? "1", 10);
 const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+const sortParam = url.searchParams.get("sort");
+const sort: "featured" | "rating" | "experience" | "reviews" =
+  sortParam === "rating" || sortParam === "experience" || sortParam === "reviews"
+    ? sortParam
+    : "featured";
+const countryFilters = url.searchParams.getAll("country").filter(Boolean);
+const specialtyFilters = url.searchParams.getAll("specialty").filter(Boolean);
+const languageFilters = url.searchParams.getAll("language").filter(Boolean);
+const minYearsRaw = parseFloat(url.searchParams.get("minYears") ?? "0");
+const minRatingRaw = parseFloat(url.searchParams.get("minRating") ?? "0");
+const maxFeeRaw = parseFloat(url.searchParams.get("maxFee") ?? "0");
+const minYears = Number.isFinite(minYearsRaw) && minYearsRaw > 0 ? Math.floor(minYearsRaw) : 0;
+const minRating = Number.isFinite(minRatingRaw) && minRatingRaw > 0 ? minRatingRaw : 0;
+const maxFee = Number.isFinite(maxFeeRaw) && maxFeeRaw > 0 ? Math.floor(maxFeeRaw) : 0;
+const videoConsult = url.searchParams.get("videoConsult") === "1";
+const verifiedOnly = url.searchParams.get("verified") === "1";
 
-const [{ rows }, totalDoctors] = await Promise.all([
-  listDoctors({ page }),
-  page === 1
-    ? db
-        .execute<{ n: string }>(sql`SELECT COUNT(*)::text AS n FROM doctors WHERE is_active = true`)
-        .then((r) => Number(Array.from(r)[0]?.n ?? 0))
-        .catch(() => 0)
-    : Promise.resolve(0),
+const [{ rows, total, totalPages }, options] = await Promise.all([
+  listDoctors({
+    page, sort,
+    country: countryFilters,
+    specialty: specialtyFilters,
+    language: languageFilters,
+    minYears, minRating, maxFee,
+    videoConsult, verified: verifiedOnly,
+  }),
+  getDoctorFilterOptions({
+    country: countryFilters,
+    specialty: specialtyFilters,
+    language: languageFilters,
+    minYears, minRating, maxFee,
+    videoConsult, verified: verifiedOnly,
+  }),
 ]);
 
+const hasAnyFilter = countryFilters.length > 0 || specialtyFilters.length > 0 || languageFilters.length > 0
+  || minYears > 0 || minRating > 0 || maxFee > 0 || videoConsult || verifiedOnly;
+const filterCount = countryFilters.length + specialtyFilters.length + languageFilters.length
+  + (minYears > 0 ? 1 : 0) + (minRating > 0 ? 1 : 0) + (maxFee > 0 ? 1 : 0)
+  + (videoConsult ? 1 : 0) + (verifiedOnly ? 1 : 0);
+
+const FLAG_MAP: Record<string, string> = {
+  india: "🇮🇳", turkey: "🇹🇷", thailand: "🇹🇭", uae: "🇦🇪",
+  germany: "🇩🇪", singapore: "🇸🇬", "south-korea": "🇰🇷",
+  malaysia: "🇲🇾", "saudi-arabia": "🇸🇦",
+};
+function countryFlag(s: string | null | undefined): string { return s ? (FLAG_MAP[s] ?? "🌐") : "🌐"; }
+
 const tc = getTranslator(locale, "common");
-const seoTitle = "International specialist doctors";
-const seoDescription = "Browse accredited specialist doctors — cardiologists, oncologists, orthopedic surgeons and more. Book video or in-person consultations.";
+const { bindChromeT } = await import("@/lib/chrome-i18n");
+const ct = bindChromeT(locale);
+const countText = total > 0 ? total.toLocaleString() : "";
+const seoTitle = ct("lp.doctors.title").replace("{count}", countText);
+const seoDescription = ct("lp.doctors.desc").replace("{count}", countText);
 const path = "/doctors";
 
 const crumbs = breadcrumbJsonLd([
@@ -52,30 +95,228 @@ const itemLd = page === 1 && rows.length > 0
     )
   : null;
 
-function monogram(name: string) {
-  return name.replace(/^Dr\.?\s*/i, "").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? "").join("");
-}
 function cleanName(name: string) {
   return name.replace(/^Dr\.?\s*/i, "");
 }
 function firstWord(s: string) { const i = s.indexOf(" "); return i === -1 ? s : s.slice(0, i); }
 function restOfName(s: string) { const i = s.indexOf(" "); return i === -1 ? "" : s.slice(i + 1); }
 
-const stats = page === 1 ? [
-  { l: "Specialists", v: totalDoctors > 0 ? totalDoctors.toLocaleString() : rows.length.toString() },
-  { l: "Hospitals", v: new Set(rows.map((d) => d.hospitalSlug).filter(Boolean)).size.toString() },
+type Patch = {
+  sort?: string;
+  countries?: string[];
+  specialties?: string[];
+  languages?: string[];
+  minYears?: number;
+  minRating?: number;
+  maxFee?: number;
+  videoConsult?: boolean;
+  verified?: boolean;
+  resetAll?: boolean;
+};
+function buildHref(patch: Patch = {}): string {
+  if (patch.resetAll) return localizedPath(locale, path);
+  const params = new URLSearchParams();
+  const s = patch.sort ?? sort;
+  const co = patch.countries ?? countryFilters;
+  const sp = patch.specialties ?? specialtyFilters;
+  const lg = patch.languages ?? languageFilters;
+  const my = patch.minYears !== undefined ? patch.minYears : minYears;
+  const mr = patch.minRating !== undefined ? patch.minRating : minRating;
+  const mf = patch.maxFee !== undefined ? patch.maxFee : maxFee;
+  const vc = patch.videoConsult !== undefined ? patch.videoConsult : videoConsult;
+  const vf = patch.verified !== undefined ? patch.verified : verifiedOnly;
+  if (s && s !== "featured") params.set("sort", s);
+  for (const x of co) params.append("country", x);
+  for (const x of sp) params.append("specialty", x);
+  for (const x of lg) params.append("language", x);
+  if (my > 0) params.set("minYears", String(my));
+  if (mr > 0) params.set("minRating", String(mr));
+  if (mf > 0) params.set("maxFee", String(mf));
+  if (vc) params.set("videoConsult", "1");
+  if (vf) params.set("verified", "1");
+  const qs = params.toString();
+  const base = localizedPath(locale, path);
+  return qs ? `${base}?${qs}` : base;
+}
+
+const SORTS = [
+  { value: "featured", label: "Featured" },
+  { value: "rating", label: "Top rated" },
+  { value: "experience", label: "Most experienced" },
+  { value: "reviews", label: "Most reviewed" },
+];
+
+const activeChips: Array<{ label: string; remove: string }> = [];
+for (const slug of countryFilters) {
+  const c = options.countries.find((x) => x.slug === slug);
+  activeChips.push({
+    label: c?.name ?? slug,
+    remove: buildHref({ countries: countryFilters.filter((x) => x !== slug) }),
+  });
+}
+for (const slug of specialtyFilters) {
+  const sp = options.specialties.find((x) => x.slug === slug);
+  activeChips.push({
+    label: sp?.name ?? slug,
+    remove: buildHref({ specialties: specialtyFilters.filter((x) => x !== slug) }),
+  });
+}
+for (const lang of languageFilters) {
+  activeChips.push({
+    label: lang,
+    remove: buildHref({ languages: languageFilters.filter((x) => x !== lang) }),
+  });
+}
+if (minYears > 0) activeChips.push({ label: `${minYears}+ yrs`, remove: buildHref({ minYears: 0 }) });
+if (minRating > 0) activeChips.push({ label: `${minRating.toFixed(1)}★ +`, remove: buildHref({ minRating: 0 }) });
+if (maxFee > 0) activeChips.push({ label: `≤ $${maxFee.toLocaleString()} fee`, remove: buildHref({ maxFee: 0 }) });
+if (videoConsult) activeChips.push({ label: "Video consult", remove: buildHref({ videoConsult: false }) });
+if (verifiedOnly) activeChips.push({ label: "Licence verified", remove: buildHref({ verified: false }) });
+
+// Smart relax suggestions for empty results.
+const relaxSuggestions: Array<{ label: string; href: string }> = [];
+if (rows.length === 0) {
+  if (countryFilters.length > 0 && specialtyFilters.length > 0) {
+    relaxSuggestions.push({
+      label: `Specialists in ${countryFilters.length === 1 ? (options.countries.find((x) => x.slug === countryFilters[0])?.name ?? countryFilters[0]) : `${countryFilters.length} countries`} — any specialty`,
+      href: buildHref({ specialties: [] }),
+    });
+    relaxSuggestions.push({
+      label: `${specialtyFilters.length === 1 ? (options.specialties.find((x) => x.slug === specialtyFilters[0])?.name ?? specialtyFilters[0]) : `${specialtyFilters.length} specialties`} — anywhere`,
+      href: buildHref({ countries: [] }),
+    });
+  }
+  if (minYears > 0) relaxSuggestions.push({ label: "Drop minimum experience", href: buildHref({ minYears: 0 }) });
+  if (minRating > 0) relaxSuggestions.push({ label: "Drop minimum rating", href: buildHref({ minRating: 0 }) });
+}
+
+const paginationBase = buildHref({});
+const isCleanFacet =
+  countryFilters.length <= 1 && specialtyFilters.length === 0 && minYears === 0 && minRating === 0;
+const shouldNoindex = page > 1 || !isCleanFacet || specialtyFilters.length > 0;
+const canonicalQuery = isCleanFacet && countryFilters.length === 1
+  ? new URLSearchParams({ country: countryFilters[0] }).toString()
+  : "";
+
+function pageHref(p: number): string {
+  const params = new URLSearchParams();
+  if (sort && sort !== "featured") params.set("sort", sort);
+  for (const x of countryFilters) params.append("country", x);
+  for (const x of specialtyFilters) params.append("specialty", x);
+  for (const x of languageFilters) params.append("language", x);
+  if (minYears > 0) params.set("minYears", String(minYears));
+  if (minRating > 0) params.set("minRating", String(minRating));
+  if (maxFee > 0) params.set("maxFee", String(maxFee));
+  if (videoConsult) params.set("videoConsult", "1");
+  if (verifiedOnly) params.set("verified", "1");
+  if (p > 1) params.set("page", String(p));
+  const qs = params.toString();
+  return qs ? `${localeUrl(locale, path)}?${qs}` : localeUrl(locale, path);
+}
+const prevUrl = page > 1 ? pageHref(page - 1) : undefined;
+const nextUrl = page < totalPages ? pageHref(page + 1) : undefined;
+
+const stats = page === 1 && !hasAnyFilter ? [
+  { l: "Specialists", v: total > 0 ? total.toLocaleString() : rows.length.toString() },
+  { l: "Countries", v: options.countries.length.toString() },
+  { l: "Specialties", v: options.specialties.length.toString() },
   { l: "Reply time", v: "9 min" },
-  { l: "Reviewed by", v: "Editorial desk" },
 ] : [];
 
-Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-revalidate=3600");
+// Always render every currently-selected facet — even if cross-facet counts dropped it to 0 —
+// otherwise the user can't uncheck it.
+function ensureSelected(
+  rows: Array<{ slug: string; name: string; n: number }>,
+  selected: string[],
+  fallbackName: (slug: string) => string,
+): Array<{ slug: string; name: string; n: number }> {
+  const present = new Set(rows.map((r) => r.slug));
+  const missing = selected.filter((s) => !present.has(s));
+  if (missing.length === 0) return rows;
+  return [
+    ...rows,
+    ...missing.map((slug) => ({ slug, name: fallbackName(slug), n: 0 })),
+  ];
+}
+const allCountryOptions = ensureSelected(options.countries, countryFilters, (s) => s);
+const allSpecialtyOptions = ensureSelected(options.specialties, specialtyFilters, (s) => s);
+const allLanguageOptions = ensureSelected(options.languages ?? [], languageFilters, (s) => s);
+const countriesWithFlag = allCountryOptions.map((c) => ({ ...c, flag: countryFlag(c.slug) }));
 
-const hasNext = rows.length === 24;
+const facets: FacetSpec[] = [
+  {
+    kind: "toggle",
+    label: "Quick filters",
+    toggles: [
+      { name: "videoConsult", label: "Offers video consult", selected: videoConsult, hint: "remote second opinion" },
+      { name: "verified",     label: "Licence verified",     selected: verifiedOnly,  hint: "checked by our editorial desk" },
+    ],
+  },
+  {
+    kind: "checkbox",
+    label: "Specialty",
+    name: "specialty",
+    options: allSpecialtyOptions,
+    selected: specialtyFilters,
+  },
+  {
+    kind: "checkbox",
+    label: "Country",
+    name: "country",
+    options: countriesWithFlag,
+    selected: countryFilters,
+  },
+  {
+    kind: "checkbox",
+    label: "Languages spoken",
+    name: "language",
+    options: allLanguageOptions,
+    selected: languageFilters,
+  },
+  {
+    kind: "range",
+    label: "Min experience",
+    name: "minYears",
+    min: 0, max: 40, step: 5,
+    value: minYears,
+    readout: minYears > 0 ? `${minYears}+ yrs` : "Any",
+    marks: ["0", "20", "40+"],
+  },
+  {
+    kind: "range",
+    label: "Min rating",
+    name: "minRating",
+    min: 0, max: 5, step: 0.5,
+    value: minRating,
+    readout: minRating > 0 ? `${minRating.toFixed(1)}★` : "Any",
+    marks: ["Any", "3.0", "5.0"],
+  },
+  {
+    kind: "range",
+    label: "Max consultation fee",
+    name: "maxFee",
+    min: 0, max: 500, step: 25,
+    value: maxFee,
+    readout: maxFee > 0 ? `≤ $${maxFee}` : "Any",
+    marks: ["Any", "$250", "$500"],
+  },
+];
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-revalidate=3600");
 ---
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={page > 1} />
+    <HeadMeta
+      title={seoTitle}
+      description={seoDescription}
+      path={path}
+      locale={locale}
+      noindex={shouldNoindex}
+      pathQuery={canonicalQuery}
+      prevUrl={prevUrl}
+      nextUrl={nextUrl}
+    />
     {itemLd && <script type="application/ld+json" is:inline set:html={JSON.stringify(itemLd)} />}
     <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
@@ -94,120 +335,419 @@ const hasNext = rows.length === 24;
     </div>
 
     <EntityListingHero
-      eyebrow={`Specialists · Board-certified physicians`}
-      h1First="Surgeons"
-      h1Italic="& specialists"
-      lede="Board-certified physicians across the world's leading accredited hospitals. Each profile carries real training, volume, and hospital credentials — verified and kept up to date by our editorial desk."
+      eyebrow={ct("lp.doctors.eyebrow").replace("{count}", countText).trim()}
+      h1First={ct("lp.doctors.h1a")}
+      h1Italic={ct("lp.doctors.h1b")}
+      lede={seoDescription}
       stats={stats}
     />
 
-    <section style="padding: 32px 0 88px;">
-      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
-        {rows.length === 0 ? (
-          <div class="paper text-center py-20" style="color: var(--color-ink-muted);">
-            <p class="serif text-lg mb-3">No doctors on this page.</p>
-            <p class="text-sm mb-5">Browse by specialty for a more focused view.</p>
-            <a
-              href={localizedPath(locale, "/surgeons")}
-              class="inline-flex items-center gap-2 font-semibold"
-              style="background: var(--color-ink); color: var(--color-bg); padding: 10px 20px; border-radius: 9999px; font-size: 13px;"
-            >
-              Browse by specialty →
-            </a>
-          </div>
-        ) : (
-          <ul class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {rows.map((d) => {
-              const clean = cleanName(d.name);
-              return (
-                <li>
-                  <a
-                    href={localizedPath(locale, `/doctor/${d.slug}`)}
-                    class="paper group flex h-full flex-col overflow-hidden transition hover:-translate-y-0.5"
-                    style="padding: 0;"
-                  >
-                    <div class="w-full overflow-hidden" style="aspect-ratio: 4/5; background: linear-gradient(135deg, #0A5D54 0%, #0D7C70 60%, #1C2A25 100%);">
-                      <img
-                        src={doctorPortrait({ imageUrl: d.imageUrl, id: d.id }, 400)}
-                        alt={d.name}
-                        width="320"
-                        height="400"
-                        loading="lazy"
-                        decoding="async"
-                        class="h-full w-full object-cover"
-                      />
-                    </div>
-                    <div class="p-5 flex flex-col flex-1">
-                      {d.title && (
-                        <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">
-                          {d.title}
-                        </div>
-                      )}
-                      <div class="serif mt-1" style="font-size: 19px; line-height: 1.2; letter-spacing: -0.005em; color: var(--color-ink);">
-                        {firstWord(clean)}{restOfName(clean) && <> <span class="italic-display">{restOfName(clean)}</span></>}
-                      </div>
-                      {d.qualifications && (
-                        <div class="mt-2 mono text-[10px] uppercase tracking-wider line-clamp-1" style="color: var(--color-ink-subtle);">
-                          {d.qualifications}
-                        </div>
-                      )}
-                      {d.hospitalName && (
-                        <div class="mt-2 text-[12.5px]" style="color: var(--color-ink-muted);">
-                          {d.hospitalName}{d.cityName && <> · {d.cityName}</>}
-                        </div>
-                      )}
-                      <div
-                        class="mt-auto flex items-center justify-between"
-                        style="border-top: 1px dashed var(--color-border); margin-top: 12px; padding-top: 10px;"
-                      >
-                        <div class="flex items-center gap-3 text-[12px]" style="color: var(--color-ink-subtle);">
-                          {d.experienceYears && <span class="tnum">{d.experienceYears}yr</span>}
-                          {d.rating && Number(d.rating) > 0 && (
-                            <span class="tnum inline-flex items-center gap-1">
-                              <span style="color: var(--color-saffron);">★</span>
-                              {Number(d.rating).toFixed(1)}
-                            </span>
-                          )}
-                        </div>
-                        <ChevronRight className="h-3.5 w-3.5 mirror-x text-[var(--color-ink-subtle)] group-hover:text-[var(--color-accent)] transition-colors" />
-                      </div>
-                    </div>
-                  </a>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+    <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-8 pb-20">
+      {/* The filter form lives here once. Inputs in the sidebar AND the mobile drawer
+          reference it via form="doctor-filters" so a single submit covers either UI. */}
+      <form
+        id="doctor-filters"
+        method="get"
+        action={localizedPath(locale, path)}
+        data-mc-doctor-filters
+      >
+        {sort !== "featured" && <input type="hidden" name="sort" value={sort} />}
+      </form>
 
-        <nav class="mt-12 flex items-center justify-center gap-2.5">
-          {page > 1 && (
-            <a
-              href={page === 2 ? localizedPath(locale, path) : `${localizedPath(locale, path)}?page=${page - 1}`}
-              class="mono text-[11px] uppercase tracking-wider"
-              style="border: 1px solid var(--color-border); color: var(--color-ink); padding: 9px 16px; border-radius: 9999px;"
-            >
-              ← Previous
-            </a>
-          )}
-          <span
-            class="display tnum"
-            style="font-size: 14px; padding: 9px 18px; border-radius: 9999px; background: var(--color-ink); color: var(--color-bg);"
+      <div class="grid gap-10 lg:grid-cols-[16rem_1fr] xl:grid-cols-[18rem_1fr]">
+        <aside
+          class="hidden lg:block sticky top-24 self-start"
+          style="max-height: calc(100vh - 7rem); overflow-y: auto; padding-right: 4px;"
+        >
+          <div class="space-y-8">
+            <div class="paper" style="padding: 16px;">
+              <p class="mono uppercase mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
+                Not sure who to see?
+              </p>
+              <p class="text-[13px] mb-3" style="color: var(--color-ink-muted);">
+                Describe your case — we'll match you to a sub-specialist within a few hours during business hours.
+              </p>
+              <a
+                href={localizedPath(locale, "/match-me")}
+                class="mono uppercase inline-block"
+                style="font-size: 11px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 8px 14px; border-radius: 9999px;"
+              >
+                Match me →
+              </a>
+            </div>
+
+            <EntityFilters facets={facets} formId="doctor-filters" variant="sidebar" />
+
+            <noscript>
+              <button
+                type="submit"
+                form="doctor-filters"
+                class="mono uppercase w-full"
+                style="font-size: 11px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 10px 16px; border-radius: 9999px; border: 0;"
+              >
+                Apply filters
+              </button>
+            </noscript>
+          </div>
+        </aside>
+
+        <div class="min-w-0">
+          <h2 class="sr-only">Browse specialists{hasAnyFilter ? " — filtered" : ""}</h2>
+          <div
+            class="mb-6 flex flex-wrap items-center justify-between gap-3 pb-4"
+            style="border-bottom: 1px solid var(--color-border);"
           >
-            Page {page}
-          </span>
-          {hasNext && (
-            <a
-              href={`${localizedPath(locale, path)}?page=${page + 1}`}
-              class="mono text-[11px] uppercase tracking-wider"
-              style="border: 1px solid var(--color-border); color: var(--color-ink); padding: 9px 16px; border-radius: 9999px;"
+            <span class="serif text-[14px]" style="color: var(--color-ink-muted);">
+              <span class="display tnum text-ink">{total.toLocaleString()}</span> specialist{total === 1 ? "" : "s"}
+              {hasAnyFilter && rows.length > 0 && (
+                <span class="ms-2 mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                  Page {page} of {totalPages}
+                </span>
+              )}
+            </span>
+            <button
+              type="button"
+              class="mc-mobile-filter-trigger lg:hidden"
+              data-mc-mobile-filter-trigger
+              aria-haspopup="dialog"
+              aria-expanded="false"
+              aria-controls="doctor-filter-drawer"
             >
-              Next →
-            </a>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                <path d="M2 4h12M4 8h8M6 12h4" stroke-linecap="round" />
+              </svg>
+              <span>Filter{filterCount > 0 ? ` · ${filterCount}` : "s"}</span>
+            </button>
+            <div class="flex items-center gap-1 -mx-1 overflow-x-auto">
+              <span class="mono uppercase px-1 whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Sort
+              </span>
+              {SORTS.map((o) => {
+                const active = sort === o.value;
+                return (
+                  <a
+                    href={buildHref({ sort: o.value })}
+                    class="rounded-full px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap"
+                    style={active
+                      ? "background: var(--color-ink); color: var(--color-bg);"
+                      : "color: var(--color-ink-muted);"}
+                  >
+                    {o.label}
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+
+          {activeChips.length > 0 && (
+            <div class="mb-5 flex flex-wrap items-center gap-2">
+              {activeChips.map((chip) => (
+                <a
+                  href={chip.remove}
+                  class="inline-flex items-center gap-1.5 mono uppercase hover:border-ink"
+                  style="font-size: 10px; letter-spacing: 0.12em; border: 1px solid var(--color-border); background: var(--color-paper); color: var(--color-ink); padding: 6px 12px; border-radius: 9999px;"
+                >
+                  {chip.label}
+                  <X className="h-3 w-3" />
+                </a>
+              ))}
+              <a
+                href={localizedPath(locale, path)}
+                class="mono text-[10px] uppercase tracking-wider hover:text-ink"
+                style="color: var(--color-ink-muted);"
+              >
+                Clear all →
+              </a>
+            </div>
           )}
-        </nav>
+
+          {rows.length === 0 ? (
+            <div class="paper text-center py-20" style="color: var(--color-ink-muted);">
+              <p class="serif text-lg mb-3">No specialists match these filters.</p>
+              <p class="text-sm mb-5">Try relaxing one constraint — or let us match you to a sub-specialist.</p>
+              {relaxSuggestions.length > 0 && (
+                <ul class="flex flex-wrap items-center justify-center gap-2 mb-5" style="list-style: none; padding: 0;">
+                  {relaxSuggestions.map((s) => (
+                    <li>
+                      <a
+                        href={s.href}
+                        class="mono uppercase"
+                        style="font-size: 10.5px; letter-spacing: 0.12em; border: 1px solid var(--color-border); padding: 8px 14px; border-radius: 9999px; color: var(--color-ink); background: var(--color-bg); display: inline-block;"
+                      >
+                        {s.label} →
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div class="flex items-center justify-center gap-3">
+                <a
+                  href={localizedPath(locale, path)}
+                  class="mono uppercase"
+                  style="font-size: 11px; letter-spacing: 0.12em; border: 1px solid var(--color-border); padding: 9px 16px; border-radius: 9999px; color: var(--color-ink);"
+                >
+                  Clear all filters
+                </a>
+                <a
+                  href={localizedPath(locale, "/match-me")}
+                  class="mono uppercase"
+                  style="font-size: 11px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 9px 16px; border-radius: 9999px;"
+                >
+                  Match me →
+                </a>
+              </div>
+            </div>
+          ) : (
+            <ul class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {rows.map((d) => {
+                const clean = cleanName(d.name);
+                return (
+                  <li>
+                    <a
+                      href={localizedPath(locale, `/doctor/${d.slug}`)}
+                      class="paper group flex h-full flex-col overflow-hidden transition hover:-translate-y-0.5"
+                      style="padding: 0;"
+                    >
+                      <div class="w-full overflow-hidden" style="aspect-ratio: 4/5; background: linear-gradient(135deg, #0A5D54 0%, #0D7C70 60%, #1C2A25 100%);">
+                        <img
+                          src={doctorPortrait({ imageUrl: d.imageUrl, id: d.id }, 400)}
+                          alt={d.name}
+                          width="320"
+                          height="400"
+                          loading="lazy"
+                          decoding="async"
+                          class="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div class="p-5 flex flex-col flex-1">
+                        {d.title && (
+                          <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">
+                            {d.title}
+                          </div>
+                        )}
+                        <div class="serif mt-1" style="font-size: 19px; line-height: 1.2; letter-spacing: -0.005em; color: var(--color-ink);">
+                          {firstWord(clean)}{restOfName(clean) && <> <span class="italic-display">{restOfName(clean)}</span></>}
+                        </div>
+                        {d.qualifications && (
+                          <div class="mt-2 mono text-[10px] uppercase tracking-wider line-clamp-1" style="color: var(--color-ink-subtle);">
+                            {d.qualifications}
+                          </div>
+                        )}
+                        {d.hospitalName && (
+                          <div class="mt-2 text-[12.5px] line-clamp-1" style="color: var(--color-ink-muted);">
+                            {d.hospitalName}{d.cityName && <> · {d.cityName}</>}
+                          </div>
+                        )}
+                        <div
+                          class="mt-auto flex items-center justify-between"
+                          style="border-top: 1px dashed var(--color-border); margin-top: 12px; padding-top: 10px;"
+                        >
+                          <div class="flex items-center gap-3 text-[12px]" style="color: var(--color-ink-subtle);">
+                            {d.experienceYears && <span class="tnum">{d.experienceYears}yr</span>}
+                            {d.rating && Number(d.rating) > 0 && (
+                              <span class="tnum inline-flex items-center gap-1">
+                                <span style="color: var(--color-saffron);">★</span>
+                                {Number(d.rating).toFixed(1)}
+                              </span>
+                            )}
+                            {d.reviewCount && d.reviewCount > 0 && (
+                              <span class="tnum" style="color: var(--color-ink-subtle); opacity: 0.7;">
+                                ({d.reviewCount.toLocaleString()})
+                              </span>
+                            )}
+                          </div>
+                          <ChevronRight className="h-3.5 w-3.5 mirror-x text-[var(--color-ink-subtle)] group-hover:text-[var(--color-accent)] transition-colors" />
+                        </div>
+                      </div>
+                    </a>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          <Pagination page={page} totalPages={totalPages} basePath={paginationBase} />
+        </div>
       </div>
     </section>
 
+    {/* MOBILE DRAWER — same DoctorFilters component, same form id */}
+    <dialog
+      id="doctor-filter-drawer"
+      class="mc-doctor-drawer lg:hidden"
+      data-mc-doctor-drawer
+      aria-label="Filter specialists"
+    >
+      <div class="mc-doctor-drawer-panel">
+        <div class="mc-doctor-drawer-head">
+          <div>
+            <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+              Filter
+            </div>
+            <div class="serif" style="font-size: 17px; letter-spacing: -0.005em;">
+              {total.toLocaleString()} specialist{total === 1 ? "" : "s"}
+            </div>
+          </div>
+          <button
+            type="button"
+            data-mc-doctor-close
+            aria-label="Close filters"
+            class="mono"
+            style="width: 38px; height: 38px; line-height: 1; font-size: 22px; background: none; border: 1px solid var(--color-border); border-radius: 9999px; color: var(--color-ink); cursor: pointer;"
+          >×</button>
+        </div>
+        <div class="mc-doctor-drawer-body">
+          <EntityFilters facets={facets} formId="doctor-filters" variant="drawer" />
+        </div>
+        <div class="mc-doctor-drawer-foot">
+          {hasAnyFilter ? (
+            <a
+              href={localizedPath(locale, path)}
+              class="mono uppercase"
+              style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-ink-muted); padding: 12px 16px; border: 1px solid var(--color-border); border-radius: 9999px;"
+            >Clear all</a>
+          ) : (
+            <span></span>
+          )}
+          <button
+            type="submit"
+            form="doctor-filters"
+            class="font-semibold"
+            style="background: var(--color-ink); color: var(--color-bg); padding: 13px 22px; border-radius: 9999px; font-size: 14px; border: 0; cursor: pointer;"
+          >Show {total.toLocaleString()} result{total === 1 ? "" : "s"}</button>
+        </div>
+      </div>
+    </dialog>
+
+    <HowItWorks
+      heading="How to evaluate surgeons in this directory"
+      italicWord="this directory"
+      eyebrow="Surgeon-evaluation guide"
+      steps={[
+        { title: "Match specialty + sub-specialty", description: "Don't search 'cardiac surgeon' — search 'mitral valve repair surgeon'. Sub-specialty experience matters more than general specialty designation." },
+        { title: "Check personal annual case volume", description: "Look for surgeons doing 100+ of your specific procedure annually. Below 50/year, complications rates measurably increase across most procedures." },
+        { title: "Verify credentials independently", description: "Board certification, fellowship training, hospital privileges, peer-reviewed publications. Cross-check on PubMed, Google Scholar, ORCID." },
+        { title: "Read patient testimonials carefully", description: "Look for specifics — procedure name, date, outcomes at 6/12 months. Generic 'great surgeon' testimonials are less informative than specific case stories." },
+        { title: "Schedule video consultation", description: "Before booking, talk to the surgeon directly (not just sales). 20-30 minutes is enough to assess communication quality and case-specific fit." },
+      ]}
+      outroNote="Programs vary in surgeon assignment. Confirm before any procedure that the specific surgeon you've consulted with is the one performing your case."
+    />
+
+    <WhatToExpect
+      heading="What predicts a good surgical outcome"
+      italicWord="good surgical outcome"
+      items={[
+        { label: "Volume", description: "Surgeon volume on the specific procedure is the strongest single predictor of outcomes — across cardiac, orthopedic, urologic, and oncologic surgery." },
+        { label: "Sub-specialty match", description: "A 'spine surgeon' doing 100 procedures a year — but spread across cervical, lumbar, deformity, oncologic — is different from a deformity-focused surgeon doing 100 scoliosis cases. Match precisely." },
+        { label: "Multidisciplinary integration", description: "Best surgeons work in programs with strong tumor boards (oncology), heart teams (cardiac), or spine conferences. Solo cowboys often produce average outcomes." },
+        { label: "Communication quality", description: "Surgeons who explain trade-offs clearly, set realistic expectations, and respond to questions are typically the same ones who manage complications well." },
+        { label: "Honest self-assessment", description: "The best surgeons know what they're not great at. Surgeons who claim equal expertise across many sub-specialties are sometimes the ones with shallow expertise everywhere." },
+        { label: "Continuity post-op", description: "Surgeons who personally follow up post-op are typically more invested in outcomes than those who hand off to junior staff or leave it entirely to coordinators." },
+      ]}
+    />
+
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>
+
+<style>
+  .mc-mobile-filter-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 1px solid var(--color-border);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    padding: 8px 14px;
+    border-radius: 9999px;
+    cursor: pointer;
+    font-family: var(--font-mono, ui-monospace, monospace);
+  }
+  @media (min-width: 1024px) {
+    .mc-mobile-filter-trigger { display: none; }
+  }
+  .mc-doctor-drawer {
+    border: 0; padding: 0; margin: 0;
+    width: 100%; height: 100%;
+    max-width: none; max-height: none;
+    background: rgba(14, 23, 19, 0.4);
+  }
+  .mc-doctor-drawer:not([open]) { display: none; }
+  .mc-doctor-drawer::backdrop { background: rgba(14, 23, 19, 0.4); }
+  .mc-doctor-drawer-panel {
+    position: fixed;
+    inset: auto 0 0 0;
+    background: var(--color-bg);
+    border-top-left-radius: 14px;
+    border-top-right-radius: 14px;
+    max-height: 85vh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    box-shadow: 0 -10px 30px rgba(14,23,19,0.18);
+  }
+  .mc-doctor-drawer-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding: 18px 20px;
+    border-bottom: 1px solid var(--color-border-soft);
+  }
+  .mc-doctor-drawer-body {
+    overflow-y: auto;
+    padding: 18px 20px 4px;
+  }
+  .mc-doctor-drawer-foot {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--color-border-soft);
+  }
+</style>
+
+<script is:inline>
+  (() => {
+    const form = document.querySelector("[data-mc-doctor-filters]");
+    const trigger = document.querySelector("[data-mc-mobile-filter-trigger]");
+    const drawer = document.querySelector("[data-mc-doctor-drawer]");
+
+    // Auto-submit on change (debounced) — keeps URL canonical & SSR-cacheable.
+    if (form) {
+      let timer;
+      form.addEventListener("change", (e) => {
+        // Don't autosubmit on text typing inside the typeahead search inputs.
+        const t = e.target;
+        if (t && t.matches && t.matches("[data-mc-ef-search]")) return;
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          // Strip zero-valued ranges before submission so URLs stay clean.
+          form.querySelectorAll("input[type=range]").forEach((r) => {
+            if (parseFloat(r.value) === 0) r.disabled = true;
+          });
+          form.submit();
+        }, 200);
+      });
+    }
+
+    // Drawer open/close.
+    if (trigger && drawer) {
+      const closes = drawer.querySelectorAll("[data-mc-doctor-close]");
+      const open = () => {
+        try { drawer.showModal(); } catch (_) { drawer.setAttribute("open", ""); }
+        trigger.setAttribute("aria-expanded", "true");
+        document.body.style.overflow = "hidden";
+      };
+      const close = () => {
+        try { drawer.close(); } catch (_) { drawer.removeAttribute("open"); }
+        trigger.setAttribute("aria-expanded", "false");
+        document.body.style.overflow = "";
+      };
+      trigger.addEventListener("click", open);
+      closes.forEach((b) => b.addEventListener("click", close));
+      drawer.addEventListener("click", (e) => {
+        if (e.target === drawer) close();
+      });
+    }
+  })();
+</script>

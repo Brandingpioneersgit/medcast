@@ -23,6 +23,7 @@ export async function generateMetadata({ params }: Props) {
     description: "Compare leading specialists by experience, patients treated, ratings, and consultation fee — filter by specialty.",
     path: "/compare/doctors",
     locale,
+    noindex: true,
   });
 }
 

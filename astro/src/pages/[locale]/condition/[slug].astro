@@ -6,7 +6,9 @@ import SiteFooter from "@/components/SiteFooter.astro";
 import LastUpdated from "@/components/LastUpdated.astro";
 import PhotoBlock from "@/components/PhotoBlock.astro";
 import SpecialtyBanner from "@/components/SpecialtyBanner.astro";
-import { getConditionBySlug, listFaqsFor, getReviewerFor, listCitationsFor } from "@/lib/queries";
+import { getConditionBySlug, listFaqsFor, getReviewerFor, listCitationsFor, listLinkableEntities } from "@/lib/queries";
+import { linkifyBlogHtml } from "@/lib/content-linker";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 import Citations from "@/components/content/Citations.astro";
 import { getConditionSections } from "@/lib/content-sections";
 import ReviewedBy from "@/components/ReviewedBy.astro";
@@ -19,6 +21,8 @@ import {
   getContentBatch,
   applyTranslated,
   isUntranslated,
+  localizedTitle,
+  localizedDescription,
 } from "@/lib/translate";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
@@ -33,32 +37,34 @@ if (!isLocale(rawLocale)) return Astro.redirect(`/en/condition/${slug}`, 308);
 if (!slug) return new Response("Not found", { status: 404 });
 
 const locale = rawLocale as Locale;
-const conditionRaw = await getConditionBySlug(slug);
+const [conditionRaw, linkables] = await Promise.all([
+  getConditionBySlug(slug),
+  listLinkableEntities().catch(() => [] as Awaited<ReturnType<typeof listLinkableEntities>>),
+]);
 if (!conditionRaw) return new Response(`Not found: ${slug}`, { status: 404 });
 
 const tc = getTranslator(locale, "common");
 
-const conditionMap = await getContent("condition", conditionRaw.id, locale);
-const condition = applyTranslated(conditionRaw, conditionMap, ["name", "description"]);
-
 const specialtyIds = (conditionRaw.specialties ?? []).map((cs) => cs.specialty.id);
-const specialtyMap = await getContentBatch("specialty", specialtyIds, locale);
+const treatmentIds = (conditionRaw.treatments ?? []).map((ct) => ct.treatment.id);
+const [conditionMap, specialtyMap, treatmentMap, faqRows, reviewer, citations, conditionContentRow] = await Promise.all([
+  getContent("condition", conditionRaw.id, locale),
+  getContentBatch("specialty", specialtyIds, locale),
+  getContentBatch("treatment", treatmentIds, locale),
+  listFaqsFor("condition", conditionRaw.id),
+  getReviewerFor("condition", conditionRaw.id),
+  listCitationsFor("condition", conditionRaw.id),
+  getConditionSections(conditionRaw.id),
+]);
+const condition = applyTranslated(conditionRaw, conditionMap, ["name", "description"]);
 const conditionSpecialties = (conditionRaw.specialties ?? []).map((cs) => ({
   ...cs,
   specialty: applyTranslated(cs.specialty, specialtyMap[cs.specialty.id] ?? {}, ["name"]),
 }));
-
-const treatmentIds = (conditionRaw.treatments ?? []).map((ct) => ct.treatment.id);
-const treatmentMap = await getContentBatch("treatment", treatmentIds, locale);
 const conditionTreatments = (conditionRaw.treatments ?? []).map((ct) => ({
   ...ct,
   treatment: applyTranslated(ct.treatment, treatmentMap[ct.treatment.id] ?? {}, ["name"]),
 }));
-
-const faqRows = await listFaqsFor("condition", conditionRaw.id);
-const reviewer = await getReviewerFor("condition", conditionRaw.id);
-const citations = await listCitationsFor("condition", conditionRaw.id);
-const conditionContentRow = await getConditionSections(conditionRaw.id);
 const condSections = conditionContentRow?.content_sections ?? null;
 const faqSchema = faqRows.length > 0 ? faqJsonLd(faqRows) : null;
 
@@ -68,6 +74,24 @@ const descriptionParas = (condition.description ?? "")
   .filter(Boolean);
 const descriptionLede = descriptionParas[0] ?? null;
 const descriptionRest = descriptionParas.slice(1);
+
+const filteredLinkables = linkables.filter(
+  (e) => !(e.kind === "condition" && e.slug === conditionRaw.slug),
+);
+const descriptionLedeHtml = descriptionLede
+  ? linkifyBlogHtml(
+      `<p>${descriptionLede.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`,
+      filteredLinkables,
+      (p: string) => localizedPath(locale, p),
+    ).html
+  : "";
+const descriptionRestHtml = descriptionRest.length > 0
+  ? linkifyBlogHtml(
+      descriptionRest.map((p) => `<p>${p.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`).join("\n"),
+      filteredLinkables,
+      (p: string) => localizedPath(locale, p),
+    ).html
+  : "";
 
 function firstWord(s: string) { const i = s.indexOf(" "); return i === -1 ? s : s.slice(0, i); }
 function restOfName(s: string) { const i = s.indexOf(" "); return i === -1 ? "" : s.slice(i + 1); }
@@ -86,11 +110,15 @@ const stats = [
   severityLabel ? { l: "Typical severity", v: severityLabel } : null,
 ].filter(Boolean) as Array<{ l: string; v: string }>;
 
-const seoTitle = condition.metaTitle ?? condition.name;
-const seoDescription =
-  condition.metaDescription ??
-  descriptionLede?.slice(0, 160) ??
-  `${condition.name} — overview, treatment paths, and ${conditionTreatments.length} options across accredited hospitals.`;
+const seoFallbackDesc = `${condition.name} — overview, treatment paths, and ${conditionTreatments.length} options across accredited hospitals.`;
+const seoTitle = localizedTitle(locale, condition.name, condition.metaTitle, conditionMap);
+const seoDescription = localizedDescription(
+  locale,
+  descriptionLede,
+  condition.metaDescription,
+  seoFallbackDesc,
+  conditionMap,
+);
 
 const path = `/condition/${slug}`;
 const url = localeUrl(locale, path);
@@ -169,7 +197,7 @@ Astro.response.headers.set(
             </span>
           )}
         </div>
-        <div class="grid gap-10 lg:grid-cols-[1.5fr,1fr] lg:gap-14 mt-3">
+        <div class="grid gap-10 lg:grid-cols-[1.5fr_1fr] lg:gap-14 mt-3">
           <div>
             <h1
               class="display display-tight"
@@ -179,9 +207,7 @@ Astro.response.headers.set(
               <span class="italic-display">{restOfName(condition.name) || " "}</span>
             </h1>
             {descriptionLede && (
-              <p class="serif mt-5 max-w-[44rem]" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">
-                {descriptionLede}
-              </p>
+              <div class="serif mt-5 max-w-[44rem]" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);" set:html={descriptionLedeHtml} />
             )}
             <LastUpdated updated={conditionRaw.updatedAt} locale={locale} class="mt-5" />
             <div class="mt-3"><ReviewedBy reviewer={reviewer} locale={locale} /></div>
@@ -237,7 +263,7 @@ Astro.response.headers.set(
     {descriptionRest.length > 0 && (
       <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft); margin-top: 56px;">
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-          <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+          <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                 About {condition.name.toLowerCase()}
@@ -246,9 +272,7 @@ Astro.response.headers.set(
                 What to know
               </h2>
             </div>
-            <div class="prose-editorial">
-              {descriptionRest.map((p) => (<p>{p}</p>))}
-            </div>
+            <div class="prose-editorial" set:html={descriptionRestHtml} />
           </div>
         </div>
       </section>
@@ -260,7 +284,7 @@ Astro.response.headers.set(
         {condSections.workupBeforeYouFly && condSections.workupBeforeYouFly.length > 0 && (
           <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
             <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-              <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+              <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
                 <div>
                   <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                     Pre-flight workup
@@ -285,7 +309,7 @@ Astro.response.headers.set(
         {condSections.whenToSecondOpinion && condSections.whenToSecondOpinion.length > 0 && (
           <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft);">
             <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-              <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+              <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
                 <div>
                   <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                     Second opinion
@@ -310,7 +334,7 @@ Astro.response.headers.set(
         {condSections.patientPrompts && condSections.patientPrompts.length > 0 && (
           <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
             <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-              <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+              <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
                 <div>
                   <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                     Talking to your doctor
@@ -358,7 +382,7 @@ Astro.response.headers.set(
         {condSections.expectedPrognosis && (
           <section style="padding: 48px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
             <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-              <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+              <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
                 <div>
                   <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                     Outlook
@@ -465,7 +489,7 @@ Astro.response.headers.set(
       return (
         <section id="workup" style="padding: 72px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper); scroll-margin-top: 140px;">
           <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-            <div class="grid gap-10 lg:grid-cols-[0.4fr,1fr]">
+            <div class="grid gap-10 lg:grid-cols-[0.4fr_1fr]">
               <div>
                 <div class="mono uppercase" style={`font-size: 11px; letter-spacing: 0.14em; color: ${tone.eyebrow};`}>
                   Diagnostic workup
@@ -619,7 +643,7 @@ Astro.response.headers.set(
     {faqRows.length > 0 && (
       <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft);">
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-          <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+          <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                 04 · FAQ
@@ -646,7 +670,7 @@ Astro.response.headers.set(
 
     <section style="background: var(--color-ink); color: var(--color-bg); padding: 72px 0;">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-        <div class="grid gap-8 lg:grid-cols-[1.5fr,1fr] items-end">
+        <div class="grid gap-8 lg:grid-cols-[1.5fr_1fr] items-end">
           <div>
             <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
               Not sure which treatment fits
@@ -701,6 +725,31 @@ Astro.response.headers.set(
         "WHO ICD-11 condition classification",
         "National medical society treatment protocols",
         "JCI accreditation registry",
+      ]}
+    />
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow={`${condition.name}`}
+      heading={`Continue evaluating ${condition.name.toLowerCase()} care`}
+      lede={`Condition overview is one entry. These hubs route the same care decision via specialty, surgeon, treatment, and destination — including the doctors actively treating ${condition.name.toLowerCase()}.`}
+      items={[
+        { eyebrow: "Surgeons", label: `Doctors treating ${condition.name}`, href: `/condition/${conditionRaw.slug}/doctors`, hint: "Volume-ranked specialists across all relevant specialties." },
+        ...(conditionSpecialties[0]?.specialty?.slug && conditionSpecialties[0]?.specialty?.name
+          ? [{ eyebrow: "Specialty", label: `${conditionSpecialties[0].specialty.name} hub`, href: `/specialty/${conditionSpecialties[0].specialty.slug}`, hint: `Programs, surgeons, hospitals across ${conditionSpecialties[0].specialty.name.toLowerCase()}.` }] : []),
+        ...(conditionSpecialties[1]?.specialty?.slug && conditionSpecialties[1]?.specialty?.name
+          ? [{ eyebrow: "Specialty", label: `${conditionSpecialties[1].specialty.name}`, href: `/specialty/${conditionSpecialties[1].specialty.slug}`, hint: "Alternative specialty involved in care for this condition." }] : []),
+        ...(conditionTreatments[0]?.treatment?.slug && conditionTreatments[0]?.treatment?.name
+          ? [{ eyebrow: "Procedure", label: `${conditionTreatments[0].treatment.name}`, href: `/treatment/${conditionTreatments[0].treatment.slug}`, hint: "First-line treatment with success rates, recovery, hospital pricing." }] : []),
+        ...(conditionTreatments[1]?.treatment?.slug && conditionTreatments[1]?.treatment?.name
+          ? [{ eyebrow: "Procedure", label: `${conditionTreatments[1].treatment.name}`, href: `/treatment/${conditionTreatments[1].treatment.slug}`, hint: "Alternative treatment path with cost and recovery data." }] : []),
+        { eyebrow: "Browse", label: "All 79 conditions", href: "/conditions", hint: "Map condition → specialty → first-line treatment." },
+        { eyebrow: "Browse", label: "9 destination countries", href: "/countries", hint: "Cost-of-care profiles, hospital programs, visa playbooks." },
+        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, and pricing." },
+        { eyebrow: "Compare", label: "Doctor comparison", href: "/compare/doctors", hint: "Surgeons compared on volume, fees, languages, video-consult availability." },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
       ]}
     />
 

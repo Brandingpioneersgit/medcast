@@ -1,6 +1,6 @@
 # Translation Handoff (manual hand-translation project)
 
-Drop-in context for resuming the manual translation work in a fresh Claude session.
+Drop-in context for resuming the manual translation work in a fresh session.
 **Last session ended:** 2026-05-05 after Wave 2.11.
 **User intent:** "manually translate all pages and content" — Path B (full-parity for top entities + code wiring + content). Explicitly NOT API/AI-translated; quality bar is hand-curated.
 

@@ -5,13 +5,16 @@ import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import { db } from "@/lib/db";
 import { sql } from "drizzle-orm";
-import { lookupReviewerByName } from "@/lib/queries";
+import { lookupReviewerByName, listLinkableEntities } from "@/lib/queries";
+import { linkifyBlogHtml } from "@/lib/content-linker";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { getContent, getContentBatch, applyTranslated, isUntranslated } from "@/lib/translate";
 import { ChevronRight } from "lucide-react";
 import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 
 export const prerender = false;
 
@@ -104,6 +107,15 @@ const qaLd = {
 Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
 
 const answerParas = post.answer.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+
+const linkables = await listLinkableEntities().catch(() => []);
+const answerHtml = answerParas.length > 0
+  ? linkifyBlogHtml(
+      answerParas.map((p) => `<p>${p.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`).join("\n"),
+      linkables,
+      (p: string) => localizedPath(locale, p),
+    ).html
+  : "";
 ---
 
 <BaseLayout locale={locale}>
@@ -170,13 +182,11 @@ const answerParas = post.answer.split(/\n\s*\n/).map((p) => p.trim()).filter(Boo
           )}
         </div>
 
-        <div class="prose-editorial mt-10" style="max-width: none;">
-          {answerParas.map((p) => <p>{p}</p>)}
-        </div>
+        <div class="prose-editorial mt-10" style="max-width: none;" set:html={answerHtml} />
 
         {relatedRows.length > 0 && (
           <section class="mt-12 pt-10" style="border-top: 1px solid var(--color-border);">
-            <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">Related questions</div>
+            <h2 class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">Related questions</h2>
             <ul class="mt-5 grid gap-2">
               {relatedRows.map((r) => (
                 <li>
@@ -213,6 +223,27 @@ const answerParas = post.answer.split(/\n\s*\n/).map((p) => p.trim()).filter(Boo
       </div>
     </section>
 
+    <ExploreGrid
+      locale={locale}
+      eyebrow="Related help"
+      heading="Where to take this question next"
+      lede="A general answer, then specifics. These hubs let you turn the question into a treatment plan, a destination shortlist, or an itemised quote."
+      items={[
+        { eyebrow: "Library", label: "All Q&A entries", href: "/qa", hint: "30 patient-style questions answered with concrete numbers and ranges." },
+        { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure success rates, recovery time, hospital pricing." },
+        { eyebrow: "Browse", label: "15 specialties", href: "/specialties", hint: "Cardiac, oncology, transplant, ortho, fertility — every program." },
+        { eyebrow: "Browse", label: "79 conditions", href: "/conditions", hint: "Map condition → specialty → first-line treatment." },
+        { eyebrow: "Browse", label: "9 destination countries", href: "/countries", hint: "Cost-of-care profiles, hospital programs, visa playbooks." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported price bands across procedures × destinations." },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions → specialty + destination + 3 hospitals." },
+        { eyebrow: "Reference", label: "Glossary of terms", href: "/glossary", hint: "Plain-language definitions for jargon mentioned in answers." },
+        { eyebrow: "Trust", label: "Medical board", href: "/medical-board", hint: "Named clinicians who review Q&A content." },
+        { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "How questions are sourced, answered, and reviewed." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours." },
+        { eyebrow: "Action", label: "Get itemised quotes", href: "/quote", hint: "Three quotes broken into line items within 48 hours — no charge." },
+      ]}
+    />
+
     {/* EEAT signals */}
     <MethodologyBlock locale={locale}
       curationNote={`Q&A answers are written by the editorial team and reviewed by the medical panel against current clinical guidelines. Answers are general medical-travel guidance, not personal medical advice — your treating clinician confirms what's right for your case.`}
@@ -223,6 +254,8 @@ const answerParas = post.answer.split(/\n\s*\n/).map((p) => p.trim()).filter(Boo
       ]}
     />
 
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

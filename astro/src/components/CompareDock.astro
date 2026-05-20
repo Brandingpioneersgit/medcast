@@ -6,6 +6,20 @@ const { compareHref } = Astro.props;
 ---
 
 <div
+  id="mc-compare-toast"
+  data-compare-toast
+  role="status"
+  aria-live="polite"
+  hidden
+  class="fixed inset-x-0 z-40 pointer-events-none flex justify-center"
+  style="bottom: 96px;"
+>
+  <div class="rounded-full bg-ink text-bg shadow-lg px-4 py-2.5 mono uppercase pointer-events-auto" style="font-size: 11px; letter-spacing: 0.1em; background: var(--color-ink); color: var(--color-bg);">
+    Max 4 hospitals · remove one first
+  </div>
+</div>
+
+<div
   id="mc-compare-dock"
   role="region"
   aria-label="Hospitals selected for comparison"
@@ -47,19 +61,45 @@ const { compareHref } = Astro.props;
     var EVENT = "mc:compare:change";
     var MAX = 4;
 
+    // Defensive: localStorage can be tampered with by extensions or the
+    // user. Whitelist slug shape (lowercase a-z 0-9 hyphens, 1-80 chars),
+    // de-dupe, and cap at MAX. Anything outside the whitelist is dropped
+    // silently — never injected into URL params later.
+    var SLUG_RE = /^[a-z0-9][a-z0-9-]{0,79}$/;
     function load() {
       try {
         var raw = localStorage.getItem(KEY);
         if (!raw) return [];
         var arr = JSON.parse(raw);
-        return Array.isArray(arr) ? arr.filter(function (x) { return typeof x === "string"; }) : [];
+        if (!Array.isArray(arr)) return [];
+        var out = [];
+        var seen = Object.create(null);
+        for (var i = 0; i < arr.length && out.length < MAX; i++) {
+          var v = arr[i];
+          if (typeof v !== "string") continue;
+          if (!SLUG_RE.test(v)) continue;
+          if (seen[v]) continue;
+          seen[v] = true;
+          out.push(v);
+        }
+        return out;
       } catch (e) {
         return [];
       }
     }
     function save(list) {
-      try { localStorage.setItem(KEY, JSON.stringify(list)); } catch (e) {}
-      window.dispatchEvent(new CustomEvent(EVENT, { detail: list }));
+      // Sanitize the list one more time on write so a corrupted runtime
+      // value can't poison the persisted state.
+      var clean = [];
+      var seen = Object.create(null);
+      for (var i = 0; i < list.length && clean.length < MAX; i++) {
+        var v = list[i];
+        if (typeof v !== "string" || !SLUG_RE.test(v) || seen[v]) continue;
+        seen[v] = true;
+        clean.push(v);
+      }
+      try { localStorage.setItem(KEY, JSON.stringify(clean)); } catch (e) {}
+      window.dispatchEvent(new CustomEvent(EVENT, { detail: clean }));
     }
 
     var dock = document.getElementById("mc-compare-dock");
@@ -117,6 +157,15 @@ const { compareHref } = Astro.props;
       }
     }
 
+    var toast = document.getElementById("mc-compare-toast");
+    var toastTimer = null;
+    function flashToast() {
+      if (!toast) return;
+      toast.hidden = false;
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { toast.hidden = true; }, 2400);
+    }
+
     document.addEventListener("click", function (e) {
       var target = e.target instanceof Element ? e.target.closest("[data-compare-toggle]") : null;
       if (!target) return;
@@ -129,7 +178,10 @@ const { compareHref } = Astro.props;
       if (idx !== -1) {
         list.splice(idx, 1);
       } else {
-        if (list.length >= MAX) return;
+        if (list.length >= MAX) {
+          flashToast();
+          return;
+        }
         list.push(slug);
       }
       save(list);

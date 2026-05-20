@@ -9,6 +9,9 @@ import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
 import { ChevronRight } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import PageCta from "@/components/PageCta.astro";
 
 export const prerender = false;
 
@@ -60,10 +63,10 @@ const maxHospitals = rows.reduce((m, r) => Math.max(m, r.hospital_count), 0);
       path={path}
       locale={locale}
     />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -92,8 +95,7 @@ const maxHospitals = rows.reduce((m, r) => Math.max(m, r.hospital_count), 0);
               <tr style="border-bottom: 1px solid var(--color-ink);">
                 <th class="text-start mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal; width: 36px;">#</th>
                 <th class="text-start mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Destination</th>
-                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Scale</th>
-                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Hospitals</th>
+                <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal; min-width: 220px;">Hospitals · scale</th>
                 <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Specialists</th>
                 <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Treatments</th>
                 <th class="text-start mono uppercase whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); padding: 16px 20px; font-weight: normal;">Cities</th>
@@ -102,7 +104,16 @@ const maxHospitals = rows.reduce((m, r) => Math.max(m, r.hospital_count), 0);
             </thead>
             <tbody>
               {rows.map((r, i) => {
-                const widthPct = maxHospitals > 0 ? Math.max(14, (r.hospital_count / maxHospitals) * 100) : 50;
+                const widthPct = maxHospitals > 0 ? Math.max(8, (r.hospital_count / maxHospitals) * 100) : 50;
+                const topRow = rows[0];
+                const ratioVsTop = topRow && i > 0 && topRow.hospital_count > 0
+                  ? r.hospital_count / topRow.hospital_count
+                  : null;
+                const ratioLabel = i === 0
+                  ? "Top destination"
+                  : ratioVsTop != null
+                    ? `${ratioVsTop.toFixed(2)}× ${topRow.name.toLowerCase()}`
+                    : null;
                 return (
                   <tr
                     class="group"
@@ -123,11 +134,18 @@ const maxHospitals = rows.reduce((m, r) => Math.max(m, r.hospital_count), 0);
                         </a>
                       </div>
                     </td>
-                    <td style="padding: 16px 20px; min-width: 120px;">
-                      <div class="h-1 rounded-full" style={`background: var(--color-accent); opacity: 0.85; width: ${widthPct}%;`} />
-                    </td>
-                    <td class="display tnum whitespace-nowrap" style="font-size: 16px; color: var(--color-ink); padding: 16px 20px;">
-                      {r.hospital_count.toLocaleString()}
+                    <td style="padding: 16px 20px;">
+                      <div class="display tnum" style="font-size: 22px; line-height: 1; letter-spacing: -0.015em; color: var(--color-ink);">
+                        {r.hospital_count.toLocaleString()}
+                      </div>
+                      <div class="mt-2 h-1.5 rounded-full" style="background: var(--color-border-soft); overflow: hidden;">
+                        <div class="h-full rounded-full" style={`background: var(--color-accent); width: ${widthPct}%;`} />
+                      </div>
+                      {ratioLabel && (
+                        <div class="mono mt-1.5" style="font-size: 10px; letter-spacing: 0.06em; color: var(--color-ink-subtle);">
+                          {ratioLabel}
+                        </div>
+                      )}
                     </td>
                     <td class="tnum whitespace-nowrap" style="font-size: 14px; color: var(--color-ink-muted); padding: 16px 20px;">
                       {r.doctor_count.toLocaleString()}
@@ -161,6 +179,33 @@ const maxHospitals = rows.reduce((m, r) => Math.max(m, r.hospital_count), 0);
       </div>
     </section>
 
+    <HowItWorks
+      heading="How to compare destinations"
+      italicWord="destinations"
+      eyebrow="Country comparison"
+      steps={[
+        { title: "Match procedure to destination strength", description: "India for cardiac/transplant/orthopedic, Turkey for cosmetic/dental/hair, Korea for liver/GI, Germany for complex re-do, UAE for premium." },
+        { title: "Compare cost-quality at top tier", description: "Top-tier Indian programs cost 60-80% less than US for comparable quality. Mid-tier across destinations is where the variation gets dramatic." },
+        { title: "Factor in travel logistics", description: "Long-haul flight + visa complexity + cultural distance affect total trip experience. India is a different proposition for European patients than Turkey." },
+        { title: "Consider climate and recovery comfort", description: "Recovery in 40°C summer or monsoon affects quality of life. Match destination season to your trip window." },
+        { title: "Evaluate program-specific outcomes", description: "Country is a starting frame; the actual decision is at the program level. Drill down to specific hospitals + surgeons." },
+      ]}
+    />
+
+    <WhatToExpect
+      heading="Decision factors that actually matter"
+      italicWord="actually matter"
+      items={[
+        { label: "Procedure-specific fit", description: "Match your specific procedure to the destination known for it. India for CABG; Korea for liver transplant; Turkey for hair transplant." },
+        { label: "Surgeon volume", description: "Top destinations have many programs at varying volume. Within a country, your specific surgeon's case volume matters more than the country reputation." },
+        { label: "Recovery support quality", description: "Post-op infrastructure (hotel near hospital, telemedicine follow-up, insurance for complications) varies widely. Premium destinations charge for it; budget destinations sometimes lack it." },
+        { label: "Communication and language", description: "Destinations with strong international-patient infrastructure (Singapore, Thailand, UAE) make first-time medical-tourism easier. India top-tier programs are also strong but vary." },
+        { label: "Total cost (not procedure cost)", description: "Trip cost is typically 1.5-2.5× procedure quote. Premium destinations narrow the savings vs domestic." },
+      ]}
+    />
+
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

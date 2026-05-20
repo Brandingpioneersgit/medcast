@@ -15,6 +15,7 @@ export async function generateMetadata({ params }: Props) {
     description: "Track every step of your treatment abroad: enquiry, second opinion, quote, visa, arrival, surgery, recovery and follow-up. Enter your journey code to continue.",
     path: "/journey",
     locale,
+    noindex: true,
   });
 }
 

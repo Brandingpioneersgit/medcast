@@ -56,3 +56,9 @@ next-env.d.ts
 # local IDE / assistant state
 .claude/
 AGENTS.md
+
+# astro generated cache/types
+.astro/
+
+# one-off local scripts (contains secrets, never commit)
+scripts/archive/

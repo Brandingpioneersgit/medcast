@@ -14,6 +14,7 @@ import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
 import { ChevronRight } from "lucide-react";
 import HowItWorks from "@/components/content/HowItWorks.astro";
 import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import PageCta from "@/components/PageCta.astro";
 
 export const prerender = false;
 
@@ -225,6 +226,8 @@ function successTone(pct: number | null): string {
       ]}
     />
 
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

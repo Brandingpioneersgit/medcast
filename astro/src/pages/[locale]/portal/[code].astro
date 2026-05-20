@@ -5,7 +5,12 @@ import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { localeUrl } from "@/lib/seo";
-import { ChevronRight } from "lucide-react";
+import { db } from "@/lib/db";
+import {
+  appointments, hospitals, doctors, treatments,
+} from "../../../../../src/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { ChevronRight, AlertCircle } from "lucide-react";
 
 export const prerender = false;
 
@@ -17,30 +22,142 @@ if (!code) return Astro.redirect(localizedPath(rawLocale as Locale, "/portal"), 
 const locale = rawLocale as Locale;
 const upperCode = code.toUpperCase();
 
-// Phase-1 portal: this is a placeholder that would hit a real case-lookup API.
-// For now we show a "case not found" or "coordinator will contact you" state.
+// Look up the real appointment by code (case-insensitive).
+// Codes are short alphanumeric strings issued at booking time.
+type ApptRow = {
+  id: number;
+  code: string;
+  status: string;
+  patientName: string;
+  patientCountry: string | null;
+  preferredDate: Date;
+  confirmedDate: Date | null;
+  consultationType: string | null;
+  notes: string | null;
+  assignedTo: string | null;
+  cancellationReason: string | null;
+  hospitalName: string | null;
+  hospitalSlug: string | null;
+  doctorName: string | null;
+  doctorSlug: string | null;
+  treatmentName: string | null;
+  treatmentSlug: string | null;
+};
 
-const STAGES = [
-  { k: "01", t: "Records received", d: "Clinical notes + imaging uploaded.", done: true },
-  { k: "02", t: "Panel review", d: "Medical panel matching + second-opinion routing.", done: true },
-  { k: "03", t: "Hospital match", d: "3 hospitals confirmed with itemized pricing.", done: false, active: true },
-  { k: "04", t: "Visa + travel", d: "Invitation letter, visa app, flights, accommodation.", done: false },
-  { k: "05", t: "Arrival + procedure", d: "Airport pickup, admission, surgery.", done: false },
-  { k: "06", t: "Recovery + follow-up", d: "Discharge, 90-day telemedicine.", done: false },
-];
+let appt: ApptRow | null = null;
+try {
+  const rows = await db
+    .select({
+      id: appointments.id,
+      code: appointments.code,
+      status: appointments.status,
+      patientName: appointments.patientName,
+      patientCountry: appointments.patientCountry,
+      preferredDate: appointments.preferredDate,
+      confirmedDate: appointments.confirmedDate,
+      consultationType: appointments.consultationType,
+      notes: appointments.notes,
+      assignedTo: appointments.assignedTo,
+      cancellationReason: appointments.cancellationReason,
+      hospitalName: hospitals.name,
+      hospitalSlug: hospitals.slug,
+      doctorName: doctors.name,
+      doctorSlug: doctors.slug,
+      treatmentName: treatments.name,
+      treatmentSlug: treatments.slug,
+    })
+    .from(appointments)
+    .leftJoin(hospitals, eq(hospitals.id, appointments.hospitalId))
+    .leftJoin(doctors, eq(doctors.id, appointments.doctorId))
+    .leftJoin(treatments, eq(treatments.id, appointments.treatmentId))
+    .where(eq(appointments.code, upperCode))
+    .limit(1);
+  appt = (rows[0] as ApptRow | undefined) ?? null;
+} catch (err) {
+  console.error("[portal/code] lookup failed:", err);
+}
+
+// Map appointment.status → user-readable timeline. The real data model only
+// tracks the consultation lifecycle (requested → confirmed → completed). The
+// previous version showed a fake 6-stage hospital-tourism flow with no DB
+// backing — that's gone. Patients now see only what's actually true.
+type Stage = { label: string; description: string; state: "done" | "active" | "pending" };
+function stagesFor(s: string | null | undefined, hasConfirmed: boolean): Stage[] {
+  const status = (s ?? "requested").toLowerCase();
+  if (status === "cancelled") {
+    return [
+      { label: "Inquiry submitted", description: "We received your request.", state: "done" },
+      { label: "Cancelled", description: "This appointment is no longer active.", state: "active" },
+    ];
+  }
+  return [
+    {
+      label: "Inquiry submitted",
+      description: "We received your request and your coordinator was notified.",
+      state: "done",
+    },
+    {
+      label: hasConfirmed ? "Consultation confirmed" : "Awaiting confirmation",
+      description: hasConfirmed
+        ? "Your slot is booked. You'll receive a reminder + joining details ahead of the date."
+        : "Your coordinator is matching you to the right specialist. Typically within 24 hours.",
+      state: status === "requested" ? "active" : "done",
+    },
+    {
+      label: status === "rescheduled" ? "Rescheduled" : "Consultation",
+      description:
+        status === "completed"
+          ? "Consultation complete. Continue with your coordinator for hospital quotes + travel planning."
+          : status === "rescheduled"
+            ? "We had to move your slot. New date in your email + below."
+            : "Held on the date below.",
+      state: status === "completed" ? "done" : status === "rescheduled" || hasConfirmed ? "active" : "pending",
+    },
+    {
+      label: "Next steps",
+      description:
+        status === "completed"
+          ? "Hospital quotes, surgeon shortlist, visa + travel coordination — your coordinator drives this."
+          : "Quotes + visa + travel get planned after the consultation.",
+      state: status === "completed" ? "active" : "pending",
+    },
+  ];
+}
+
+const stages: Stage[] = appt ? stagesFor(appt.status, !!appt.confirmedDate) : [];
 
 const path = `/portal/${upperCode}`;
 const url = localeUrl(locale, path);
+
+function fmtDate(d: Date | null | undefined): string {
+  if (!d) return "";
+  return new Date(d).toLocaleDateString(locale === "en" ? "en-GB" : locale, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+function fmtTime(d: Date | null | undefined): string {
+  if (!d) return "";
+  return new Date(d).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
 
 Astro.response.headers.set("Cache-Control", "private, no-store");
 ---
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={`Case ${upperCode}`} description={`Status of case ${upperCode}`} path={path} locale={locale} noindex />
+    <HeadMeta
+      title={appt ? `Case ${upperCode} — ${appt.patientName}` : `Case ${upperCode} not found`}
+      description={appt ? `Status of case ${upperCode}` : `Case ${upperCode} not recognised`}
+      path={path}
+      locale={locale}
+      noindex
+    />
   </Fragment>
 
-  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} />
 
     <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
@@ -51,74 +168,187 @@ Astro.response.headers.set("Cache-Control", "private, no-store");
       </nav>
     </div>
 
-    <section style="padding: 56px 28px;">
-      <div class="mx-auto max-w-[960px]">
-        <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">Case lookup</div>
-        <h1 class="display display-tight mt-3" style="font-size: clamp(2rem, 4.5vw, 3rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;">
-          Case <span class="mono tnum" style="font-size: 0.7em; letter-spacing: 0.05em; color: var(--color-accent-strong);">{upperCode}</span>
-        </h1>
-        <p class="serif mt-5" style="font-size: 17px; line-height: 1.5; color: var(--color-ink-muted); max-width: 680px;">
-          Your case stage updates in real-time. Your coordinator's direct line is below — they reply fastest on WhatsApp.
-        </p>
-
-        {/* Timeline */}
-        <section class="mt-10">
-          <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Case timeline</div>
-          <ol class="mt-4">
-            {STAGES.map((s, i) => (
-              <li
-                class="grid items-start gap-5"
-                style={`grid-template-columns: 44px 1fr; padding: 18px 0; border-top: ${i > 0 ? "1px solid var(--color-border-soft)" : "1px solid var(--color-ink)"};`}
-              >
-                <div class="mono tnum" style={`font-size: 18px; color: ${s.done ? "var(--color-accent)" : s.active ? "var(--color-ink)" : "var(--color-ink-subtle)"}; font-weight: ${s.active ? "600" : "500"};`}>
-                  {s.done ? "✓" : s.k}
-                </div>
-                <div>
-                  <div class="serif" style={`font-size: 18px; font-weight: ${s.active ? "600" : "500"}; color: ${s.done ? "var(--color-ink-muted)" : s.active ? "var(--color-ink)" : "var(--color-ink-subtle)"}; letter-spacing: -0.015em; ${s.done ? "text-decoration: line-through;" : ""}`}>
-                    {s.t}
-                  </div>
-                  <div class="mt-1" style="font-size: 14px; color: var(--color-ink-muted);">{s.d}</div>
-                  {s.active && (
-                    <div class="mono mt-2 inline-flex items-center gap-1.5" style="font-size: 11px; color: var(--color-accent);">
-                      <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--color-accent); display: inline-block;"></span>
-                      In progress
-                    </div>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        {/* Support */}
-        <section class="mt-10 paper" style="padding: 28px;">
-          <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Your coordinator</div>
-          <p class="serif mt-2" style="font-size: 16.5px; line-height: 1.5;">
-            Can't see what you expected? Your coordinator has the full picture — WhatsApp is usually fastest. Fresh case notifications land within minutes of any update.
+    {!appt && (
+      <section style="padding: 56px 28px;">
+        <div class="mx-auto max-w-[640px]">
+          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-coral);">Not found</div>
+          <h1 class="display display-tight mt-3" style="font-size: clamp(2rem, 4.5vw, 3rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;">
+            We couldn't find case <span class="mono tnum" style="font-size: 0.7em; letter-spacing: 0.05em; color: var(--color-coral);">{upperCode}</span>
+          </h1>
+          <p class="serif mt-5" style="font-size: 17px; line-height: 1.5; color: var(--color-ink-muted);">
+            Double-check the code in your confirmation email — codes are case-insensitive and around 6 characters. If you can't find it, your coordinator can recover it from your phone or email.
           </p>
-          <div class="flex flex-wrap gap-3 mt-4">
+
+          <div class="mt-7 paper" style="padding: 22px 24px;">
+            <div class="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" style={{color: "var(--color-coral)"}} />
+              <div>
+                <div class="serif" style="font-size: 15.5px; color: var(--color-ink);">A few things to try</div>
+                <ul class="mt-2 serif" style="font-size: 14px; line-height: 1.55; color: var(--color-ink-muted);">
+                  <li>· Search your inbox for "MedCasts" — your code is on the booking confirmation.</li>
+                  <li>· If you booked from a destination's portal, the code may differ from your inquiry reference.</li>
+                  <li>· Need help? Recover it via the link below.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-3 mt-6">
             <a
-              href={localizedPath(locale, "/contact?topic=portal-help&code=" + upperCode)}
+              href={localizedPath(locale, "/portal")}
+              class="inline-flex items-center gap-2"
+              style="border: 1px solid var(--color-border); color: var(--color-ink); padding: 11px 18px; font-size: 14px; border-radius: 9999px;"
+            >
+              Try a different code
+            </a>
+            <a
+              href={localizedPath(locale, `/contact?topic=code-recovery&code=${upperCode}`)}
               class="inline-flex items-center gap-2 font-semibold"
               style="background: var(--color-accent); color: #FFF; padding: 11px 18px; font-size: 14px; border-radius: 9999px;"
             >
-              Message coordinator <ChevronRight className="h-3.5 w-3.5 mirror-x" />
-            </a>
-            <a
-              href={localizedPath(locale, "/emergency")}
-              class="inline-flex items-center gap-2 font-semibold"
-              style="background: transparent; color: var(--color-coral); border: 1px solid var(--color-coral); padding: 11px 18px; font-size: 14px; border-radius: 9999px;"
-            >
-              Emergency desk
+              Recover my code <ChevronRight className="h-3.5 w-3.5 mirror-x" />
             </a>
           </div>
-        </section>
-
-        <div class="mt-8 text-center" style="font-size: 12.5px; color: var(--color-ink-subtle);">
-          Wrong case? <a href={localizedPath(locale, "/portal")} class="underline">Look up a different code</a>
         </div>
-      </div>
-    </section>
+      </section>
+    )}
+
+    {appt && (
+      <section style="padding: 56px 28px;">
+        <div class="mx-auto max-w-[960px]">
+          <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">
+            Case · {appt.status === "cancelled" ? "Cancelled" : appt.status === "completed" ? "Completed" : appt.status === "confirmed" ? "Confirmed" : appt.status === "rescheduled" ? "Rescheduled" : "In progress"}
+          </div>
+          <h1 class="display display-tight mt-3" style="font-size: clamp(2rem, 4.5vw, 3rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;">
+            <span class="italic-display">{appt.patientName}</span>
+            <span class="mono tnum" style="font-size: 0.45em; letter-spacing: 0.05em; color: var(--color-accent-strong); margin-inline-start: 0.5em; vertical-align: 0.2em;">{upperCode}</span>
+          </h1>
+
+          {/* Consultation summary block */}
+          <div class="mt-7 paper grid gap-6 md:grid-cols-2" style="padding: 26px 28px;">
+            <div>
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-ink-subtle);">Consultation</div>
+              <div class="serif mt-1.5" style="font-size: 17px; color: var(--color-ink);">
+                {appt.confirmedDate ? fmtDate(appt.confirmedDate) : fmtDate(appt.preferredDate)}
+              </div>
+              <div class="mono mt-0.5 tnum" style="font-size: 13px; color: var(--color-ink-muted);">
+                {appt.confirmedDate ? fmtTime(appt.confirmedDate) : fmtTime(appt.preferredDate)} · {appt.consultationType ?? "in-person"}
+              </div>
+              {!appt.confirmedDate && (
+                <div class="mono mt-2" style="font-size: 11px; color: var(--color-accent);">
+                  ● Awaiting confirmation
+                </div>
+              )}
+            </div>
+            <div>
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-ink-subtle);">Care team</div>
+              {appt.doctorName && appt.doctorSlug && (
+                <div class="serif mt-1.5">
+                  <a
+                    href={localizedPath(locale, `/doctor/${appt.doctorSlug}`)}
+                    style="font-size: 17px; color: var(--color-ink); text-decoration: underline; text-decoration-color: var(--color-border); text-underline-offset: 3px;"
+                  >
+                    {appt.doctorName}
+                  </a>
+                </div>
+              )}
+              {appt.hospitalName && appt.hospitalSlug && (
+                <div class="mt-1" style="font-size: 13.5px; color: var(--color-ink-muted);">
+                  at <a href={localizedPath(locale, `/hospital/${appt.hospitalSlug}`)} class="hover:text-accent" style="color: var(--color-ink-muted); text-decoration: underline; text-decoration-color: var(--color-border); text-underline-offset: 3px;">{appt.hospitalName}</a>
+                </div>
+              )}
+              {appt.treatmentName && appt.treatmentSlug && (
+                <div class="mt-1" style="font-size: 13.5px; color: var(--color-ink-muted);">
+                  for <a href={localizedPath(locale, `/treatment/${appt.treatmentSlug}`)} class="hover:text-accent" style="color: var(--color-ink-muted); text-decoration: underline; text-decoration-color: var(--color-border); text-underline-offset: 3px;">{appt.treatmentName}</a>
+                </div>
+              )}
+              {appt.assignedTo && (
+                <div class="mono mt-3" style="font-size: 11px; letter-spacing: 0.04em; color: var(--color-ink-subtle);">
+                  Coordinator · <span style="color: var(--color-ink);">{appt.assignedTo}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {appt.cancellationReason && (
+            <div class="mt-5 paper" style="padding: 18px 22px; border-color: var(--color-coral); background: rgba(232, 90, 79, 0.06);">
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-coral);">Cancellation reason</div>
+              <p class="serif mt-1.5" style="font-size: 14.5px; color: var(--color-ink); line-height: 1.5;">
+                {appt.cancellationReason}
+              </p>
+            </div>
+          )}
+
+          {appt.notes && (
+            <div class="mt-5 paper" style="padding: 18px 22px;">
+              <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-ink-subtle);">Coordinator notes</div>
+              <p class="serif mt-1.5" style="font-size: 14.5px; color: var(--color-ink-muted); line-height: 1.55; white-space: pre-line;">
+                {appt.notes}
+              </p>
+            </div>
+          )}
+
+          {/* Timeline */}
+          <section class="mt-10">
+            <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Status</div>
+            <ol class="mt-4">
+              {stages.map((s, i) => (
+                <li
+                  class="grid items-start gap-5"
+                  style={`grid-template-columns: 44px 1fr; padding: 18px 0; border-top: ${i > 0 ? "1px solid var(--color-border-soft)" : "1px solid var(--color-ink)"};`}
+                >
+                  <div class="mono tnum" style={`font-size: 18px; color: ${s.state === "done" ? "var(--color-accent)" : s.state === "active" ? "var(--color-ink)" : "var(--color-ink-subtle)"}; font-weight: ${s.state === "active" ? "600" : "500"};`}>
+                    {s.state === "done" ? "✓" : String(i + 1).padStart(2, "0")}
+                  </div>
+                  <div>
+                    <div class="serif" style={`font-size: 18px; font-weight: ${s.state === "active" ? "600" : "500"}; color: ${s.state === "done" ? "var(--color-ink-muted)" : s.state === "active" ? "var(--color-ink)" : "var(--color-ink-subtle)"}; letter-spacing: -0.015em; ${s.state === "done" ? "text-decoration: line-through; text-decoration-color: var(--color-border);" : ""}`}>
+                      {s.label}
+                    </div>
+                    <div class="mt-1" style="font-size: 14px; color: var(--color-ink-muted); line-height: 1.5;">{s.description}</div>
+                    {s.state === "active" && (
+                      <div class="mono mt-2 inline-flex items-center gap-1.5" style="font-size: 11px; color: var(--color-accent);">
+                        <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--color-accent); display: inline-block;"></span>
+                        Current step
+                      </div>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
+
+          {/* Support */}
+          <section class="mt-10 paper" style="padding: 28px;">
+            <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle); text-transform: uppercase;">Need help?</div>
+            <p class="serif mt-2" style="font-size: 16.5px; line-height: 1.5;">
+              {appt.assignedTo
+                ? `${appt.assignedTo} has the full picture on your case — WhatsApp is usually fastest.`
+                : "Your coordinator has the full picture — WhatsApp is usually fastest."}
+            </p>
+            <div class="flex flex-wrap gap-3 mt-4">
+              <a
+                href={localizedPath(locale, `/contact?topic=portal-help&code=${upperCode}`)}
+                class="inline-flex items-center gap-2 font-semibold"
+                style="background: var(--color-accent); color: #FFF; padding: 11px 18px; font-size: 14px; border-radius: 9999px;"
+              >
+                Message coordinator <ChevronRight className="h-3.5 w-3.5 mirror-x" />
+              </a>
+              <a
+                href={localizedPath(locale, "/emergency")}
+                class="inline-flex items-center gap-2 font-semibold"
+                style="background: transparent; color: var(--color-coral); border: 1px solid var(--color-coral); padding: 11px 18px; font-size: 14px; border-radius: 9999px;"
+              >
+                Emergency desk
+              </a>
+            </div>
+          </section>
+
+          <div class="mt-8 text-center" style="font-size: 12.5px; color: var(--color-ink-subtle);">
+            Wrong case? <a href={localizedPath(locale, "/portal")} class="underline">Look up a different code</a>
+          </div>
+        </div>
+      </section>
+    )}
 
     <SiteFooter locale={locale} />
   </main>

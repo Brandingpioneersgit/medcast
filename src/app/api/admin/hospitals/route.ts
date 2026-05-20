@@ -5,6 +5,7 @@ import { hospitals } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { recordAudit } from "@/lib/audit";
 import { recordSnapshot } from "@/lib/revisions";
+import { assertNotStale, ConcurrencyError, concurrencyResponse } from "@/lib/admin/concurrency";
 
 async function requireAdmin() {
   const session = await getSession();
@@ -32,6 +33,8 @@ export async function POST(request: NextRequest) {
     rating: data.rating || "0",
     reviewCount: data.reviewCount || 0,
     airportDistanceKm: data.airportDistanceKm || null,
+    latitude: data.latitude || null,
+    longitude: data.longitude || null,
     isActive: data.isActive ?? true,
     isFeatured: data.isFeatured ?? false,
   }).returning();
@@ -67,6 +70,17 @@ export async function PUT(request: NextRequest) {
   const before = await db.query.hospitals.findFirst({ where: eq(hospitals.id, id) });
   if (!before) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // Optimistic-concurrency check: if the client sent the row's `updatedAt`
+  // when they loaded the form, refuse the save when the row has changed
+  // since. The form will pop a diff dialog and let the admin reload or
+  // overwrite intentionally.
+  try {
+    await assertNotStale(hospitals, id, data.expectedUpdatedAt);
+  } catch (err) {
+    if (err instanceof ConcurrencyError) return concurrencyResponse(err);
+    throw err;
+  }
+
   const [hospital] = await db.update(hospitals)
     .set({
       name: data.name,
@@ -82,6 +96,8 @@ export async function PUT(request: NextRequest) {
       rating: data.rating || "0",
       reviewCount: data.reviewCount || 0,
       airportDistanceKm: data.airportDistanceKm || null,
+    latitude: data.latitude || null,
+    longitude: data.longitude || null,
       isActive: data.isActive ?? true,
       isFeatured: data.isFeatured ?? false,
       updatedAt: new Date(),

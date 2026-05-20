@@ -11,6 +11,7 @@ import { getTranslator } from "@/lib/messages";
 import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
 import HowItWorks from "@/components/content/HowItWorks.astro";
 import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import PageCta from "@/components/PageCta.astro";
 
 export const prerender = false;
 
@@ -218,6 +219,8 @@ Astro.response.headers.set(
       ]}
     />
 
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

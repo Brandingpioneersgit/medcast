@@ -13,12 +13,9 @@ import path from "node:path";
 import { createGzip } from "node:zlib";
 import { pipeline } from "node:stream/promises";
 import crypto from "node:crypto";
+import { assertNonLocalDb } from "./lib/db-guard";
 
-const DATABASE_URL = process.env.DATABASE_URL;
-if (!DATABASE_URL) {
-  console.error("DATABASE_URL not set");
-  process.exit(1);
-}
+const DATABASE_URL = assertNonLocalDb(process.env.DATABASE_URL, { script: "backup" });
 
 const args = new Set(process.argv.slice(2));
 const WANT_UPLOAD = args.has("--upload-r2") || args.has("-u");

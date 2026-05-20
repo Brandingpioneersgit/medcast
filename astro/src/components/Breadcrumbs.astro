@@ -1,0 +1,65 @@
+---
+// Shared breadcrumb strip — consistent visual + a11y across all major pages.
+// Renders a thin paper-tone band with the trail; final crumb is non-link.
+//
+// Usage:
+//   <Breadcrumbs items={[
+//     { name: "Home", href: "/" },
+//     { name: "Hospitals", href: "/hospitals" },
+//     { name: "Apollo Indraprastha" }, // last item: no href = current
+//   ]} />
+//
+// For RTL, pass dir="rtl" or rely on the document direction (default).
+import { ChevronRight } from "lucide-react";
+
+export interface Crumb {
+  name: string;
+  href?: string;
+}
+
+interface Props {
+  items: Crumb[];
+  /** Tone: "paper" (default) overlays a paper-color band; "transparent" leaves the parent bg */
+  tone?: "paper" | "transparent";
+  /** Max width of the inner container; falls back to the standard 1440px */
+  maxWidth?: string;
+}
+
+const { items, tone = "paper", maxWidth = "1440px" } = Astro.props;
+
+const bandStyle = tone === "paper"
+  ? "background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);"
+  : "background: transparent;";
+---
+
+<div style={bandStyle}>
+  <nav
+    class="mono mx-auto flex items-center gap-2 flex-wrap"
+    style={`max-width: ${maxWidth}; padding: 14px 28px; font-size: 12px; color: var(--color-ink-subtle);`}
+    aria-label="Breadcrumb"
+  >
+    {items.map((c, i) => {
+      const isLast = i === items.length - 1;
+      return (
+        <>
+          {i > 0 && (
+            <ChevronRight
+              className="h-3 w-3 mirror-x"
+              style={{ color: "var(--color-border-strong)" }}
+              aria-hidden="true"
+            />
+          )}
+          {isLast || !c.href ? (
+            <span style="color: var(--color-ink); font-weight: 500;" aria-current={isLast ? "page" : undefined}>
+              {c.name}
+            </span>
+          ) : (
+            <a href={c.href} class="hover:text-ink transition-colors">
+              {c.name}
+            </a>
+          )}
+        </>
+      );
+    })}
+  </nav>
+</div>

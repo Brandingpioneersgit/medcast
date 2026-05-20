@@ -62,20 +62,24 @@ export default async function DataHealthPage() {
   `);
 
   // Translation coverage — per locale, per entity kind.
+  // The translations table uses `translatable_type` (not `entity_type`) and
+  // counts every translated FIELD row, not every translated ENTITY. We
+  // dedupe on (translatable_id) so coverage reflects "how many entities
+  // have any translation at all", which is what the % bars are meant to show.
   const translationRows = await db.execute<{
-    entity_type: string;
+    translatable_type: string;
     locale: string;
     rows: number;
   }>(sql`
-    SELECT entity_type, locale, COUNT(*)::int AS rows
+    SELECT translatable_type, locale, COUNT(DISTINCT translatable_id)::int AS rows
     FROM translations
-    GROUP BY entity_type, locale
-    ORDER BY entity_type, locale
+    GROUP BY translatable_type, locale
+    ORDER BY translatable_type, locale
   `);
   const translationIndex: Record<string, Record<string, number>> = {};
   for (const r of translationRows) {
-    if (!translationIndex[r.entity_type]) translationIndex[r.entity_type] = {};
-    translationIndex[r.entity_type][r.locale] = r.rows;
+    if (!translationIndex[r.translatable_type]) translationIndex[r.translatable_type] = {};
+    translationIndex[r.translatable_type][r.locale] = r.rows;
   }
 
   // Entity totals (denominator for translation %) — one row per entity kind.

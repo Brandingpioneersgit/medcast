@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Edit2, Star, MapPin, Loader2 } from "lucide-react";
+import { InlineToggle } from "@/components/admin";
 
 type Row = {
   id: number;
@@ -114,14 +115,7 @@ export function BulkHospitalsTable({ rows }: { rows: Row[] }) {
                     />
                   </td>
                   <td className="px-6 py-4">
-                    <p className="font-medium text-gray-900 text-sm">
-                      {h.name}
-                      {h.isFeatured && (
-                        <span className="ml-2 inline-block px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-900 text-[10px] font-semibold uppercase tracking-wider">
-                          Featured
-                        </span>
-                      )}
-                    </p>
+                    <p className="font-medium text-gray-900 text-sm">{h.name}</p>
                     <p className="text-xs text-gray-400">/{h.slug}</p>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
@@ -138,13 +132,31 @@ export function BulkHospitalsTable({ rows }: { rows: Row[] }) {
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">{h.bedCapacity || "—"}</td>
                   <td className="px-6 py-4">
-                    <span
-                      className={`inline-block px-2.5 py-1 rounded-full text-xs font-medium ${
-                        h.isActive ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
-                      }`}
-                    >
-                      {h.isActive ? "Active" : "Inactive"}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <InlineToggle
+                        value={!!h.isActive}
+                        endpoint="/api/admin/hospitals/bulk"
+                        id={h.id}
+                        onAction="activate"
+                        offAction="deactivate"
+                        onLabel="Active"
+                        offLabel="Inactive"
+                        onTone="success"
+                        offTone="danger"
+                        confirmOff={`Hide "${h.name}" from public listings?`}
+                      />
+                      <InlineToggle
+                        value={!!h.isFeatured}
+                        endpoint="/api/admin/hospitals/bulk"
+                        id={h.id}
+                        onAction="feature"
+                        offAction="unfeature"
+                        onLabel="Featured"
+                        offLabel="Not featured"
+                        onTone="warn"
+                        offTone="neutral"
+                      />
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <Link

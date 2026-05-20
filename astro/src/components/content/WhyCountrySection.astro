@@ -1,0 +1,252 @@
+---
+/**
+ * "Why [Country] for [Treatment]" — location-rich expert section.
+ *
+ * Each destination gets a hand-curated blurb covering:
+ *   • Regulatory + accreditation landscape
+ *   • Surgeon training pathways + return rates
+ *   • Cost drivers
+ *   • What patients consistently get right / wrong about the destination
+ *
+ * Adds ~350-450 words of unique, location-keyworded prose per page.
+ * Fall-through copy applies for any country not explicitly in the table.
+ */
+
+interface Props {
+  countryName: string;
+  countrySlug: string;
+  treatmentName: string;
+  hospitalCount?: number;
+  specialtyName?: string | null;
+}
+
+const { countryName, countrySlug, treatmentName, hospitalCount, specialtyName } = Astro.props;
+
+type CountryProfile = {
+  /** Lead — first paragraph, sets context */
+  lead: string;
+  /** Why patients consistently come here, distilled to four points */
+  whyBullets: string[];
+  /** A "watch out" callout — what people get wrong about this destination */
+  watchOut: string;
+  /** Cost driver — single sentence on the economics behind the price band */
+  costDriver: string;
+  /** Top medical hubs / cities */
+  hubs: string[];
+};
+
+const PROFILES: Record<string, CountryProfile> = {
+  india: {
+    lead: `India runs one of the world's deepest tertiary-care networks for international patients — over 700 NABH-accredited hospitals and 38+ JCI-accredited facilities, concentrated in Delhi-NCR, Chennai, Mumbai, Bangalore, Kochi, and Hyderabad. The training pipeline is anchored by AIIMS, PGIMER Chandigarh, CMC Vellore, and a clutch of corporate flagships (Medanta, Apollo, Fortis, Max, Manipal, Narayana) where lead surgeons routinely log 5,000+ procedures across a 25-30 year career. For ${treatmentName.toLowerCase()} specifically, India draws patients who want hospital tier-1 outcomes at 60-80% below US/UK list pricing — without compromising on implant brands, robotic platforms (da Vinci Xi is now in 80+ centres), or ICU staffing ratios.`,
+    whyBullets: [
+      `Surgeon volume is the headline advantage — Indian cardiac and oncology centres run procedure volumes Western centres rarely see, which compresses learning curves and improves outcomes for complex cases.`,
+      `English-language medical communication is the default; consent forms, imaging reports, and discharge summaries are issued in English by trained physicians, removing the translator step common in non-English destinations.`,
+      `Visa-on-arrival or e-medical visa is available for citizens of ~165 countries, with same-week processing and double-entry options that make follow-up trips painless.`,
+      `Direct flight connectivity from the GCC, East Africa, Bangladesh, Nepal, Sri Lanka, the UK, Singapore, Bangkok, and most major US gateways means under-12-hour transit for the majority of medical travellers.`,
+    ],
+    watchOut: `Watch out for "all-inclusive" packages that exclude pre-op tests, implant differential pricing, or post-op rehab — the headline number is rarely the final number unless the quote itemises every line. We surface only hospitals that issue an itemised quote upfront.`,
+    costDriver: `Indian pricing is driven by lower clinician salaries, real-estate cost-per-bed, and rupee parity — not by skipping protocols or using grey-market implants.`,
+    hubs: ["Delhi-NCR", "Mumbai", "Chennai", "Bangalore", "Hyderabad", "Kochi"],
+  },
+  turkey: {
+    lead: `Turkey has built one of Europe's most modern hospital infrastructures over the last 15 years — chiefly through the JCI-accredited private chains in Istanbul, Ankara, Antalya, and Izmir. Surgeons trained in Germany, the US, or the UK return to Turkey because they can run higher case volumes than in their training countries, often through dual-affiliated programs with Acibadem, Memorial, Medicana, Liv, and Anadolu (a Johns Hopkins partner). For ${treatmentName.toLowerCase()}, Turkey is favoured by European patients facing 12-18 month waits at home and Gulf patients who want a Mediterranean recovery setting without the GCC price tag.`,
+    whyBullets: [
+      `JCI density — Turkey has 30+ JCI-accredited hospitals, the highest count outside the US among medical-tourism destinations.`,
+      `Surgeon-to-patient ratios in private Turkish hospitals are intentionally low; you typically meet your operating surgeon at consultation, not a junior on rotation.`,
+      `Direct flights from London, Frankfurt, Dubai, Riyadh, Doha, Moscow, Kyiv, Tbilisi, Cairo, and Lagos make Istanbul a 3-5 hour transit for most catchment markets.`,
+      `Ministry-of-Health-regulated pricing transparency means hospitals must publish package rates — your quote is enforceable, not a marketing teaser.`,
+    ],
+    watchOut: `Hair transplant and cosmetic-surgery markets in Turkey have aggressive intermediaries — many "clinics" are sales agencies that subcontract to surgeons you'll never meet pre-op. We only list hospital-affiliated surgeons with named operating credentials.`,
+    costDriver: `Lira depreciation has compressed dollar pricing for foreign patients while Turkish clinical labour rates remain fixed in lira; the savings vs Western Europe routinely sit at 50-70%.`,
+    hubs: ["Istanbul", "Ankara", "Antalya", "Izmir", "Bursa"],
+  },
+  thailand: {
+    lead: `Thailand pioneered modern Asian medical tourism — Bumrungrad, Bangkok Hospital, Samitivej, and BNH have been receiving international patients since the late 1990s, and Bangkok now sees over 1.4 million international medical visitors annually. The country's strength is in oncology, cardiology, orthopedic, dental, fertility, and gender-affirmation care, with 60+ JCI-accredited hospitals concentrated in Bangkok, Phuket, Chiang Mai, and Pattaya. For ${treatmentName.toLowerCase()}, Thailand wins on a combination of clinical maturity, English fluency in private hospitals, and an unmatched recovery infrastructure of medical-grade hotels and serviced apartments adjacent to flagship hospitals.`,
+    whyBullets: [
+      `Length-of-stay friendliness — most Thai hospitals work directly with attached hotels (Bumrungrad–InterContinental, BNH–Siri Sathorn) so the recovery-period transition out of inpatient care is seamless.`,
+      `60+ JCI-accredited hospitals — a higher concentration per capita than any Asian country except Singapore.`,
+      `Visa policy: most nationalities get 30-60 day visa-free entry, and the new Medical Treatment Visa allows up to a year for chronic-care patients.`,
+      `Bangkok's airport (BKK) is a global hub — direct flights from 100+ cities mean attendant family members can fly in for surgery week without itinerary acrobatics.`,
+    ],
+    watchOut: `Some private hospitals have a two-tier pricing system (locals vs international); make sure your quote is the international-patient quote upfront so there's no surprise on discharge billing.`,
+    costDriver: `Thailand's ~30-50% savings vs US/UK come from baht parity and a deep local supply of nurses, ICU staff, and rehab therapists — not from process shortcuts.`,
+    hubs: ["Bangkok", "Phuket", "Chiang Mai", "Pattaya", "Hua Hin"],
+  },
+  uae: {
+    lead: `The UAE — primarily Dubai and Abu Dhabi — is the Gulf's premium medical destination, anchored by Cleveland Clinic Abu Dhabi, Sheikh Khalifa Medical City, American Hospital Dubai, Mediclinic, and Saudi German Hospital Dubai. Care here is positioned around US/European care quality with Arabic-language continuity and zero language friction for patients from the wider GCC, Levant, North Africa, South Asia, and increasingly East Africa. For ${treatmentName.toLowerCase()}, the UAE is the right call when you need same-region, same-language, JCI-credentialed care and you're prioritising service experience over price compression.`,
+    whyBullets: [
+      `Cleveland Clinic Abu Dhabi runs as a full extension of the Cleveland system — same protocols, same EMR, same multidisciplinary tumor boards as the Ohio campus.`,
+      `Dubai Healthcare City is a regulated medical free-zone with 160+ clinical facilities, JCI density, and dedicated medical-visa fast-tracking through DHA.`,
+      `Arabic-first patient experience — consent forms, religious accommodation, halal pharmacology, and family rooms aligned to GCC patient norms.`,
+      `Cancer second-opinion programs at SSMC and Cleveland Clinic Abu Dhabi accept imaging packages remotely and return board-reviewed opinions within 5-7 working days.`,
+    ],
+    watchOut: `UAE pricing is closer to US/UK levels than to other Asian destinations; if cost is the primary driver, the UAE is rarely the answer. The trade is service experience, language, and regional proximity.`,
+    costDriver: `UAE pricing reflects high real-estate, expat-staff, and import costs — the destination competes on convenience and quality of experience, not price.`,
+    hubs: ["Dubai", "Abu Dhabi", "Sharjah"],
+  },
+  germany: {
+    lead: `Germany operates the most rigorous training and quality-control pathway in continental Europe — the Facharzt specialist credential takes 5-6 years post-medical-school, and university-affiliated centres (Charité Berlin, Heidelberg, Hamburg-Eppendorf, Munich, Aachen) handle Europe's most complex referrals. Germany is the answer for ${treatmentName.toLowerCase()} when you need genuinely complex multidisciplinary care — neuro-oncology, cardiac re-do operations, transplant, rare-disease workups — and you're willing to pay for surgical depth that's hard to source elsewhere.`,
+    whyBullets: [
+      `University hospitals run weekly multidisciplinary tumor boards as a regulatory requirement, not a marketing point — every cancer case is reviewed by the full panel before treatment.`,
+      `Strict implant traceability law (the Medizinproduktegesetz) means every device used in your surgery is logged, recallable, and supplier-verifiable for 30+ years.`,
+      `Most senior surgeons publish in peer-reviewed journals annually and run named research lines — credentials are auditable.`,
+      `Lufthansa, KLM, and Turkish Airlines run dense connectivity from MENA, the GCC, and South Asia into Frankfurt, Munich, and Düsseldorf — typical 6-9 hour single-leg from origin.`,
+    ],
+    watchOut: `German hospital admin is methodical but slow — pre-authorization, document translation (apostille often required), and visa appointments can take 6-10 weeks. Plan accordingly.`,
+    costDriver: `Pricing reflects fully-loaded EU clinical labour, regulatory compliance, and university-level overhead — typically 10-30% below US list but at the top of European destinations.`,
+    hubs: ["Berlin", "Munich", "Heidelberg", "Hamburg", "Frankfurt", "Aachen"],
+  },
+  singapore: {
+    lead: `Singapore runs the highest-rated public health system in Asia — the Ministry of Health-led network of restructured hospitals (SGH, NUH, NCCS, NHC) handles the country's most complex cases, while the private sector (Mount Elizabeth, Gleneagles, Raffles, Parkway Pantai) caters to international patients. For ${treatmentName.toLowerCase()}, Singapore is preferred for complex oncology, paediatric subspecialty care, and cases needing genuinely cutting-edge platforms — proton therapy, CAR-T cell therapy, robotic minimally-invasive cardiac. Patients pay a premium over Thailand or India for tighter regulation and US/UK-trained subspecialists.`,
+    whyBullets: [
+      `Singapore's Specialist Accreditation Board reviews subspecialist credentials annually — a "consultant" title here genuinely means subspecialty fellowship-trained.`,
+      `English is the working language across the entire system — no translation layer, even at junior nursing level.`,
+      `Direct flights from every Asian capital and the major Australian cities; SIN is a 4-7 hour transit from anywhere in Asia-Pacific.`,
+      `Cancer programs at NCCS and Mount Elizabeth Novena include in-house genomic profiling, proton therapy, and access to the Asian Cancer Trial network — rare in the wider region.`,
+    ],
+    watchOut: `Singapore pricing for international patients is meaningfully higher than for residents; the savings vs the US are modest (10-30%) and the value is in care depth and certainty, not cost compression.`,
+    costDriver: `Singapore pricing reflects regulatory rigor, expat-grade salaries, and high Singapore-dollar real-estate cost — the destination competes on quality and certainty.`,
+    hubs: ["Singapore"],
+  },
+  "south-korea": {
+    lead: `South Korea is Asia's leader in cosmetic, plastic, and dental surgery, with parallel strengths in spinal, orthopedic, and stem-cell programs. The country's Big Five hospitals (Asan, Samsung, Severance, Seoul National, Catholic) run JCI-accredited international wings with dedicated translators, recovery suites, and multilingual aftercare. For ${treatmentName.toLowerCase()}, Korea attracts patients from China, Japan, Russia, Mongolia, the GCC, and increasingly the US — drawn by surgical refinement, post-op aesthetics, and recovery hospitality that sets the global benchmark.`,
+    whyBullets: [
+      `Gangnam-district plastic surgery has 500+ board-certified clinics within a 2 km radius — the consequence is hyper-specialisation that's hard to replicate.`,
+      `Big Five academic hospitals run multidisciplinary review on every international referral; outcomes auditing is publicly reported.`,
+      `K-Medical Hub coordination at Incheon Airport runs hospital-direct transfers, removing logistics friction.`,
+      `Stem-cell and regenerative therapy programs are uniquely permissive and well-regulated under the MFDS — Korea is a destination of last resort for some advanced cell-therapy indications.`,
+    ],
+    watchOut: `The aesthetic clinic market has consolidator agencies that hide referral fees inside surgeon quotes; ask directly whether the surgeon receives the full quoted fee or whether an intermediary takes a margin.`,
+    costDriver: `Korean medical-tourism pricing is supported by the won's softness and a deep clinical workforce; aesthetic procedures are 30-60% below US/EU list with measurably better aesthetic outcomes per peer-reviewed comparisons.`,
+    hubs: ["Seoul", "Busan", "Daegu", "Incheon"],
+  },
+  malaysia: {
+    lead: `Malaysia is a quietly strong mid-cost Asian destination — Kuala Lumpur and Penang host JCI-accredited hospitals (Sunway, KPJ, Pantai, Gleneagles, Prince Court) where US-trained consultants run programs at 30-50% below Singapore pricing. For ${treatmentName.toLowerCase()}, Malaysia is increasingly chosen by Indonesian, Bangladeshi, Vietnamese, GCC, and Australian patients who want Singapore-adjacent quality without Singapore-level pricing.`,
+    whyBullets: [
+      `English is the universal medical language; consultants are typically Royal College-trained (UK/Ireland) or US-board-certified.`,
+      `Malaysian Healthcare Travel Council is a government-backed body that vets and lists participating hospitals — a useful primary trust signal.`,
+      `Penang is a meaningful sub-hub for orthopedic, cardiac, and oncology cases, with attached recovery hospitality on the island.`,
+      `Visa-free entry for 150+ nationalities; a dedicated Health Travel Visa was introduced in 2023 for stays up to a year.`,
+    ],
+    watchOut: `Malaysia's strength is in mid-complexity routine cases — for genuinely rare oncology or pediatric subspecialty cases, Singapore or Bangkok still has more depth.`,
+    costDriver: `Ringgit parity, low local labour cost, and government-subsidised infrastructure produce stable pricing 30-50% below Singapore.`,
+    hubs: ["Kuala Lumpur", "Penang", "Johor Bahru", "Malacca"],
+  },
+  "saudi-arabia": {
+    lead: `Saudi Arabia's medical infrastructure has expanded sharply under Vision 2030 — King Faisal Specialist Hospital (Riyadh, Jeddah), Saudi German Hospital (Riyadh, Jeddah, Dammam), and the new Cleveland Clinic Riyadh project anchor a network where clinical depth is increasingly competitive with Dubai or Doha. For ${treatmentName.toLowerCase()}, Saudi Arabia is the right destination for GCC and wider Arab patients who need same-region, Arabic-first care under religiously aligned protocols, and increasingly for transplant and oncology cases under the Kingdom's residency-priority programs.`,
+    whyBullets: [
+      `King Faisal Specialist Hospital runs the GCC's deepest BMT, oncology, and transplant programs — outcomes are benchmarked against US academic centres.`,
+      `Religious accommodation, prayer-aligned scheduling, halal pharmacology, and gender-aligned nursing teams are default, not a request.`,
+      `Direct flights from every GCC capital, Cairo, Beirut, Amman, Khartoum, Karachi, Dhaka, and Manila make Riyadh and Jeddah short-transit destinations.`,
+      `The Health Holding Company reform has standardised public-private hospital pricing, reducing the cost-uncertainty that historically pushed Saudis to travel.`,
+    ],
+    watchOut: `Saudi medical visas have specific requirements (Mahram-accompanied for some categories of female patients depending on case type); confirm with your case manager before flight booking.`,
+    costDriver: `KSA pricing has come down substantially under Vision 2030 reforms; for GCC patients, the saving over Dubai is modest but the cultural fit is unmatched.`,
+    hubs: ["Riyadh", "Jeddah", "Dammam", "Khobar"],
+  },
+};
+
+const profile = PROFILES[countrySlug] ?? null;
+
+// Generic fall-through copy for any country we don't have a curated profile for
+const fallback: CountryProfile = {
+  lead: `${countryName} is a recognised destination for ${treatmentName.toLowerCase()} with internationally-accredited hospitals, English-medium clinical communication in private centres, and transparent itemised pricing for international patients. ${hospitalCount ? `${hospitalCount} accredited hospitals on our books currently price ${treatmentName.toLowerCase()} for international patients.` : ""}`,
+  whyBullets: [
+    `Hospitals listed here hold active accreditation (JCI, ISO 9001, or national ministry license) — we filter out facilities without verifiable credentialling.`,
+    `International patient departments handle visa-letter issuance, airport transfer, on-arrival documentation, and discharge summaries in English as standard.`,
+    `Pricing is itemised before commitment — surgeon fee, anesthesia, room class, implant brand, and routine post-op are listed line-by-line.`,
+    `Direct or one-stop flight connectivity from major catchment markets keeps total in-country time aligned with the procedure's medical timeline.`,
+  ],
+  watchOut: `Confirm the surgeon's named credentials and most recent procedure volume before committing — accreditation is at the hospital level, not at the individual surgeon level.`,
+  costDriver: `Cost differential vs the US or UK reflects local clinical labour rates, real-estate, and currency parity — not protocol shortcuts.`,
+  hubs: [],
+};
+
+const p = profile ?? fallback;
+const titlePart = specialtyName ? `${treatmentName} (${specialtyName})` : treatmentName;
+---
+
+<section
+  aria-labelledby="why-country-heading"
+  style="padding: 64px 28px; border-top: 1px solid var(--color-border-soft);"
+>
+  <div class="mx-auto max-w-[1080px]">
+    <p
+      class="mono uppercase"
+      style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);"
+    >
+      Destination · {countryName}
+    </p>
+    <h2
+      id="why-country-heading"
+      class="display display-tight mt-3"
+      style="font-size: clamp(1.75rem, 3.5vw, 2.5rem); line-height: 1.05; font-weight: 400; letter-spacing: -0.025em;"
+    >
+      Why patients choose <span class="italic-display">{countryName}</span> for {titlePart.toLowerCase()}
+    </h2>
+
+    <p class="serif mt-5" style="font-size: 17.5px; line-height: 1.6; color: var(--color-ink); max-width: 70ch;">
+      {p.lead}
+    </p>
+
+    {p.hubs.length > 0 && (
+      <div class="mt-6 flex flex-wrap items-center gap-2">
+        <span
+          class="mono uppercase"
+          style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);"
+        >
+          Top medical hubs
+        </span>
+        {p.hubs.map((h) => (
+          <span
+            class="inline-flex items-center"
+            style="font-size: 12px; padding: 4px 10px; border: 1px solid var(--color-border); border-radius: 9999px; color: var(--color-ink-muted);"
+          >
+            {h}
+          </span>
+        ))}
+      </div>
+    )}
+
+    <ul class="mt-8 grid gap-4" style="grid-template-columns: 1fr;">
+      {p.whyBullets.map((b, i) => (
+        <li
+          class="grid items-start gap-4"
+          style={i === 0
+            ? {gridTemplateColumns: "44px 1fr", padding: "16px 0", borderTop: "1px solid var(--color-ink)"}
+            : {gridTemplateColumns: "44px 1fr", padding: "16px 0", borderTop: "1px solid var(--color-border-soft)"}
+          }
+        >
+          <div class="mono tnum" style="font-size: 16px; color: var(--color-accent); font-weight: 600;">
+            {String(i + 1).padStart(2, "0")}
+          </div>
+          <p class="serif" style="font-size: 15.5px; line-height: 1.55; color: var(--color-ink);">
+            {b}
+          </p>
+        </li>
+      ))}
+    </ul>
+
+    <aside
+      class="paper mt-8"
+      style="padding: 22px 26px; border-left: 3px solid var(--color-coral, #B6463E);"
+    >
+      <p
+        class="mono uppercase"
+        style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-coral, #B6463E);"
+      >
+        Watch out
+      </p>
+      <p class="serif mt-2" style="font-size: 15px; line-height: 1.55; color: var(--color-ink);">
+        {p.watchOut}
+      </p>
+    </aside>
+
+    <p
+      class="mono mt-6"
+      style="font-size: 12px; line-height: 1.55; color: var(--color-ink-subtle); font-style: italic;"
+    >
+      Cost note. {p.costDriver}
+    </p>
+  </div>
+</section>

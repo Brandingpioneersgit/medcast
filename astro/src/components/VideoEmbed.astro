@@ -1,0 +1,55 @@
+---
+interface Props {
+  url: string;
+  title?: string;
+  class?: string;
+}
+const { url, title = "Video", class: className = "" } = Astro.props;
+
+// Convert YouTube/Vimeo URLs to embed URLs
+function toEmbed(src: string): { type: "youtube" | "vimeo" | "unknown"; embedUrl: string } {
+  try {
+    const u = new URL(src);
+    if (u.hostname.includes("youtube.com") || u.hostname.includes("youtu.be")) {
+      let id = "";
+      if (u.hostname === "youtu.be") id = u.pathname.slice(1);
+      else id = u.searchParams.get("v") ?? u.pathname.split("/").pop() ?? "";
+      return { type: "youtube", embedUrl: `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1` };
+    }
+    if (u.hostname.includes("vimeo.com")) {
+      const id = u.pathname.split("/").pop() ?? "";
+      return { type: "vimeo", embedUrl: `https://player.vimeo.com/video/${id}?dnt=1` };
+    }
+    return { type: "unknown", embedUrl: src };
+  } catch {
+    return { type: "unknown", embedUrl: src };
+  }
+}
+
+const { type, embedUrl } = toEmbed(url);
+---
+
+{type !== "unknown" && (
+  <div class:list={["relative overflow-hidden", className]} style="aspect-ratio: 16/9; border-radius: var(--radius-lg);">
+    <iframe
+      src={embedUrl}
+      title={title}
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowfullscreen
+      loading="lazy"
+      style="position: absolute; inset: 0; width: 100%; height: 100%; border: 0;"
+    />
+  </div>
+)}
+{type === "unknown" && (
+  <a
+    href={url}
+    target="_blank"
+    rel="noopener noreferrer"
+    class:list={["inline-flex items-center gap-2", className]}
+    style="color: var(--color-accent); font-size: 14px;"
+  >
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+    Watch video
+  </a>
+)}

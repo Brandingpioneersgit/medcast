@@ -10,7 +10,7 @@ interface Props {
 }
 const { size = 36, color = "currentColor", mark = true, wordmark = true, class: className = "" } = Astro.props;
 const innerDotBg =
-  color === "currentColor" ? "var(--color-bg)" : color === "#F6F1E6" ? "#0E1713" : "#F6F1E6";
+  color === "currentColor" ? "var(--color-bg)" : color === "var(--color-bg)" ? "#0E1713" : "var(--color-bg)";
 ---
 
 <span class:list={["inline-flex items-center gap-2.5", className]} style={`color: ${color};`}>

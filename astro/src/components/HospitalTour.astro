@@ -1,0 +1,127 @@
+---
+// HospitalTour — lazy YouTube hospital walkthrough.
+// Renders the YouTube poster + a play button. The iframe is only mounted
+// after the first click — page weight stays low for the 90% of visitors
+// who don't watch the tour.
+//
+// URL formats accepted:
+//   https://www.youtube.com/watch?v=ABC123
+//   https://youtu.be/ABC123
+//   https://www.youtube.com/embed/ABC123
+//   ABC123 (raw id)
+
+interface Props {
+  url: string | null | undefined;
+  hospitalName: string;
+  /** Optional override for the poster — defaults to YouTube's hqdefault. */
+  posterUrl?: string | null;
+}
+
+const { url, hospitalName, posterUrl } = Astro.props;
+
+function extractYoutubeId(input: string | null | undefined): string | null {
+  if (!input) return null;
+  const s = input.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(s)) return s;
+  try {
+    const u = new URL(s);
+    if (u.hostname === "youtu.be") return u.pathname.slice(1).split("/")[0] || null;
+    if (u.hostname.endsWith("youtube.com")) {
+      const v = u.searchParams.get("v");
+      if (v) return v;
+      const parts = u.pathname.split("/").filter(Boolean);
+      const i = parts.indexOf("embed");
+      if (i >= 0 && parts[i + 1]) return parts[i + 1];
+    }
+  } catch (_) { /* not a URL */ }
+  return null;
+}
+
+const id = extractYoutubeId(url);
+if (!id) return null;
+
+const poster = posterUrl ?? `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`;
+const watchUrl = `https://www.youtube.com/watch?v=${id}`;
+---
+
+<section class="mt-8">
+  <div class="flex items-baseline justify-between flex-wrap gap-3">
+    <div>
+      <span class="mono" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); text-transform: uppercase;">
+        Walkthrough video
+      </span>
+      <h3 class="display mt-1.5" style="font-size: 26px; letter-spacing: -0.02em; line-height: 1.1;">
+        Inside {hospitalName}
+      </h3>
+    </div>
+    <a
+      href={watchUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      class="mono"
+      style="font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-subtle); text-decoration: underline; text-underline-offset: 4px;"
+    >
+      Watch on YouTube ↗
+    </a>
+  </div>
+
+  <div
+    class="mc-yt"
+    data-yt-id={id}
+    style="position: relative; aspect-ratio: 16/9; margin-top: 14px; border-radius: var(--radius-lg); overflow: hidden; cursor: pointer; background: #000;"
+    role="button"
+    tabindex="0"
+    aria-label={`Play tour video for ${hospitalName}`}
+  >
+    <img
+      src={poster}
+      alt={`${hospitalName} tour`}
+      loading="lazy"
+      decoding="async"
+      width="1280"
+      height="720"
+      style="width: 100%; height: 100%; object-fit: cover; display: block;"
+      onerror={`this.src='https://i.ytimg.com/vi/${id}/hqdefault.jpg'`}
+    />
+    <div
+      aria-hidden="true"
+      style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(14,23,19,0.10) 0%, rgba(14,23,19,0.42) 100%);"
+    ></div>
+    <div
+      aria-hidden="true"
+      style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 84px; height: 84px; border-radius: 9999px; background: rgba(251,248,241,0.95); display: flex; align-items: center; justify-content: center; box-shadow: 0 12px 36px rgba(14,23,19,0.4);"
+    >
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="var(--color-accent, #0A5D54)" style="margin-inline-start: 4px;">
+        <path d="M8 5v14l11-7z" />
+      </svg>
+    </div>
+    <span
+      class="mono"
+      style="position: absolute; bottom: 14px; inset-inline-start: 16px; padding: 4px 10px; font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(251,248,241,.96); background: rgba(14,23,19,0.55); border-radius: 9999px; backdrop-filter: blur(6px);"
+    >
+      Tour · YouTube
+    </span>
+  </div>
+</section>
+
+<script is:inline>
+  document.querySelectorAll("[data-yt-id]").forEach((el) => {
+    const id = el.getAttribute("data-yt-id");
+    if (!id) return;
+    function play() {
+      const iframe = document.createElement("iframe");
+      iframe.setAttribute("src", `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`);
+      iframe.setAttribute("title", "Hospital tour");
+      iframe.setAttribute("frameborder", "0");
+      iframe.setAttribute("allow", "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture");
+      iframe.setAttribute("allowfullscreen", "true");
+      iframe.style.cssText = "position:absolute;inset:0;width:100%;height:100%;border:0";
+      el.replaceChildren(iframe);
+      el.style.cursor = "default";
+    }
+    el.addEventListener("click", play);
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); play(); }
+    });
+  });
+</script>

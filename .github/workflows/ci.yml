@@ -88,7 +88,88 @@ jobs:
           BASE: http://localhost:4321
         run: node --import tsx scripts/smoke.ts
 
+      - name: JSON-LD schema smoke
+        env:
+          BASE: http://localhost:4321
+        run: node --import tsx scripts/smoke-jsonld.ts
+
+      - name: Sitemap smoke (every child reachable, shards intact)
+        env:
+          BASE: http://localhost:4321
+        run: node --import tsx scripts/smoke-sitemap.ts
+
       - name: Kill astro
+        if: always()
+        run: |
+          if [ -f /tmp/astro.pid ]; then
+            kill "$(cat /tmp/astro.pid)" 2>/dev/null || true
+          fi
+
+  lighthouse:
+    name: Lighthouse perf budget
+    needs: astro-check
+    runs-on: ubuntu-latest
+    # Continue-on-error so a flaky perf score doesn't block merges; budgets
+    # are enforced by .lighthouserc.json. Flip to false once stable.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install root deps
+        run: npm ci
+
+      - name: Install astro deps
+        working-directory: astro
+        run: npm ci
+
+      - name: Dedupe drizzle-orm + postgres
+        working-directory: astro
+        run: |
+          rm -rf node_modules/drizzle-orm node_modules/postgres
+          ln -s ../../node_modules/drizzle-orm node_modules/drizzle-orm
+          ln -s ../../node_modules/postgres node_modules/postgres
+
+      - name: Build astro
+        working-directory: astro
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npm run build
+
+      - name: Start preview
+        working-directory: astro
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          npx astro preview --port 4321 > /tmp/astro-preview.log 2>&1 &
+          echo $! > /tmp/astro.pid
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null http://localhost:4321/; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/astro-preview.log
+          exit 1
+
+      - name: Run Lighthouse CI
+        run: |
+          npx -y @lhci/cli@0.14.x autorun \
+            --collect.url=http://localhost:4321/en/ \
+            --collect.url=http://localhost:4321/en/hospital/artemis-hospital \
+            --collect.url=http://localhost:4321/en/treatment/cabg-heart-bypass \
+            --collect.numberOfRuns=2 \
+            --upload.target=temporary-public-storage \
+            --assert.preset=lighthouse:no-pwa \
+            --assert.assertions.categories:performance=warn \
+            --assert.assertions.categories:accessibility="error,minScore:0.9" \
+            --assert.assertions.categories:best-practices="error,minScore:0.85" \
+            --assert.assertions.categories:seo="error,minScore:0.95" \
+            --assert.assertions.first-contentful-paint=warn \
+            --assert.assertions.largest-contentful-paint=warn
+
+      - name: Kill preview
         if: always()
         run: |
           if [ -f /tmp/astro.pid ]; then

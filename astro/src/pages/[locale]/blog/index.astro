@@ -11,6 +11,9 @@ import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, collectionPageJsonLd } from "@/lib/seo";
 import { ChevronRight, Calendar } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import PageCta from "@/components/PageCta.astro";
 
 export const prerender = false;
 
@@ -21,16 +24,32 @@ const tc = getTranslator(locale, "common");
 
 const url = new URL(Astro.request.url);
 const page = Number(url.searchParams.get("page") ?? 1);
+const categoryFilter = url.searchParams.get("category") ?? undefined;
 
-const { rows, total, totalPages } = await listBlogPosts({ page });
+const { rows, total, totalPages, categories: categoryRows } = await listBlogPosts({ page, category: categoryFilter });
 
-const featured = page === 1 ? rows[0] : null;
-const rest = page === 1 ? rows.slice(1) : rows;
+const featured = page === 1 && !categoryFilter ? rows[0] : null;
+const rest = page === 1 && !categoryFilter ? rows.slice(1) : rows;
 
-const categories = Array.from(new Set(rows.map((p) => p.category).filter(Boolean))) as string[];
+// Reading-time helper — body text divided by ~220 wpm.
+function readMins(excerpt: string | null | undefined, fallback = 4): number {
+  if (!excerpt) return fallback;
+  return Math.max(2, Math.round(excerpt.split(/\s+/).length / 35) + 3);
+}
 
 const path = "/blog";
 const canonicalUrl = localeUrl(locale, path);
+
+// Build rel=prev/next URLs preserving the category filter so paged sequences
+// stay walkable for crawlers even though pages 2+ are noindex'd.
+function pageUrl(p: number): string {
+  const params: string[] = [];
+  if (p > 1) params.push(`page=${p}`);
+  if (categoryFilter) params.push(`category=${encodeURIComponent(categoryFilter)}`);
+  return `${canonicalUrl}${params.length ? "?" + params.join("&") : ""}`;
+}
+const prevUrl = page > 1 ? pageUrl(page - 1) : undefined;
+const nextUrl = page < totalPages ? pageUrl(page + 1) : undefined;
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
@@ -66,9 +85,9 @@ function withoutLastWord(s: string) {
   return parts.length > 1 ? parts.slice(0, -1).join(" ") : s;
 }
 
-const stats = page === 1 ? [
+const stats = page === 1 && !categoryFilter ? [
   { l: "Total posts", v: total.toString() },
-  { l: "Categories", v: categories.length.toString() },
+  { l: "Categories", v: categoryRows.length.toString() },
   { l: "Reply time", v: "9 min" },
   { l: "Reviewer desk", v: "Editorial" },
 ] : [];
@@ -83,12 +102,14 @@ const stats = page === 1 ? [
       locale={locale}
       translatedLocales={["en"]}
       noindex={page > 1 || locale !== "en"}
+      prevUrl={prevUrl}
+      nextUrl={nextUrl}
     />
-    {collectionLd && <script type="application/ld+json" set:html={JSON.stringify(collectionLd)} />}
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    {collectionLd && <script type="application/ld+json" is:inline set:html={JSON.stringify(collectionLd)} />}
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -102,43 +123,106 @@ const stats = page === 1 ? [
     </div>
 
     <EntityListingHero
-      eyebrow={`Medical travel · Editorial`}
-      h1First="Medical travel"
-      h1Italic="blog"
+      eyebrow={`Medical travel · Editorial${categoryFilter ? ` · ${categoryFilter}` : ""}`}
+      h1First={categoryFilter ? categoryFilter : "Medical travel"}
+      h1Italic={categoryFilter ? "dispatches" : "blog"}
       lede="Patient stories, treatment guides, and destination research — written by our case-management and clinical teams. Every post is reviewed by a named physician before publish."
       stats={stats}
     />
 
+    {/* Editorial-desk trust strip — only on the unfiltered, page-1 view. */}
+    {page === 1 && !categoryFilter && (
+      <section class="border-t border-border-soft" style="background: var(--color-paper);">
+        <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-7">
+          <div class="flex flex-wrap items-center gap-x-10 gap-y-3 justify-between">
+            <div class="flex flex-wrap items-center gap-x-7 gap-y-2">
+              <span class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
+                Editorial desk
+              </span>
+              {[
+                { v: "Named-physician review", k: "Every post signed off by a board-certified specialist" },
+                { v: "Sources cited inline", k: "Peer-reviewed studies + hospital data, never marketing collateral" },
+                { v: "Updated, not archived", k: "Re-checked when guidelines change · last-reviewed stamped" },
+                { v: "No sponsored content", k: "Coordinator fee is paid by hospitals after admission" },
+              ].map((p) => (
+                <span class="flex items-start gap-2 text-[13px]" style="color: var(--color-ink);">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="var(--color-accent)" stroke-width="2.4" aria-hidden="true" style="margin-top: 5px; flex-shrink: 0;">
+                    <path d="M3 8l3 3 7-7" />
+                  </svg>
+                  <span>
+                    <span style="font-weight: 500;">{p.v}</span>
+                    <span class="block mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-ink-subtle); margin-top: 1px;">{p.k}</span>
+                  </span>
+                </span>
+              ))}
+            </div>
+            <a
+              href={localizedPath(locale, "/editorial-policy")}
+              class="mono uppercase text-[10.5px] hover:text-accent shrink-0"
+              style="letter-spacing: 0.12em; color: var(--color-ink-muted);"
+            >
+              Editorial policy →
+            </a>
+          </div>
+        </div>
+      </section>
+    )}
+
     {rows.length === 0 ? (
       <section style="padding: 80px 0;">
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8 text-center">
-          <p class="serif" style="font-size: 18px; color: var(--color-ink-muted);">New posts coming soon. Check back next week.</p>
+          <p class="serif" style="font-size: 18px; color: var(--color-ink-muted);">
+            {categoryFilter
+              ? `No posts in "${categoryFilter}" yet.`
+              : "New posts coming soon. Check back next week."}
+          </p>
+          {categoryFilter && (
+            <a
+              href={localizedPath(locale, "/blog")}
+              class="mt-4 inline-flex items-center gap-1.5 mono uppercase"
+              style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent);"
+            >
+              ← Back to all posts
+            </a>
+          )}
         </div>
       </section>
     ) : (
       <>
-        {categories.length > 1 && (
-          <section style="padding: 24px 0 0;">
+        {categoryRows.length > 1 && (
+          <section style="padding: 28px 0 0;">
             <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
+              <p class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Filter by category
+              </p>
               <ul class="flex flex-wrap gap-2">
                 <li>
-                  <span
-                    class="mono uppercase inline-flex items-center"
-                    style="font-size: 10px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 7px 14px; border-radius: 9999px;"
+                  <a
+                    href={localizedPath(locale, "/blog")}
+                    class="mono uppercase inline-flex items-center gap-1.5"
+                    style={!categoryFilter
+                      ? "font-size: 10.5px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 7px 14px; border-radius: 9999px;"
+                      : "font-size: 10.5px; letter-spacing: 0.12em; border: 1px solid var(--color-border); background: var(--color-paper); color: var(--color-ink-muted); padding: 7px 14px; border-radius: 9999px;"}
                   >
-                    All · {rows.length}
-                  </span>
+                    All <span class="tnum opacity-70">· {total}</span>
+                  </a>
                 </li>
-                {categories.map((cat) => (
-                  <li>
-                    <span
-                      class="mono uppercase inline-flex items-center"
-                      style="font-size: 10px; letter-spacing: 0.12em; border: 1px solid var(--color-border); background: var(--color-paper); color: var(--color-ink); padding: 7px 14px; border-radius: 9999px;"
-                    >
-                      {cat}
-                    </span>
-                  </li>
-                ))}
+                {categoryRows.map((cat) => {
+                  const active = cat.category === categoryFilter;
+                  return (
+                    <li>
+                      <a
+                        href={`${localizedPath(locale, "/blog")}?category=${encodeURIComponent(cat.category)}`}
+                        class="mono uppercase inline-flex items-center gap-1.5"
+                        style={active
+                          ? "font-size: 10.5px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 7px 14px; border-radius: 9999px;"
+                          : "font-size: 10.5px; letter-spacing: 0.12em; border: 1px solid var(--color-border); background: var(--color-paper); color: var(--color-ink); padding: 7px 14px; border-radius: 9999px;"}
+                      >
+                        {cat.category} <span class="tnum opacity-70">· {cat.n}</span>
+                      </a>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           </section>
@@ -152,7 +236,7 @@ const stats = page === 1 ? [
                 class="paper group block overflow-hidden transition hover:-translate-y-0.5"
                 style="padding: 0;"
               >
-                <div class="grid gap-0 lg:grid-cols-[1.4fr,1fr]">
+                <div class="grid gap-0 lg:grid-cols-[1.4fr_1fr]">
                   <PhotoBlock
                     aspect="16/10"
                     rounded={false}
@@ -229,11 +313,16 @@ const stats = page === 1 ? [
                       alt={p.title}
                     />
                     <div class="p-6 flex-1 flex flex-col">
-                      {p.category && (
-                        <p class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
-                          {p.category}
+                      <div class="flex items-center justify-between gap-2 flex-wrap">
+                        {p.category && (
+                          <p class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
+                            {p.category}
+                          </p>
+                        )}
+                        <p class="mono uppercase tnum" style="font-size: 9.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                          {readMins(p.excerpt)} min read
                         </p>
-                      )}
+                      </div>
                       <h4 class="mt-2 serif group-hover:text-accent transition-colors" style="font-size: 19px; line-height: 1.25; letter-spacing: -0.005em; color: var(--color-ink);">
                         {p.title}
                       </h4>
@@ -272,6 +361,31 @@ const stats = page === 1 ? [
       </>
     )}
 
+    <HowItWorks
+      heading='How to use the blog'
+      italicWord='the blog'
+      eyebrow='Editorial'
+      steps={[
+        { title: 'Money posts', description: 'Cost breakdowns by procedure and destination, hidden-fees analyses, insurance/payment guides. Read these before getting quotes.' },
+        { title: 'Decision-frame posts', description: 'When to get a second opinion, do you actually need this procedure, which destination for X. Read these before committing.' },
+        { title: 'Logistics posts', description: "Pre-trip preparation, what to pack, attendant guides, recovery day-by-day. Read these once you've decided to travel." },
+        { title: 'Patient stories', description: 'Real-feeling case timelines with outcomes at 6/12 months. Useful for understanding what realistic recovery looks like.' },
+      ]},
+      outroNote='All posts have named-physician reviewer bylines where clinical claims are made. Editorial team reviews coordination and travel claims.'
+    />
+
+    <WhatToExpect
+      heading='Editorial principles'
+      italicWord='principles'
+      items={[
+        { label: 'Specifics over generalities', description: 'Every cost claim has a number. Every recovery claim has a timeline. Every recommendation has a rationale.' },
+        { label: 'Honest about trade-offs', description: "We don't whitewash. If a destination has a downside, we say so. If a procedure isn't right for everyone, we frame the alternative." },
+        { label: 'Evidence-based where possible', description: 'Clinical claims sourced from peer-reviewed literature, society guidelines, or program-published outcome data.' },
+        { label: 'Cited reviewers', description: 'Major clinical posts have named physician reviewers. Coordination posts are reviewed by the editorial desk.' },
+      ]}
+    />
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

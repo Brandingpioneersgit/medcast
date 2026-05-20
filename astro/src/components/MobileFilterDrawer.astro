@@ -1,0 +1,200 @@
+---
+type Group = {
+  /** Eyebrow label, e.g. "Country" or "Specialty". */
+  label: string;
+  /** Items in the group; `active === true` highlights it. */
+  items: Array<{ name: string; href: string; count?: number; active?: boolean; flag?: string }>;
+};
+
+interface Props {
+  groups: Group[];
+  /** Number of currently-applied filters — shown on the trigger button. */
+  activeCount: number;
+  /** Where "Clear all" links to. */
+  clearHref: string;
+  /** Total count line (e.g. "9,254 hospitals"). */
+  totalLabel?: string;
+}
+
+const { groups, activeCount, clearHref, totalLabel } = Astro.props;
+---
+
+<button
+  type="button"
+  class="mc-filter-trigger lg:hidden"
+  data-mc-filter-trigger
+  aria-haspopup="dialog"
+  aria-expanded="false"
+  aria-controls="mc-filter-drawer"
+>
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+    <path d="M2 4h12M4 8h8M6 12h4" stroke-linecap="round" />
+  </svg>
+  <span>Filter{activeCount > 0 ? ` · ${activeCount}` : "s"}</span>
+</button>
+
+<dialog
+  id="mc-filter-drawer"
+  data-mc-filter-drawer
+  class="mc-filter-drawer"
+  aria-label="Filter results"
+>
+  <div class="mc-filter-drawer-panel">
+    <div class="mc-filter-drawer-head">
+      <div>
+        <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+          Filter
+        </div>
+        {totalLabel && (
+          <div class="serif" style="font-size: 17px; letter-spacing: -0.005em;">
+            {totalLabel}
+          </div>
+        )}
+      </div>
+      <button
+        type="button"
+        data-mc-filter-close
+        aria-label="Close filters"
+        class="mono"
+        style="width: 38px; height: 38px; line-height: 1; font-size: 22px; background: none; border: 1px solid var(--color-border); border-radius: 9999px; color: var(--color-ink); cursor: pointer;"
+      >×</button>
+    </div>
+    <div class="mc-filter-drawer-body">
+      {groups.map((g) => (
+        <div>
+          <p class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle); margin-bottom: 8px;">
+            {g.label}
+          </p>
+          <ul class="space-y-1">
+            {g.items.map((it) => (
+              <li>
+                <a
+                  href={it.href}
+                  class="flex items-center justify-between"
+                  style={`padding: 10px 12px; border-radius: 9999px; font-size: 14px; ${it.active ? "background: var(--color-ink); color: var(--color-bg);" : "color: var(--color-ink-muted);"}`}
+                >
+                  <span class="flex items-center gap-2">
+                    {it.flag && <span aria-hidden="true">{it.flag}</span>}
+                    {it.name}
+                  </span>
+                  {typeof it.count === "number" && (
+                    <span class="tnum" style={`font-size: 12px; opacity: ${it.active ? 0.8 : 0.6};`}>
+                      {it.count.toLocaleString()}
+                    </span>
+                  )}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+    <div class="mc-filter-drawer-foot">
+      {activeCount > 0 ? (
+        <a
+          href={clearHref}
+          class="mono uppercase"
+          style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-ink-muted); padding: 12px 16px; border: 1px solid var(--color-border); border-radius: 9999px;"
+        >Clear all</a>
+      ) : (
+        <span></span>
+      )}
+      <button
+        type="button"
+        data-mc-filter-close
+        class="font-semibold"
+        style="background: var(--color-ink); color: var(--color-bg); padding: 13px 22px; border-radius: 9999px; font-size: 14px; border: 0; cursor: pointer;"
+      >Show results</button>
+    </div>
+  </div>
+</dialog>
+
+<style>
+  .mc-filter-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 1px solid var(--color-border);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    padding: 8px 14px;
+    border-radius: 9999px;
+    cursor: pointer;
+    font-family: var(--font-mono, ui-monospace, monospace);
+  }
+  @media (min-width: 1024px) {
+    .mc-filter-trigger { display: none; }
+  }
+  .mc-filter-drawer {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    background: rgba(14, 23, 19, 0.4);
+  }
+  .mc-filter-drawer:not([open]) { display: none; }
+  .mc-filter-drawer::backdrop { background: rgba(14, 23, 19, 0.4); }
+  .mc-filter-drawer-panel {
+    position: fixed;
+    inset: auto 0 0 0;
+    background: var(--color-bg);
+    border-top-left-radius: var(--radius-lg, 14px);
+    border-top-right-radius: var(--radius-lg, 14px);
+    max-height: 85vh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    box-shadow: 0 -10px 30px rgba(14,23,19,0.18);
+  }
+  .mc-filter-drawer-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--color-border-soft);
+  }
+  .mc-filter-drawer-body {
+    overflow-y: auto;
+    padding: 18px 20px 4px;
+    display: grid;
+    gap: 22px;
+  }
+  .mc-filter-drawer-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px 20px calc(14px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--color-border-soft);
+  }
+</style>
+
+<script is:inline>
+  (() => {
+    const trigger = document.querySelector("[data-mc-filter-trigger]");
+    const drawer = document.querySelector("[data-mc-filter-drawer]");
+    if (!trigger || !drawer) return;
+    const closeBtns = drawer.querySelectorAll("[data-mc-filter-close]");
+    function open() {
+      try { drawer.showModal(); } catch (_) { drawer.setAttribute("open", ""); }
+      trigger.setAttribute("aria-expanded", "true");
+      document.body.style.overflow = "hidden";
+    }
+    function close() {
+      try { drawer.close(); } catch (_) { drawer.removeAttribute("open"); }
+      trigger.setAttribute("aria-expanded", "false");
+      document.body.style.overflow = "";
+    }
+    trigger.addEventListener("click", open);
+    closeBtns.forEach((b) => b.addEventListener("click", close));
+    drawer.addEventListener("click", (e) => {
+      if (e.target === drawer) close();
+    });
+  })();
+</script>

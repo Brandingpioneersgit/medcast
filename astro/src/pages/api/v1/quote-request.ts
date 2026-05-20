@@ -2,6 +2,7 @@ import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { contactInquiries, hospitals, treatments, doctors } from "../../../../../src/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { rateLimit, clientIp, requireSameOrigin, isHoneypotTripped } from "@/lib/rate-limit";
 
 export const prerender = false;
 
@@ -23,11 +24,23 @@ type Body = {
 };
 
 export const POST: APIRoute = async ({ request, clientAddress }) => {
+  const csrf = requireSameOrigin(request);
+  if (csrf) return csrf;
+
+  const rl = rateLimit({ key: `quote:${clientAddress ?? clientIp(request)}`, limit: 10, windowMs: 60_000 });
+  if (!rl.ok) return json({ error: "Too many requests" }, 429);
+
   let body: Body = {};
   try {
     body = await request.json();
   } catch {
     return json({ error: "Invalid JSON" }, 400);
+  }
+
+  // Honeypot — if the hidden field is non-empty, return a 200 (don't tell
+  // the bot we noticed). Drop without DB write.
+  if (isHoneypotTripped(body as unknown as Record<string, unknown>)) {
+    return json({ ok: true });
   }
 
   const name = (body.name ?? "").trim();

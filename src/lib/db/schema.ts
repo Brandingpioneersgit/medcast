@@ -88,6 +88,7 @@ export const hospitals = pgTable(
     website: varchar("website", { length: 500 }),
     logoUrl: text("logo_url"),
     coverImageUrl: text("cover_image_url"),
+    youtubeTourUrl: text("youtube_tour_url"),
     establishedYear: integer("established_year"),
     bedCapacity: integer("bed_capacity"),
     icuBeds: integer("icu_beds"),
@@ -104,6 +105,12 @@ export const hospitals = pgTable(
     commissionPercent: decimal("commission_percent", { precision: 5, scale: 2 }),
     metaTitle: varchar("meta_title", { length: 255 }),
     metaDescription: text("meta_description"),
+    // Wikidata + Wikipedia entity-link signals — populated by
+    // scripts/import/backfill-wikidata-sameas.mts. Surfaced as JSON-LD
+    // sameAs entries on the hospital page for entity disambiguation.
+    wikidataId: text("wikidata_id"),
+    wikipediaUrl: text("wikipedia_url"),
+    archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -195,6 +202,7 @@ export const specialties = pgTable(
     isActive: boolean("is_active").default(true),
     metaTitle: varchar("meta_title", { length: 255 }),
     metaDescription: text("meta_description"),
+    archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -211,6 +219,7 @@ export const conditions = pgTable(
     severityLevel: varchar("severity_level", { length: 20 }),
     metaTitle: varchar("meta_title", { length: 255 }),
     metaDescription: text("meta_description"),
+    archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -253,6 +262,7 @@ export const treatments = pgTable(
     isActive: boolean("is_active").default(true),
     metaTitle: varchar("meta_title", { length: 255 }),
     metaDescription: text("meta_description"),
+    archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -359,6 +369,7 @@ export const doctors = pgTable(
     licenseRegistrar: varchar("license_registrar", { length: 200 }),
     metaTitle: varchar("meta_title", { length: 255 }),
     metaDescription: text("meta_description"),
+    archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -530,6 +541,7 @@ export const testimonials = pgTable(
     isVerified: boolean("is_verified").default(false),
     isFeatured: boolean("is_featured").default(false),
     isActive: boolean("is_active").default(true),
+    archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -570,14 +582,17 @@ export const blogPosts = pgTable(
     tags: text("tags"), // JSON array as text
     status: varchar("status", { length: 20 }).default("draft"),
     publishedAt: timestamp("published_at"),
+    publishAt: timestamp("publish_at"),
     metaTitle: varchar("meta_title", { length: 255 }),
     metaDescription: text("meta_description"),
+    archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (t) => [
     index("idx_blog_status").on(t.status),
     index("idx_blog_published").on(t.publishedAt),
+    index("idx_blog_publish_at").on(t.publishAt),
   ]
 );
 
@@ -1173,6 +1188,29 @@ export const commissions = pgTable(
   ]
 );
 
+export const treatmentOutcomes = pgTable(
+  "treatment_outcomes",
+  {
+    id: serial("id").primaryKey(),
+    treatmentId: integer("treatment_id").references(() => treatments.id, { onDelete: "cascade" }),
+    hospitalId: integer("hospital_id").references(() => hospitals.id, { onDelete: "set null" }),
+    doctorId: integer("doctor_id").references(() => doctors.id, { onDelete: "set null" }),
+    beforeUrl: text("before_url").notNull(),
+    afterUrl: text("after_url").notNull(),
+    caption: text("caption"),
+    weeksPost: integer("weeks_post"),
+    patientAgeBand: varchar("patient_age_band", { length: 20 }),
+    patientCountry: varchar("patient_country", { length: 80 }),
+    isAnonymized: boolean("is_anonymized").default(true),
+    consentSignedAt: timestamp("consent_signed_at"),
+    isActive: boolean("is_active").default(true),
+    sortOrder: integer("sort_order").default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [index("idx_treatment_outcomes_treatment").on(t.treatmentId)]
+);
+
 // ============================================================
 // RELATIONS
 // ============================================================
@@ -1322,3 +1360,60 @@ export const redirects = pgTable("redirects", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// ============================================================
+// ADMIN NOTES — free-form internal commentary attached to any entity.
+// Surfaced in the right rail of edit pages so coordinators can leave
+// context for each other ("called Dr Sharma, on holiday until 2026-05-15").
+// ============================================================
+export const adminNotes = pgTable(
+  "admin_notes",
+  {
+    id: serial("id").primaryKey(),
+    entityType: varchar("entity_type", { length: 40 }).notNull(),
+    entityId: integer("entity_id").notNull(),
+    actor: varchar("actor", { length: 255 }),
+    body: text("body").notNull(),
+    isPinned: boolean("is_pinned").default(false),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("idx_admin_notes_entity").on(t.entityType, t.entityId),
+    index("idx_admin_notes_actor").on(t.actor),
+  ]
+);
+
+// (webhookDeliveries already declared earlier in this file with subscriptionId
+//  shape — use that one instead of redefining here.)
+
+// ============================================================
+// PAGE IMAGES — admin-editable image overrides keyed by
+// (page_type, page_key, slot). Public site readers check this table
+// before falling back to entity columns or pool helpers.
+//
+// page_type examples: hospital, doctor, country, specialty, condition,
+//                     treatment, blog, city, static
+// page_key:           slug or path (e.g. "artemis-hospital", "india",
+//                     "cabg-heart-bypass", "/services")
+// slot:               cover, hero, banner, gallery-1..N, og
+// ============================================================
+export const pageImages = pgTable(
+  "page_images",
+  {
+    id: serial("id").primaryKey(),
+    pageType: varchar("page_type", { length: 40 }).notNull(),
+    pageKey: varchar("page_key", { length: 220 }).notNull(),
+    slot: varchar("slot", { length: 40 }).default("cover").notNull(),
+    url: text("url").notNull(),
+    altText: varchar("alt_text", { length: 255 }),
+    note: text("note"),
+    updatedBy: varchar("updated_by", { length: 255 }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("uq_page_images_key").on(t.pageType, t.pageKey, t.slot),
+    index("idx_page_images_type").on(t.pageType),
+  ]
+);

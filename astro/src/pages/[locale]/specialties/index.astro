@@ -6,11 +6,16 @@ import SiteFooter from "@/components/SiteFooter.astro";
 import EntityListingHero from "@/components/EntityListingHero.astro";
 import PhotoBlock from "@/components/PhotoBlock.astro";
 import Price from "@/components/Price.astro";
+import SpecialtyBanner from "@/components/SpecialtyBanner.astro";
 import { listSpecialties } from "@/lib/queries";
+import { formatUsd } from "@/lib/currency";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, collectionPageJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { ChevronRight } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import PageCta from "@/components/PageCta.astro";
 
 export const prerender = false;
 
@@ -22,8 +27,10 @@ const rowsRaw = await listSpecialties();
 const rows = Array.from(rowsRaw);
 
 const tc = getTranslator(locale, "common");
-const seoTitle = "Medical specialties";
-const seoDescription = `Explore specialty care — ${rows.length} specialties across accredited hospitals in 9 destinations. Compare cardiology, oncology, orthopedics, neurology and more.`;
+const { bindChromeT } = await import("@/lib/chrome-i18n");
+const ct = bindChromeT(locale);
+const seoTitle = ct("lp.specialties.title");
+const seoDescription = ct("lp.specialties.desc").replace("{count}", String(rows.length));
 const path = "/specialties";
 
 const crumbs = breadcrumbJsonLd([
@@ -44,12 +51,13 @@ const collectionLd = collectionPageJsonLd({
 const totalHospitals = rows.reduce((s, r) => s + r.hospitals, 0);
 const totalTreatments = rows.reduce((s, r) => s + r.treatments, 0);
 const lowestFrom = rows.reduce((m, r) => (r.from_usd && (!m || r.from_usd < m) ? r.from_usd : m), null as number | null);
+const lowestFromFormatted = lowestFrom ? await formatUsd(Astro.cookies, lowestFrom) : null;
 
 const stats = [
   { l: "Specialties", v: rows.length.toString() },
   { l: "Hospitals", v: totalHospitals.toLocaleString() },
   { l: "Treatments", v: totalTreatments.toString() },
-  lowestFrom ? { l: "From", v: `$${(lowestFrom / 1000).toFixed(1)}k` } : null,
+  lowestFromFormatted ? { l: "From", v: lowestFromFormatted } : null,
 ].filter(Boolean) as Array<{ l: string; v: string }>;
 
 function firstWord(s: string) { const i = s.indexOf(" "); return i === -1 ? s : s.slice(0, i); }
@@ -61,11 +69,11 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
-    <script type="application/ld+json" set:html={JSON.stringify(collectionLd)} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(collectionLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -79,15 +87,16 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
     </div>
 
     <EntityListingHero
-      eyebrow={`Specialty care · ${rows.length} areas of practice`}
-      h1First="Specialty"
-      h1Italic="care"
-      lede={`${rows.length} medical specialties spanning ${totalHospitals.toLocaleString()} accredited hospitals across 9 destinations. Each hub ranks the credentialed facilities, surgeons and typical pricing.`}
+      eyebrow={ct("lp.specialties.eyebrow").replace("{count}", String(rows.length))}
+      h1First={ct("lp.specialties.h1a")}
+      h1Italic={ct("lp.specialties.h1b")}
+      lede={seoDescription}
       stats={stats}
     />
 
     <section style="padding: 32px 0 88px;">
       <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8">
+        <h2 class="sr-only">Browse specialties</h2>
         <ul class="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
           {rows.map((sp) => (
             <li>
@@ -96,7 +105,9 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
                 class="paper group flex h-full flex-col overflow-hidden transition hover:-translate-y-0.5"
                 style="padding: 0;"
               >
-                <PhotoBlock
+                <SpecialtyBanner
+                  slug={sp.slug}
+                  name={sp.name}
                   aspect="16/10"
                   rounded={false}
                   label={sp.name}
@@ -142,6 +153,31 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-r
       </div>
     </section>
 
+    <HowItWorks
+      heading="How specialties relate to your case"
+      italicWord="your case"
+      eyebrow="Specialty navigation"
+      steps={[
+        { title: "Identify your concern", description: "Symptoms, diagnosis, or referral. Not all conditions map cleanly to a single specialty — heart conditions might involve cardiology, cardiac surgery, vascular." },
+        { title: "Find the matching specialty hub", description: "Each specialty page covers scope, sub-specialties, top destinations, and decision frameworks. Read the specialty page before drilling into specific procedures." },
+        { title: "Read sub-specialty depth", description: "A 'cardiac surgeon' isn't the same as a 'mitral valve specialist'. Sub-specialty volume on your specific procedure matters more than general specialty designation." },
+        { title: "Cross-reference with destinations", description: "Different destinations excel at different specialties. India for cardiac/transplant, Korea for liver transplant + advanced GI, Germany for complex re-do, Turkey for cosmetic." },
+      ]}
+    />
+
+    <WhatToExpect
+      heading="What good specialty programs look like"
+      italicWord="look like"
+      items={[
+        { label: "Sub-specialty teams", description: "Strong programs have multiple sub-specialty teams (cardiac surgery + interventional cardiology + electrophysiology), not generalist coverage." },
+        { label: "Multidisciplinary review", description: "Tumor boards (oncology), heart teams (cardiac), spine conferences — recurring multidisciplinary case reviews are a quality signal." },
+        { label: "Volume thresholds met", description: "Programs doing the volume thresholds for each specialty (200+ CABG/year for cardiac, 100+ Whipples/year for HPB, etc.) reach the strongest outcome ranges." },
+        { label: "Continuous improvement", description: "Active publication record, society membership, conference presence indicate engagement with the field beyond just operating." },
+      ]}
+    />
+
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

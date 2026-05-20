@@ -30,34 +30,47 @@ const LOCALE_LABELS: Record<Locale, { label: string; flag: string }> = {
   hi: { label: "हिन्दी", flag: "🇮🇳" },
 };
 
+// Read current currency from cookie so the trigger label is correct on first paint
+// (the JS hydration fix is still there for cookie changes after navigation).
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: "$", EUR: "€", GBP: "£", INR: "₹", AED: "د.إ",
+  SAR: "﷼", TRY: "₺", RUB: "₽", BDT: "৳",
+};
+const cookieCurrency = (Astro.cookies.get("mc-currency")?.value ?? "USD") as string;
+const initialCurrencyLabel = `${cookieCurrency} ${CURRENCY_SYMBOLS[cookieCurrency] ?? "$"}`;
+
 // Strip leading locale segment so we can rebuild with a different one.
-// e.g. "/en/hospital/foo" → "/hospital/foo"
-const restPath = (() => {
+// Astro is configured with prefixDefaultLocale: true, so EVERY locale URL is prefixed.
+function buildLocaleUrl(target: Locale): string {
   const parts = pathname.split("/").filter(Boolean);
-  if (parts.length > 0 && LOCALES.includes(parts[0] as Locale)) {
-    return "/" + parts.slice(1).join("/");
-  }
-  return pathname;
-})();
+  const rest = parts.length > 0 && (LOCALES as readonly string[]).includes(parts[0])
+    ? parts.slice(1).join("/")
+    : parts.join("/");
+  return `/${target}${rest ? "/" + rest : "/"}`;
+}
 
 const menuStyle =
-  "position: absolute; inset-block-start: calc(100% + 8px); inset-inline-end: 0; min-width: 220px; max-height: 340px; overflow-y: auto; background: var(--color-paper); color: var(--color-ink); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-md, 0 8px 24px rgba(0,0,0,0.15)); padding: 6px; z-index: 50;";
+  "position: absolute; inset-block-start: calc(100% + 8px); inset-inline-end: 0; min-width: 220px; max-height: 340px; overflow-y: auto; background: var(--color-paper); color: var(--color-ink); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-md, 0 8px 24px rgba(0,0,0,0.15)); padding: 6px; z-index: 60;";
 const itemStyle =
   "display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; background: transparent; border: 0; width: 100%; text-align: start; font-family: inherit; color: inherit;";
 ---
 
-{/* Currency */}
-<details class="relative" data-currency-switcher>
-  <summary
-    class="opacity-80 hover:opacity-100 list-none cursor-pointer inline-flex items-center gap-1"
-    style="background: transparent; border: 0; padding: 0; color: inherit; font-size: inherit;"
+{/* Currency switcher */}
+<div class="relative" data-mc-switcher="currency">
+  <button
+    type="button"
+    class="opacity-80 hover:opacity-100 inline-flex items-center gap-1"
+    style="background: transparent; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer;"
+    aria-haspopup="menu"
+    aria-expanded="false"
+    data-mc-switcher-trigger
   >
-    <span data-currency-label>USD $</span>
-    <svg width="9" height="9" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity: 0.7;">
+    <span data-currency-label>{initialCurrencyLabel}</span>
+    <svg width="9" height="9" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity: 0.7;" aria-hidden="true">
       <path d="M1 1l4 4 4-4" />
     </svg>
-  </summary>
-  <div style={menuStyle} role="menu">
+  </button>
+  <div style={menuStyle} role="menu" data-mc-switcher-menu hidden>
     <div
       class="mono"
       style="padding: 6px 10px; font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-ink-subtle);"
@@ -74,33 +87,36 @@ const itemStyle =
       </button>
     ))}
   </div>
-</details>
+</div>
 
 <span class="opacity-40">·</span>
 
-{/* Language */}
-<details class="relative" data-locale-switcher>
-  <summary
-    class="opacity-80 hover:opacity-100 list-none cursor-pointer inline-flex items-center gap-1.5 uppercase tracking-wider"
-    style="background: transparent; border: 0; padding: 0; color: inherit; font-size: 11px;"
+{/* Language switcher */}
+<div class="relative" data-mc-switcher="locale">
+  <button
+    type="button"
+    class="opacity-80 hover:opacity-100 inline-flex items-center gap-1.5 uppercase tracking-wider"
+    style="background: transparent; border: 0; padding: 0; color: inherit; font-size: 11px; cursor: pointer;"
+    aria-haspopup="menu"
+    aria-expanded="false"
+    data-mc-switcher-trigger
   >
     <span aria-hidden="true">{LOCALE_LABELS[locale].flag}</span>
     <span>{locale}</span>
-    <svg width="9" height="9" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity: 0.7;">
+    <svg width="9" height="9" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity: 0.7;" aria-hidden="true">
       <path d="M1 1l4 4 4-4" />
     </svg>
-  </summary>
-  <div style={menuStyle} role="menu">
+  </button>
+  <div style={menuStyle} role="menu" data-mc-switcher-menu hidden>
     <div
       class="mono"
       style="padding: 6px 10px; font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--color-ink-subtle);"
     >Language</div>
     {LOCALES.map((l) => {
-      const target = l === "en" ? restPath : `/${l}${restPath}`;
       const active = l === locale;
       return (
         <a
-          href={target || "/"}
+          href={buildLocaleUrl(l)}
           role="menuitem"
           style={`${itemStyle} text-decoration: none; ${active ? "background: var(--color-accent-soft); color: var(--color-accent-strong);" : ""}`}
         >
@@ -113,47 +129,115 @@ const itemStyle =
       );
     })}
   </div>
-</details>
+</div>
 
 <script is:inline>
   (() => {
-    // Read current currency from cookie and reflect in the label
     function getCookie(name) {
-      const m = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
+      var m = document.cookie.match(new RegExp("(?:^|; )" + name.replace(/[.$?*|{}()[\]\\\/+^]/g, "\\$&") + "=([^;]*)"));
       return m ? decodeURIComponent(m[1]) : null;
     }
     function setCookie(name, value, days) {
-      const d = new Date();
-      d.setTime(d.getTime() + (days * 864e5));
-      document.cookie = name + "=" + encodeURIComponent(value) + "; expires=" + d.toUTCString() + "; path=/; SameSite=Lax";
+      var d = new Date();
+      d.setTime(d.getTime() + days * 864e5);
+      var secure = location.protocol === "https:" ? "; Secure" : "";
+      document.cookie = name + "=" + encodeURIComponent(value) + "; expires=" + d.toUTCString() + "; path=/; SameSite=Lax" + secure;
     }
 
-    const CURRENCY_SYMBOLS = {
+    var CURRENCY_SYMBOLS = {
       USD: "$", EUR: "€", GBP: "£", INR: "₹", AED: "د.إ",
       SAR: "﷼", TRY: "₺", RUB: "₽", BDT: "৳",
     };
 
-    const currentCurrency = getCookie("mc-currency") || "USD";
-    document.querySelectorAll("[data-currency-label]").forEach((el) => {
-      const sym = CURRENCY_SYMBOLS[currentCurrency] || "$";
+    // Reflect actual cookie on the trigger label on first paint (in case the
+    // server-rendered label diverges, e.g. when the page was served from cache).
+    var currentCurrency = getCookie("mc-currency") || "USD";
+    document.querySelectorAll("[data-currency-label]").forEach(function (el) {
+      var sym = CURRENCY_SYMBOLS[currentCurrency] || "$";
       el.textContent = currentCurrency + " " + sym;
     });
 
-    document.addEventListener("click", (e) => {
-      const btn = e.target && e.target.closest && e.target.closest("[data-set-currency]");
-      if (!btn) return;
-      e.preventDefault();
-      const code = btn.getAttribute("data-set-currency");
-      if (!code) return;
-      setCookie("mc-currency", code, 180);
-      window.location.reload();
+    // Custom dropdown — replaces the previous <details>/<summary> mechanism
+    // which had inconsistent click targeting on iOS Safari.
+    var switchers = document.querySelectorAll("[data-mc-switcher]");
+    function closeAll(except) {
+      switchers.forEach(function (sw) {
+        if (sw === except) return;
+        var menu = sw.querySelector("[data-mc-switcher-menu]");
+        var trig = sw.querySelector("[data-mc-switcher-trigger]");
+        if (menu) menu.setAttribute("hidden", "");
+        if (trig) trig.setAttribute("aria-expanded", "false");
+        sw.removeAttribute("data-mc-open");
+      });
+    }
+    switchers.forEach(function (sw) {
+      var trig = sw.querySelector("[data-mc-switcher-trigger]");
+      var menu = sw.querySelector("[data-mc-switcher-menu]");
+      if (!trig || !menu) return;
+      trig.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var isOpen = sw.getAttribute("data-mc-open") === "true";
+        closeAll(sw);
+        if (isOpen) {
+          menu.setAttribute("hidden", "");
+          trig.setAttribute("aria-expanded", "false");
+          sw.removeAttribute("data-mc-open");
+        } else {
+          menu.removeAttribute("hidden");
+          trig.setAttribute("aria-expanded", "true");
+          sw.setAttribute("data-mc-open", "true");
+        }
+      });
     });
 
-    // Close details on outside click
-    document.addEventListener("click", (e) => {
-      document.querySelectorAll("details[data-currency-switcher], details[data-locale-switcher]").forEach((d) => {
-        if (!d.contains(e.target)) d.removeAttribute("open");
+    document.addEventListener("click", function (e) {
+      var target = e.target;
+      if (!target || !target.closest) return;
+
+      // Currency item click → set cookie + soft refresh.
+      // Strategy: fetch the current URL (server reads the new cookie via
+      // document.cookie before the browser ships it on the next request),
+      // parse the response, and swap the <body>. Wrapped in a View
+      // Transition where supported for a smooth fade. Falls back to a hard
+      // reload on any error so currency change is never silently broken.
+      var currencyBtn = target.closest("[data-set-currency]");
+      if (currencyBtn) {
+        e.preventDefault();
+        var code = currencyBtn.getAttribute("data-set-currency");
+        if (!code) return;
+        setCookie("mc-currency", code, 180);
+        var apply = function () {
+          fetch(location.href, { credentials: "same-origin", cache: "no-store" })
+            .then(function (r) { return r.text(); })
+            .then(function (html) {
+              var doc = new DOMParser().parseFromString(html, "text/html");
+              if (!doc.body) throw new Error("no body");
+              document.body.replaceWith(doc.body);
+              // Re-trigger any island scripts that wire up on DOMContentLoaded.
+              window.dispatchEvent(new Event("astro:after-swap"));
+            })
+            .catch(function () { location.reload(); });
+        };
+        if (typeof document.startViewTransition === "function") {
+          document.startViewTransition(apply);
+        } else {
+          apply();
+        }
+        return;
+      }
+
+      // Outside-click — close any open switcher
+      var insideSwitcher = false;
+      switchers.forEach(function (sw) {
+        if (sw.contains(target)) insideSwitcher = true;
       });
+      if (!insideSwitcher) closeAll(null);
+    });
+
+    // Esc closes
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") closeAll(null);
     });
   })();
 </script>

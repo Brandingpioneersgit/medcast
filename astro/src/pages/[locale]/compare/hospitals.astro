@@ -4,11 +4,15 @@ import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import { getHospitalsForCompare } from "@/lib/queries";
+import { formatUsd } from "@/lib/currency";
 import { getContentBatch, applyTranslated } from "@/lib/translate";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { hospitalCover } from "@/lib/images";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import PageCta from "@/components/PageCta.astro";
 
 export const prerender = false;
 
@@ -54,6 +58,16 @@ const crumbs = breadcrumbJsonLd([
 // Never cache — result depends on user's slug list
 Astro.response.headers.set("Cache-Control", "private, no-store");
 
+// Pre-format pricing per hospital using the user's currency cookie. We can't
+// `await` inside the sync `render` callbacks below, so build the map up-front.
+const pricingByHospital = new Map<number, string>();
+for (const h of hospitals) {
+  if (!h.pricing) continue;
+  const lo = await formatUsd(Astro.cookies, h.pricing.lo);
+  const hi = await formatUsd(Astro.cookies, h.pricing.hi);
+  pricingByHospital.set(h.id, `${lo} — ${hi} · ${h.pricing.n} procedures`);
+}
+
 // Rows configuration — one row per comparable attribute.
 type Row = {
   key: string;
@@ -95,10 +109,8 @@ const rows: Row[] = [
   },
   {
     key: "pricing",
-    label: "Treatment pricing (USD)",
-    render: (h) => h.pricing
-      ? `$${Math.round(h.pricing.lo).toLocaleString()} — $${Math.round(h.pricing.hi).toLocaleString()} · ${h.pricing.n} procedures`
-      : "—",
+    label: "Treatment pricing",
+    render: (h) => pricingByHospital.get(h.id) ?? "—",
   },
   {
     key: "specialties",
@@ -113,10 +125,10 @@ const rows: Row[] = [
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <nav aria-label="Breadcrumb" class="border-b border-border bg-bg">
@@ -141,7 +153,58 @@ const rows: Row[] = [
           ? `Reviewing ${hospitals.length} hospitals side by side. Pricing is the range across all procedures we have on record for each hospital.`
           : "Add hospitals to your shortlist from any hospital card around the site, then return here."}
       </p>
+
+      {hospitals.length > 0 && (
+        <div class="mt-5 flex flex-wrap gap-2 mono uppercase" style="font-size: 11px; letter-spacing: 0.1em;">
+          <a
+            href={`mailto:?subject=${encodeURIComponent("MedCasts hospital shortlist")}&body=${encodeURIComponent(
+              `My shortlist (${hospitals.length} ${hospitals.length === 1 ? "hospital" : "hospitals"}):\n\n` +
+              hospitals.map((h, i) => {
+                const country = h.countryName ?? "";
+                const lo = h.pricing ? `from $${h.pricing.lo.toLocaleString()}` : "";
+                return `${i + 1}. ${h.name}${h.cityName ? ` — ${h.cityName}` : ""}${country ? `, ${country}` : ""}${lo ? `\n   ${lo}` : ""}\n   https://medcasts.com${localizedPath(locale, `/hospital/${h.slug}`)}`;
+              }).join("\n\n") +
+              `\n\n— Compare side-by-side: https://medcasts.com${localizedPath(locale, path)}?ids=${hospitals.map((h) => h.slug).join(",")}`,
+            )}`}
+            class="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 hover:border-ink"
+            style="color: var(--color-ink);"
+          >
+            <span aria-hidden="true">✉</span>
+            Email me this list
+          </a>
+          <button
+            type="button"
+            data-share-list
+            data-list-url={`https://medcasts.com${localizedPath(locale, path)}?ids=${hospitals.map((h) => h.slug).join(",")}`}
+            class="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 hover:border-ink"
+            style="color: var(--color-ink); background: none; cursor: pointer;"
+          >
+            <span aria-hidden="true">🔗</span>
+            Copy link
+          </button>
+        </div>
+      )}
     </section>
+
+    <script is:inline>
+      (function () {
+        var btn = document.querySelector("[data-share-list]");
+        if (!btn) return;
+        btn.addEventListener("click", async function () {
+          var url = btn.getAttribute("data-list-url");
+          if (!url) return;
+          try {
+            await navigator.clipboard.writeText(url);
+            var orig = btn.innerHTML;
+            btn.innerHTML = '<span aria-hidden="true">✓</span> Copied';
+            setTimeout(function () { btn.innerHTML = orig; }, 1800);
+          } catch (e) {
+            // Clipboard blocked — fall back to a window prompt for manual copy.
+            window.prompt("Copy your shortlist URL:", url);
+          }
+        });
+      })();
+    </script>
 
     {hospitals.length === 0 && (
       <section class="mx-auto max-w-3xl px-6 pb-20">
@@ -172,7 +235,7 @@ const rows: Row[] = [
                   <th scope="col" class="min-w-[15rem] p-3 md:p-4 text-start align-top" style="border-bottom: 1px solid var(--color-border);">
                     <div class="rounded-xl overflow-hidden border border-border bg-surface">
                       <div class="relative aspect-[16/9] bg-subtle">
-                        <img src={hospitalCover({ coverImageUrl: h.coverImageUrl, countrySlug: h.countrySlug })} alt="" width="480" height="270" loading="lazy" decoding="async" class="h-full w-full object-cover" />
+                        <img src={hospitalCover({ coverImageUrl: h.coverImageUrl, countrySlug: h.countrySlug })} alt={`${h.name} — ${h.cityName ?? ""}`} width="480" height="270" loading="lazy" decoding="async" class="h-full w-full object-cover" />
                         <div class="image-veil" />
                       </div>
                       <div class="p-3.5">
@@ -231,6 +294,33 @@ const rows: Row[] = [
       </section>
     )}
 
+    <HowItWorks
+      heading="How to compare hospitals effectively"
+      italicWord="effectively"
+      eyebrow="Hospital comparison"
+      steps={[
+        { title: "Match procedure first", description: "Hospital reputation varies by department. A hospital that's strong on cardiac may be average on orthopedics. Compare on your specific procedure, not general reputation." },
+        { title: "Volume on your procedure", description: "Ask each hospital for surgeon's annual case volume on the specific procedure. Compare numbers, not adjectives." },
+        { title: "Compare accreditation depth", description: "JCI is baseline for international care. Combined with country-specific (NABH, HA, KOIHA) is stronger. Look for specialty-specific accreditations where they exist." },
+        { title: "Itemized quotes for same scope", description: "Same procedure, same implant brand, same hospital stay length, same PT inclusion. Equalize before comparing prices." },
+        { title: "Communication quality", description: "Response time, depth of answers, willingness to share data. The hospital's communication during quote phase predicts their communication during your stay." },
+      ]}
+    />
+
+    <WhatToExpect
+      heading="What separates a good hospital from a great one"
+      italicWord="great one"
+      items={[
+        { label: "Specialty-specific volume", description: "The strongest hospitals have specific specialties where they're at top tier. A hospital with 5 strong departments outperforms one claiming 20 'comprehensive' departments." },
+        { label: "Subspecialist depth", description: "For complex cases, you want subspecialists in specific procedures, not generalists. Confirm at the department level." },
+        { label: "Multidisciplinary infrastructure", description: "Tumor boards, heart teams, spine conferences. Recurring multidisciplinary review changes outcomes for complex cases." },
+        { label: "ICU + emergency capability", description: "Step-down ICU, intensivist on call 24/7, emergency response infrastructure. For complex cases this is risk management." },
+        { label: "International patient services", description: "Multilingual coordination, dedicated international wings, post-discharge telemedicine, complications protocol — these are quality signals for medical-tourism programs." },
+      ]}
+    />
+
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

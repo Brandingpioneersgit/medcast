@@ -137,6 +137,11 @@ export default async function DoctorPage({ params }: Props) {
               <img
                 src={doctorImage({ slug: doctor.slug, imageUrl: doctor.imageUrl }, 800, 1000)}
                 alt={doctor.name}
+                width={800}
+                height={1000}
+                loading="eager"
+                fetchPriority="high"
+                decoding="sync"
                 className="absolute inset-0 h-full w-full object-cover"
               />
               <div className="image-veil" />

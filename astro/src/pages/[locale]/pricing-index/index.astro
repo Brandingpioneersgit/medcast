@@ -6,6 +6,9 @@ import SiteFooter from "@/components/SiteFooter.astro";
 import { getPriceIndex } from "@/lib/queries";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, SITE_URL, SITE_NAME, withProvenance } from "@/lib/seo";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import PageCta from "@/components/PageCta.astro";
 
 export const prerender = false;
 
@@ -128,11 +131,11 @@ function fmt(n: number) {
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={title} description={description} path={path} locale={locale} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    <script type="application/ld+json" set:html={JSON.stringify(datasetLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(datasetLd)} />
   </Fragment>
 
-  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} />
 
     <section style="border-bottom: 1px solid var(--color-border); padding: 64px 28px;">
@@ -283,7 +286,7 @@ function fmt(n: number) {
 
     {/* Methodology + how to cite */}
     <section id="methodology" style="padding: 64px 28px; border-top: 1px solid var(--color-border);">
-      <div class="mx-auto max-w-[80rem] grid gap-10 md:grid-cols-[1fr,1.4fr]">
+      <div class="mx-auto max-w-[80rem] grid gap-10 md:grid-cols-[1fr_1.4fr]">
         <div>
           <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
             Methodology
@@ -332,12 +335,36 @@ function fmt(n: number) {
 MedCasts editorial desk ({year}). The MedCasts Global Hospital Price Index, {edition}. medcasts.com/pricing-index. CC BY 4.0.
         </div>
         <p class="mt-4" style="font-size: 13px; color: var(--color-ink-muted);">
-          Press and research enquiries: <a href="mailto:partnerships@medcasts.com" style="color: var(--color-ink); font-weight: 500;">partnerships@medcasts.com</a>.
-          Found an error? <a href="mailto:corrections@medcasts.com" style="color: var(--color-ink); font-weight: 500;">corrections@medcasts.com</a>.
+          Press and research enquiries: <a href="mailto:medcastsdigital@gmail.com" style="color: var(--color-ink); font-weight: 500;">medcastsdigital@gmail.com</a>.
+          Found an error? <a href="mailto:medcastsdigital@gmail.com" style="color: var(--color-ink); font-weight: 500;">medcastsdigital@gmail.com</a>.
         </p>
       </div>
     </section>
 
+    <HowItWorks
+      heading='How pricing index pages work'
+      italicWord='work'
+      eyebrow='Pricing reference'
+      steps={[
+        { title: 'Pricing aggregated from quote sheets', description: 'Each cost figure comes from itemized quote sheets that partner hospitals issue to international patients. Not from advertising rates.' },
+        { title: 'Country medians used for ranges', description: 'Within each destination, we show low-to-high price bands across hospital tiers. Mid-range is what most patients actually pay.' },
+        { title: 'Updated quarterly', description: 'Pricing data refreshed every 90 days. Major program-specific changes flow through immediately.' },
+        { title: 'Itemized quote for binding pricing', description: 'Index pages show ranges. For your specific case, request itemized quotes — final pricing depends on case complexity, implant choice, length of stay.' },
+      ]}
+    />
+
+    <WhatToExpect
+      heading='What the price ranges include and exclude'
+      italicWord='include and exclude'
+      items={[
+        { label: 'Included in range', description: 'Surgeon fee, anesthesia, OR time, standard hospital stay, standard implants/devices, routine post-op imaging, discharge medications.' },
+        { label: 'Not included', description: 'Travel costs, accommodation, meals, attendant logistics, complications care, follow-up imaging beyond standard, premium implant upgrades, extended ICU stays.' },
+        { label: 'Total trip cost reality', description: '1.5-2.5× the procedure quote when you include travel, accommodation, and contingency. Plan accordingly.' },
+        { label: 'Currency volatility', description: 'Quotes in USD or destination currency. FX moves of 5-10% over 60 days are common. Lock rates at quote time where possible.' },
+      ]}
+    />
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

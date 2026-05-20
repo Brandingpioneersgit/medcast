@@ -4,12 +4,23 @@ import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import PhotoBlock from "@/components/PhotoBlock.astro";
-import { getBlogPostBySlug, listLinkableEntities } from "@/lib/queries";
+import { getBlogPostBySlug, listLinkableEntities, listCitationsFor } from "@/lib/queries";
+import { pageImageFor } from "@/lib/page-images";
+import Citations from "@/components/content/Citations.astro";
 import { linkifyBlogHtml } from "@/lib/content-linker";
 import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl, SITE_URL } from "@/lib/seo";
+import {
+  getContent,
+  applyTranslated,
+  isUntranslated,
+  localizedTitle,
+  localizedDescription,
+} from "@/lib/translate";
 import { Calendar, ChevronRight, User } from "lucide-react";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 
 export const prerender = false;
 
@@ -23,14 +34,66 @@ const data = await getBlogPostBySlug(slug);
 if (!data) return new Response(`Not found: ${slug}`, { status: 404 });
 
 const tc = getTranslator(locale, "common");
-const { post, related } = data;
+const { post: postRaw, related } = data;
+const blogMap = await getContent("blog_post", postRaw.id, locale);
+const post = applyTranslated(postRaw, blogMap, ["title", "excerpt", "content"]);
 
+// Admin-set image override for this blog post
+const blogCoverOverride = await pageImageFor("blog", slug, "cover");
+if (blogCoverOverride) {
+  post.coverImageUrl = blogCoverOverride.url;
+}
+
+const citations = await listCitationsFor("blog", post.id);
 const linkables = await listLinkableEntities().catch(() => []);
 const { html: linkedHtml, linked: mentioned } = linkifyBlogHtml(
   post.content ?? "",
   linkables,
   (p) => localizedPath(locale, p),
 );
+
+// Extract h2/h3 headings, inject ids for anchor-linking, build TOC.
+type TocEntry = { level: 2 | 3; id: string; text: string };
+const tocEntries: TocEntry[] = [];
+const usedIds = new Set<string>();
+function slugifyHeading(s: string): string {
+  const base = s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "section";
+  let candidate = base;
+  let n = 2;
+  while (usedIds.has(candidate)) candidate = `${base}-${n++}`;
+  usedIds.add(candidate);
+  return candidate;
+}
+const htmlWithIds = linkedHtml.replace(
+  /<(h[23])\b([^>]*)>([\s\S]*?)<\/\1>/gi,
+  (_match, tag: string, attrs: string, inner: string) => {
+    const text = inner.replace(/<[^>]*>/g, "").trim();
+    if (!text) return _match;
+    if (/\bid\s*=/.test(attrs)) return _match;
+    const id = slugifyHeading(text);
+    tocEntries.push({ level: tag.toLowerCase() === "h2" ? 2 : 3, id, text });
+    return `<${tag} id="${id}"${attrs}>${inner}</${tag}>`;
+  },
+);
+
+// Key takeaways: prefer hand-authored block (look for an <h2>Key takeaways</h2>
+// followed by a <ul>), else fall back to the first 4 h2 headings as a TL;DR.
+function extractKeyTakeaways(): string[] {
+  const re = /<h2[^>]*>\s*(?:key\s+takeaways|tl;dr|summary)\s*<\/h2>\s*<ul>([\s\S]*?)<\/ul>/i;
+  const m = (post.content ?? "").match(re);
+  if (m) {
+    const liRe = /<li>([\s\S]*?)<\/li>/gi;
+    const items: string[] = [];
+    let li: RegExpExecArray | null;
+    while ((li = liRe.exec(m[1])) !== null) {
+      const text = li[1].replace(/<[^>]*>/g, "").trim();
+      if (text) items.push(text);
+    }
+    if (items.length >= 2) return items.slice(0, 6);
+  }
+  return tocEntries.filter((t) => t.level === 2).slice(0, 4).map((t) => t.text);
+}
+const keyTakeaways = extractKeyTakeaways();
 const groupedMentions = {
   treatment: mentioned.filter((e) => e.kind === "treatment"),
   hospital: mentioned.filter((e) => e.kind === "hospital"),
@@ -53,8 +116,16 @@ const mentionKindOrder: Array<keyof typeof groupedMentions> = [
   "glossary",
 ];
 
-const seoTitle = post.metaTitle ?? post.title;
-const seoDescription = post.metaDescription ?? post.excerpt ?? post.title;
+const seoFallbackDesc = post.excerpt ?? post.title;
+const seoTitle = localizedTitle(locale, post.title, post.metaTitle, blogMap);
+const seoDescription = localizedDescription(
+  locale,
+  post.excerpt,
+  post.metaDescription,
+  seoFallbackDesc,
+  blogMap,
+);
+const blogUntranslated = isUntranslated(locale, blogMap);
 
 const path = `/blog/${slug}`;
 const url = localeUrl(locale, path);
@@ -94,6 +165,44 @@ function withoutLastWord(s: string) {
   return parts.length > 1 ? parts.slice(0, -1).join(" ") : s;
 }
 
+// Parse reviewer out of authorName ("MedCasts Editorial · Reviewed by Dr. X, Specialty").
+// We surface the reviewer as a separate `reviewedBy` Person so Google can
+// attribute medical-review credibility to the named clinician (key for
+// YMYL ranking) — distinct from the corporate `author`.
+const reviewerMatch = (post.authorName ?? "").match(/Reviewed by\s+(Dr\.?\s+[^,]+?)(?:,\s*([^·]+))?\s*$/i);
+const reviewerName = reviewerMatch?.[1]?.trim() ?? null;
+const reviewerSpecialty = reviewerMatch?.[2]?.trim() ?? null;
+
+// Try to find a matching doctor profile by last-name match. The blog
+// reviewer field is short-form ("Dr. M. Ozdemir") so we extract the last
+// token and look it up. If found, the Person schema points at the real
+// /doctor/<slug> URL — best-case EEAT signal.
+let reviewerDoctor: { slug: string; name: string } | null = null;
+if (reviewerName) {
+  try {
+    const lastName = reviewerName.replace(/^Dr\.?\s*/i, "").split(/\s+/).filter(Boolean).pop();
+    if (lastName && lastName.length >= 3) {
+      const { db: ldb } = await import("@/lib/db");
+      const { sql: lsql } = await import("drizzle-orm");
+      const m = await ldb.execute<{ slug: string; name: string }>(lsql`
+        SELECT slug, name FROM doctors
+        WHERE is_active = true AND name ILIKE ${"%" + lastName + "%"}
+        LIMIT 1
+      `);
+      const row = Array.from(m)[0];
+      if (row) reviewerDoctor = row;
+    }
+  } catch {
+    // best-effort lookup; never fail the page
+  }
+}
+
+// Also try to match the reviewer to a /medical-board panel member, so
+// the visible byline can link to the panel anchor — distinct from the
+// schema-level /doctor/<slug> link above.
+const { lookupReviewerByName } = await import("@/lib/queries");
+const reviewerPanel = await lookupReviewerByName(reviewerName);
+
 const articleJsonLd = {
   "@context": "https://schema.org",
   "@type": "Article",
@@ -106,15 +215,45 @@ const articleJsonLd = {
   ...(post.category ? { articleSection: post.category } : {}),
   ...(keywordList && keywordList.length > 0 ? { keywords: keywordList } : {}),
   author: post.authorName
-    ? { "@type": "Person", name: post.authorName }
-    : { "@type": "Organization", name: "MedCasts" },
+    ? {
+        "@type": "Person",
+        name: post.authorName,
+        // Anchored to /about → MedCasts editorial desk so Google can attribute
+        // E-E-A-T to a documented organization. Once a per-author profile
+        // page exists, swap to that URL.
+        url: `${SITE_URL}${localizedPath(locale, "/about")}`,
+        worksFor: { "@type": "Organization", name: "MedCasts" },
+      }
+    : { "@type": "Organization", name: "MedCasts", url: `${SITE_URL}/about` },
+  ...(reviewerName
+    ? {
+        reviewedBy: {
+          "@type": "Person",
+          name: reviewerName,
+          ...(reviewerSpecialty ? { jobTitle: reviewerSpecialty } : {}),
+          ...(reviewerDoctor
+            ? { url: `${SITE_URL}${localizedPath(locale, `/doctor/${reviewerDoctor.slug}`)}` }
+            : {}),
+          worksFor: { "@type": "Organization", name: "MedCasts" },
+        },
+        ...(post.updatedAt ? { lastReviewed: post.updatedAt } : {}),
+      }
+    : {}),
   publisher: {
     "@type": "Organization",
     name: "MedCasts",
+    url: SITE_URL,
     logo: { "@type": "ImageObject", url: `${SITE_URL}/logo.svg` },
   },
   mainEntityOfPage: url,
   inLanguage: "en",
+  // Speakable hint — flags the article body for Google Assistant + voice readers.
+  // Targets the heading + lede via CSS selectors so the assistant reads the
+  // most relevant chunks aloud rather than the whole page.
+  speakable: {
+    "@type": "SpeakableSpecification",
+    cssSelector: ["h1", ".lede", ".blog-prose"],
+  },
 };
 
 const crumbs = breadcrumbJsonLd([
@@ -131,12 +270,23 @@ Astro.response.headers.set(
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} image={post.coverImageUrl ?? undefined} translatedLocales={["en"]} noindex={locale !== "en"} />
-    <script type="application/ld+json" set:html={JSON.stringify(articleJsonLd)} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <HeadMeta
+      title={seoTitle}
+      description={seoDescription}
+      path={path}
+      locale={locale}
+      image={post.coverImageUrl ?? undefined}
+      noindex={blogUntranslated}
+      type="article"
+      publishedAt={post.publishedAt ? new Date(post.publishedAt).toISOString() : undefined}
+      modifiedAt={post.updatedAt ? new Date(post.updatedAt).toISOString() : undefined}
+      author={post.authorName ?? undefined}
+    />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(articleJsonLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -203,6 +353,20 @@ Astro.response.headers.set(
             </div>
           )}
         </div>
+
+        {keywordList && keywordList.length > 0 && (
+          <div class="mt-6 flex flex-wrap items-center gap-2">
+            <span class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">Topics</span>
+            {keywordList.map((tag) => (
+              <span
+                class="mono uppercase"
+                style="font-size: 10.5px; letter-spacing: 0.06em; padding: 4px 10px; border: 1px solid var(--color-border); border-radius: 9999px; background: var(--color-surface); color: var(--color-ink-muted);"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </section>
 
@@ -223,19 +387,76 @@ Astro.response.headers.set(
     {/* Body + TOC-aligned layout */}
     <section style="padding-bottom: 72px;">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-        <div class="grid gap-12 lg:grid-cols-[1fr,0.3fr]">
+        <div class="grid gap-12 lg:grid-cols-[1fr_0.3fr]">
           <article class="min-w-0">
-            <div class="blog-prose prose-editorial" set:html={linkedHtml} />
+            {keyTakeaways.length > 0 && (
+              <aside
+                class="paper mb-10"
+                style="padding: 22px 26px 24px; border-left: 3px solid var(--color-accent);"
+                aria-label="Key takeaways"
+              >
+                <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
+                  Key takeaways
+                </div>
+                <ul class="mt-3 space-y-2">
+                  {keyTakeaways.map((k, i) => (
+                    <li class="serif flex gap-3" style="font-size: 15.5px; line-height: 1.55; color: var(--color-ink);">
+                      <span class="display tnum shrink-0" style="font-size: 14px; color: var(--color-accent); padding-top: 2px;">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      <span>{k}</span>
+                    </li>
+                  ))}
+                </ul>
+              </aside>
+            )}
+            <div class="blog-prose prose-editorial" set:html={htmlWithIds} />
           </article>
 
           <aside class="hidden lg:block">
             <div class="lg:sticky lg:top-28 lg:self-start space-y-6">
+              {tocEntries.length > 1 && (
+                <nav aria-label="Article contents" style="padding: 18px 0; border-top: 1px solid var(--color-ink);">
+                  <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                    On this page
+                  </div>
+                  <ol class="mt-3 space-y-1.5">
+                    {tocEntries.slice(0, 12).map((t, i) => (
+                      <li>
+                        <a
+                          href={`#${t.id}`}
+                          class="flex gap-2 hover:text-accent transition-colors"
+                          style={`font-size: 13px; line-height: 1.4; color: var(--color-ink-muted); ${t.level === 3 ? "padding-inline-start: 14px;" : ""}`}
+                        >
+                          <span class="mono tnum shrink-0" style="font-size: 10px; color: var(--color-ink-subtle); padding-top: 2px; min-width: 14px;">
+                            {String(i + 1).padStart(2, "0")}
+                          </span>
+                          <span>{t.text}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ol>
+                </nav>
+              )}
+
               <div style="padding: 18px 0; border-top: 1px solid var(--color-ink);">
                 <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                   Reviewer desk
                 </div>
                 <div class="serif mt-2" style="font-size: 15px; line-height: 1.4; color: var(--color-ink);">
-                  Reviewed by MedCasts editorial
+                  Reviewed by{" "}
+                  {reviewerPanel ? (
+                    <a
+                      href={`${localizedPath(locale, "/medical-board")}#${reviewerPanel.slug}`}
+                      style="color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--color-border);"
+                    >
+                      {reviewerName ?? reviewerPanel.fullName}
+                    </a>
+                  ) : reviewerName ? (
+                    <span>{reviewerName}</span>
+                  ) : (
+                    <span>MedCasts editorial</span>
+                  )}
                 </div>
                 <p class="mono uppercase mt-1" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
                   Named-physician review before publish
@@ -270,6 +491,8 @@ Astro.response.headers.set(
         </div>
       </div>
     </section>
+
+    <Citations citations={citations} />
 
     {mentioned.length > 0 && (
       <section style="padding: 48px 0 72px; border-top: 1px solid var(--color-border-soft);">
@@ -366,6 +589,10 @@ Astro.response.headers.set(
     )}
 
     <style is:global>
+      /* Anchor offset so jump-targets aren't hidden under the sticky header */
+      .blog-prose h2[id],
+      .blog-prose h3[id] { scroll-margin-top: 120px; }
+
       /* Drop-cap on first paragraph of the article body */
       .blog-prose > p:first-of-type::first-letter {
         font-family: var(--font-display);
@@ -393,6 +620,29 @@ Astro.response.headers.set(
       }
     </style>
 
+    
+    <ExploreGrid
+      locale={locale}
+      eyebrow="Continue reading"
+      heading="Where to take this story"
+      lede="An article gives you context. These hubs give you the next decision — destination, surgeon, treatment, cost — and the tools to act on what you just read."
+      items={[
+        { eyebrow: "Library", label: "All blog articles", href: "/blog", hint: "Editorial coverage on costs, recovery, surgeon selection, second opinions." },
+        { eyebrow: "Reference", label: "Q&A library", href: "/qa", hint: "30 patient-style questions with concrete numbers and named-clinician review." },
+        { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure success rates, recovery time, hospital pricing." },
+        { eyebrow: "Browse", label: "15 specialties", href: "/specialties", hint: "Cardiac, oncology, transplant, ortho, fertility — every program." },
+        { eyebrow: "Browse", label: "79 conditions", href: "/conditions", hint: "Map condition → specialty → first-line treatment." },
+        { eyebrow: "Browse", label: "9 destination countries", href: "/countries", hint: "Cost-of-care profiles, hospital programs, visa playbooks." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get specialty + destination + 3-hospital shortlist." },
+        { eyebrow: "Compare", label: "Treatments side-by-side", href: "/compare/treatments", hint: "Cost, stay, recovery, success-rate columns across procedures." },
+        { eyebrow: "Reference", label: "Glossary of terms", href: "/glossary", hint: "Plain-language definitions for procedures and travel logistics." },
+        { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "Sourcing, review cadence, AI use disclosure, corrections SLA." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+      ]}
+    />
+
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

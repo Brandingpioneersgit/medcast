@@ -36,6 +36,10 @@ import {
   MessageCircle,
   Users,
 } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 
 export const prerender = false;
 
@@ -83,6 +87,8 @@ const faqs = data.faqs;
 
 const cityName = hospital.city?.name ?? null;
 const countryName = hospital.city?.country?.name ?? null;
+const citySlug = hospital.city?.slug ?? null;
+const countrySlug = hospital.city?.country?.slug ?? null;
 const whatsappUrl = whatsappFor({
   page: "hospital",
   slug: `${slug}-${specialtySlug}`,
@@ -92,9 +98,15 @@ const whatsappUrl = whatsappFor({
   countryName: countryName ?? undefined,
 });
 
-const seoTitle = `${specialty.name} at ${hospital.name}`;
+// Local-SEO title: "{Specialty} at {Hospital}, {City}, {Country}" — matches
+// long-tail "best cardiac surgery in mumbai" + branded hospital queries in
+// one snippet. Keeps city/country in the head when both exist.
+const hsGeoSuffix = [cityName, countryName].filter(Boolean).join(", ");
+const seoTitle = hsGeoSuffix
+  ? `${specialty.name} at ${hospital.name}, ${hsGeoSuffix}`
+  : `${specialty.name} at ${hospital.name}`;
 const seoDescription =
-  `${specialty.name} treatments at ${hospital.name}${cityName ? ` in ${cityName}` : ""}. ${treatments.length} procedures, ${doctors.length} specialists. Transparent pricing, multilingual care.`.slice(0, 160);
+  `${specialty.name} treatments at ${hospital.name}${cityName ? ` in ${cityName}` : ""}${countryName && !cityName ? ` in ${countryName}` : ""}. ${treatments.length} procedures, ${doctors.length} specialists. Transparent pricing, free quote.`.slice(0, 160);
 
 const path = `/hospital/${slug}/${specialtySlug}`;
 const url = localeUrl(locale, path);
@@ -162,14 +174,14 @@ Astro.response.headers.set(
       path={path}
       locale={locale}
       image={hospital.coverImageUrl ?? undefined}
-      noindex={untranslated}
+      noindex={untranslated || (treatments.length === 0 && doctors.length === 0)}
     />
-    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
-    {faqLd && <script type="application/ld+json" set:html={JSON.stringify(faqLd)} />}
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(jsonLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    {faqLd && <script type="application/ld+json" is:inline set:html={JSON.stringify(faqLd)} />}
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <nav aria-label="Breadcrumb" class="border-b border-border bg-bg">
@@ -186,7 +198,7 @@ Astro.response.headers.set(
 
     {/* Hero */}
     <section class="mx-auto max-w-7xl px-6 pt-10 md:pt-14 pb-10">
-      <div class="grid gap-10 md:grid-cols-[1.4fr,1fr]">
+      <div class="grid gap-10 md:grid-cols-[1.4fr_1fr]">
         <div>
           {data.hospitalSpecialty?.isCenterOfExcellence && (
             <span class="inline-flex items-center rounded-full bg-accent-soft text-accent px-3 py-1 text-xs font-semibold uppercase tracking-wider">
@@ -229,7 +241,7 @@ Astro.response.headers.set(
         <aside>
           <div class="rounded-2xl border border-border bg-surface p-6 shadow-sm">
             <p class="font-display text-lg leading-snug">
-              Get a written {specialty.name.toLowerCase()} plan — in 11 minutes.
+              Get a written {specialty.name.toLowerCase()} plan — within a few hours during business hours.
             </p>
             <div class="mt-5 flex flex-col gap-2">
               <a
@@ -386,6 +398,40 @@ Astro.response.headers.set(
       </section>
     )}
 
+    <HowItWorks
+      heading='How to evaluate this hospital department'
+      italicWord='this hospital department'
+      eyebrow='Department evaluation'
+      steps={[
+        { title: 'Confirm sub-specialty depth', description: "The department's specific sub-specialty teams matter more than its general specialty designation. Verify your case fits." },
+        { title: 'Surgeon volume on your procedure', description: "Ask the department for individual surgeon's annual case volume on your specific procedure." },
+        { title: 'Outcome data + accreditation', description: 'Department-specific outcome data is strongest signal. Combine with hospital-level accreditation.' },
+        { title: 'Itemized quote', description: 'Request itemized quote covering surgeon fee, anesthesia, OR time, hospital stay, implants, post-op care.' },
+      ]}
+    />
+    
+    <ExploreGrid
+      locale={locale}
+      eyebrow={`${hospital.name} · ${specialty.name}`}
+      heading={`Continue evaluating ${specialty.name.toLowerCase()} care`}
+      lede={`Department detail is one cut. These hubs broaden the picture across surgeons, alternative hospitals, the underlying specialty, and decision aids.`}
+      items={[
+        { eyebrow: "Hospital", label: `${hospital.name} profile`, href: `/hospital/${slug}`, hint: "All specialties, accreditation, surgeons, pricing across this hospital." },
+        { eyebrow: "Surgeons", label: `Doctors in this department`, href: `/hospital/${slug}/${specialtySlug}/doctors`, hint: `Surgeons practising ${specialty.name.toLowerCase()} at ${hospital.name}.` },
+        { eyebrow: "Specialty", label: `${specialty.name} hub`, href: `/specialty/${specialtySlug}`, hint: `All ${specialty.name.toLowerCase()} programs across destinations.` },
+        { eyebrow: "Surgeons", label: `${specialty.name} surgeons`, href: `/surgeons/${specialtySlug}`, hint: "Volume-ranked physician directory across all hospitals." },
+        ...(countrySlug && countryName ? [{ eyebrow: "Surgeons", label: `${specialty.name} surgeons in ${countryName}`, href: `/surgeons/${specialtySlug}/${countrySlug}`, hint: `Filtered to ${countryName}-based programs only.` }] : []),
+        ...(citySlug && cityName ? [{ eyebrow: "City", label: `Hospitals in ${cityName}`, href: `/hospitals/city/${citySlug}`, hint: `Other ${cityName} programs for context.` }] : []),
+        ...(countrySlug && countryName ? [{ eyebrow: "Destination", label: `${countryName} hospital hub`, href: `/country/${countrySlug}`, hint: `Featured programs across ${countryName}.` }] : []),
+        ...(countrySlug ? [{ eyebrow: "Best of", label: `Best ${specialty.name} in ${countryName}`, href: `/best/${specialtySlug}-in-${countrySlug}`, hint: "Editorially ranked programs with methodology disclosed." }] : []),
+        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, and pricing for up to 4 hospitals." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+      ]}
+    />
+
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

@@ -4,12 +4,16 @@ import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import { getDoctorsForCompare } from "@/lib/queries";
+import { formatUsd } from "@/lib/currency";
 import { getContentBatch, applyTranslated } from "@/lib/translate";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
 import { doctorPortrait } from "@/lib/images";
 import { ChevronRight, X } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import PageCta from "@/components/PageCta.astro";
 
 export const prerender = false;
 
@@ -61,6 +65,13 @@ const crumbs = breadcrumbJsonLd([
 
 Astro.response.headers.set("Cache-Control", "private, no-store");
 
+// Pre-format consultation fees in user currency (sync render below).
+const feeByDoctor = new Map<number, string>();
+for (const d of docs) {
+  if (d.consultationFeeUsd == null) continue;
+  feeByDoctor.set(d.id, await formatUsd(Astro.cookies, Number(d.consultationFeeUsd)));
+}
+
 type Row = { key: string; label: string; render: (d: (typeof docs)[number]) => string };
 const rows: Row[] = [
   { key: "hospital", label: "Practices at",
@@ -84,7 +95,7 @@ const rows: Row[] = [
   { key: "languages", label: "Languages",
     render: (d) => parseLanguages(d.languagesSpoken).join(", ") || "—" },
   { key: "fee", label: "Consultation fee",
-    render: (d) => d.consultationFeeUsd != null ? `$${d.consultationFeeUsd}` : "On request" },
+    render: (d) => feeByDoctor.get(d.id) ?? "On request" },
   { key: "video", label: "Video consult",
     render: (d) => d.availableForVideoConsult ? "Available" : "—" },
 ];
@@ -99,10 +110,10 @@ function removeHref(slug: string) {
 <BaseLayout locale={locale}>
   <Fragment slot="head">
     <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} />
 
     <div style="padding: 18px 28px; border-bottom: 1px solid var(--color-border-soft); background: var(--color-paper);">
@@ -244,6 +255,34 @@ function removeHref(slug: string) {
       </div>
     </section>
 
+    <HowItWorks
+      heading="How to compare surgeons"
+      italicWord="surgeons"
+      eyebrow="Surgeon comparison"
+      steps={[
+        { title: "Match sub-specialty", description: "Compare surgeons within the same sub-specialty (e.g., mitral valve repair specialists, not generic 'cardiac surgeons'). Sub-specialty match drives outcome more than general designation." },
+        { title: "Compare annual case volume", description: "Personal annual volume on your specific procedure. Top decile typically does 100+; below 50/year, complications run measurably higher." },
+        { title: "Verify credentials independently", description: "Board certification, fellowship training, peer-reviewed publications. PubMed, Google Scholar, ORCID are independent sources." },
+        { title: "Read patient testimonials", description: "Specific stories with named procedures, dates, and outcomes at 6/12 months matter more than generic 5-star ratings." },
+        { title: "Schedule consultations", description: "Talk to top 2-3 candidates directly via video. Communication quality during consultation predicts communication during your case." },
+      ]}
+    />
+
+    <WhatToExpect
+      heading="The credentials that actually matter"
+      italicWord="actually matter"
+      items={[
+        { label: "Board certification", description: "Confirms the surgeon completed accredited training and passed standardized examinations. Country-specific (American Board, Indian Medical Council, etc.) but all are quality baselines." },
+        { label: "Fellowship training", description: "Sub-specialty training beyond residency. A cardiac surgeon with mitral valve fellowship is different from one without." },
+        { label: "Hospital privileges", description: "Active privileges at major institutions confirm peer review and ongoing competence assessment." },
+        { label: "Peer-reviewed publications", description: "Active research engagement is a quality signal. Search PubMed for the surgeon's name + specialty." },
+        { label: "Society memberships", description: "Active membership in major specialty societies (AHA, ASCO, AAOS, etc.) confirms engagement with the field." },
+        { label: "Annual case volume", description: "The strongest single predictor of outcome. Volume on your specific procedure matters more than total volume." },
+      ]}
+    />
+
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

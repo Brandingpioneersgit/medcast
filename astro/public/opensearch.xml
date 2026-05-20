@@ -1,0 +1,12 @@
+<OpenSearchDescription xmlns="http://www.teg.org/2006/opensearch" version="1.0">
+  <ShortName>MedCasts</ShortName>
+  <LongName>MedCasts — Medical tourism search</LongName>
+  <Description>Search hospitals, treatments, doctors, and patient stories on MedCasts.</Description>
+  <AdultContent>false</AdultContent>
+  <Language>en-us</Language>
+  <InputEncoding>UTF-8</InputEncoding>
+  <OutputEncoding>UTF-8</OutputEncoding>
+  <Url type="text/html" template="{searchTerms}">
+    <Param name="q" value="{searchTerms}"/>
+  </Url>
+</OpenSearchDescription>

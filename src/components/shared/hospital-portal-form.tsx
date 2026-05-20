@@ -12,6 +12,8 @@ type Initial = {
   bedCapacity: number | null;
   establishedYear: number | null;
   airportDistanceKm: string;
+  latitude: string;
+  longitude: string;
   coverImageUrl: string;
 };
 
@@ -74,6 +76,8 @@ export function HospitalPortalForm({ token, initial }: { token: string; initial:
         <Field label="Bed capacity"><Input value={draft.bedCapacity?.toString() ?? ""} onChange={(v) => set("bedCapacity", v ? Number(v) : null)} inputType="number" /></Field>
         <Field label="Established year"><Input value={draft.establishedYear?.toString() ?? ""} onChange={(v) => set("establishedYear", v ? Number(v) : null)} inputType="number" /></Field>
         <Field label="Airport distance (km)"><Input value={draft.airportDistanceKm} onChange={(v) => set("airportDistanceKm", v)} /></Field>
+        <Field label="Latitude"><Input value={draft.latitude} onChange={(v) => set("latitude", v)} placeholder="28.4244" /></Field>
+        <Field label="Longitude"><Input value={draft.longitude} onChange={(v) => set("longitude", v)} placeholder="77.0772" /></Field>
       </div>
 
       <div

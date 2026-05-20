@@ -1,0 +1,89 @@
+---
+interface Props {
+  lat: number | string | null | undefined;
+  lng: number | string | null | undefined;
+  name: string;
+  /** Half-width of the bbox in degrees. Auto-set from precision when omitted. */
+  delta?: number;
+  /** "exact" (hospital coords) → tight zoom; "city" → neighborhood; "country" → metro area. */
+  precision?: "exact" | "city" | "country";
+  cityName?: string | null;
+  countryName?: string | null;
+  /** CSS aspect-ratio for the frame. */
+  aspectRatio?: string;
+  /** Border-radius CSS value. */
+  radius?: string;
+  class?: string;
+}
+
+const {
+  lat, lng, name,
+  precision = "exact",
+  cityName = null, countryName = null,
+  delta: deltaProp,
+  aspectRatio = "1 / 1",
+  radius = "var(--radius-md)",
+  class: className = "",
+} = Astro.props;
+
+const delta = deltaProp ?? (precision === "exact" ? 0.01 : precision === "city" ? 0.06 : 0.18);
+const cleanCity = cityName && cityName.toLowerCase() !== "unknown" ? cityName : null;
+const approxLabel =
+  precision === "exact" ? null
+  : precision === "city" ? `Approximate area · ${cleanCity ?? countryName ?? ""}`.trim()
+  : `Approximate area · ${countryName ?? ""}`.trim();
+
+const latitude = lat == null ? NaN : Number(lat);
+const longitude = lng == null ? NaN : Number(lng);
+const hasCoords = Number.isFinite(latitude) && Number.isFinite(longitude);
+
+const minLat = latitude - delta;
+const maxLat = latitude + delta;
+const minLng = longitude - delta;
+const maxLng = longitude + delta;
+
+const embedUrl = hasCoords
+  ? `https://www.openstreetmap.org/export/embed.html?bbox=${minLng},${minLat},${maxLng},${maxLat}&layer=mapnik&marker=${latitude},${longitude}`
+  : null;
+
+const gmapsUrl = hasCoords
+  ? `https://www.google.com/maps?q=${latitude},${longitude}(${encodeURIComponent(name)})`
+  : null;
+---
+
+{hasCoords ? (
+  <div
+    class={`relative overflow-hidden ${className}`}
+    style={`aspect-ratio: ${aspectRatio}; border-radius: ${radius}; border: 1px solid var(--color-border); background: var(--color-paper);`}
+  >
+    <iframe
+      src={embedUrl}
+      title={`Map of ${name}`}
+      loading="lazy"
+      referrerpolicy="no-referrer-when-downgrade"
+      style="position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block;"
+    />
+    <a
+      href={gmapsUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      class="mono uppercase"
+      style="position: absolute; bottom: 8px; right: 8px; background: var(--color-ink); color: var(--color-bg); padding: 6px 10px; border-radius: 9999px; font-size: 10px; letter-spacing: 0.1em; text-decoration: none; box-shadow: 0 2px 8px rgb(0 0 0 / 0.18);"
+    >
+      Open in Maps ↗
+    </a>
+    {approxLabel && (
+      <div
+        class="mono uppercase"
+        style="position: absolute; top: 8px; left: 8px; background: rgba(251,248,241,0.92); color: var(--color-ink-muted); padding: 4px 8px; border-radius: 9999px; font-size: 9.5px; letter-spacing: 0.1em; pointer-events: none;"
+      >
+        {approxLabel}
+      </div>
+    )}
+  </div>
+) : (
+  <div
+    class={`map-bg ${className}`}
+    style={`aspect-ratio: ${aspectRatio}; border-radius: ${radius}; border: 1px solid var(--color-border);`}
+  />
+)}

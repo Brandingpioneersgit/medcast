@@ -8,7 +8,12 @@ import { sql } from "drizzle-orm";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { breadcrumbJsonLd, faqJsonLd, localeUrl } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
+import { getContentBatch, applyTranslated } from "@/lib/translate";
 import { ChevronRight } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import PageCta from "@/components/PageCta.astro";
+import { researchScene } from "@/lib/images";
 
 export const prerender = false;
 
@@ -18,15 +23,19 @@ const locale = rawLocale as Locale;
 const tq = getTranslator(locale, "qaPage");
 const tc = getTranslator(locale, "common");
 
-type Row = { slug: string; question: string; answer: string; category: string | null; reviewed_by: string | null };
-const posts = Array.from(
+type Row = { id: number; slug: string; question: string; answer: string; category: string | null; reviewed_by: string | null };
+const rawPosts = Array.from(
   (await db
     .execute(sql`
-      SELECT slug, question, answer, category, reviewed_by FROM qa_posts
+      SELECT id, slug, question, answer, category, reviewed_by FROM qa_posts
       ORDER BY category ASC, question ASC
     `)
     .catch(() => [] as unknown[])) as Iterable<Row>,
 );
+
+const trMap: Record<number, Record<string, string>> = await getContentBatch("qa_post", rawPosts.map((p) => p.id), locale).catch(() => ({}));
+const posts = rawPosts.map((p) => applyTranslated(p, trMap[p.id] ?? {}, ["question", "answer"]));
+const localeHasTranslations = locale === "en" || rawPosts.some((p) => Object.keys(trMap[p.id] ?? {}).length > 0);
 
 const byCategory = new Map<string, Row[]>();
 for (const p of posts) {
@@ -61,14 +70,14 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={locale !== "en"} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={!localeHasTranslations} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
     {faqSchema && (
-      <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+      <script type="application/ld+json" is:inline set:html={JSON.stringify(faqSchema)} />
     )}
   </Fragment>
 
-  <main class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
     <SiteHeader locale={locale} />
 
     <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
@@ -83,17 +92,37 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
 
     <section style="padding: 56px 0;">
       <div class="mx-auto max-w-[1440px] px-7 md:px-10">
-        <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">{tq("eyebrow")}</div>
-        <h1
-          class="display display-tight mt-3"
-          style="font-size: clamp(2.25rem, 5vw, 3.5rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;"
-        >
-          {tq("h1First")}<br />
-          <span class="italic-display">{tq("h1Italic")}</span>
-        </h1>
-        <p class="serif mt-5" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted); max-width: 680px;">
-          {tq("lede")}
-        </p>
+        <div class="grid gap-10 lg:grid-cols-[1fr_0.55fr] lg:items-center">
+          <div>
+            <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">{tq("eyebrow")}</div>
+            <h1
+              class="display display-tight mt-3"
+              style="font-size: clamp(2.25rem, 5vw, 3.5rem); line-height: 1; font-weight: 400; letter-spacing: -0.03em;"
+            >
+              {tq("h1First")}<br />
+              <span class="italic-display">{tq("h1Italic")}</span>
+            </h1>
+            <p class="serif mt-5" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted); max-width: 680px;">
+              {tq("lede")}
+            </p>
+          </div>
+          <div class="relative paper-flat overflow-hidden" style="aspect-ratio: 4/5; border-radius: var(--radius-lg);">
+            <img
+              src={researchScene("qa-hero")}
+              alt="Patient researching medical decisions"
+              width="600"
+              height="750"
+              loading="eager"
+              decoding="async"
+              style="width: 100%; height: 100%; object-fit: cover;"
+            />
+            <div class="image-veil" />
+            <div class="absolute" style="inset-inline-start: 16px; inset-block-end: 16px; inset-inline-end: 16px;">
+              <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: rgba(251,248,241,0.78);">Answered by named clinicians</div>
+              <div class="serif" style="font-size: 16px; font-weight: 500; color: #FBF8F1; line-height: 1.3; margin-top: 4px;">No hedging. No SEO filler.</div>
+            </div>
+          </div>
+        </div>
 
         <div class="flex flex-wrap gap-2 mt-7">
           {categories.map((c) => (
@@ -142,7 +171,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
             Not finding your question?
           </div>
           <p class="serif mt-2" style="font-size: 16px; line-height: 1.5; color: var(--color-ink);">
-            Ask a case manager directly. Replies typically within 9 minutes during business hours across 8 languages.
+            Ask a case manager directly. Replies typically within a few hours during business hours during business hours across 8 languages.
           </p>
           <a
             href={localizedPath(locale, "/contact")}
@@ -155,6 +184,30 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
       </div>
     </section>
 
+    <HowItWorks
+      heading='How to navigate Q&A'
+      italicWord='navigate'
+      eyebrow='Q&A hub'
+      steps={[
+        { title: 'Browse by category', description: 'Cost, recovery, hospitals, destinations, procedures, second opinions, process, travel, insurance, safety, doctors, about. Pick the closest fit.' },
+        { title: 'Search by keyword', description: 'Use Cmd+K (or the header search) to find a specific question across all 143 posts.' },
+        { title: 'Read related questions', description: 'Each Q&A post links to 3-5 related ones. Reading the cluster gives a fuller picture than a single answer.' },
+        { title: 'Take to your physician', description: 'Q&A is starting framework, not clinical advice. Take the questions you find here to your treating physician for personalized answers.' },
+      ]}
+    />
+
+    <WhatToExpect
+      heading='How we write Q&A answers'
+      italicWord='Q&A answers'
+      items={[
+        { label: 'Specific over generic', description: "Every answer carries one specific number, cost, or timeline. Generic 'it depends' is rarely useful." },
+        { label: 'Reviewer where relevant', description: 'Clinical Q&A reviewed by relevant physician (cardiologist for cardiac, oncologist for cancer, etc.).' },
+        { label: 'Honest about uncertainty', description: 'When evidence is mixed, we say so. When recommendations vary by individual case, we frame the variables.' },
+        { label: 'Updated regularly', description: 'Q&A reviewed annually for accuracy. Pricing claims refreshed quarterly. Major guideline changes trigger immediate updates.' },
+      ]}
+    />
+    
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

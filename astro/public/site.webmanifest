@@ -1,0 +1,27 @@
+{
+  "name": "MedCasts — Medical travel, coordinated end-to-end",
+  "short_name": "MedCasts",
+  "description": "Match to accredited hospitals across 9 destinations. Transparent pricing, free 48-hour second opinion, one coordinator from first message to flight home.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F6F1E6",
+  "theme_color": "#0A5D54",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["health", "medical", "travel"],
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/icon-512.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/icon-maskable.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "maskable" },
+    { "src": "/apple-touch-icon.svg", "sizes": "180x180", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Get a quote", "short_name": "Quote", "url": "/contact", "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }] },
+    { "name": "Cost calculator", "short_name": "Calculator", "url": "/calculator", "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }] },
+    { "name": "Hospitals", "short_name": "Hospitals", "url": "/hospitals", "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }] }
+  ]
+}

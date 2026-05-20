@@ -1,6 +1,17 @@
 ---
-// PhotoBlock — warm editorial placeholder w/ teal gradient + mono caption.
-// Used when no real photo is available (hero mock, specialty cards, etc.).
+// PhotoBlock — every image on the site routes through here.
+// When `imgUrl` is set we render the photo + a tint overlay so it sits inside
+// the parchment / forest-teal palette instead of clashing with it. When no
+// imgUrl is supplied, the box is a warm editorial placeholder (teal gradient
+// + diagonal stripe pattern + caption label).
+//
+// Tint variants:
+//   - "card"  (default): subtle tone harmonizer — 8% forest tint top + bottom
+//     ink fade for caption legibility. Right for cards / thumbnails.
+//   - "hero":  stronger bottom ink fade for hero photos with overlaid copy.
+//   - "soft":  near-invisible tonal warm — for heroes where image alone reads.
+//   - "none":  no overlay (rare — when image is truly self-contained).
+type Tint = "card" | "hero" | "soft" | "none";
 interface Props {
   label?: string;
   aspect?: string;
@@ -10,6 +21,10 @@ interface Props {
   /** Hero/above-the-fold photo — sets loading=eager + fetchpriority=high for LCP. */
   priority?: boolean;
   alt?: string;
+  tint?: Tint;
+  /** Add a parchment fade on the bottom edge so the photo blends into the
+   *  next section's paper background instead of a hard horizontal line. */
+  bleed?: boolean;
 }
 const {
   label,
@@ -19,35 +34,91 @@ const {
   rounded = true,
   priority = false,
   alt,
+  tint = "card",
+  bleed = false,
 } = Astro.props;
+
+const hasImg = !!imgUrl;
 ---
 
 <div
-  class:list={["relative overflow-hidden", rounded && "rounded-[var(--radius-lg)]", className]}
-  style={`aspect-ratio: ${aspect}; background: linear-gradient(135deg, #0A5D54 0%, #0D7C70 50%, #1C2A25 100%);`}
+  class:list={["mc-photo relative overflow-hidden", rounded && "rounded-[var(--radius-lg)]", className]}
+  style={`aspect-ratio: ${aspect};${hasImg ? "" : " background: linear-gradient(135deg, #0A5D54 0%, #0D7C70 50%, #1C2A25 100%);"}`}
 >
-  {imgUrl && (
+  {/*
+    Alt-text contract (a11y + image SEO):
+    1. explicit `alt` prop wins (use this when the image conveys content
+       beyond what the visible label says);
+    2. otherwise falls back to `label` (the visible caption strip);
+    3. otherwise empty string — declares the image decorative when both
+       are absent (a11y best practice; screen readers skip it).
+    Callers should pass `alt` whenever the image is the primary content
+    (e.g. hospital hero, doctor portrait, country banner).
+  */}
+  {hasImg && (
     <img
       src={imgUrl}
       alt={alt ?? label ?? ""}
-      class="absolute inset-0 h-full w-full object-cover"
+      class="absolute inset-0 h-full w-full object-cover mc-photo-img"
       loading={priority ? "eager" : "lazy"}
       decoding={priority ? "sync" : "async"}
       {...(priority ? { fetchpriority: "high" } : {})}
     />
   )}
-  <div
-    class="absolute inset-0"
-    style="background-image: radial-gradient(circle at 30% 20%, rgba(246,241,230,.12) 0, transparent 50%), repeating-linear-gradient(45deg, transparent 0 12px, rgba(246,241,230,.04) 12px 13px);"
-    aria-hidden="true"
-  />
+  {/* Theme tint — only when there's a real photo. The placeholder already has its own gradient. */}
+  {hasImg && tint !== "none" && (
+    <div
+      class:list={["absolute inset-0 pointer-events-none", `mc-photo-tint-${tint}`]}
+      aria-hidden="true"
+    />
+  )}
+  {/* Parchment-bleed at bottom — for hero photos that sit above paper sections. */}
+  {hasImg && bleed && (
+    <div
+      class="absolute inset-x-0 bottom-0 pointer-events-none"
+      style="height: 22%; background: linear-gradient(180deg, transparent 0%, rgba(246,241,230,0.55) 60%, var(--color-paper, #FBF8F1) 100%);"
+      aria-hidden="true"
+    />
+  )}
+  {/* Placeholder texture — only on non-photo blocks */}
+  {!hasImg && (
+    <div
+      class="absolute inset-0 pointer-events-none"
+      style="background-image: radial-gradient(circle at 30% 20%, rgba(246,241,230,.12) 0, transparent 50%), repeating-linear-gradient(45deg, transparent 0 12px, rgba(246,241,230,.04) 12px 13px);"
+      aria-hidden="true"
+    />
+  )}
   {label && (
     <div
       class="mono absolute"
-      style="bottom: 12px; inset-inline-start: 14px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(246,241,230,.7);"
+      style={`bottom: 12px; inset-inline-start: 14px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: ${hasImg ? "rgba(251,248,241,.92)" : "rgba(246,241,230,.7)"}; text-shadow: ${hasImg ? "0 1px 8px rgba(14,23,19,0.45)" : "none"};`}
     >
       {label}
     </div>
   )}
   <slot />
 </div>
+
+<style is:global>
+  /* Card tint — warm parchment haze on top + ink wash at bottom.
+     This is what makes a stock photo feel like it lives in our palette. */
+  .mc-photo-tint-card {
+    background:
+      linear-gradient(180deg, rgba(246, 241, 230, 0.10) 0%, rgba(246, 241, 230, 0) 22%),
+      linear-gradient(180deg, rgba(14, 23, 19, 0) 50%, rgba(14, 23, 19, 0.18) 80%, rgba(14, 23, 19, 0.46) 100%),
+      linear-gradient(135deg, rgba(10, 93, 84, 0.12) 0%, rgba(10, 93, 84, 0) 55%);
+  }
+  /* Hero tint — bottom ink fade is stronger so overlaid copy reads. */
+  .mc-photo-tint-hero {
+    background:
+      linear-gradient(180deg, rgba(246, 241, 230, 0.08) 0%, rgba(246, 241, 230, 0) 18%),
+      linear-gradient(180deg, rgba(14, 23, 19, 0) 38%, rgba(14, 23, 19, 0.30) 70%, rgba(14, 23, 19, 0.66) 100%),
+      linear-gradient(110deg, rgba(10, 93, 84, 0.10) 0%, rgba(10, 93, 84, 0) 55%);
+  }
+  /* Soft tint — barely-there tonal warm. For heroes where the photo is the show. */
+  .mc-photo-tint-soft {
+    background:
+      linear-gradient(180deg, rgba(246, 241, 230, 0.06) 0%, rgba(246, 241, 230, 0) 30%),
+      linear-gradient(180deg, rgba(14, 23, 19, 0) 70%, rgba(14, 23, 19, 0.18) 100%);
+  }
+</style>

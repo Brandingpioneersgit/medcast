@@ -1,0 +1,298 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import { db } from "@/lib/db";
+import {
+  appointments,
+  doctors,
+  hospitals,
+  cities,
+  countries,
+  treatments,
+} from "../../../../../src/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { CheckCircle2, Copy, MessageCircle, Mail } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/book/confirmed", 308);
+const locale = rawLocale as Locale;
+
+const codeParam = (Astro.url.searchParams.get("code") ?? "").trim().toUpperCase();
+const validCode = /^APT-[A-Z0-9]{4,16}$/.test(codeParam);
+
+const apptRows = validCode
+  ? await db
+      .select({
+        code: appointments.code,
+        status: appointments.status,
+        patientName: appointments.patientName,
+        patientEmail: appointments.patientEmail,
+        preferredDate: appointments.preferredDate,
+        alternativeDate: appointments.alternativeDate,
+        consultationType: appointments.consultationType,
+        doctorName: doctors.name,
+        doctorSlug: doctors.slug,
+        hospitalName: hospitals.name,
+        hospitalSlug: hospitals.slug,
+        cityName: cities.name,
+        countryName: countries.name,
+        treatmentName: treatments.name,
+        createdAt: appointments.createdAt,
+      })
+      .from(appointments)
+      .leftJoin(doctors, eq(appointments.doctorId, doctors.id))
+      .leftJoin(hospitals, eq(appointments.hospitalId, hospitals.id))
+      .leftJoin(cities, eq(hospitals.cityId, cities.id))
+      .leftJoin(countries, eq(cities.countryId, countries.id))
+      .leftJoin(treatments, eq(appointments.treatmentId, treatments.id))
+      .where(eq(appointments.code, codeParam))
+      .limit(1)
+      .catch(() => [])
+  : [];
+
+const appt = apptRows[0] ?? null;
+
+const path = "/book/confirmed";
+const fmtDate = (d: Date | null | undefined) =>
+  d ? new Date(d).toLocaleDateString(locale, { weekday: "long", year: "numeric", month: "long", day: "numeric" }) : null;
+
+// Always noindex — patient-private content keyed by code.
+Astro.response.headers.set("Cache-Control", "private, no-store, max-age=0");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta
+      title={appt ? `Appointment ${appt.code} confirmed` : "Appointment lookup"}
+      description="Appointment request received. A coordinator will confirm within 24 hours."
+      path={path}
+      locale={locale}
+      noindex={true}
+    />
+  </Fragment>
+
+  <main id="main" class="min-h-dvh" style="background: var(--color-bg); color: var(--color-ink);">
+    <SiteHeader locale={locale} />
+
+    <section style="padding: 64px 0 32px;">
+      <div class="mx-auto max-w-[760px] px-7 md:px-10">
+        {appt ? (
+          <>
+            <div class="flex items-center gap-3" style="color: var(--color-accent);">
+              <CheckCircle2 className="h-6 w-6" />
+              <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em;">
+                Request received
+              </div>
+            </div>
+
+            <h1 class="display display-tight mt-4" style="font-size: clamp(2rem, 4.5vw, 3rem); line-height: 1.05; font-weight: 400; letter-spacing: -0.03em;">
+              Thank you, {appt.patientName.split(/\s+/)[0]}.<br />
+              <span class="italic-display">Your code is below.</span>
+            </h1>
+
+            <p class="serif mt-5" style="font-size: 18px; line-height: 1.5; color: var(--color-ink-muted); max-width: 560px;">
+              A coordinator will confirm availability within 24 hours. Save this code — it's how you reference the appointment if you contact us by phone or WhatsApp.
+            </p>
+
+            <div class="paper mt-8" style="padding: 24px 28px;">
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                Appointment code
+              </div>
+              <div class="flex items-center gap-3 mt-2">
+                <div
+                  class="display tnum"
+                  style="font-size: clamp(28px, 5vw, 40px); letter-spacing: 0.02em; font-weight: 500; user-select: all;"
+                >{appt.code}</div>
+                <button
+                  type="button"
+                  data-copy-target={appt.code}
+                  class="inline-flex items-center gap-1"
+                  style="padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 9999px; font-size: 12px; color: var(--color-ink); background: var(--color-bg);"
+                  aria-label="Copy appointment code"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  <span data-copy-label>Copy</span>
+                </button>
+              </div>
+
+              <dl class="mt-6 grid gap-4" style="grid-template-columns: 1fr 1fr;">
+                {appt.doctorName && (
+                  <div>
+                    <dt class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Doctor</dt>
+                    <dd class="serif mt-1" style="font-size: 15px;">
+                      {appt.doctorSlug ? (
+                        <a href={localizedPath(locale, `/doctor/${appt.doctorSlug}`)} class="hover:underline">{appt.doctorName}</a>
+                      ) : appt.doctorName}
+                    </dd>
+                  </div>
+                )}
+                {appt.hospitalName && (
+                  <div>
+                    <dt class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Hospital</dt>
+                    <dd class="serif mt-1" style="font-size: 15px;">
+                      {appt.hospitalSlug ? (
+                        <a href={localizedPath(locale, `/hospital/${appt.hospitalSlug}`)} class="hover:underline">{appt.hospitalName}</a>
+                      ) : appt.hospitalName}
+                      {appt.cityName && (<><br /><span style="font-size: 12.5px; color: var(--color-ink-subtle);">{appt.cityName}{appt.countryName && `, ${appt.countryName}`}</span></>)}
+                    </dd>
+                  </div>
+                )}
+                <div>
+                  <dt class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Preferred date</dt>
+                  <dd class="serif mt-1" style="font-size: 15px;">{fmtDate(appt.preferredDate)}</dd>
+                </div>
+                {appt.alternativeDate && (
+                  <div>
+                    <dt class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Alternative</dt>
+                    <dd class="serif mt-1" style="font-size: 15px;">{fmtDate(appt.alternativeDate)}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Format</dt>
+                  <dd class="serif mt-1" style="font-size: 15px; text-transform: capitalize;">{(appt.consultationType ?? "in-person").replace("-", " ")}</dd>
+                </div>
+                {appt.treatmentName && (
+                  <div>
+                    <dt class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">Interest</dt>
+                    <dd class="serif mt-1" style="font-size: 15px;">{appt.treatmentName}</dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+
+            <div class="mt-8 grid gap-3 md:grid-cols-2">
+              <a
+                href="https://wa.me/918006210000"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex items-center justify-center gap-2 font-medium"
+                style="background: var(--color-surface-elevated); color: var(--color-ink); border: 1px solid var(--color-border); padding: 14px 20px; font-size: 14px; border-radius: 9999px;"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Message coordinator on WhatsApp
+              </a>
+              <a
+                href="mailto:medcastsdigital@gmail.com?subject=Appointment%20{appt.code}"
+                class="inline-flex items-center justify-center gap-2 font-medium"
+                style="background: var(--color-surface-elevated); color: var(--color-ink); border: 1px solid var(--color-border); padding: 14px 20px; font-size: 14px; border-radius: 9999px;"
+              >
+                <Mail className="h-4 w-4" />
+                Email coordinator
+              </a>
+            </div>
+
+            <div class="mt-8 paper" style="padding: 22px; background: var(--color-accent-mist); border-color: var(--color-accent-soft);">
+              <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">
+                What happens next
+              </div>
+              <ol class="serif mt-3 space-y-2.5" style="font-size: 14.5px; line-height: 1.55; color: var(--color-ink);">
+                <li><strong>Within 24 hours.</strong> A coordinator confirms availability and sends you a written summary.</li>
+                <li><strong>Before the consult.</strong> {appt.doctorName ?? "Your doctor"} reviews any reports you've uploaded.</li>
+                <li><strong>After the consult.</strong> You'll receive an itemized treatment plan + cost estimate within 48 hours.</li>
+              </ol>
+            </div>
+
+            <div class="mt-10 grid gap-3 md:grid-cols-3">
+              <a
+                href={localizedPath(locale, "/second-opinion")}
+                class="paper hover:border-[var(--color-accent)] transition-colors"
+                style="padding: 16px; border: 1px solid var(--color-border-soft);"
+              >
+                <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">Optional</div>
+                <div class="serif mt-1" style="font-size: 14.5px; font-weight: 500;">Get a free second opinion</div>
+                <div class="mono mt-1" style="font-size: 11px; color: var(--color-ink-subtle);">Independent review before you commit</div>
+              </a>
+              <a
+                href={localizedPath(locale, "/visa")}
+                class="paper hover:border-[var(--color-accent)] transition-colors"
+                style="padding: 16px; border: 1px solid var(--color-border-soft);"
+              >
+                <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">Travel</div>
+                <div class="serif mt-1" style="font-size: 14.5px; font-weight: 500;">Medical visa info</div>
+                <div class="mono mt-1" style="font-size: 11px; color: var(--color-ink-subtle);">Requirements by country</div>
+              </a>
+              <a
+                href={localizedPath(locale, "/insurance")}
+                class="paper hover:border-[var(--color-accent)] transition-colors"
+                style="padding: 16px; border: 1px solid var(--color-border-soft);"
+              >
+                <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">Coverage</div>
+                <div class="serif mt-1" style="font-size: 14.5px; font-weight: 500;">Insurance & cashless</div>
+                <div class="mono mt-1" style="font-size: 11px; color: var(--color-ink-subtle);">What your policy covers abroad</div>
+              </a>
+            </div>
+          </>
+        ) : (
+          <>
+            <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+              Appointment lookup
+            </div>
+            <h1 class="display display-tight mt-3" style="font-size: clamp(2rem, 4.5vw, 3rem); line-height: 1.05; font-weight: 400; letter-spacing: -0.03em;">
+              {validCode ? "We couldn't find that appointment" : "Enter your appointment code"}
+            </h1>
+            <p class="serif mt-5" style="font-size: 18px; line-height: 1.5; color: var(--color-ink-muted); max-width: 560px;">
+              {validCode
+                ? "Double-check the code or contact the coordinator — we'll find your booking by name + email."
+                : "Your appointment code looks like APT-XXXXXXXX. It was emailed to you and shown after your request."}
+            </p>
+
+            <form method="get" action={localizedPath(locale, "/book/confirmed")} class="paper mt-8" style="padding: 22px;">
+              <label class="block" for="code">
+                <span class="mono uppercase block mb-2" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                  Appointment code
+                </span>
+                <input
+                  id="code"
+                  name="code"
+                  type="text"
+                  required
+                  placeholder="APT-XXXXXXXX"
+                  pattern="APT-[A-Za-z0-9]{4,16}"
+                  autocapitalize="characters"
+                  autocomplete="off"
+                  class="w-full serif"
+                  style="padding: 12px 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg); font-size: 14.5px; color: var(--color-ink);"
+                />
+              </label>
+              <button
+                type="submit"
+                class="inline-flex items-center gap-2 font-semibold mt-4"
+                style="background: var(--color-ink); color: var(--color-bg); padding: 12px 22px; font-size: 14px; border-radius: 9999px;"
+              >
+                Look up appointment
+              </button>
+            </form>
+
+            <p class="mono mt-6" style="font-size: 12px; color: var(--color-ink-subtle);">
+              No code? <a href={localizedPath(locale, "/contact?type=code-recovery")} class="underline">Ask the coordinator to recover it.</a>
+            </p>
+          </>
+        )}
+      </div>
+    </section>
+
+    <script is:inline>
+      (function () {
+        const btn = document.querySelector("[data-copy-target]");
+        if (!btn) return;
+        const label = btn.querySelector("[data-copy-label]");
+        btn.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(btn.getAttribute("data-copy-target") || "");
+            if (label) label.textContent = "Copied";
+            setTimeout(() => { if (label) label.textContent = "Copy"; }, 1500);
+          } catch {
+            if (label) label.textContent = "Press ⌘C";
+          }
+        });
+      })();
+    </script>
+
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

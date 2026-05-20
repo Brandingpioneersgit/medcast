@@ -129,7 +129,7 @@ const contactPageLd = {
       {
         "@type": "ContactPoint",
         contactType: "customer support",
-        email: "care@medcasts.com",
+        email: "medcastsdigital@gmail.com",
         telephone: "+918006210000",
         availableLanguage: ["en", "ar", "ru", "fr", "pt", "bn", "tr", "hi"],
       },
@@ -223,7 +223,7 @@ Astro.response.headers.set(
           </div>
         )}
 
-        <div class="grid gap-10 lg:grid-cols-[1.35fr,1fr] lg:gap-14 mt-3">
+        <div class="grid gap-10 lg:grid-cols-[1.35fr_1fr] lg:gap-14 mt-3">
           <div>
             <h1
               class="display display-tight"
@@ -426,7 +426,7 @@ Astro.response.headers.set(
                   <Mail className="h-4 w-4 mt-1 shrink-0" style={{color: "var(--color-accent)"}} />
                   <div>
                     <div class="serif" style="font-size: 15px; color: var(--color-ink);">{tc2("emailLabel")}</div>
-                    <a href="mailto:care@medcasts.com" class="mono uppercase" style="font-size: 11px; letter-spacing: 0.1em; color: var(--color-ink-muted);">care@medcasts.com →</a>
+                    <a href="mailto:medcastsdigital@gmail.com" class="mono uppercase" style="font-size: 11px; letter-spacing: 0.1em; color: var(--color-ink-muted);">medcastsdigital@gmail.com →</a>
                   </div>
                 </li>
                 <li class="flex items-start gap-3">
@@ -520,6 +520,7 @@ Astro.response.headers.set(
 
     <section style="padding: 96px 0 88px;">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <h2 class="display-tight mb-8" style="font-size: clamp(1.5rem, 3vw, 2.25rem); letter-spacing: -0.02em;">Why patients reach out to us</h2>
         <div class="grid gap-6 md:grid-cols-4" style="border-top: 1px solid var(--color-ink); border-bottom: 1px solid var(--color-border);">
           {[
             { l: tc2("trustCoordinators"), v: tc2("trustCoordinatorsVal") },

@@ -3,9 +3,22 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
-import { isLocale, type Locale } from "@/lib/i18n";
-import { breadcrumbJsonLd, localeUrl } from "@/lib/seo";
+import EntityListingHero from "@/components/EntityListingHero.astro";
+import PhotoBlock from "@/components/PhotoBlock.astro";
+import Pagination from "@/components/Pagination.astro";
+import CompareToggle from "@/components/CompareToggle.astro";
+import { listHospitals, getCityBySlug } from "@/lib/queries";
+import { db } from "@/lib/db";
+import { sql } from "drizzle-orm";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, itemListJsonLd } from "@/lib/seo";
 import { getTranslator } from "@/lib/messages";
+import { ChevronRight } from "lucide-react";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import { hospitalCover } from "@/lib/images";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 
 export const prerender = false;
 
@@ -15,34 +28,280 @@ if (!isLocale(rawLocale)) return Astro.redirect(`/en/hospitals/city/${citySlug}`
 if (!citySlug) return new Response("Not found", { status: 404 });
 const locale = rawLocale as Locale;
 
+const cityData = await getCityBySlug(citySlug);
+if (!cityData) return new Response("Not found", { status: 404 });
+const { city, specialtyCounts } = cityData;
+
+const url = new URL(Astro.request.url);
+const pageParam = parseInt(url.searchParams.get("page") ?? "1", 10);
+const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+const sortParam = url.searchParams.get("sort");
+const sort =
+  sortParam === "rating" || sortParam === "reviews" || sortParam === "beds"
+    ? sortParam
+    : "featured";
+
+const { rows, total, totalPages } = await listHospitals({ page, sort, city: citySlug });
+
+// Batch-fetch accreditation chips for visible rows
+const hospitalIds = rows.map((h) => h.id);
+const accreditationMap = new Map<number, string[]>();
+if (hospitalIds.length > 0) {
+  try {
+    const accr = await db.execute<{ hospital_id: number; codes: string[] }>(sql`
+      SELECT ha.hospital_id, ARRAY_AGG(DISTINCT COALESCE(a.acronym, a.name)) AS codes
+      FROM hospital_accreditations ha
+      INNER JOIN accreditations a ON a.id = ha.accreditation_id
+      WHERE ha.hospital_id = ANY(${hospitalIds}::int[])
+      GROUP BY ha.hospital_id
+    `);
+    for (const r of Array.from(accr)) accreditationMap.set(r.hospital_id, r.codes);
+  } catch {
+    // non-fatal
+  }
+}
+
+const FLAG_MAP: Record<string, string> = {
+  india: "🇮🇳", turkey: "🇹🇷", thailand: "🇹🇭", uae: "🇦🇪",
+  germany: "🇩🇪", singapore: "🇸🇬", "south-korea": "🇰🇷",
+  malaysia: "🇲🇾", "saudi-arabia": "🇸🇦",
+};
+function countryFlag(s: string | null | undefined): string { return s ? (FLAG_MAP[s] ?? "🌐") : "🌐"; }
+
 const tc = getTranslator(locale, "common");
-const seoTitle = `Top hospitals in ${citySlug}`;
-const seoDescription = `Browse hospitals in ${citySlug} — ratings, specialties, and accreditations.`;
+const seoTitle = `Top hospitals in ${city.name}, ${city.country?.name ?? ""}`.trim();
+const seoDescription = `Browse ${total.toLocaleString()} accredited hospitals in ${city.name}. Compare specialties, ratings, and accreditations.`;
 const path = `/hospitals/city/${citySlug}`;
 
 const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
   { name: tc("hospitals"), url: localeUrl(locale, "/hospitals") },
-  { name: citySlug, url: localeUrl(locale, path) },
+  ...(city.country ? [{ name: city.country.name, url: localeUrl(locale, `/hospitals/country/${city.country.slug}`) }] : []),
+  { name: city.name, url: localeUrl(locale, path) },
 ]);
 
-Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+const itemLd = page === 1 && rows.length > 0
+  ? itemListJsonLd(rows.map((h) => ({ name: h.name, url: localeUrl(locale, `/hospital/${h.slug}`) })))
+  : null;
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=600, stale-while-revalidate=3600");
+
+function buildHref(patch: { sort?: string }): string {
+  const params = new URLSearchParams();
+  const s = patch.sort ?? sort;
+  if (s && s !== "featured") params.set("sort", s);
+  const qs = params.toString();
+  const base = localizedPath(locale, path);
+  return qs ? `${base}?${qs}` : base;
+}
+
+const SORTS = [
+  { value: "featured", label: "Featured" },
+  { value: "rating", label: "Top rated" },
+  { value: "reviews", label: "Most reviewed" },
+  { value: "beds", label: "Largest" },
+];
+
+const paginationBase = buildHref({});
+const topSpecialty = specialtyCounts[0]?.name ?? "—";
+
+const stats = page === 1 ? [
+  { l: "Hospitals", v: total.toLocaleString() },
+  { l: "Top specialty", v: topSpecialty },
+  { l: "Country", v: city.country?.name ?? "—" },
+] : [];
 ---
 
 <BaseLayout locale={locale}>
   <Fragment slot="head">
-    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
-    <script type="application/ld+json" set:html={JSON.stringify(crumbs)} />
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={page > 1} />
+    {itemLd && <script type="application/ld+json" is:inline set:html={JSON.stringify(itemLd)} />}
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
-    <section class="mx-auto max-w-7xl px-6 pt-10 pb-16">
-      <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-subtle">City</p>
-      <h1 class="mt-2 font-display text-3xl md:text-5xl leading-[1.05]">Hospitals in {citySlug}</h1>
-      <p class="lede mt-4">Every hospital in this city with ratings, specialties, and distance from the airport.</p>
-      {/* TODO: city-filtered hospital grid */}
+
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <a href={localizedPath(locale, "/hospitals")} class="hover:text-ink">Hospitals</a>
+          {city.country && (
+            <>
+              <span class="mx-1.5">/</span>
+              <a href={localizedPath(locale, `/hospitals/country/${city.country.slug}`)} class="hover:text-ink">{city.country.name}</a>
+            </>
+          )}
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">{city.name}</span>
+        </nav>
+      </div>
+    </div>
+
+    <EntityListingHero
+      eyebrow={`${total.toLocaleString()} hospitals · ${city.country?.name ?? ""}`}
+      h1First={`Hospitals in`}
+      h1Italic={city.name}
+      lede={`Every accredited hospital in ${city.name}, with ratings, specialties and accreditation badges. Continuously re-vetted by our medical panel.`}
+      stats={stats}
+    />
+
+    <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-8 pb-12">
+      <h2 class="display-tight mb-6" style="font-size: clamp(1.5rem, 3vw, 2.25rem); letter-spacing: -0.02em;">
+        Accredited hospitals in {city.name}
+      </h2>
+      <div class="min-w-0">
+        <div
+          class="mb-6 flex flex-wrap items-center justify-between gap-3 pb-4"
+          style="border-bottom: 1px solid var(--color-border);"
+        >
+          <span class="serif text-[14px]" style="color: var(--color-ink-muted);">
+            <span class="display tnum text-ink">{total.toLocaleString()}</span> hospital{total === 1 ? "" : "s"}
+          </span>
+          <div class="flex items-center gap-1 -mx-1 overflow-x-auto">
+            <span class="mono uppercase px-1 whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+              Sort
+            </span>
+            {SORTS.map((o) => {
+              const active = sort === o.value;
+              return (
+                <a
+                  href={buildHref({ sort: o.value })}
+                  class="rounded-full px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap"
+                  style={active
+                    ? "background: var(--color-ink); color: var(--color-bg);"
+                    : "color: var(--color-ink-muted);"}
+                >
+                  {o.label}
+                </a>
+              );
+            })}
+          </div>
+        </div>
+
+        {rows.length === 0 ? (
+          <div class="paper text-center py-20" style="color: var(--color-ink-muted);">
+            <p class="serif text-lg mb-2">No hospitals listed in {city.name} yet.</p>
+            {city.country && (
+              <a
+                href={localizedPath(locale, `/hospitals/country/${city.country.slug}`)}
+                class="inline-block mt-2 mono uppercase text-[11px]"
+                style="color: var(--color-accent); letter-spacing: 0.12em;"
+              >
+                Browse all {city.country.name} hospitals →
+              </a>
+            )}
+          </div>
+        ) : (
+          <ul class="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            {rows.map((h) => {
+              const codes = accreditationMap.get(h.id) ?? [];
+              return (
+                <li class="relative h-full">
+                  <a
+                    href={localizedPath(locale, `/hospital/${h.slug}`)}
+                    class="paper group block h-full overflow-hidden transition hover:-translate-y-0.5"
+                    style="padding: 0;"
+                  >
+                    <PhotoBlock
+                      aspect="4/3"
+                      rounded={false}
+                      imgUrl={hospitalCover({ coverImageUrl: h.coverImageUrl, countrySlug: h.countrySlug })}
+                      alt={h.name}
+                    >
+                      {h.rating && Number(h.rating) > 0 && (
+                        <div
+                          class="absolute"
+                          style="top: 12px; inset-inline-start: 12px; background: rgba(246,241,230,0.95); color: var(--color-ink); padding: 4px 10px; border-radius: 9999px; font-size: 11px; backdrop-filter: blur(4px);"
+                        >
+                          <span style="color: var(--color-saffron);">★</span>
+                          <span class="tnum ms-1">{Number(h.rating).toFixed(1)}</span>
+                        </div>
+                      )}
+                    </PhotoBlock>
+                    <div class="p-5">
+                      <p class="mono uppercase flex items-center gap-1.5" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+                        <span aria-hidden="true">{countryFlag(h.countrySlug)}</span>
+                        {h.cityName}, {h.countryName}
+                      </p>
+                      <h3 class="mt-1.5 serif group-hover:text-accent transition-colors line-clamp-2" style="font-size: 19px; line-height: 1.22; letter-spacing: -0.005em; color: var(--color-ink);">
+                        {h.name}
+                      </h3>
+                      {codes.length > 0 && (
+                        <div class="mt-3 flex flex-wrap gap-1.5">
+                          {codes.slice(0, 3).map((c) => (
+                            <span
+                              class="mono uppercase"
+                              style="font-size: 9.5px; letter-spacing: 0.1em; border: 1px solid var(--color-accent); color: var(--color-accent); padding: 2px 7px; border-radius: 9999px;"
+                            >
+                              {c}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div
+                        class="mt-auto flex items-center justify-between"
+                        style="border-top: 1px dashed var(--color-border); margin-top: 14px; padding-top: 12px;"
+                      >
+                        <div class="flex items-center gap-3 text-[12px]" style="color: var(--color-ink-muted);">
+                          {h.bedCapacity && <span class="tnum">{h.bedCapacity.toLocaleString()} beds</span>}
+                          {h.reviewCount && h.reviewCount > 0 && (
+                            <span class="tnum">{h.reviewCount.toLocaleString()} reviews</span>
+                          )}
+                        </div>
+                        <ChevronRight className="h-3.5 w-3.5 mirror-x text-[var(--color-ink-subtle)] group-hover:text-[var(--color-accent)] transition-colors" />
+                      </div>
+                    </div>
+                  </a>
+                  <div class="absolute end-3 top-3 z-10">
+                    <CompareToggle slug={h.slug} name={h.name} />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        <Pagination page={page} totalPages={totalPages} basePath={paginationBase} />
+      </div>
     </section>
+
+    <HowItWorks
+      heading='How to compare hospitals within a city'
+      italicWord='within a city'
+      eyebrow='City hospital comparison'
+      steps={[
+        { title: 'Identify your specialty need', description: 'Match the hospital to your specific specialty. Hospital reputation varies by department.' },
+        { title: 'Compare on accreditation + sub-specialty depth', description: 'Multiple accreditations + dedicated sub-specialty teams matter more than single accreditation + generalist coverage.' },
+        { title: 'Check surgeon volume', description: "For your specific procedure, request the surgeon's annual case volume." },
+        { title: 'Itemized quotes', description: 'Request quotes from your top 2-3 hospitals. Compare on equal scope.' },
+      ]}
+    />
+    
+    <ExploreGrid
+      locale={locale}
+      eyebrow={`${city.name} medical travel`}
+      heading={`Other ways to slice ${city.name}`}
+      lede={`Hospital list is one cut. These hubs let you cut by specialty, by surgeon, by destination, and by visa logistics.`}
+      items={[
+        { eyebrow: "City", label: `${city.name} guide`, href: `/city/${citySlug}`, hint: "Airport, language, climate window, hospital concentration." },
+        ...(city.country?.slug && city.country?.name ? [{ eyebrow: "Destination", label: `${city.country.name} hospital hub`, href: `/country/${city.country.slug}`, hint: `All featured programs and pricing benchmarks across ${city.country.name}.` }] : []),
+        ...(city.country?.slug ? [{ eyebrow: "Visa", label: `${city.country.name} medical visa`, href: `/visa/${city.country.slug}`, hint: "Documents, processing time, embassy guidance." }] : []),
+        ...(specialtyCounts[0] ? [{ eyebrow: "Specialty", label: `${specialtyCounts[0].name} hub`, href: `/specialty/${specialtyCounts[0].slug}`, hint: `${specialtyCounts[0].hospital_count} hospitals credentialed for this specialty.` }] : []),
+        ...(specialtyCounts[1] ? [{ eyebrow: "Specialty", label: `${specialtyCounts[1].name}`, href: `/specialty/${specialtyCounts[1].slug}`, hint: `${specialtyCounts[1].hospital_count} hospitals priced for this specialty.` }] : []),
+        ...(specialtyCounts[2] ? [{ eyebrow: "Specialty", label: `${specialtyCounts[2].name}`, href: `/specialty/${specialtyCounts[2].slug}`, hint: `${specialtyCounts[2].hospital_count} hospitals with relevant credentials.` }] : []),
+        ...(city.country?.slug ? [{ eyebrow: "Doctors", label: `${city.country.name} surgeons`, href: `/doctors?country=${city.country.slug}`, hint: "Volume-ranked physician directory across this destination." }] : []),
+        { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure cost ranges, recovery time, success rates." },
+        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, and pricing." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get specialty + destination + 3-hospital shortlist." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+      ]}
+    />
+
+    <PageCta locale={locale} />
     <SiteFooter locale={locale} />
   </main>
 </BaseLayout>

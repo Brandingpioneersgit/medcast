@@ -8,7 +8,8 @@ import HospitalGallery from "@/components/HospitalGallery.astro";
 import LocationMap from "@/components/Map.astro";
 import HospitalMap from "@/components/HospitalMap.astro";
 import HospitalTour from "@/components/HospitalTour.astro";
-import { getHospitalBySlug, listHospitalOffers } from "@/lib/queries";
+import { getHospitalBySlug, listHospitalOffers, listLinkableEntities } from "@/lib/queries";
+import { linkifyBlogHtml } from "@/lib/content-linker";
 import { db, sql as rawSql } from "@/lib/db";
 import {
   getContent,
@@ -21,11 +22,14 @@ import { getTranslator } from "@/lib/messages";
 import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
 import { hospitalJsonLd, breadcrumbJsonLd, localeUrl, withProvenance, faqJsonLd } from "@/lib/seo";
 import LastUpdated from "@/components/LastUpdated.astro";
+import AccreditationLogo from "@/components/AccreditationLogo.astro";
 import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 import MobileQuoteBar from "@/components/MobileQuoteBar.astro";
 import EngagementFab from "@/components/EngagementFab.astro";
 import { whatsappFor } from "@/lib/whatsapp";
 import { hospitalCover, hospitalLogo, hospitalInitials, doctorPortrait } from "@/lib/images";
+import { pageImageFor } from "@/lib/page-images";
 import { sql } from "drizzle-orm";
 import {
   ChevronRight,
@@ -123,6 +127,12 @@ const [
 ]);
 
 const hospital = applyTranslated(hospitalRaw, hospitalMap, ["name", "description"]);
+
+// Admin-set image override wins over the DB cover_image_url + fallback pools.
+const coverOverride = await pageImageFor("hospital", hospitalRaw.slug, "cover");
+if (coverOverride) {
+  hospital.coverImageUrl = coverOverride.url;
+}
 
 // Pull deep hospital sections (top-tier hospitals only)
 const hSectionRow = await rawSql`
@@ -223,10 +233,29 @@ const mapPrecision: MapPrecision =
   : cLat != null && cLng != null ? "city"
   : "country";
 
-const title = `${hospital.name}${cityName ? ` — ${cityName}` : ""}`;
-const descText =
-  hospital.description?.slice(0, 160) ??
-  `${hospital.name}${cityName ? ` in ${cityName}` : ""}. ${hospital.bedCapacity ? `${hospital.bedCapacity} beds, ` : ""}${accreditations.length} accreditations. Transparent pricing, multilingual care.`;
+// Local-SEO title: "{Hospital}, {City}, {Country}" — geo trio anchors local
+// queries ("apollo hospital delhi india") and disambiguates branches.
+const localGeoSuffix = [cityName, countryName].filter(Boolean).join(", ");
+const title = localGeoSuffix
+  ? `${hospital.name}, ${localGeoSuffix}`
+  : hospital.name;
+
+// Description hierarchy: real DB description > local-intent specialty + city
+// fallback (rather than the old "N beds, M accreditations" which buries the
+// keyword). Caps at 160 chars including the trailing CTA.
+const topSpecialtyName = hospitalSpecialties[0]?.specialty?.name ?? null;
+const descText = (() => {
+  const real = hospital.description?.trim();
+  if (real && real.length >= 80) return real.slice(0, 160);
+  const lead = topSpecialtyName
+    ? `${topSpecialtyName} hospital in ${cityName ?? countryName ?? "your destination"}`
+    : `Hospital in ${cityName ?? countryName ?? "your destination"}`;
+  const trust = accreditations.length > 0
+    ? ` ${accreditations.map((a) => a.accreditation.acronym ?? a.accreditation.name).slice(0, 2).join(" + ")}-accredited.`
+    : "";
+  const beds = hospital.bedCapacity ? ` ${hospital.bedCapacity}-bed.` : "";
+  return `${hospital.name} — ${lead}.${trust}${beds} Transparent pricing, free quote.`.slice(0, 160);
+})();
 const path = `/hospital/${slug}`;
 const url = localeUrl(locale, path);
 
@@ -246,6 +275,7 @@ const jsonLd = withProvenance(hospitalJsonLd({
   imageUrl: hospital.coverImageUrl,
   url,
   bedCapacity: hospital.bedCapacity,
+  areaServed: countryName,
   medicalSpecialties: hospitalSpecialties.map((hs) => hs.specialty.name),
   offers: offerRows.map((o) => ({
     treatmentName: o.name,
@@ -298,6 +328,28 @@ const descParas = (hospital.description ?? "")
   .filter(Boolean);
 const descLede = descParas[0] ?? null;
 const descRest = descParas.slice(1);
+
+// In-prose contextual auto-linking — turn first mention of each linkable entity
+// (top hospitals, treatments, specialties, conditions, glossary terms) into an
+// internal anchor inside the description body. Skips current hospital + heading tags.
+const linkables = await listLinkableEntities().catch(() => []);
+const filteredLinkables = linkables.filter(
+  (e) => !(e.kind === "hospital" && e.slug === slug),
+);
+const ledeHtml = descLede
+  ? linkifyBlogHtml(
+      `<p>${descLede.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`,
+      filteredLinkables,
+      (p: string) => localizedPath(locale, p),
+    ).html
+  : "";
+const restHtml = descRest.length > 0
+  ? linkifyBlogHtml(
+      descRest.map((p) => `<p>${p.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`).join("\n"),
+      filteredLinkables,
+      (p: string) => localizedPath(locale, p),
+    ).html
+  : "";
 
 // Loose proxy for "international patients/yr" when no real stat exists
 const intlYear = hospital.bedCapacity ? Math.round(hospital.bedCapacity * 11.4).toLocaleString() : null;
@@ -354,7 +406,7 @@ Astro.response.headers.set(
     {/* HERO — 1.5fr / 1fr split */}
     <section style="padding: 40px 28px 0;">
       <div class="mx-auto max-w-[1440px]">
-        <div class="grid gap-8 lg:grid-cols-[1.5fr,1fr]">
+        <div class="grid gap-8 lg:grid-cols-[1.5fr_1fr]">
           <div>
             {(() => {
               const logoSrc = hospitalLogo({
@@ -410,13 +462,11 @@ Astro.response.headers.set(
             {accreditations.length > 0 ? (
               <div class="flex items-center gap-2 flex-wrap mb-4">
                 {accreditations.slice(0, 5).map((a) => (
-                  <span
-                    class="inline-flex items-center gap-1.5"
-                    style="padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 500; background: var(--color-accent-soft); color: var(--color-accent-strong); line-height: 1.4;"
-                  >
-                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 8l3 3 7-7"/></svg>
-                    {a.accreditation.acronym ?? a.accreditation.name}
-                  </span>
+                  <AccreditationLogo
+                    code={a.accreditation.acronym ?? a.accreditation.name}
+                    title={a.accreditation.name}
+                    size="md"
+                  />
                 ))}
               </div>
             ) : (
@@ -664,18 +714,14 @@ Astro.response.headers.set(
     {/* ABOUT + right sidebar */}
     <section id="about" style="padding: 56px 28px; scroll-margin-top: 140px;">
       <div class="mx-auto" style="max-width: 1120px;">
-        <div class="grid gap-14 lg:gap-[56px] lg:grid-cols-[2fr,1fr]">
+        <div class="grid gap-14 lg:gap-[56px] lg:grid-cols-[2fr_1fr]">
           <div>
             <h2 class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent); margin-bottom: 16px;">About</h2>
             {descLede && (
-              <p class="serif" style="font-size: 21px; line-height: 1.45; color: var(--color-ink); letter-spacing: -0.005em;">
-                {descLede}
-              </p>
+              <div class="serif" style="font-size: 21px; line-height: 1.45; color: var(--color-ink); letter-spacing: -0.005em;" set:html={ledeHtml} />
             )}
             {descRest.length > 0 && (
-              <div class="prose-editorial mt-6" style="font-size: 16px;">
-                {descRest.map((p) => <p>{p}</p>)}
-              </div>
+              <div class="prose-editorial mt-6" style="font-size: 16px;" set:html={restHtml} />
             )}
 
             {/* Doctor's note callout — uses first hospital doctor if any */}
@@ -923,7 +969,7 @@ Astro.response.headers.set(
         style="padding: 56px 28px; border-top: 1px solid var(--color-border); scroll-margin-top: 140px;"
       >
         <div class="mx-auto" style="max-width: 1120px;">
-          <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+          <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
             <div>
               <div class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-accent);">Verifiable credentials</div>
               <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
@@ -942,12 +988,20 @@ Astro.response.headers.set(
                 return (
                   <li class="paper" style="padding: 18px 18px 16px; display: flex; flex-direction: column; gap: 10px;">
                     <div class="flex items-start justify-between gap-3">
-                      <div>
-                        <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">
-                          {a.accreditation.acronym ?? "Accredited"}
-                        </div>
-                        <div class="serif mt-1" style="font-size: 16px; font-weight: 500; line-height: 1.3;">
-                          {a.accreditation.name}
+                      <div class="flex items-start gap-3 min-w-0">
+                        <AccreditationLogo
+                          code={a.accreditation.acronym ?? a.accreditation.name}
+                          title={a.accreditation.name}
+                          size="lg"
+                          showText={false}
+                        />
+                        <div class="min-w-0">
+                          <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">
+                            {a.accreditation.acronym ?? "Accredited"}
+                          </div>
+                          <div class="serif mt-1" style="font-size: 16px; font-weight: 500; line-height: 1.3;">
+                            {a.accreditation.name}
+                          </div>
                         </div>
                       </div>
                       <span
@@ -1060,7 +1114,7 @@ Astro.response.headers.set(
         style="padding: 56px 28px; border-top: 1px solid var(--color-border); scroll-margin-top: 140px;"
       >
         <div class="mx-auto" style="max-width: 1120px;">
-          <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+          <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
             <div>
               <div class="mono" style="font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-ink-subtle);">FAQ</div>
               <h2 class="display mt-3" style="font-size: 28px; line-height: 1.1; letter-spacing: -0.015em;">
@@ -1089,7 +1143,7 @@ Astro.response.headers.set(
 
     <section id="contact" style="padding: 72px 28px; border-top: 1px solid var(--color-border); background: var(--color-ink); color: var(--color-bg); scroll-margin-top: 140px;">
       <div class="mx-auto max-w-[1120px]">
-        <div class="grid gap-10 lg:grid-cols-[1fr,auto] lg:items-end">
+        <div class="grid gap-10 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <div class="mono" style="font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.7;">Ready to plan</div>
             <h2 class="display mt-3" style="font-size: clamp(2rem, 4vw, 2.75rem); line-height: 1.05; letter-spacing: -0.025em; font-weight: 400;">
@@ -1238,6 +1292,31 @@ Astro.response.headers.set(
         "National medical council registries",
         "Hospital-issued itemised quote sheets",
         ...(hospitalRaw.website ? [`${hospital.name} institutional records`] : []),
+      ]}
+    />
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow={`Beyond ${hospital.name}`}
+      heading="Other ways to evaluate this option"
+      lede={`One profile, evaluated. These hubs cross-check the city, the country, the specialties this hospital covers, and the surgeons practising here against the rest of the destination.`}
+      items={[
+        ...(hospitalSpecialties[0]?.specialty?.slug && hospitalSpecialties[0]?.specialty?.name
+          ? [{ eyebrow: "Department", label: `${hospitalSpecialties[0].specialty.name} at ${hospital.name}`, href: `/hospital/${slug}/${hospitalSpecialties[0].specialty.slug}`, hint: "Programs, surgeons, and pricing for this specific specialty." }] : []),
+        ...(hospitalSpecialties[1]?.specialty?.slug && hospitalSpecialties[1]?.specialty?.name
+          ? [{ eyebrow: "Department", label: `${hospitalSpecialties[1].specialty.name} department`, href: `/hospital/${slug}/${hospitalSpecialties[1].specialty.slug}`, hint: "Sub-specialties, equipment, surgeons in this department." }] : []),
+        ...(hospital.city?.slug && cityName ? [{ eyebrow: "City", label: `Hospitals in ${cityName}`, href: `/hospitals/city/${hospital.city.slug}`, hint: `Other ${cityName} programs for context and comparison.` }] : []),
+        ...(countrySlug && countryName ? [{ eyebrow: "Destination", label: `${countryName} hospital hub`, href: `/country/${countrySlug}`, hint: `Featured programs and pricing benchmarks across ${countryName}.` }] : []),
+        ...(countrySlug ? [{ eyebrow: "Visa", label: `${countryName} medical visa`, href: `/visa/${countrySlug}`, hint: "Documents, processing time, embassy guidance." }] : []),
+        ...(hospitalSpecialties[0]?.specialty?.slug && hospitalSpecialties[0]?.specialty?.name && countrySlug
+          ? [{ eyebrow: "Best of", label: `Best ${hospitalSpecialties[0].specialty.name} in ${countryName}`, href: `/best/${hospitalSpecialties[0].specialty.slug}-in-${countrySlug}`, hint: "Editorially ranked programs with methodology disclosed." }] : []),
+        ...(hospitalSpecialties[0]?.specialty?.slug && hospitalSpecialties[0]?.specialty?.name
+          ? [{ eyebrow: "Specialty", label: `${hospitalSpecialties[0].specialty.name} hub`, href: `/specialty/${hospitalSpecialties[0].specialty.slug}`, hint: "All programs and procedures in this specialty across destinations." }] : []),
+        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, pricing for up to 4 hospitals." },
+        { eyebrow: "Compare", label: "Doctor comparison", href: "/compare/doctors", hint: "Surgeons compared on volume, fees, languages, video-consult availability." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get specialty + destination + 3 hospitals." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
       ]}
     />
 

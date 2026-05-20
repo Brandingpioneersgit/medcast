@@ -12,6 +12,12 @@ const locale = (match && ["en", "ar", "ru", "fr", "pt", "bn", "tr", "hi"].includ
   : "en") as Locale;
 
 Astro.response.status = 500;
+
+// Build a short trace ID — Cloudflare adds `cf-ray` on every response, which
+// is the canonical id support uses to look up an event. Fall back to a
+// timestamp-derived id so something is always shown to the user.
+const cfRay = Astro.request.headers.get("cf-ray");
+const traceId = cfRay ?? `local-${Date.now().toString(36)}`;
 ---
 
 <BaseLayout locale={locale}>
@@ -25,7 +31,7 @@ Astro.response.status = 500;
     />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <section style="padding: 96px 0 72px;">
@@ -46,6 +52,14 @@ Astro.response.status = 500;
           The page failed to load on our end. It's not you. Our team gets pinged automatically — usually fixed within an hour.
         </p>
 
+        <div class="mt-6 inline-flex items-center gap-2 mono" style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-subtle); padding: 8px 14px; border: 1px dashed var(--color-border); border-radius: 6px;">
+          <span>Reference:</span>
+          <code class="tnum" style="font-family: var(--font-mono); color: var(--color-ink); letter-spacing: 0.04em; text-transform: none;">{traceId}</code>
+        </div>
+        <p class="mt-2" style="font-size: 12px; color: var(--color-ink-subtle);">
+          Include this reference if you contact support — it lets us find the exact event in seconds.
+        </p>
+
         <div class="mt-10 flex flex-wrap justify-center gap-3">
           <a
             href={`/${locale}`}
@@ -56,7 +70,7 @@ Astro.response.status = 500;
             <ChevronRight className="h-4 w-4 mirror-x" />
           </a>
           <a
-            href="mailto:care@medcasts.com?subject=500%20error"
+            href={`mailto:medcastsdigital@gmail.com?subject=500%20error&body=Reference%3A%20${encodeURIComponent(traceId)}`}
             class="inline-flex items-center gap-2 font-semibold"
             style="border: 1px solid var(--color-border); color: var(--color-ink); padding: 12px 22px; border-radius: 9999px;"
           >

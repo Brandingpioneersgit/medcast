@@ -11,6 +11,12 @@ type Condition = {
 };
 
 type Country = { slug: string; name: string; hospital_count: number };
+
+const COUNTRY_FLAG: Record<string, string> = {
+  india: "🇮🇳", turkey: "🇹🇷", thailand: "🇹🇭", uae: "🇦🇪",
+  germany: "🇩🇪", singapore: "🇸🇬", "south-korea": "🇰🇷",
+  malaysia: "🇲🇾", "saudi-arabia": "🇸🇦",
+};
 type MatrixRow = { t_slug: string; c_slug: string; lo: string; hi: string; n: number };
 
 type HospitalResult = {
@@ -64,7 +70,7 @@ export default function MatchMe({ conditions, countries, matrix, locale, localeH
   const [hospitals, setHospitals] = useState<HospitalResult[]>([]);
   const [loadingH, setLoadingH] = useState(false);
 
-  const [form, setForm] = useState({ name: "", phone: "", email: "", countryOfOrigin: "", notes: "" });
+  const [form, setForm] = useState({ name: "", phone: "", email: "", countryOfOrigin: "", notes: "", hp: "" });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -143,9 +149,27 @@ export default function MatchMe({ conditions, countries, matrix, locale, localeH
     setTimeout(() => void loadHospitals(), 0);
   }
 
+  function clientValidate(): string | null {
+    const name = form.name.trim();
+    const phone = form.phone.trim();
+    const country = form.countryOfOrigin.trim();
+    if (name.length < 2) return "Please enter your full name (at least 2 characters).";
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 7 || digits.length > 15) {
+      return "Please enter a valid phone number with country code (e.g. +91 800 621 000).";
+    }
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      return "That email doesn't look right — double-check the format.";
+    }
+    if (!country) return "Tell us your country of origin so we can route to the right desk.";
+    return null;
+  }
+
   async function submitLead(e: React.FormEvent) {
     e.preventDefault();
     if (submitting) return;
+    const v = clientValidate();
+    if (v) { setFormError(v); return; }
     setFormError(null);
     setSubmitting(true);
     try {
@@ -165,6 +189,7 @@ export default function MatchMe({ conditions, countries, matrix, locale, localeH
             (form.notes ? `\n${form.notes}` : ""),
           locale,
           source: "/match-me",
+          _hp: form.hp,
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -342,36 +367,45 @@ export default function MatchMe({ conditions, countries, matrix, locale, localeH
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               {/* Plan card */}
-              <div className="rounded-xl border border-border bg-accent-soft p-5">
-                <div className="mono uppercase" style={{ fontSize: 10.5, letterSpacing: "0.14em", color: "var(--color-accent)" }}>
-                  Path
-                </div>
-                <p className="mt-2 text-[15px]" style={{ color: "var(--color-accent-deep)" }}>
-                  For <span className="font-semibold">{condition.name}</span>, we'd route to{" "}
-                  <a
-                    href={localeHref(`/specialty/${condition.specialty_slug}`)}
-                    className="font-semibold underline hover:no-underline"
+              <div className="rounded-xl border border-border bg-accent-soft p-6">
+                <div className="flex items-start gap-4">
+                  <div
+                    className="flex shrink-0 items-center justify-center"
+                    style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(10, 93, 84, 0.14)", color: "var(--color-accent)" }}
+                    aria-hidden="true"
                   >
-                    {condition.specialty_name}
-                  </a>{" "}
-                  care.{" "}
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12h20"/><path d="m16 6 6 6-6 6"/></svg>
+                  </div>
+                  <div className="min-w-0">
+                    <div className="mono uppercase" style={{ fontSize: 10, letterSpacing: "0.14em", color: "var(--color-accent)" }}>
+                      Care path
+                    </div>
+                    <div className="mt-1.5 font-display" style={{ fontSize: 22, lineHeight: 1.2, letterSpacing: "-0.015em" }}>
+                      <a href={localeHref(`/specialty/${condition.specialty_slug}`)} className="hover:underline">
+                        {condition.specialty_name}
+                      </a>
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-4 text-[14.5px]" style={{ color: "var(--color-accent-deep)", lineHeight: 1.55 }}>
+                  For <span className="font-semibold">{condition.name}</span>
                   {primaryTreatmentSlug && condition.treatment_names[0] && (
-                    <>
-                      First-line procedure:{" "}
+                    <>, the first-line procedure is{" "}
                       <a
                         href={localeHref(`/treatment/${primaryTreatmentSlug}`)}
                         className="font-semibold underline hover:no-underline"
                       >
                         {condition.treatment_names[0]}
                       </a>
-                      .
                     </>
-                  )}
+                  )}.
                 </p>
                 {condition.treatment_names.length > 1 && (
-                  <div className="mt-3">
-                    <div className="text-[11.5px] uppercase tracking-wider" style={{ color: "var(--color-accent)" }}>Also on the table</div>
-                    <ul className="mt-1 flex flex-wrap gap-1.5">
+                  <div className="mt-4 pt-4" style={{ borderTop: "1px dashed rgba(10, 93, 84, 0.25)" }}>
+                    <div className="mono uppercase" style={{ fontSize: 10, letterSpacing: "0.12em", color: "var(--color-accent)" }}>
+                      Also on the table
+                    </div>
+                    <ul className="mt-2 flex flex-wrap gap-1.5">
                       {condition.treatment_names.slice(1, 4).map((n, i) => (
                         <li key={i}>
                           <a
@@ -388,34 +422,71 @@ export default function MatchMe({ conditions, countries, matrix, locale, localeH
               </div>
 
               {/* Destination card */}
-              <div className="rounded-xl border border-border bg-surface p-5">
-                <div className="mono uppercase" style={{ fontSize: 10.5, letterSpacing: "0.14em", color: "var(--color-ink-subtle)" }}>
-                  Destination
-                </div>
+              <div className="rounded-xl border border-border bg-surface p-6">
                 {recommendedCountry ? (
                   <>
-                    <p className="mt-2 font-display text-xl">
-                      <a href={localeHref(`/country/${recommendedCountry.slug}`)} className="hover:text-accent">
-                        {recommendedCountry.name}
-                      </a>
-                    </p>
-                    <p className="mt-1.5 text-[13px] text-ink-muted">
-                      {BUDGET[budget].title} budget fit · {URGENCY_LABEL[urgency].title.toLowerCase()}
-                    </p>
-                    <p className="mt-3 text-[14px]">
-                      Typical range:{" "}
-                      <span className="tnum font-medium text-ink">
-                        {money(recommendedCountry.lo)} – {money(recommendedCountry.hi)}
+                    <div className="flex items-start gap-4">
+                      <div
+                        className="flex shrink-0 items-center justify-center"
+                        aria-hidden="true"
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 12,
+                          background: "var(--color-bg)",
+                          fontSize: 22,
+                          lineHeight: 1,
+                        }}
+                      >
+                        {COUNTRY_FLAG[recommendedCountry.slug] ?? "🌍"}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="mono uppercase" style={{ fontSize: 10, letterSpacing: "0.14em", color: "var(--color-ink-subtle)" }}>
+                          Destination
+                        </div>
+                        <div className="mt-1.5 font-display" style={{ fontSize: 22, lineHeight: 1.2, letterSpacing: "-0.015em" }}>
+                          <a href={localeHref(`/country/${recommendedCountry.slug}`)} className="hover:text-accent">
+                            {recommendedCountry.name}
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-5 grid grid-cols-[1fr_auto] items-end gap-3" style={{ paddingTop: 16, borderTop: "1px dashed var(--color-border)" }}>
+                      <div>
+                        <div className="mono uppercase" style={{ fontSize: 10, letterSpacing: "0.12em", color: "var(--color-ink-subtle)" }}>
+                          Typical package
+                        </div>
+                        <div className="mt-1 tnum font-display" style={{ fontSize: 22, color: "var(--color-ink)", letterSpacing: "-0.015em" }}>
+                          {money(recommendedCountry.lo)} – {money(recommendedCountry.hi)}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="mono uppercase" style={{ fontSize: 10, letterSpacing: "0.12em", color: "var(--color-ink-subtle)" }}>
+                          Hospitals
+                        </div>
+                        <div className="mt-1 tnum font-display" style={{ fontSize: 22, color: "var(--color-ink)" }}>
+                          {recommendedCountry.n}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      <span className="inline-flex items-center rounded-full border border-border bg-bg px-2.5 py-1" style={{ fontSize: 11, color: "var(--color-ink-muted)" }}>
+                        {BUDGET[budget].title} budget fit
                       </span>
-                    </p>
-                    <p className="mt-1 text-[12px] text-ink-subtle">
-                      {recommendedCountry.n} hospitals priced for this procedure in-country.
-                    </p>
+                      <span className="inline-flex items-center rounded-full border border-border bg-bg px-2.5 py-1" style={{ fontSize: 11, color: "var(--color-ink-muted)" }}>
+                        {URGENCY_LABEL[urgency].title}
+                      </span>
+                    </div>
                   </>
                 ) : (
-                  <p className="mt-2 text-sm text-ink-muted">
-                    No priced destinations yet for this procedure — case manager will source quotes directly.
-                  </p>
+                  <>
+                    <div className="mono uppercase" style={{ fontSize: 10, letterSpacing: "0.14em", color: "var(--color-ink-subtle)" }}>
+                      Destination
+                    </div>
+                    <p className="mt-3 text-sm text-ink-muted">
+                      No priced destinations yet for this procedure — case manager will source quotes directly.
+                    </p>
+                  </>
                 )}
               </div>
             </div>
@@ -456,7 +527,27 @@ export default function MatchMe({ conditions, countries, matrix, locale, localeH
                   })()}
                 </div>
               </div>
-              {loadingH && <p className="mt-4 text-sm text-ink-muted">Loading shortlist…</p>}
+              {loadingH && (
+                <ul aria-busy="true" aria-live="polite" className="mt-4 grid grid-cols-1 gap-3">
+                  {[0, 1, 2].map((i) => (
+                    <li
+                      key={i}
+                      className="rounded-xl border border-border bg-surface p-3 mc-skeleton-row"
+                      style={{ animationDelay: `${i * 80}ms` }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-14 w-14 shrink-0 rounded-md mc-skel" />
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="mc-skel h-3.5 rounded" style={{ width: "62%" }} />
+                          <div className="mc-skel h-3 rounded" style={{ width: "38%" }} />
+                        </div>
+                        <div className="mc-skel h-3.5 w-20 rounded" />
+                      </div>
+                    </li>
+                  ))}
+                  <li className="sr-only">Loading shortlist…</li>
+                </ul>
+              )}
               {!loadingH && hospitals.length === 0 && (
                 <p className="mt-4 text-sm text-ink-muted">
                   Press "Start my case" below — we'll hand-pick three names from our full roster.
@@ -464,7 +555,7 @@ export default function MatchMe({ conditions, countries, matrix, locale, localeH
               )}
               {!loadingH && hospitals.length > 0 && (
                 <ul className="mt-4 grid grid-cols-1 gap-3">
-                  {hospitals.map((h) => {
+                  {hospitals.map((h, idx) => {
                     const lo = h.lo ? Number(h.lo) : null;
                     const hi = h.hi ? Number(h.hi) : null;
                     return (
@@ -473,25 +564,46 @@ export default function MatchMe({ conditions, countries, matrix, locale, localeH
                           href={localeHref(`/hospital/${h.slug}`)}
                           className="group flex items-center gap-4 rounded-lg border border-border bg-surface p-4 transition-colors hover:border-border-strong"
                         >
+                          <div
+                            className="flex shrink-0 items-center justify-center font-display tnum"
+                            style={{
+                              width: 36,
+                              height: 36,
+                              borderRadius: 9999,
+                              background: idx === 0 ? "var(--color-ink)" : "var(--color-bg)",
+                              color: idx === 0 ? "var(--color-bg)" : "var(--color-ink)",
+                              border: idx === 0 ? "none" : "1px solid var(--color-border)",
+                              fontSize: 14,
+                              fontWeight: 600,
+                            }}
+                            aria-hidden="true"
+                          >
+                            {idx + 1}
+                          </div>
                           {h.cover_image_url && (
-                            <img src={h.cover_image_url} alt="" className="h-14 w-14 shrink-0 rounded-md object-cover" loading="lazy" />
+                            <img src={h.cover_image_url} alt="" width={56} height={56} className="h-14 w-14 shrink-0 rounded-md object-cover" loading="lazy" />
                           )}
                           <div className="min-w-0 flex-1">
                             <div className="flex items-baseline justify-between gap-3">
                               <span className="font-display text-[17px] text-ink group-hover:text-accent truncate">{h.name}</span>
                               {lo != null && (
-                                <span className="tnum text-sm text-ink-muted shrink-0">
-                                  {money(lo)}{hi && hi !== lo ? ` — ${money(hi)}` : ""}
+                                <span className="tnum font-display shrink-0" style={{ fontSize: 16, color: "var(--color-ink)", letterSpacing: "-0.005em" }}>
+                                  {money(lo)}{hi && hi !== lo ? ` – ${money(hi)}` : ""}
                                 </span>
                               )}
                             </div>
-                            <div className="mt-0.5 flex items-center gap-3 text-[12.5px] text-ink-subtle">
-                              <span>{h.city}, {h.country}</span>
+                            <div className="mt-1 flex items-center gap-3 text-[12.5px] text-ink-subtle">
+                              <span>{COUNTRY_FLAG[(h.country ?? "").toLowerCase().replace(/\s+/g, "-")] ?? ""} {h.city}, {h.country}</span>
                               {h.rating && Number(h.rating) > 0 && (
                                 <span className="inline-flex items-center gap-1">
                                   <span className="text-gold-500">★</span>
                                   <span className="tnum">{Number(h.rating).toFixed(1)}</span>
                                   {h.review_count ? <span>({h.review_count.toLocaleString()})</span> : null}
+                                </span>
+                              )}
+                              {idx === 0 && (
+                                <span className="mono uppercase" style={{ fontSize: 9.5, letterSpacing: "0.12em", padding: "2px 8px", borderRadius: 9999, background: "var(--color-accent-soft)", color: "var(--color-accent)" }}>
+                                  Top pick
                                 </span>
                               )}
                             </div>
@@ -506,9 +618,23 @@ export default function MatchMe({ conditions, countries, matrix, locale, localeH
 
             {/* Lead form */}
             <form onSubmit={submitLead} className="mt-8 rounded-xl border border-border bg-surface p-5 md:p-6">
+              {/* Honeypot — server reads `_hp` and silently drops bot submissions. */}
+              <div aria-hidden="true" style={{ position: "absolute", left: "-9999px", top: "auto", width: 1, height: 1, overflow: "hidden" }}>
+                <label>
+                  Website
+                  <input
+                    type="text"
+                    name="_hp"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={form.hp}
+                    onChange={(e) => setForm({ ...form, hp: e.target.value })}
+                  />
+                </label>
+              </div>
               <h3 className="font-display text-xl">Start my case</h3>
               <p className="mt-1 text-sm text-ink-muted">
-                A case manager will match you with a named surgeon, confirm availability, and come back with an itemised quote — usually in 11 minutes on business hours.
+                A case manager will match you with a named surgeon, confirm availability, and come back with an itemised quote — usually within a few hours during business hours on business hours.
               </p>
               <div className="mt-5 grid gap-3 md:grid-cols-2">
                 <label className="text-sm">

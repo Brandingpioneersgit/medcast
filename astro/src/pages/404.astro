@@ -4,6 +4,7 @@ import HeadMeta from "@/components/HeadMeta.astro";
 import SiteHeader from "@/components/SiteHeader.astro";
 import SiteFooter from "@/components/SiteFooter.astro";
 import { type Locale } from "@/lib/i18n";
+import { SITE_NAME, SITE_URL } from "@/lib/seo";
 import { ChevronRight } from "lucide-react";
 
 const match = Astro.url.pathname.match(/^\/([a-z]{2})(\/|$)/);
@@ -12,6 +13,7 @@ const locale = (match && ["en", "ar", "ru", "fr", "pt", "bn", "tr", "hi"].includ
   : "en") as Locale;
 
 Astro.response.status = 404;
+Astro.response.headers.set("Cache-Control", "no-store");
 
 const LINKS = [
   { href: `/${locale}/hospitals`, label: "Browse hospitals", sub: "9,000+ accredited facilities" },
@@ -19,6 +21,26 @@ const LINKS = [
   { href: `/${locale}/second-opinion`, label: "Free second opinion", sub: "48 hours, written, signed" },
   { href: `/${locale}/contact`, label: "Talk to a case manager", sub: "WhatsApp, email, phone" },
 ];
+
+// 404 WebPage with mainEntity ItemList — gives crawlers (and AEO engines)
+// concrete next-step URLs even when the requested page is gone.
+const notFoundLd = {
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  name: "Page not found",
+  url: `${SITE_URL}/404`,
+  isPartOf: { "@type": "WebSite", name: SITE_NAME, url: SITE_URL },
+  mainEntity: {
+    "@type": "ItemList",
+    name: "Recommended next steps",
+    itemListElement: LINKS.map((l, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url: `${SITE_URL}${l.href}`,
+      name: l.label,
+    })),
+  },
+};
 ---
 
 <BaseLayout locale={locale}>
@@ -30,9 +52,10 @@ const LINKS = [
       locale={locale}
       noindex={true}
     />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(notFoundLd)} />
   </Fragment>
 
-  <main class="min-h-dvh bg-bg text-ink">
+  <main id="main" class="min-h-dvh bg-bg text-ink">
     <SiteHeader locale={locale} />
 
     <section style="padding: 96px 0 72px;">
@@ -75,8 +98,26 @@ const LINKS = [
           ))}
         </ul>
 
+        {/* Search hint — opens the command palette so users can fuzzy-find what they meant. */}
+        <div class="mt-10 max-w-[40rem] mx-auto">
+          <button
+            type="button"
+            data-command-trigger
+            class="w-full paper inline-flex items-center justify-between hover:-translate-y-0.5 transition"
+            style="padding: 14px 18px; cursor: pointer; background: var(--color-bg);"
+          >
+            <span class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+              Search the directory
+            </span>
+            <kbd
+              class="mono"
+              style="font-size: 10.5px; padding: 3px 8px; border: 1px solid var(--color-border); border-radius: 4px; color: var(--color-ink-subtle);"
+            >⌘K</kbd>
+          </button>
+        </div>
+
         <p class="mt-12 mono uppercase" style="font-size: 10.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
-          Broken hospital URL · Email <a href="mailto:corrections@medcasts.com" style="color: var(--color-accent);">corrections@medcasts.com</a> — redirects restored weekly
+          Broken hospital URL · Email <a href="mailto:medcastsdigital@gmail.com" style="color: var(--color-accent);">medcastsdigital@gmail.com</a> — redirects restored weekly
         </p>
       </div>
     </section>

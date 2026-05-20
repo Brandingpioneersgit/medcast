@@ -8,6 +8,7 @@ import { rateLimit, clientIp, tooMany } from "@/lib/rate-limit";
 const ALLOWED: (keyof typeof hospitals.$inferInsert)[] = [
   "name", "description", "phone", "email", "website",
   "bedCapacity", "establishedYear", "airportDistanceKm", "coverImageUrl",
+  "latitude", "longitude",
 ];
 
 export const runtime = "nodejs";

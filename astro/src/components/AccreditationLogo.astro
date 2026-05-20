@@ -1,0 +1,162 @@
+---
+/**
+ * AccreditationLogo — small badge mark for hospital accreditations.
+ *
+ * We don't ship literal brand logos (trademark + reproduction risk on a directory site
+ * we don't control issuance for). Instead each acronym renders as a tinted shield with the
+ * official acronym + a subtle geometric mark — visually distinct per body, tasteful, recognisable.
+ *
+ * Sizes (px square): sm 18 · md 24 · lg 36
+ */
+type AccredKey =
+  | "jci" | "nabh" | "iso-9001" | "iso 9001" | "iso"
+  | "ha" | "ha-thailand" | "ktq" | "dha" | "doh" | "mohap"
+  | "koiha" | "msqh" | "cbahi" | "ushas" | "ushaş";
+
+interface Props {
+  /** slug or acronym (case-insensitive). Falls back to a neutral pill if unknown. */
+  code: string;
+  /** Display the acronym text alongside the mark. */
+  showText?: boolean;
+  /** Visual size. */
+  size?: "sm" | "md" | "lg";
+  /** Tooltip / aria-label. Defaults to acronym. */
+  title?: string;
+}
+
+const { code, showText = true, size = "sm", title } = Astro.props;
+
+type Brand = {
+  acronym: string;
+  fullName: string;
+  bg: string;
+  fg: string;
+  /** "shield" | "cross" | "circle" | "diamond" | "square" — controls the mark glyph */
+  glyph: "shield" | "cross" | "circle" | "diamond" | "square" | "ring";
+};
+
+const BRANDS: Record<string, Brand> = {
+  "jci":        { acronym: "JCI",     fullName: "Joint Commission International",                          bg: "#0B3D6F", fg: "#F5C242", glyph: "ring" },
+  "nabh":       { acronym: "NABH",    fullName: "National Accreditation Board for Hospitals",              bg: "#0F4C81", fg: "#FFFFFF", glyph: "shield" },
+  "iso":        { acronym: "ISO",     fullName: "ISO 9001 Quality Management",                             bg: "#005EB8", fg: "#FFFFFF", glyph: "circle" },
+  "iso-9001":   { acronym: "ISO 9001",fullName: "ISO 9001 Quality Management",                             bg: "#005EB8", fg: "#FFFFFF", glyph: "circle" },
+  "iso 9001":   { acronym: "ISO 9001",fullName: "ISO 9001 Quality Management",                             bg: "#005EB8", fg: "#FFFFFF", glyph: "circle" },
+  "ha":         { acronym: "HA",      fullName: "Healthcare Accreditation (Thailand)",                     bg: "#0E5C36", fg: "#FFFFFF", glyph: "cross" },
+  "ha-thailand":{ acronym: "HA",      fullName: "Healthcare Accreditation (Thailand)",                     bg: "#0E5C36", fg: "#FFFFFF", glyph: "cross" },
+  "ktq":        { acronym: "KTQ",     fullName: "Kooperation für Transparenz und Qualität",                bg: "#1E1E1E", fg: "#E63946", glyph: "diamond" },
+  "dha":        { acronym: "DHA",     fullName: "Dubai Health Authority",                                  bg: "#2E7F4F", fg: "#F5C242", glyph: "shield" },
+  "doh":        { acronym: "DOH",     fullName: "Department of Health Abu Dhabi",                          bg: "#1A1A1A", fg: "#C8102E", glyph: "diamond" },
+  "mohap":      { acronym: "MOHAP",   fullName: "Ministry of Health & Prevention (UAE)",                   bg: "#0E5C36", fg: "#FFFFFF", glyph: "cross" },
+  "koiha":      { acronym: "KOIHA",   fullName: "Korea Institute of Healthcare Accreditation",             bg: "#003478", fg: "#FFFFFF", glyph: "ring" },
+  "msqh":       { acronym: "MSQH",    fullName: "Malaysian Society for Quality in Health",                 bg: "#9F1B27", fg: "#F5C242", glyph: "square" },
+  "cbahi":      { acronym: "CBAHI",   fullName: "Central Board for Accreditation of Healthcare Institutions", bg: "#0E5C36", fg: "#F5C242", glyph: "shield" },
+  "ushas":      { acronym: "USHAŞ",   fullName: "USHAŞ International Health Services (Turkey)",            bg: "#C8102E", fg: "#FFFFFF", glyph: "cross" },
+  "ushaş":      { acronym: "USHAŞ",   fullName: "USHAŞ International Health Services (Turkey)",            bg: "#C8102E", fg: "#FFFFFF", glyph: "cross" },
+};
+
+const key = (code ?? "").trim().toLowerCase();
+const brand = BRANDS[key] ?? null;
+const px = size === "lg" ? 36 : size === "md" ? 24 : 18;
+const fontSize = size === "lg" ? 13 : size === "md" ? 11 : 10;
+const labelText = brand?.acronym ?? code.toUpperCase();
+const ariaTitle = title ?? brand?.fullName ?? labelText;
+---
+
+{brand ? (
+  <span
+    class="mc-accred"
+    style={`--mc-accred-bg:${brand.bg};--mc-accred-fg:${brand.fg};--mc-accred-size:${px}px;--mc-accred-fs:${fontSize}px;`}
+    title={ariaTitle}
+    aria-label={ariaTitle}
+  >
+    <svg
+      width={px}
+      height={px}
+      viewBox="0 0 36 36"
+      class="mc-accred-mark"
+      aria-hidden="true"
+      role="img"
+    >
+      {brand.glyph === "ring" && (
+        <>
+          <circle cx="18" cy="18" r="16" fill="var(--mc-accred-bg)" />
+          <circle cx="18" cy="18" r="10.5" fill="none" stroke="var(--mc-accred-fg)" stroke-width="2" />
+          <circle cx="18" cy="18" r="3.5" fill="var(--mc-accred-fg)" />
+        </>
+      )}
+      {brand.glyph === "shield" && (
+        <>
+          <path d="M18 2 L32 7 V18 C32 26 26 32 18 34 C10 32 4 26 4 18 V7 Z" fill="var(--mc-accred-bg)" />
+          <path d="M18 11 V25 M11 18 H25" stroke="var(--mc-accred-fg)" stroke-width="3" stroke-linecap="round" />
+        </>
+      )}
+      {brand.glyph === "cross" && (
+        <>
+          <rect x="2" y="2" width="32" height="32" rx="6" fill="var(--mc-accred-bg)" />
+          <path d="M18 9 V27 M9 18 H27" stroke="var(--mc-accred-fg)" stroke-width="4" stroke-linecap="round" />
+        </>
+      )}
+      {brand.glyph === "circle" && (
+        <>
+          <circle cx="18" cy="18" r="16" fill="var(--mc-accred-bg)" />
+          <circle cx="18" cy="18" r="11" fill="none" stroke="var(--mc-accred-fg)" stroke-width="2.5" />
+        </>
+      )}
+      {brand.glyph === "diamond" && (
+        <>
+          <rect x="3" y="3" width="30" height="30" rx="3" transform="rotate(45 18 18)" fill="var(--mc-accred-bg)" />
+          <circle cx="18" cy="18" r="6" fill="var(--mc-accred-fg)" />
+        </>
+      )}
+      {brand.glyph === "square" && (
+        <>
+          <rect x="2" y="2" width="32" height="32" rx="3" fill="var(--mc-accred-bg)" />
+          <rect x="9" y="9" width="18" height="18" rx="1" fill="none" stroke="var(--mc-accred-fg)" stroke-width="2.5" />
+        </>
+      )}
+    </svg>
+    {showText && <span class="mc-accred-label">{labelText}</span>}
+  </span>
+) : (
+  <span
+    class="mc-accred mc-accred-fallback"
+    style={`--mc-accred-size:${px}px;--mc-accred-fs:${fontSize}px;`}
+    title={ariaTitle}
+    aria-label={ariaTitle}
+  >
+    {showText && <span class="mc-accred-label">{labelText}</span>}
+  </span>
+)}
+
+<style>
+  .mc-accred {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px 3px 3px;
+    border-radius: 9999px;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    line-height: 1;
+    vertical-align: middle;
+  }
+  .mc-accred-fallback {
+    padding: 4px 10px;
+    border-color: var(--color-accent);
+  }
+  .mc-accred-mark {
+    display: block;
+    flex-shrink: 0;
+    width: var(--mc-accred-size, 18px);
+    height: var(--mc-accred-size, 18px);
+  }
+  .mc-accred-label {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: var(--mc-accred-fs, 10px);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 500;
+    color: var(--color-ink);
+    white-space: nowrap;
+  }
+</style>
