@@ -22,11 +22,14 @@ export default defineConfig({
   integrations: [
     react(),
     sitemap(),
-    // Sentry — Astro integration that loads sentry.server.config.ts and
-    // sentry.client.config.ts, AND uploads source maps to Sentry at build
-    // time so stack traces de-minify in production.
+    // Sentry — Astro integration that loads the SDK init files below and
+    // uploads source maps to Sentry at build time so stack traces de-minify
+    // in production. The DSN + all runtime options (PII scrubbing, replay
+    // masking) live in those init files, not here — passing `dsn` to the
+    // integration is deprecated as of @sentry/astro 10.
     sentry({
-      dsn: process.env.SENTRY_DSN,
+      clientInitPath: "src/sentry.client.config.ts",
+      serverInitPath: "src/sentry.server.config.ts",
       sourceMapsUploadOptions: {
         enabled: process.env.NODE_ENV === "production",
         org: "medcast",

@@ -7,7 +7,9 @@ import * as Sentry from "@sentry/astro";
  * this is required for the YMYL/PHI-adjacent data MedCasts handles.
  */
 Sentry.init({
-  dsn: import.meta.env.SENTRY_DSN,
+  // Client-side: only PUBLIC_-prefixed env vars reach the browser bundle.
+  // The Sentry DSN is public by design (it ships in every client build).
+  dsn: import.meta.env.PUBLIC_SENTRY_DSN,
   tracesSampleRate: 0.1,
   replaysSessionSampleRate: 0.05,
   replaysOnErrorSampleRate: 1.0,
