@@ -6,7 +6,9 @@ import SiteFooter from "@/components/SiteFooter.astro";
 import LastUpdated from "@/components/LastUpdated.astro";
 import PhotoBlock from "@/components/PhotoBlock.astro";
 import Price from "@/components/Price.astro";
-import { getSpecialtyPageData, listFaqsFor, getReviewerFor } from "@/lib/queries";
+import { getSpecialtyPageData, listFaqsFor, getReviewerFor, listLinkableEntities } from "@/lib/queries";
+import { linkifyBlogHtml } from "@/lib/content-linker";
+import ExploreGrid from "@/components/ExploreGrid.astro";
 import { getSpecialtySections } from "@/lib/content-sections";
 import { formatUsd } from "@/lib/currency";
 import ReviewedBy from "@/components/ReviewedBy.astro";
@@ -14,7 +16,7 @@ import SpecialtyDepth from "@/components/content/SpecialtyDepth.astro";
 import MethodologyBlock from "@/components/content/MethodologyBlock.astro";
 import MobileQuoteBar from "@/components/MobileQuoteBar.astro";
 import EngagementFab from "@/components/EngagementFab.astro";
-import { hospitalCover, doctorPortrait } from "@/lib/images";
+import { hospitalCover, doctorPortrait, heroImage, journeyScene } from "@/lib/images";
 import SpecialtyBanner from "@/components/SpecialtyBanner.astro";
 import {
   getContent,
@@ -66,6 +68,25 @@ const descriptionParas = (specialty.description ?? "")
   .filter(Boolean);
 const descriptionLede = descriptionParas[0] ?? null;
 const descriptionRest = descriptionParas.slice(1);
+
+const linkables = await listLinkableEntities().catch(() => []);
+const filteredLinkables = linkables.filter(
+  (e) => !(e.kind === "specialty" && e.slug === specialty.slug),
+);
+const descriptionLedeHtml = descriptionLede
+  ? linkifyBlogHtml(
+      `<p>${descriptionLede.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`,
+      filteredLinkables,
+      (p: string) => localizedPath(locale, p),
+    ).html
+  : "";
+const descriptionRestHtml = descriptionRest.length > 0
+  ? linkifyBlogHtml(
+      descriptionRest.map((p) => `<p>${p.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`).join("\n"),
+      filteredLinkables,
+      (p: string) => localizedPath(locale, p),
+    ).html
+  : "";
 
 const FLAG_MAP: Record<string, string> = {
   india: "🇮🇳", turkey: "🇹🇷", thailand: "🇹🇭", uae: "🇦🇪",
@@ -249,7 +270,7 @@ Astro.response.headers.set(
         <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
           Specialty · {agg.hospitals.toLocaleString()} accredited hospitals
         </p>
-        <div class="grid gap-10 lg:grid-cols-[1.5fr,1fr] lg:gap-14 mt-3">
+        <div class="grid gap-10 lg:grid-cols-[1.5fr_1fr] lg:gap-14 mt-3">
           <div>
             <h1
               class="display display-tight"
@@ -259,9 +280,7 @@ Astro.response.headers.set(
               <span class="italic-display">{restOfName(specialty.name) || " "}</span>
             </h1>
             {descriptionLede && (
-              <p class="serif mt-5 max-w-[44rem]" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);">
-                {descriptionLede}
-              </p>
+              <div class="serif mt-5 max-w-[44rem]" style="font-size: 19px; line-height: 1.5; color: var(--color-ink-muted);" set:html={descriptionLedeHtml} />
             )}
             <div class="mt-6 max-w-[44rem]">
               <ReviewedBy reviewer={reviewer} locale={locale} />
@@ -322,7 +341,7 @@ Astro.response.headers.set(
     {descriptionRest.length > 0 && (
       <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft); margin-top: 56px;">
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-          <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+          <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                 About this specialty
@@ -334,13 +353,48 @@ Astro.response.headers.set(
                 What to expect
               </h2>
             </div>
-            <div class="prose-editorial">
-              {descriptionRest.map((p) => (<p>{p}</p>))}
-            </div>
+            <div class="prose-editorial" set:html={descriptionRestHtml} />
           </div>
         </div>
       </section>
     )}
+
+    {/* Real moments — patient + care imagery for this specialty */}
+    <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
+      <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
+        <div class="mono uppercase mb-6" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+          What care looks like in {specialty.name}
+        </div>
+        <ul class="grid gap-3" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+          {[
+            { src: heroImage(`sp-${specialty.slug}-1`), title: "Specialist consult", sub: "Senior consultant, named, in your language" },
+            { src: heroImage(`sp-${specialty.slug}-2`), title: "Imaging + workup", sub: "Same-day MRI/CT review with operating team" },
+            { src: journeyScene(`sp-${specialty.slug}-3`), title: "Recovery + follow-up", sub: "Weekly video check-ins after discharge" },
+          ].map((m) => (
+            <li class="relative paper-flat overflow-hidden" style="aspect-ratio: 4/5; border-radius: var(--radius-lg);">
+              <img
+                src={m.src}
+                alt={m.title}
+                width="500"
+                height="625"
+                loading="lazy"
+                decoding="async"
+                style="width: 100%; height: 100%; object-fit: cover;"
+              />
+              <div class="image-veil-strong" />
+              <div class="absolute" style="inset-inline-start: 14px; inset-block-end: 14px; inset-inline-end: 14px;">
+                <div class="mono uppercase" style="font-size: 9.5px; letter-spacing: 0.14em; color: rgba(251,248,241,0.78);">
+                  {m.title}
+                </div>
+                <div class="serif" style="font-size: 14px; font-weight: 500; color: #FBF8F1; line-height: 1.3; margin-top: 4px;">
+                  {m.sub}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
 
     {/* Deep specialty sections */}
     {specialtySections && (
@@ -371,7 +425,7 @@ Astro.response.headers.set(
         {specialtySections.programQualitySignals && specialtySections.programQualitySignals.length > 0 && (
           <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
             <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-              <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+              <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
                 <div>
                   <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                     Program quality
@@ -495,7 +549,7 @@ Astro.response.headers.set(
         {specialtySections.decisionPrompts && specialtySections.decisionPrompts.length > 0 && (
           <section style="padding: 56px 0; border-top: 1px solid var(--color-border-soft);">
             <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-              <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+              <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
                 <div>
                   <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                     Decision check
@@ -521,7 +575,7 @@ Astro.response.headers.set(
     {(avgSuccess || avgStay || avgRecovery || guidelines.length > 0) && (
       <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft); background: var(--color-paper);">
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-          <div class="grid gap-10 lg:grid-cols-[1.2fr,1fr]">
+          <div class="grid gap-10 lg:grid-cols-[1.2fr_1fr]">
             <div>
               <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">
                 Outcomes at a glance
@@ -807,11 +861,11 @@ Astro.response.headers.set(
                 <span aria-hidden="true" style="font-size: 18px;">{countryFlag(c.slug)}</span>
                 <div>
                   <a
-                    href={localizedPath(locale, `/surgeons/${slug}/${c.slug}`)}
+                    href={localizedPath(locale, `/specialty/${slug}/${c.slug}`)}
                     class="serif hover:text-accent transition-colors"
                     style="font-size: 17px; color: var(--color-ink); text-transform: capitalize;"
                   >
-                    {c.name}
+                    {specialty.name} in {c.name}
                   </a>
                 </div>
                 <div class="tnum text-[13px] text-end" style="color: var(--color-ink-muted);">
@@ -834,7 +888,7 @@ Astro.response.headers.set(
     {faqRows.length > 0 && (
       <section style="padding: 64px 0; border-top: 1px solid var(--color-border-soft);">
         <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-          <div class="grid gap-10 lg:grid-cols-[0.35fr,1fr]">
+          <div class="grid gap-10 lg:grid-cols-[0.35fr_1fr]">
             <div>
               <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
                 05 · FAQ
@@ -861,7 +915,7 @@ Astro.response.headers.set(
 
     <section style="background: var(--color-ink); color: var(--color-bg); padding: 72px 0;">
       <div class="mx-auto w-full max-w-[80rem] px-5 md:px-8">
-        <div class="grid gap-8 lg:grid-cols-[1.5fr,1fr] items-end">
+        <div class="grid gap-8 lg:grid-cols-[1.5fr_1fr] items-end">
           <div>
             <div class="mono uppercase" style="font-size: 11px; letter-spacing: 0.16em; color: rgba(246,241,230,0.55);">
               Ready to start
@@ -909,6 +963,27 @@ Astro.response.headers.set(
         "National medical council subspecialty registries",
         "Peer-reviewed publication record",
         `${specialty.name} society guidelines (most recent edition)`,
+      ]}
+    />
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow={`${specialty.name} care`}
+      heading={`Continue exploring ${specialty.name.toLowerCase()}`}
+      lede="Specialty hub is one entry. These hubs let you cut by surgeon, by destination, by procedure, and by condition — so you can match the lens to the decision you're making."
+      items={[
+        { eyebrow: "Surgeons", label: `All ${specialty.name.toLowerCase()} surgeons`, href: `/surgeons/${specialty.slug}`, hint: "Volume-ranked physician directory across all destinations." },
+        { eyebrow: "Hospitals", label: `Hospitals offering ${specialty.name.toLowerCase()}`, href: `/hospitals?specialty=${specialty.slug}`, hint: "Programs credentialed for this specialty across our network." },
+        { eyebrow: "Browse", label: "All 79 conditions", href: "/conditions", hint: "Map condition → specialty → first-line treatment." },
+        { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure success rates, recovery time, hospital pricing." },
+        { eyebrow: "Browse", label: "9 destination countries", href: "/countries", hint: "Cost-of-care profile, hospital programs, visa playbooks." },
+        { eyebrow: "Best of", label: `Best ${specialty.name.toLowerCase()} programs`, href: `/best`, hint: "Editorially ranked by specialty × country with methodology disclosed." },
+        { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, pricing for up to 4 hospitals." },
+        { eyebrow: "Compare", label: "Doctor comparison", href: "/compare/doctors", hint: "Surgeons compared on volume, fees, languages, video-consult availability." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
+        { eyebrow: "Trust", label: "Medical board", href: "/medical-board", hint: "Named clinicians who review specialty content and routing." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
       ]}
     />
 

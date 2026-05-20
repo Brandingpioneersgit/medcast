@@ -94,6 +94,105 @@ export async function getSpecialtyBySlug(slug: string) {
   });
 }
 
+/**
+ * Specialty × country hub data for /specialty/[slug]/[country]. Returns the
+ * specialty, the country, ranked hospitals credentialed for the specialty in
+ * that country, the specialty's treatments with country-level pricing, and
+ * counts. Returns null if either slug is invalid.
+ */
+export async function getSpecialtyCountryData(specialtySlug: string, countrySlug: string) {
+  const [specialty, country] = await Promise.all([
+    db.query.specialties.findFirst({ where: eq(specialties.slug, specialtySlug) }),
+    db.query.countries.findFirst({
+      where: and(eq(countries.slug, countrySlug), eq(countries.isDestination, true)),
+    }),
+  ]);
+  if (!specialty || !country) return null;
+
+  const [counts, topHospitals, treatmentRows] = await Promise.all([
+    db
+      .execute<{ hospitals: number; surgeons: number; from_usd: number | null }>(sql`
+        SELECT
+          (SELECT COUNT(DISTINCT hs.hospital_id)::int
+             FROM hospital_specialties hs
+             INNER JOIN hospitals h ON h.id = hs.hospital_id AND h.is_active = true
+             INNER JOIN cities ci ON ci.id = h.city_id
+             WHERE hs.specialty_id = ${specialty.id} AND ci.country_id = ${country.id}) AS hospitals,
+          (SELECT COUNT(DISTINCT d.id)::int
+             FROM doctors d
+             INNER JOIN hospitals h ON h.id = d.hospital_id AND h.is_active = true
+             INNER JOIN hospital_specialties hs ON hs.hospital_id = h.id AND hs.specialty_id = ${specialty.id}
+             INNER JOIN cities ci ON ci.id = h.city_id
+             WHERE d.is_active = true AND ci.country_id = ${country.id}) AS surgeons,
+          (SELECT MIN(ht.cost_min_usd)::int
+             FROM hospital_treatments ht
+             INNER JOIN treatments t ON t.id = ht.treatment_id AND t.specialty_id = ${specialty.id}
+             INNER JOIN hospitals h ON h.id = ht.hospital_id AND h.is_active = true
+             INNER JOIN cities ci ON ci.id = h.city_id
+             WHERE ci.country_id = ${country.id}) AS from_usd
+      `)
+      .then((r) => Array.from(r)[0] ?? { hospitals: 0, surgeons: 0, from_usd: null })
+      .catch(() => ({ hospitals: 0, surgeons: 0, from_usd: null })),
+    db
+      .execute<{
+        id: number; slug: string; name: string; cover_image_url: string | null;
+        rating: string | null; review_count: number | null; bed_capacity: number | null;
+        city: string; is_coe: boolean | null; from_usd: number | null;
+      }>(sql`
+        SELECT h.id, h.slug, h.name, h.cover_image_url,
+               h.rating::text, h.review_count, h.bed_capacity,
+               ci.name AS city, hs.is_center_of_excellence AS is_coe,
+               (SELECT MIN(ht.cost_min_usd)::int FROM hospital_treatments ht
+                  INNER JOIN treatments t ON t.id = ht.treatment_id
+                  WHERE ht.hospital_id = h.id AND t.specialty_id = ${specialty.id}) AS from_usd
+        FROM hospital_specialties hs
+        INNER JOIN hospitals h ON h.id = hs.hospital_id AND h.is_active = true
+        INNER JOIN cities ci ON ci.id = h.city_id
+        WHERE hs.specialty_id = ${specialty.id} AND ci.country_id = ${country.id}
+        ORDER BY hs.is_center_of_excellence DESC NULLS LAST,
+                 h.is_featured DESC NULLS LAST,
+                 h.rating DESC NULLS LAST,
+                 h.review_count DESC NULLS LAST
+        LIMIT 12
+      `)
+      .then((r) => Array.from(r))
+      .catch(() => []),
+    db
+      .execute<{ id: number; slug: string; name: string; recovery_days: number | null; from_usd: number | null }>(sql`
+        SELECT t.id, t.slug, t.name, t.recovery_days,
+               (SELECT MIN(ht.cost_min_usd)::int FROM hospital_treatments ht
+                  INNER JOIN hospitals h ON h.id = ht.hospital_id AND h.is_active = true
+                  INNER JOIN cities ci ON ci.id = h.city_id
+                  WHERE ht.treatment_id = t.id AND ci.country_id = ${country.id}) AS from_usd
+        FROM treatments t
+        WHERE t.specialty_id = ${specialty.id} AND t.is_active = true
+        ORDER BY t.name
+      `)
+      .then((r) => Array.from(r))
+      .catch(() => []),
+  ]);
+
+  return { specialty, country, counts, topHospitals, treatments: treatmentRows };
+}
+
+/**
+ * (specialtySlug, countrySlug) pairs with ≥3 hospitals credentialed for the
+ * specialty in the country — inventory floor of /specialty/[slug]/[country].
+ */
+export async function listSpecialtyCountryPairs() {
+  return db.execute<{ specialtySlug: string; countrySlug: string }>(sql`
+    SELECT s.slug AS "specialtySlug", co.slug AS "countrySlug"
+    FROM hospital_specialties hs
+    INNER JOIN specialties s ON s.id = hs.specialty_id AND s.is_active = true
+    INNER JOIN hospitals h ON h.id = hs.hospital_id AND h.is_active = true
+    INNER JOIN cities ci ON ci.id = h.city_id
+    INNER JOIN countries co ON co.id = ci.country_id AND co.is_destination = true
+    GROUP BY s.slug, co.slug
+    HAVING COUNT(DISTINCT h.id) >= 3
+    ORDER BY s.slug, co.slug
+  `).then((r) => Array.from(r)).catch(() => []);
+}
+
 export async function getSpecialtyPageData(slug: string) {
   const specialty = await db.query.specialties.findFirst({
     where: eq(specialties.slug, slug),

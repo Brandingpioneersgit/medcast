@@ -13,6 +13,7 @@ const STATIC_CHILDREN = [
   "sitemap-treatments-cities.xml",
   "sitemap-comparisons.xml",
   "sitemap-specialties.xml",
+  "sitemap-specialties-countries.xml",
   "sitemap-surgeons.xml",
   "sitemap-conditions.xml",
   "sitemap-conditions-countries.xml",

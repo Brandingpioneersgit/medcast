@@ -1,0 +1,243 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import LastUpdated from "@/components/LastUpdated.astro";
+import PhotoBlock from "@/components/PhotoBlock.astro";
+import Price from "@/components/Price.astro";
+import { getSpecialtyCountryData } from "@/lib/queries";
+import { getContent, getContentBatch, applyTranslated, isUntranslated } from "@/lib/translate";
+import { getTranslator } from "@/lib/messages";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, itemListJsonLd, withProvenance } from "@/lib/seo";
+import { hospitalCover } from "@/lib/images";
+import { ChevronRight } from "lucide-react";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const slug = Astro.params.slug;
+const countryParam = Astro.params.country;
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/specialty/${slug}/${countryParam}`, 308);
+if (!slug || !countryParam) return new Response("Not found", { status: 404 });
+const locale = rawLocale as Locale;
+
+const data = await getSpecialtyCountryData(slug, countryParam);
+if (!data) return new Response(`Not found: ${slug}/${countryParam}`, { status: 404 });
+// Inventory floor — under 3 hospitals, 301 to the global specialty hub.
+if (data.counts.hospitals < 3) {
+  return Astro.redirect(localizedPath(locale, `/specialty/${slug}`), 301);
+}
+
+const { country } = data;
+const tc = getTranslator(locale, "common");
+
+const [specialtyMap, hMap, tMap] = await Promise.all([
+  getContent("specialty", data.specialty.id, locale),
+  getContentBatch("hospital", data.topHospitals.map((h) => h.id), locale),
+  getContentBatch("treatment", data.treatments.map((t) => t.id), locale),
+]);
+const specialty = applyTranslated(data.specialty, specialtyMap, ["name", "description"]);
+const hospitals = data.topHospitals.map((h) => ({ ...h, name: hMap[h.id]?.name ?? h.name }));
+const treatments = data.treatments.map((t) => ({ ...t, name: tMap[t.id]?.name ?? t.name }));
+
+const FLAG: Record<string, string> = {
+  india: "🇮🇳", turkey: "🇹🇷", thailand: "🇹🇭", uae: "🇦🇪",
+  germany: "🇩🇪", singapore: "🇸🇬", "south-korea": "🇰🇷",
+  malaysia: "🇲🇾", "saudi-arabia": "🇸🇦",
+};
+const flag = FLAG[country.slug] ?? "🌐";
+const year = new Date().getFullYear();
+
+const seoTitle = `${specialty.name} in ${country.name} (${year}) — Hospitals, Cost & Surgeons`;
+const seoDescription =
+  `${specialty.name} care in ${country.name}: ${data.counts.hospitals.toLocaleString()} credentialed hospitals, ${data.counts.surgeons.toLocaleString()} surgeons, ${treatments.length} procedures with hospital-reported pricing. Compare and request a free quote.`.slice(0, 160);
+
+const path = `/specialty/${slug}/${countryParam}`;
+const url = localeUrl(locale, path);
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Specialties", url: localeUrl(locale, "/specialties") },
+  { name: specialty.name, url: localeUrl(locale, `/specialty/${slug}`) },
+  { name: country.name, url },
+]);
+const itemLd = withProvenance(
+  itemListJsonLd(hospitals.map((h) => ({ name: h.name, url: localeUrl(locale, `/hospital/${h.slug}`) }))),
+  { dateModified: new Date() },
+);
+
+const descLede = (specialty.description ?? "").split(/\n\s*\n/)[0]?.trim() ?? null;
+
+const stats = [
+  { l: "Hospitals", v: data.counts.hospitals.toLocaleString() },
+  { l: "Surgeons", v: data.counts.surgeons.toLocaleString() },
+  { l: "Procedures", v: treatments.length.toString() },
+  data.counts.from_usd ? { l: "From", v: `$${(data.counts.from_usd / 1000).toFixed(1)}k` } : null,
+].filter(Boolean) as Array<{ l: string; v: string }>;
+
+const untranslated = isUntranslated(locale, specialtyMap);
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={untranslated} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(itemLd)} />
+  </Fragment>
+
+  <main id="main" class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <nav aria-label="Breadcrumb" class="border-b border-border bg-bg">
+      <div class="mx-auto max-w-7xl px-6 py-3.5 text-sm text-ink-muted overflow-x-auto whitespace-nowrap">
+        <a href={localizedPath(locale, "/")} class="hover:text-accent">{tc("home")}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <a href={localizedPath(locale, "/specialties")} class="hover:text-accent">Specialties</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <a href={localizedPath(locale, `/specialty/${slug}`)} class="hover:text-accent">{specialty.name}</a>
+        <span class="mx-2 text-ink-subtle">/</span>
+        <span class="text-ink" aria-current="page">{country.name}</span>
+      </div>
+    </nav>
+
+    <section class="mx-auto max-w-7xl px-6 pt-10 md:pt-14 pb-8">
+      <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.18em; color: var(--color-accent);">
+        {specialty.name} · {country.name}
+      </p>
+      <h1 class="mt-2 display display-tight" style="font-size: clamp(2rem, 4.5vw, 3.4rem); letter-spacing: -0.025em; line-height: 1.04;">
+        {specialty.name} in {flag} {country.name}
+      </h1>
+      {descLede && <p class="lede mt-5 max-w-[46rem]">{descLede}</p>}
+      <div class="mt-5"><LastUpdated updated={new Date()} locale={locale} /></div>
+
+      <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {stats.map((s) => (
+          <div class="rounded-lg border border-border bg-surface p-3">
+            <div class="mono uppercase text-[10px]" style="letter-spacing: 0.1em; color: var(--color-ink-subtle);">{s.l}</div>
+            <div class="display tnum mt-1" style="font-size: 22px;">{s.v}</div>
+          </div>
+        ))}
+      </div>
+
+      <div class="mt-6 flex flex-wrap items-center gap-2">
+        <a href={localizedPath(locale, `/best/${slug}-in-${country.slug}`)} class="rounded-full border border-accent bg-accent-soft px-3.5 py-1.5 text-[13px] font-medium hover:border-border-strong">
+          Best {specialty.name.toLowerCase()} hospitals in {country.name} →
+        </a>
+        <a href={localizedPath(locale, `/surgeons/${slug}/${country.slug}`)} class="rounded-full border border-border bg-surface px-3.5 py-1.5 text-[13px] font-medium hover:border-border-strong">
+          {specialty.name} surgeons in {country.name}
+        </a>
+        <a href={localizedPath(locale, `/specialty/${slug}`)} class="rounded-full border border-border bg-surface px-3.5 py-1.5 text-[13px] font-medium hover:border-border-strong">
+          All destinations
+        </a>
+      </div>
+    </section>
+
+    {/* Top hospitals */}
+    <section class="mx-auto max-w-7xl px-6 pb-10 border-t border-border-soft pt-8">
+      <div class="mb-5 flex items-baseline justify-between gap-3">
+        <h2 class="display-tight" style="font-size: clamp(1.4rem, 3vw, 2rem); letter-spacing: -0.02em;">
+          Top {specialty.name.toLowerCase()} hospitals in {country.name}
+        </h2>
+        <a href={localizedPath(locale, `/best/${slug}-in-${country.slug}`)} class="mono text-[11px] uppercase tracking-wider hover:text-accent" style="color: var(--color-ink-subtle);">
+          Full ranking <ChevronRight className="inline h-3 w-3 mirror-x" />
+        </a>
+      </div>
+      <ul class="grid gap-5" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+        {hospitals.map((h) => (
+          <li>
+            <a href={localizedPath(locale, `/hospital/${h.slug}`)} class="paper block overflow-hidden transition hover:-translate-y-0.5" style="padding: 0;">
+              <PhotoBlock aspect="16/10" rounded={false} imgUrl={hospitalCover({ coverImageUrl: h.cover_image_url, countrySlug: country.slug })} label={h.name} />
+              <div style="padding: 16px;">
+                <div class="mono flex items-center gap-2" style="font-size: 10px; letter-spacing: 0.1em; color: var(--color-ink-subtle); text-transform: uppercase;">
+                  <span aria-hidden="true">{flag}</span>{h.city}
+                  {h.is_coe && <span style="color: var(--color-accent);">· Center of excellence</span>}
+                </div>
+                <div class="serif mt-1.5" style="font-size: 18px; font-weight: 500; letter-spacing: -0.015em;">{h.name}</div>
+                <div class="flex items-center gap-3 flex-wrap mt-2.5" style="font-size: 12.5px; color: var(--color-ink-muted);">
+                  {h.rating && Number(h.rating) > 0 && (
+                    <span class="inline-flex items-center gap-1"><span style="color: var(--color-saffron);">★</span><span class="tnum">{Number(h.rating).toFixed(1)}</span></span>
+                  )}
+                  {h.bed_capacity && <span class="tnum">{h.bed_capacity.toLocaleString()} beds</span>}
+                  {h.from_usd && <span class="tnum">From <Price usd={h.from_usd} /></span>}
+                </div>
+              </div>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    {/* Procedures with country pricing */}
+    {treatments.length > 0 && (
+      <section class="mx-auto max-w-7xl px-6 pb-12 border-t border-border-soft pt-8">
+        <h2 class="display-tight mb-5" style="font-size: clamp(1.4rem, 3vw, 2rem); letter-spacing: -0.02em;">
+          {specialty.name} procedures in {country.name}
+        </h2>
+        <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {treatments.map((t) => (
+            <li>
+              <a
+                href={localizedPath(locale, `/treatment/${t.slug}/${country.slug}`)}
+                class="group flex items-center justify-between gap-3 rounded-lg border border-border bg-surface p-4 hover:border-border-strong"
+              >
+                <span class="min-w-0">
+                  <span class="block font-medium text-ink group-hover:text-accent line-clamp-1">{t.name}</span>
+                  {t.recovery_days != null && (
+                    <span class="text-[12px] text-ink-subtle">~{t.recovery_days}-day recovery</span>
+                  )}
+                </span>
+                {t.from_usd != null && (
+                  <span class="tnum shrink-0 text-[13px] font-semibold">From <Price usd={t.from_usd} /></span>
+                )}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+
+    <section class="mx-auto max-w-7xl px-6 pb-16">
+      <div class="paper p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+        <div class="max-w-[36rem]">
+          <p class="mono uppercase" style="font-size: 11px; letter-spacing: 0.14em; color: var(--color-accent);">Plan {specialty.name.toLowerCase()} in {country.name}</p>
+          <h3 class="mt-2 font-display text-2xl md:text-3xl">Get 3 itemised quotes from {country.name} programs</h3>
+          <p class="mt-2 text-sm text-ink-muted">
+            Send your case — we match you to the right {country.name} hospitals and surgeons for {specialty.name.toLowerCase()}, with pricing and availability. No fee.
+          </p>
+        </div>
+        <a
+          href={localizedPath(locale, `/contact?specialty=${slug}&country=${country.slug}`)}
+          class="inline-flex shrink-0 items-center rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-accent-contrast hover:bg-accent-hover"
+        >
+          Request quotes
+        </a>
+      </div>
+    </section>
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow={`${specialty.name} · ${country.name}`}
+      heading={`More on ${specialty.name.toLowerCase()} in ${country.name}`}
+      lede="The specialty hub is one cut. These pages rank the hospitals, list the surgeons, and set the destination context."
+      items={[
+        { eyebrow: "Best of", label: `Best ${specialty.name} hospitals in ${country.name}`, href: `/best/${slug}-in-${country.slug}`, hint: "Editorially ranked programs with methodology disclosed." },
+        { eyebrow: "Surgeons", label: `${specialty.name} surgeons in ${country.name}`, href: `/surgeons/${slug}/${country.slug}`, hint: "Volume-ranked physician directory for this destination." },
+        { eyebrow: "Specialty", label: `${specialty.name} — all destinations`, href: `/specialty/${slug}`, hint: "Cross-border view of the specialty across all 9 destinations." },
+        { eyebrow: "Destination", label: `${country.name} hospital hub`, href: `/country/${country.slug}`, hint: `Featured programs and pricing benchmarks across ${country.name}.` },
+        { eyebrow: "Hospitals", label: `All ${country.name} hospitals`, href: `/hospitals?country=${country.slug}`, hint: "Filter by city, specialty, accreditation, beds, rating." },
+        { eyebrow: "Visa", label: `${country.name} medical visa`, href: `/visa/${country.slug}`, hint: "Documents, processing time, embassy guidance." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures and destinations." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+      ]}
+    />
+
+    <PageCta locale={locale} />
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>
