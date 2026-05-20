@@ -1,0 +1,297 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import EntityListingHero from "@/components/EntityListingHero.astro";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import WhatToExpect from "@/components/content/WhatToExpect.astro";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, organizationJsonLd, faqJsonLd, withProvenance } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/medical-tourism-companies", 308);
+const locale = rawLocale as Locale;
+const tc = getTranslator(locale, "common");
+
+const path = "/medical-tourism-companies";
+const seoTitle = "Medical Tourism Companies — How to Choose a Facilitator";
+const seoDescription =
+  "What medical tourism companies and facilitators actually do, the four types, how to vet one, the red flags to avoid, and how a transparent coordinator should work.";
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Medical tourism companies", url: localeUrl(locale, path) },
+]);
+
+const COMPANY_TYPES = [
+  {
+    tag: "Hospital-direct",
+    title: "Hospital international desks",
+    body: "Run by the hospital itself. Fast and direct, but single-vendor by design — they will never tell you another hospital is a better fit, and they can't compare prices for you.",
+  },
+  {
+    tag: "Facilitator",
+    title: "Coordinators & facilitators",
+    body: "Independent of any one hospital. They shortlist hospitals and surgeons, handle quotes, visas and logistics, and stay with you end-to-end. Quality depends entirely on whether they disclose how they're paid.",
+  },
+  {
+    tag: "Marketplace",
+    title: "Aggregators & marketplaces",
+    body: "Large directories where clinics buy listings or leads. Useful for breadth, but ranking often reflects ad spend, not outcomes — and there's usually no one accountable after you book.",
+  },
+  {
+    tag: "Broker",
+    title: "Lead brokers",
+    body: "Collect your enquiry and sell it to several clinics at once. You'll be called by sales teams, not clinicians. Cheap to start, but no continuity and no independent advocate.",
+  },
+];
+
+const FAQ = [
+  {
+    question: "What does a medical tourism company actually do?",
+    answer:
+      "A medical tourism company — also called a facilitator or coordinator — helps an international patient plan treatment abroad. That typically means shortlisting accredited hospitals and surgeons, collecting itemised quotes, arranging the medical visa, booking travel and accommodation, and acting as a single point of contact before, during and after the procedure. It does not replace your doctor: a good facilitator coordinates care, it does not deliver it.",
+  },
+  {
+    question: "How are medical tourism companies paid?",
+    answer:
+      "There are two honest models. Some charge the patient a flat coordination fee. Others are paid a referral commission by the hospital. The model itself is not the problem — hidden commission is. Ask any company to put its payment model in writing before you share medical records. If they will not, treat that as a decision.",
+  },
+  {
+    question: "Are medical tourism facilitators safe to use?",
+    answer:
+      "A facilitator is as safe as the hospitals it sends you to and the transparency it operates with. The risk is not the concept — it is single-vendor steering, undisclosed markup, and no accountability once you have paid. Choose a company that works with accredited hospitals, discloses how it earns, and stays reachable after discharge.",
+  },
+  {
+    question: "How do I compare medical tourism companies?",
+    answer:
+      "Judge them on five things: hospital accreditation (JCI, ISO and national bodies), whether they disclose how they are paid, whether they will give you more than one hospital option, whether quotes are itemised rather than bundled, and whether a named person owns your case after the procedure. A company that scores well on all five is rare — and worth far more than the cheapest quote.",
+  },
+  {
+    question: "Is MedCasts a medical tourism company?",
+    answer:
+      "MedCasts is a medical-travel coordinator. We are not clinicians and we are not a hospital — we match international patients to accredited hospitals and surgeons across nine destinations, with transparent pricing and one point of contact end-to-end. Our directory, hospital data and treatment content are reviewed by an independent medical panel.",
+  },
+];
+
+const faqLd = faqJsonLd(FAQ.map((f) => ({ question: f.question, answer: f.answer })));
+const orgLd = withProvenance(organizationJsonLd(), { dateModified: new Date() });
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(orgLd)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(faqLd)} />
+  </Fragment>
+
+  <main id="main" class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">Medical tourism companies</span>
+        </nav>
+      </div>
+    </div>
+
+    <EntityListingHero
+      eyebrow="Buyer's guide"
+      h1First="Medical tourism"
+      h1Italic="companies"
+      lede="Before you hand a company your medical records, understand what a medical tourism company is, the four kinds you'll meet, and the five tests that separate a real coordinator from a lead broker."
+      stats={[
+        { l: "Company types", v: "4" },
+        { l: "Vetting tests", v: "5" },
+        { l: "Destinations", v: "9" },
+        { l: "Reply time", v: "9 min" },
+      ]}
+    />
+
+    <section class="mx-auto w-full max-w-[80rem] px-5 md:px-8 pt-4 pb-12">
+      <div class="serif" style="font-size: 18px; line-height: 1.6; color: var(--color-ink-muted); max-width: 64rem;">
+        <p>
+          A <strong style="color: var(--color-ink);">medical tourism company</strong> sits between a patient
+          in one country and a hospital in another. The good ones save you months of research and protect you
+          from expensive mistakes. The bad ones quietly steer you to whoever pays them the most. The category
+          word — "company", "facilitator", "agency", "coordinator" — tells you almost nothing. How they answer
+          five questions tells you everything.
+        </p>
+      </div>
+    </section>
+
+    <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pb-14">
+      <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+        The landscape
+      </div>
+      <h2 class="display mb-7" style="font-size: clamp(1.5rem, 3vw, 2.25rem); letter-spacing: -0.02em;">
+        Four kinds of <span class="italic-display">medical tourism company</span>
+      </h2>
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {COMPANY_TYPES.map((t) => (
+          <div class="paper" style="padding: 24px 26px;">
+            <span class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">
+              {t.tag}
+            </span>
+            <h3 class="serif mt-1.5" style="font-size: 20px; letter-spacing: -0.01em; color: var(--color-ink);">
+              {t.title}
+            </h3>
+            <p class="mt-2 text-[14.5px]" style="line-height: 1.6; color: var(--color-ink-muted);">
+              {t.body}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <HowItWorks
+      heading="Five tests for any medical tourism company"
+      italicWord="any medical tourism company"
+      eyebrow="How to vet a facilitator"
+      steps={[
+        { title: "Accredited hospitals only", description: "Ask which accreditations the hospitals hold — JCI, ISO 9001, and the national regulator. A company that can't name them, or sends you to unaccredited clinics, has failed the first test." },
+        { title: "Disclosed payment model", description: "Get it in writing: do you pay a coordination fee, or does the hospital pay them a commission? Either is fine. A refusal to say is not." },
+        { title: "More than one option", description: "A real coordinator gives you two or three hospitals with trade-offs. A company that only ever recommends one is selling that one, not advising you." },
+        { title: "Itemised quotes", description: "Surgeon fee, hospital stay, implants, diagnostics, follow-up — line by line. Bundled 'all-inclusive' numbers hide where the markup lives." },
+        { title: "Accountability after discharge", description: "Confirm a named person owns your case post-procedure, and how to reach them if there's a complication once you're home. No after-care contact is a red flag." },
+      ]}
+      outroNote="A company that passes all five will rarely be the cheapest quote in your inbox. It will almost always be the cheapest outcome."
+    />
+
+    <WhatToExpect
+      heading="Red flags worth walking away from"
+      italicWord="walking away from"
+      items={[
+        { label: "Pressure and urgency", description: "\"This price is only good today\" is a sales tactic, not a medical one. Surgery decisions don't expire in 24 hours." },
+        { label: "One hospital, every time", description: "If every enquiry — whatever the condition — routes to the same hospital, you're being steered, not advised." },
+        { label: "No itemised quote", description: "A single bundled figure with no breakdown means you can't see the markup, and can't compare like-for-like." },
+        { label: "Records before transparency", description: "Being asked for full medical records before the company will disclose how it's paid or which hospitals it uses." },
+        { label: "Clinical promises from sales staff", description: "Success rates and outcome guarantees should come from a surgeon, in a consultation — never from a coordinator's call centre." },
+        { label: "Silence after payment", description: "If you can't get a clear answer on who handles complications once you've flown home, assume the answer is no one." },
+      ]}
+    />
+
+    <section class="mx-auto w-full max-w-[80rem] px-5 md:px-8 py-14 border-t border-border-soft">
+      <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
+        Where MedCasts stands
+      </div>
+      <h2 class="display mb-5" style="font-size: clamp(1.5rem, 3vw, 2.25rem); letter-spacing: -0.02em;">
+        How we try to <span class="italic-display">pass our own tests</span>
+      </h2>
+      <div class="serif" style="font-size: 16.5px; line-height: 1.65; color: var(--color-ink-muted); max-width: 60rem;">
+        <p>
+          MedCasts is a medical-travel coordinator, not a clinician and not a hospital. We match international
+          patients to accredited hospitals and surgeons across nine destinations. We shortlist more than one
+          hospital, we itemise quotes, and our directory and treatment content are reviewed by an independent
+          medical panel. We're not a perfect category — no facilitator is — but the five tests above are the
+          ones we hold ourselves to, and the ones we'd want you to hold us to.
+        </p>
+      </div>
+      <div class="mt-6 flex flex-wrap gap-3">
+        <a
+          href={localizedPath(locale, "/about")}
+          class="mono uppercase"
+          style="font-size: 11px; letter-spacing: 0.12em; border: 1px solid var(--color-border); padding: 10px 18px; border-radius: 9999px; color: var(--color-ink);"
+        >
+          How MedCasts works
+        </a>
+        <a
+          href={localizedPath(locale, "/editorial-policy")}
+          class="mono uppercase"
+          style="font-size: 11px; letter-spacing: 0.12em; border: 1px solid var(--color-border); padding: 10px 18px; border-radius: 9999px; color: var(--color-ink);"
+        >
+          Editorial &amp; sourcing policy
+        </a>
+        <a
+          href={localizedPath(locale, "/medical-board")}
+          class="mono uppercase"
+          style="font-size: 11px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 10px 18px; border-radius: 9999px;"
+        >
+          Meet the medical board →
+        </a>
+      </div>
+    </section>
+
+    <section class="mx-auto w-full max-w-[80rem] px-5 md:px-8 pb-16 border-t border-border-soft pt-14">
+      <div class="mono uppercase mb-3" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+        Common questions
+      </div>
+      <h2 class="display mb-7" style="font-size: clamp(1.5rem, 3vw, 2.25rem); letter-spacing: -0.02em;">
+        Medical tourism companies, <span class="italic-display">answered</span>
+      </h2>
+      <div class="flex flex-col">
+        {FAQ.map((f, i) => (
+          <details class="mtc-faq" open={i === 0}>
+            <summary>
+              <span class="serif" style="font-size: 17.5px; letter-spacing: -0.005em; color: var(--color-ink);">{f.question}</span>
+              <span class="mtc-faq-mark" aria-hidden="true">+</span>
+            </summary>
+            <p class="mt-2 text-[14.5px]" style="line-height: 1.65; color: var(--color-ink-muted);">
+              {f.answer}
+            </p>
+          </details>
+        ))}
+      </div>
+    </section>
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow="Skip the broker"
+      heading="Plan the trip yourself — with the data open"
+      lede="Everything a medical tourism company would charge you to assemble, available directly and free."
+      items={[
+        { eyebrow: "Browse", label: "Destination countries", href: "/countries", hint: "Compare hospital count, pricing and visa shape across nine destinations." },
+        { eyebrow: "Browse", label: "Accredited hospitals", href: "/hospitals", hint: "Filter by country, specialty, accreditation, beds and rating." },
+        { eyebrow: "Browse", label: "Surgeons by specialty", href: "/surgeons", hint: "Volume-ranked surgeon rosters across every destination." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures and destinations — no email required." },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
+        { eyebrow: "Trust", label: "Accreditations we trust", href: "/accreditation", hint: "What JCI, ISO and national accreditation actually certify." },
+        { eyebrow: "Stories", label: "Patient stories", href: "/stories", hint: "First-person accounts of the full medical-travel journey." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+      ]}
+    />
+
+    <PageCta locale={locale} />
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>
+
+<style>
+  .mtc-faq {
+    border-top: 1px solid var(--color-border);
+    padding: 16px 0;
+  }
+  .mtc-faq:last-of-type {
+    border-bottom: 1px solid var(--color-border);
+  }
+  .mtc-faq summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    cursor: pointer;
+    list-style: none;
+  }
+  .mtc-faq summary::-webkit-details-marker { display: none; }
+  .mtc-faq-mark {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 20px;
+    line-height: 1;
+    color: var(--color-accent);
+    transition: transform 160ms ease;
+    flex-shrink: 0;
+  }
+  .mtc-faq[open] .mtc-faq-mark { transform: rotate(45deg); }
+</style>

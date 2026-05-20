@@ -1,15 +1,374 @@
 ---
-import { isLocale, localizedPath } from "@/lib/i18n";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import EntityListingHero from "@/components/EntityListingHero.astro";
+import Pagination from "@/components/Pagination.astro";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import { listDoctors, listDoctorSpecialtiesForPlace, getGeoCity } from "@/lib/queries";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, collectionPageJsonLd, withProvenance } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { ChevronRight } from "lucide-react";
+import { doctorPortrait } from "@/lib/images";
 
 export const prerender = false;
 
 const rawLocale = Astro.params.locale ?? "en";
 const citySlug = Astro.params.citySlug;
 if (!citySlug) return new Response("Not found", { status: 404 });
-const locale = isLocale(rawLocale) ? rawLocale : "en";
-const target = localizedPath(locale, `/city/${encodeURIComponent(citySlug)}`);
-return new Response(null, {
-  status: 308,
-  headers: { Location: target, "Cache-Control": "public, max-age=86400, s-maxage=604800" },
-});
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/doctors/city/${citySlug}`, 308);
+const locale = rawLocale as Locale;
+
+const city = await getGeoCity(citySlug);
+if (!city) return new Response(`Not found: ${citySlug}`, { status: 404 });
+const country = city.country ?? null;
+
+const url = new URL(Astro.request.url);
+const pageParam = parseInt(url.searchParams.get("page") ?? "1", 10);
+const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+const sortParam = url.searchParams.get("sort");
+const sort: "featured" | "rating" | "experience" | "reviews" =
+  sortParam === "rating" || sortParam === "experience" || sortParam === "reviews"
+    ? sortParam
+    : "featured";
+const specialtyFilter = url.searchParams.get("specialty")?.trim() || "";
+
+const [{ rows, total, totalPages }, placeSpecialties] = await Promise.all([
+  listDoctors({
+    page,
+    sort,
+    city: citySlug,
+    specialty: specialtyFilter ? [specialtyFilter] : undefined,
+  }),
+  listDoctorSpecialtiesForPlace({ citySlug }),
+]);
+
+// Inventory floor: a city with fewer than 3 listed doctors isn't worth its own
+// indexable page — send it up to the country directory. Skip the redirect when
+// a specialty filter is active (that page is noindex anyway).
+if (!specialtyFilter && total < 3 && country) {
+  return Astro.redirect(localizedPath(locale, `/doctors/country/${country.slug}`), 301);
+}
+
+const tc = getTranslator(locale, "common");
+const countText = total.toLocaleString();
+const placeLabel = country ? `${city.name}, ${country.name}` : city.name;
+const activeSpecialty = placeSpecialties.find((s) => s.slug === specialtyFilter) ?? null;
+const specialtyLabel = activeSpecialty ? `${activeSpecialty.name} ` : "";
+
+const path = `/doctors/city/${citySlug}`;
+const seoTitle = activeSpecialty
+  ? `${activeSpecialty.name} doctors in ${city.name} — ${countText} specialists`
+  : `Doctors in ${city.name} — ${countText} verified specialists`;
+const seoDescription =
+  `Browse ${countText} ${specialtyLabel}board-certified doctors and surgeons practising in ${placeLabel}. Compare experience, sub-specialty, hospital and patient ratings — free human shortlist on request.`.slice(
+    0,
+    160,
+  );
+
+const shouldNoindex = page > 1 || specialtyFilter.length > 0 || total === 0;
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: tc("doctors"), url: localeUrl(locale, "/doctors") },
+  ...(country ? [{ name: country.name, url: localeUrl(locale, `/doctors/country/${country.slug}`) }] : []),
+  { name: city.name, url: localeUrl(locale, path) },
+]);
+
+const collectionLd =
+  page === 1 && !specialtyFilter && rows.length > 0
+    ? withProvenance(
+        collectionPageJsonLd({
+          name: `Doctors in ${placeLabel}`,
+          description: seoDescription,
+          url: localeUrl(locale, path),
+          items: rows.map((d) => ({
+            name: `${d.title ?? "Dr."} ${d.name}`.replace(/^Dr\.?\s+Dr\.?/i, "Dr."),
+            url: localeUrl(locale, `/doctor/${d.slug}`),
+          })),
+        }),
+        { dateModified: new Date() },
+      )
+    : null;
+
+function buildHref(patch: { sort?: string; specialty?: string | null; page?: number }): string {
+  const params = new URLSearchParams();
+  const s = patch.sort ?? sort;
+  const sp = patch.specialty !== undefined ? patch.specialty : specialtyFilter;
+  const p = patch.page ?? 1;
+  if (s && s !== "featured") params.set("sort", s);
+  if (sp) params.set("specialty", sp);
+  if (p > 1) params.set("page", String(p));
+  const qs = params.toString();
+  const base = localizedPath(locale, path);
+  return qs ? `${base}?${qs}` : base;
+}
+
+const prevUrl = page > 1 ? buildHref({ page: page - 1 }) : undefined;
+const nextUrl = page < totalPages ? buildHref({ page: page + 1 }) : undefined;
+
+const SORTS = [
+  { value: "featured", label: "Featured" },
+  { value: "rating", label: "Top rated" },
+  { value: "experience", label: "Most experienced" },
+  { value: "reviews", label: "Most reviewed" },
+];
+
+const stats =
+  page === 1 && !specialtyFilter
+    ? [
+        { l: "Specialists", v: countText },
+        { l: "Specialties", v: placeSpecialties.length.toLocaleString() },
+        { l: "Country", v: country?.name ?? "—" },
+        { l: "Reply time", v: "9 min" },
+      ]
+    : [];
+
+function cleanName(name: string) { return name.replace(/^Dr\.?\s*/i, ""); }
+function firstWord(s: string) { const i = s.indexOf(" "); return i === -1 ? s : s.slice(0, i); }
+function restOfName(s: string) { const i = s.indexOf(" "); return i === -1 ? "" : s.slice(i + 1); }
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-revalidate=86400");
 ---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta
+      title={seoTitle}
+      description={seoDescription}
+      path={path}
+      locale={locale}
+      noindex={shouldNoindex}
+      prevUrl={prevUrl}
+      nextUrl={nextUrl}
+    />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    {collectionLd && (
+      <script type="application/ld+json" is:inline set:html={JSON.stringify(collectionLd)} />
+    )}
+  </Fragment>
+
+  <main id="main" class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <a href={localizedPath(locale, "/doctors")} class="hover:text-ink">Doctors</a>
+          {country && (
+            <>
+              <span class="mx-1.5">/</span>
+              <a href={localizedPath(locale, `/doctors/country/${country.slug}`)} class="hover:text-ink">{country.name}</a>
+            </>
+          )}
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">{city.name}</span>
+        </nav>
+      </div>
+    </div>
+
+    <EntityListingHero
+      eyebrow={`${countText} specialists · ${placeLabel}`}
+      h1First="Doctors in"
+      h1Italic={city.name}
+      lede={`Board-certified doctors and surgeons practising at hospitals in ${placeLabel}, ranked by patient volume and sub-specialty fit. Send your reports and we'll shortlist three for your case — free.`}
+      stats={stats}
+    />
+
+    <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-6 pb-20">
+      {placeSpecialties.length > 0 && (
+        <div class="mb-6 flex flex-wrap items-center gap-2">
+          <span class="mono uppercase pe-1" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+            Specialty
+          </span>
+          <a
+            href={buildHref({ specialty: null })}
+            class="rounded-full px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap"
+            style={!specialtyFilter
+              ? "background: var(--color-ink); color: var(--color-bg);"
+              : "color: var(--color-ink-muted); border: 1px solid var(--color-border);"}
+          >
+            All
+          </a>
+          {placeSpecialties.map((s) => (
+            <a
+              href={buildHref({ specialty: s.slug })}
+              class="rounded-full px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap"
+              style={specialtyFilter === s.slug
+                ? "background: var(--color-ink); color: var(--color-bg);"
+                : "color: var(--color-ink-muted); border: 1px solid var(--color-border);"}
+            >
+              {s.name} <span class="tnum" style="opacity: 0.6;">{s.n}</span>
+            </a>
+          ))}
+        </div>
+      )}
+
+      <div
+        class="mb-6 flex flex-wrap items-center justify-between gap-3 pb-4"
+        style="border-bottom: 1px solid var(--color-border);"
+      >
+        <span class="serif text-[14px]" style="color: var(--color-ink-muted);">
+          <span class="display tnum text-ink">{countText}</span> {activeSpecialty ? `${activeSpecialty.name.toLowerCase()} ` : ""}specialist{total === 1 ? "" : "s"}
+          {totalPages > 1 && (
+            <span class="ms-2 mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+              Page {page} of {totalPages}
+            </span>
+          )}
+        </span>
+        <div class="flex items-center gap-1 -mx-1 overflow-x-auto">
+          <span class="mono uppercase px-1 whitespace-nowrap" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-ink-subtle);">
+            Sort
+          </span>
+          {SORTS.map((o) => {
+            const active = sort === o.value;
+            return (
+              <a
+                href={buildHref({ sort: o.value })}
+                class="rounded-full px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap"
+                style={active
+                  ? "background: var(--color-ink); color: var(--color-bg);"
+                  : "color: var(--color-ink-muted);"}
+              >
+                {o.label}
+              </a>
+            );
+          })}
+        </div>
+      </div>
+
+      <h2 class="sr-only">Doctors practising in {placeLabel}</h2>
+
+      {rows.length === 0 ? (
+        <div class="paper text-center py-20" style="color: var(--color-ink-muted);">
+          <p class="serif text-lg mb-3">No doctors match this filter in {city.name}.</p>
+          <div class="flex items-center justify-center gap-3">
+            <a
+              href={localizedPath(locale, path)}
+              class="mono uppercase"
+              style="font-size: 11px; letter-spacing: 0.12em; border: 1px solid var(--color-border); padding: 9px 16px; border-radius: 9999px; color: var(--color-ink);"
+            >
+              All {city.name} doctors
+            </a>
+            <a
+              href={localizedPath(locale, "/match-me")}
+              class="mono uppercase"
+              style="font-size: 11px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 9px 16px; border-radius: 9999px;"
+            >
+              Match me →
+            </a>
+          </div>
+        </div>
+      ) : (
+        <ul class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {rows.map((d) => {
+            const clean = cleanName(d.name);
+            return (
+              <li>
+                <a
+                  href={localizedPath(locale, `/doctor/${d.slug}`)}
+                  class="paper group flex h-full flex-col overflow-hidden transition hover:-translate-y-0.5"
+                  style="padding: 0;"
+                >
+                  <div class="w-full overflow-hidden" style="aspect-ratio: 4/5; background: linear-gradient(135deg, #0A5D54 0%, #0D7C70 60%, #1C2A25 100%);">
+                    <img
+                      src={doctorPortrait({ imageUrl: d.imageUrl, id: d.id }, 400)}
+                      alt={d.name}
+                      width="320"
+                      height="400"
+                      loading="lazy"
+                      decoding="async"
+                      class="h-full w-full object-cover"
+                    />
+                  </div>
+                  <div class="p-5 flex flex-col flex-1">
+                    {d.title && (
+                      <div class="mono uppercase" style="font-size: 10px; letter-spacing: 0.12em; color: var(--color-accent);">
+                        {d.title}
+                      </div>
+                    )}
+                    <div class="serif mt-1" style="font-size: 19px; line-height: 1.2; letter-spacing: -0.005em; color: var(--color-ink);">
+                      {firstWord(clean)}{restOfName(clean) && <> <span class="italic-display">{restOfName(clean)}</span></>}
+                    </div>
+                    {d.qualifications && (
+                      <div class="mt-2 mono text-[10px] uppercase tracking-wider line-clamp-1" style="color: var(--color-ink-subtle);">
+                        {d.qualifications}
+                      </div>
+                    )}
+                    {d.hospitalName && (
+                      <div class="mt-2 text-[12.5px] line-clamp-1" style="color: var(--color-ink-muted);">
+                        {d.hospitalName}
+                      </div>
+                    )}
+                    <div
+                      class="mt-auto flex items-center justify-between"
+                      style="border-top: 1px dashed var(--color-border); margin-top: 12px; padding-top: 10px;"
+                    >
+                      <div class="flex items-center gap-3 text-[12px]" style="color: var(--color-ink-subtle);">
+                        {d.experienceYears && <span class="tnum">{d.experienceYears}yr</span>}
+                        {d.rating && Number(d.rating) > 0 && (
+                          <span class="tnum inline-flex items-center gap-1">
+                            <span style="color: var(--color-saffron);">★</span>
+                            {Number(d.rating).toFixed(1)}
+                          </span>
+                        )}
+                        {d.reviewCount && d.reviewCount > 0 && (
+                          <span class="tnum" style="color: var(--color-ink-subtle); opacity: 0.7;">
+                            ({d.reviewCount.toLocaleString()})
+                          </span>
+                        )}
+                      </div>
+                      <ChevronRight className="h-3.5 w-3.5 mirror-x text-[var(--color-ink-subtle)] group-hover:text-[var(--color-accent)] transition-colors" />
+                    </div>
+                  </div>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <Pagination page={page} totalPages={totalPages} basePath={buildHref({})} />
+    </section>
+
+    <HowItWorks
+      heading={`How to choose a doctor in ${city.name}`}
+      italicWord={city.name}
+      eyebrow="Surgeon-evaluation guide"
+      steps={[
+        { title: "Match the sub-specialty, not the specialty", description: "Search for the exact procedure family. Sub-specialty experience predicts outcomes better than the broad specialty label." },
+        { title: "Check personal annual case volume", description: "Ask how many of your specific procedure the doctor performs each year. 100+/year is a meaningful threshold across most surgical fields." },
+        { title: "Verify credentials independently", description: "Board certification, fellowship training, hospital privileges and peer-reviewed publications — cross-check on PubMed, Google Scholar and ORCID." },
+        { title: "Check the hospital, not just the doctor", description: `Every doctor here practises at a hospital in ${city.name}. Confirm the hospital is accredited and credentialed for your specialty.` },
+        { title: "Have a video consultation first", description: "Talk to your shortlisted doctor directly before booking any travel — communication quality during consultation predicts it during your case." },
+      ]}
+    />
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow={`${city.name} medical travel`}
+      heading={`Other ways to plan care in ${city.name}`}
+      lede={`The doctor directory is one cut. These hubs cover the surgeon rosters, the hospitals and the wider destination context.`}
+      items={[
+        { eyebrow: "Surgeons", label: `${city.name} surgeons by specialty`, href: `/surgeons/city/${citySlug}`, hint: "Volume-ranked surgeon rosters grouped by specialty." },
+        { eyebrow: "City", label: `${city.name} medical guide`, href: `/city/${citySlug}`, hint: "Airport, language, climate window and hospital concentration." },
+        { eyebrow: "Hospitals", label: `Hospitals in ${city.name}`, href: `/hospitals/city/${citySlug}`, hint: "Accredited hospitals in this city with ratings and specialties." },
+        ...(country ? [{ eyebrow: "Destination", label: `All ${country.name} doctors`, href: `/doctors/country/${country.slug}`, hint: `Step up from ${city.name} to the full ${country.name} directory.` }] : []),
+        ...(country ? [{ eyebrow: "Destination", label: `${country.name} hospital hub`, href: `/country/${country.slug}`, hint: `Featured programs and pricing benchmarks across ${country.name}.` }] : []),
+        ...(placeSpecialties[0] ? [{ eyebrow: "Specialty", label: `${placeSpecialties[0].name} hub`, href: `/specialty/${placeSpecialties[0].slug}`, hint: `${placeSpecialties[0].n} doctors listed for this specialty.` }] : []),
+        { eyebrow: "Browse", label: "All doctors", href: "/doctors", hint: "The full multi-country specialist directory with filters." },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-doctor shortlist." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+      ]}
+    />
+
+    <PageCta locale={locale} />
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

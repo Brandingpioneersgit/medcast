@@ -1,0 +1,237 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import EntityListingHero from "@/components/EntityListingHero.astro";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import { listSurgeonSpecialtiesForPlace, listDoctors, getGeoCountry } from "@/lib/queries";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, collectionPageJsonLd, withProvenance, surgeonNoun } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { Award, ChevronRight, MapPin } from "lucide-react";
+import { doctorPortrait } from "@/lib/images";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+const countrySlug = Astro.params.countrySlug;
+if (!countrySlug) return new Response("Not found", { status: 404 });
+if (!isLocale(rawLocale)) return Astro.redirect(`/en/surgeons/country/${countrySlug}`, 308);
+const locale = rawLocale as Locale;
+
+const country = await getGeoCountry(countrySlug);
+if (!country) return new Response(`Not found: ${countrySlug}`, { status: 404 });
+
+const [{ specialties, total }, topSurgeons] = await Promise.all([
+  listSurgeonSpecialtiesForPlace({ countrySlug }),
+  listDoctors({ country: [countrySlug], page: 1, sort: "experience" }),
+]);
+
+// No surgeons at all in this country — nothing indexable to show.
+if (total === 0 || specialties.length === 0) {
+  return new Response(`No surgeons listed for ${countrySlug}`, { status: 404 });
+}
+
+const tc = getTranslator(locale, "common");
+const year = new Date().getFullYear();
+const countText = total.toLocaleString();
+const path = `/surgeons/country/${countrySlug}`;
+
+const seoTitle = `Surgeons in ${country.name} (${year}) — Ranked by Specialty`;
+const seoDescription =
+  `${countText} surgeons practising at credentialed hospitals in ${country.name}, grouped across ${specialties.length} specialties and ranked by patient volume. Free case-matched shortlist on request.`.slice(
+    0,
+    160,
+  );
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Surgeons", url: localeUrl(locale, "/surgeons") },
+  { name: country.name, url: localeUrl(locale, path) },
+]);
+
+const collectionLd = withProvenance(
+  collectionPageJsonLd({
+    name: `Surgeons in ${country.name}`,
+    description: seoDescription,
+    url: localeUrl(locale, path),
+    items: specialties.map((s) => ({
+      name: `${surgeonNoun(s.slug, s.name)} in ${country.name}`,
+      url: localeUrl(locale, `/surgeons/${s.slug}/${countrySlug}`),
+    })),
+  }),
+  { dateModified: new Date() },
+);
+
+const stats = [
+  { l: "Surgeons", v: countText },
+  { l: "Specialties", v: specialties.length.toLocaleString() },
+  { l: "Verified", v: "All" },
+  { l: "Reply time", v: "9 min" },
+];
+
+const topStrip = topSurgeons.rows.slice(0, 12);
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=86400");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(collectionLd)} />
+  </Fragment>
+
+  <main id="main" class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <a href={localizedPath(locale, "/surgeons")} class="hover:text-ink">Surgeons</a>
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">{country.name}</span>
+        </nav>
+      </div>
+    </div>
+
+    <EntityListingHero
+      eyebrow={`${countText} surgeons · ${country.name}`}
+      h1First="Surgeons in"
+      h1Italic={country.name}
+      lede={`Pick a specialty to see the volume-ranked surgeon roster for ${country.name}. Every surgeon practises at a hospital credentialed for their field — and our coordinators will narrow any list to your specific case, free.`}
+      stats={stats}
+    />
+
+    <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-6 pb-10">
+      <h2 class="display-tight mb-6" style="font-size: clamp(1.5rem, 3vw, 2.25rem); letter-spacing: -0.02em;">
+        Surgeons in {country.name} <span class="italic-display">by specialty</span>
+      </h2>
+      <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {specialties.map((s) => (
+          <li>
+            <a
+              href={localizedPath(locale, `/surgeons/${s.slug}/${countrySlug}`)}
+              class="paper group flex h-full flex-col transition hover:-translate-y-0.5"
+              style="padding: 22px 24px;"
+            >
+              <div class="serif" style="font-size: 20px; line-height: 1.2; letter-spacing: -0.01em; color: var(--color-ink);">
+                {s.name}
+              </div>
+              <div class="mt-2 mono uppercase tnum" style="font-size: 10.5px; letter-spacing: 0.12em; color: var(--color-ink-subtle);">
+                {s.docs.toLocaleString()} surgeon{s.docs === 1 ? "" : "s"}
+              </div>
+              <div
+                class="mt-auto flex items-center justify-between"
+                style="border-top: 1px dashed var(--color-border); margin-top: 14px; padding-top: 12px;"
+              >
+                <span class="mono uppercase" style="font-size: 10px; letter-spacing: 0.14em; color: var(--color-accent);">
+                  View roster
+                </span>
+                <ChevronRight className="h-3.5 w-3.5 mirror-x text-[var(--color-ink-subtle)] group-hover:text-[var(--color-accent)] transition-colors" />
+              </div>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    {topStrip.length > 0 && (
+      <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pb-12 border-t border-border-soft pt-10">
+        <h2 class="display-tight mb-5" style="font-size: clamp(1.4rem, 2.6vw, 2rem); letter-spacing: -0.02em;">
+          Most experienced surgeons in {country.name}
+        </h2>
+        <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {topStrip.map((d) => {
+            const nameHasTitle = /^(dr\.?|prof\.?|mr\.?|ms\.?|mrs\.?)\s/i.test(d.name);
+            const titlePrefix = nameHasTitle ? "" : (d.title ?? "Dr.");
+            const fullName = titlePrefix ? `${titlePrefix} ${d.name}` : d.name;
+            return (
+              <li>
+                <a
+                  href={localizedPath(locale, `/doctor/${d.slug}`)}
+                  class="group flex h-full gap-4 rounded-xl border border-border bg-surface p-4 transition-colors hover:border-border-strong"
+                >
+                  <img
+                    src={doctorPortrait({ imageUrl: d.imageUrl, id: d.id }, 128)}
+                    alt={d.name}
+                    width="64"
+                    height="64"
+                    loading="lazy"
+                    decoding="async"
+                    class="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-border"
+                  />
+                  <div class="min-w-0 flex-1">
+                    <span class="block font-display text-[17px] leading-tight text-ink group-hover:text-accent line-clamp-1">{fullName}</span>
+                    {d.qualifications && <span class="mt-1 block text-[12.5px] text-ink-muted line-clamp-1">{d.qualifications}</span>}
+                    <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-subtle">
+                      {d.experienceYears != null && (
+                        <span class="inline-flex items-center gap-1"><Award className="h-3 w-3 text-accent" />{d.experienceYears} yrs</span>
+                      )}
+                      {d.rating && Number(d.rating) > 0 && (
+                        <span class="inline-flex items-center gap-1"><span class="text-gold-500">★</span><span class="tnum">{Number(d.rating).toFixed(1)}</span></span>
+                      )}
+                    </div>
+                    {d.hospitalName && (
+                      <div class="mt-2 text-[12px] text-ink-subtle inline-flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />{d.hospitalName}{d.cityName ? ` · ${d.cityName}` : ""}
+                      </div>
+                    )}
+                  </div>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+        <div class="mt-6">
+          <a
+            href={localizedPath(locale, `/doctors/country/${countrySlug}`)}
+            class="mono uppercase inline-flex items-center gap-1.5"
+            style="font-size: 11px; letter-spacing: 0.12em; color: var(--color-accent);"
+          >
+            Browse all {country.name} doctors →
+          </a>
+        </div>
+      </section>
+    )}
+
+    <HowItWorks
+      heading={`How to shortlist a surgeon in ${country.name}`}
+      italicWord={country.name}
+      eyebrow="Surgeon-evaluation guide"
+      steps={[
+        { title: "Start from the specialty roster", description: "Open the specialty that matches your procedure. Each roster is volume-ranked, so the surgeons most likely to handle complex cases sit at the top." },
+        { title: "Read case volume, not just years", description: "Personal annual volume on your specific procedure is the strongest single outcome predictor — look for 100+/year on your exact case type." },
+        { title: "Check hospital credentialing", description: `Every surgeon listed practises at a ${country.name} hospital credentialed for their specialty. Confirm the hospital's accreditation before you commit.` },
+        { title: "Get a case-matched shortlist", description: "Send your reports — our coordinators come back with three specific surgeons, availability and a quote, at no charge." },
+      ]}
+    />
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow={`${country.name} medical travel`}
+      heading={`Beyond the surgeon roster — the full ${country.name} picture`}
+      lede={`The specialty-by-specialty surgeon view is one cut. These hubs cover the individual directory, the hospitals, the procedure costs and the visa logistics.`}
+      items={[
+        { eyebrow: "Doctors", label: `All ${country.name} doctors`, href: `/doctors/country/${countrySlug}`, hint: "The full filterable specialist directory for this destination." },
+        { eyebrow: "Destination", label: `${country.name} hospital hub`, href: `/country/${countrySlug}`, hint: `Featured programs, pricing benchmarks and logistics across ${country.name}.` },
+        { eyebrow: "Hospitals", label: `Hospitals in ${country.name}`, href: `/hospitals/country/${countrySlug}`, hint: "Filter by city, specialty, accreditation, beds and rating." },
+        { eyebrow: "Costs", label: `Treatments in ${country.name}`, href: `/treatments/country/${countrySlug}`, hint: "Per-procedure cost ranges from hospitals in this destination." },
+        { eyebrow: "Visa", label: `${country.name} medical visa`, href: `/visa/${countrySlug}`, hint: "Documents, processing time and embassy guidance." },
+        ...(specialties[0] ? [{ eyebrow: "Best of", label: `Best ${specialties[0].name} in ${country.name}`, href: `/best/${specialties[0].slug}-in-${countrySlug}`, hint: "Editorially ranked programs with methodology disclosed." }] : []),
+        { eyebrow: "Browse", label: "Surgeons by specialty", href: "/surgeons", hint: "Volume-ranked rosters across every destination." },
+        { eyebrow: "Compare", label: "Doctor comparison", href: "/compare/doctors", hint: "Compare surgeons on volume, fees, languages and video consults." },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-surgeon shortlist." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+      ]}
+    />
+
+    <PageCta locale={locale} />
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

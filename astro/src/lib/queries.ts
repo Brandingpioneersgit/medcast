@@ -2982,3 +2982,335 @@ export async function listTreatmentCountryPairs() {
     ORDER BY t.slug, co.slug
   `).then((r) => Array.from(r)).catch(() => []);
 }
+
+// ============================================================
+// GEO LISTING PAGES — doctors & surgeons by country / city
+// ============================================================
+
+/** Resolve a country for a geo listing page. Returns undefined if not found. */
+export async function getGeoCountry(slug: string) {
+  return db.query.countries.findFirst({ where: eq(countries.slug, slug) });
+}
+
+/** Resolve a city + its parent country for a geo listing page. */
+export async function getGeoCity(slug: string) {
+  return db.query.cities.findFirst({
+    where: eq(cities.slug, slug),
+    with: { country: true },
+  });
+}
+
+/** Resolve a specialty for a geo/listing page. Returns undefined if not found. */
+export async function getGeoSpecialty(slug: string) {
+  return db.query.specialties.findFirst({ where: eq(specialties.slug, slug) });
+}
+
+type PlaceScope = { countrySlug?: string; citySlug?: string };
+
+function placeScopePredicate(opts: PlaceScope) {
+  return opts.citySlug
+    ? sql`AND ci.slug = ${opts.citySlug}`
+    : opts.countrySlug
+    ? sql`AND co.slug = ${opts.countrySlug}`
+    : sql``;
+}
+
+/**
+ * Specialties a place's doctors practise, with doctor counts — drives the
+ * specialty quick-filter chips on /doctors/country|city pages. Uses the
+ * explicit doctor↔specialty link (doctor_specialties).
+ */
+export async function listDoctorSpecialtiesForPlace(
+  opts: PlaceScope,
+): Promise<{ slug: string; name: string; n: number }[]> {
+  return db
+    .execute<{ slug: string; name: string; n: number }>(sql`
+      SELECT sp.slug, sp.name, COUNT(DISTINCT d.id)::int AS n
+      FROM specialties sp
+      INNER JOIN doctor_specialties ds ON ds.specialty_id = sp.id
+      INNER JOIN doctors d ON d.id = ds.doctor_id AND d.is_active = true
+      INNER JOIN hospitals h ON h.id = d.hospital_id AND h.is_active = true
+      INNER JOIN cities ci ON ci.id = h.city_id
+      INNER JOIN countries co ON co.id = ci.country_id
+      WHERE sp.is_active = true
+      ${placeScopePredicate(opts)}
+      GROUP BY sp.slug, sp.name
+      HAVING COUNT(DISTINCT d.id) > 0
+      ORDER BY n DESC, sp.name ASC
+      LIMIT 20
+    `)
+    .then((r) => Array.from(r))
+    .catch(() => []);
+}
+
+/**
+ * Specialties credentialed at a place's hospitals, with surgeon counts —
+ * drives the /surgeons/country|city specialty-breakdown hub. Uses
+ * hospital_specialties credentialing, mirroring listSurgeonSpecialties.
+ */
+export async function listSurgeonSpecialtiesForPlace(
+  opts: PlaceScope,
+): Promise<{ specialties: { slug: string; name: string; docs: number }[]; total: number }> {
+  const scope = placeScopePredicate(opts);
+  const [rows, total] = await Promise.all([
+    db
+      .execute<{ slug: string; name: string; docs: number }>(sql`
+        SELECT s.slug, s.name, COUNT(DISTINCT d.id)::int AS docs
+        FROM specialties s
+        INNER JOIN hospital_specialties hs ON hs.specialty_id = s.id
+        INNER JOIN hospitals h ON h.id = hs.hospital_id AND h.is_active = true
+        INNER JOIN doctors d ON d.hospital_id = h.id AND d.is_active = true
+        INNER JOIN cities ci ON ci.id = h.city_id
+        INNER JOIN countries co ON co.id = ci.country_id
+        WHERE s.is_active = true
+        ${scope}
+        GROUP BY s.slug, s.name
+        HAVING COUNT(DISTINCT d.id) > 0
+        ORDER BY docs DESC, s.name ASC
+      `)
+      .then((r) => Array.from(r))
+      .catch(() => []),
+    db
+      .execute<{ c: number }>(sql`
+        SELECT COUNT(DISTINCT d.id)::int AS c
+        FROM doctors d
+        INNER JOIN hospitals h ON h.id = d.hospital_id AND h.is_active = true
+        INNER JOIN cities ci ON ci.id = h.city_id
+        INNER JOIN countries co ON co.id = ci.country_id
+        WHERE d.is_active = true
+        ${scope}
+      `)
+      .then((r) => Array.from(r)[0]?.c ?? 0)
+      .catch(() => 0),
+  ]);
+  return { specialties: rows, total };
+}
+
+export type TestimonialRow = {
+  id: number;
+  patient_name: string;
+  patient_country: string | null;
+  patient_age: number | null;
+  rating: number;
+  title: string | null;
+  story: string;
+  treatment_date: Date | null;
+  image_url: string | null;
+  is_verified: boolean | null;
+  treatment_name: string | null;
+  treatment_slug: string | null;
+  hospital_name: string | null;
+  hospital_slug: string | null;
+  country_name: string | null;
+  country_slug: string | null;
+};
+
+/**
+ * Patient stories for /stories — active, non-archived testimonials joined to
+ * the treatment / hospital / destination they relate to. Featured + verified
+ * first, then most recent treatment date.
+ */
+export async function listTestimonials(limit = 60): Promise<TestimonialRow[]> {
+  return db
+    .execute<TestimonialRow>(sql`
+      SELECT te.id, te.patient_name, te.patient_country, te.patient_age,
+             te.rating, te.title, te.story, te.treatment_date, te.image_url,
+             te.is_verified,
+             t.name AS treatment_name, t.slug AS treatment_slug,
+             h.name AS hospital_name, h.slug AS hospital_slug,
+             co.name AS country_name, co.slug AS country_slug
+      FROM testimonials te
+      LEFT JOIN treatments t ON t.id = te.treatment_id
+      LEFT JOIN hospitals h ON h.id = te.hospital_id
+      LEFT JOIN cities ci ON ci.id = h.city_id
+      LEFT JOIN countries co ON co.id = ci.country_id
+      WHERE te.is_active = true AND te.archived_at IS NULL
+      ORDER BY te.is_featured DESC NULLS LAST,
+               te.is_verified DESC NULLS LAST,
+               te.treatment_date DESC NULLS LAST,
+               te.created_at DESC
+      LIMIT ${limit}
+    `)
+    .then((r) => Array.from(r))
+    .catch(() => []);
+}
+
+export type GalleryRow = {
+  id: number;
+  before_url: string;
+  after_url: string;
+  caption: string | null;
+  months_after: number | null;
+  patient_age_range: string | null;
+  treatment_name: string | null;
+  treatment_slug: string | null;
+  specialty_name: string | null;
+  specialty_slug: string | null;
+  hospital_name: string | null;
+  hospital_slug: string | null;
+  country_name: string | null;
+};
+
+/**
+ * Approved before/after outcomes for /gallery — only consent-recorded,
+ * moderation-approved rows with both image URLs present.
+ */
+export async function listBeforeAfterGallery(limit = 72): Promise<GalleryRow[]> {
+  return db
+    .execute<GalleryRow>(sql`
+      SELECT ba.id, ba.before_url, ba.after_url, ba.caption,
+             ba.months_after, ba.patient_age_range,
+             t.name AS treatment_name, t.slug AS treatment_slug,
+             s.name AS specialty_name, s.slug AS specialty_slug,
+             h.name AS hospital_name, h.slug AS hospital_slug,
+             co.name AS country_name
+      FROM before_after_photos ba
+      LEFT JOIN treatments t ON t.id = ba.treatment_id
+      LEFT JOIN specialties s ON s.id = t.specialty_id
+      LEFT JOIN hospitals h ON h.id = ba.hospital_id
+      LEFT JOIN cities ci ON ci.id = h.city_id
+      LEFT JOIN countries co ON co.id = ci.country_id
+      WHERE ba.moderation_status = 'approved' AND ba.consent_recorded = true
+        AND ba.before_url <> '' AND ba.after_url <> ''
+      ORDER BY ba.is_featured DESC NULLS LAST, ba.created_at DESC
+      LIMIT ${limit}
+    `)
+    .then((r) => Array.from(r))
+    .catch(() => []);
+}
+
+/**
+ * Country + city slugs with enough doctors to warrant an indexable geo
+ * listing page. Drives sitemap-doctors-geo.xml + sitemap-surgeons-geo.xml.
+ */
+export async function listDoctorGeoSlugs(): Promise<{ countries: string[]; cities: string[] }> {
+  const [countryRows, cityRows] = await Promise.all([
+    db
+      .execute<{ slug: string }>(sql`
+        SELECT co.slug
+        FROM countries co
+        INNER JOIN cities ci ON ci.country_id = co.id
+        INNER JOIN hospitals h ON h.city_id = ci.id AND h.is_active = true
+        INNER JOIN doctors d ON d.hospital_id = h.id AND d.is_active = true
+        WHERE co.slug IS NOT NULL
+        GROUP BY co.slug
+        HAVING COUNT(DISTINCT d.id) >= 1
+        ORDER BY co.slug
+      `)
+      .then((r) => Array.from(r).map((x) => x.slug))
+      .catch(() => []),
+    db
+      .execute<{ slug: string }>(sql`
+        SELECT ci.slug
+        FROM cities ci
+        INNER JOIN hospitals h ON h.city_id = ci.id AND h.is_active = true
+        INNER JOIN doctors d ON d.hospital_id = h.id AND d.is_active = true
+        WHERE ci.slug IS NOT NULL AND ci.slug <> 'unknown'
+        GROUP BY ci.slug
+        HAVING COUNT(DISTINCT d.id) >= 3
+        ORDER BY ci.slug
+      `)
+      .then((r) => Array.from(r).map((x) => x.slug))
+      .catch(() => []),
+  ]);
+  return { countries: countryRows, cities: cityRows };
+}
+
+/**
+ * Country + specialty slugs with active hospitals — drives sitemap-hospitals-geo.xml
+ * for the /hospitals/country/[slug] and /hospitals/specialty/[slug] listing pages.
+ */
+export async function listHospitalGeoSlugs(): Promise<{ countries: string[]; specialties: string[] }> {
+  const [countryRows, specialtyRows] = await Promise.all([
+    db
+      .execute<{ slug: string }>(sql`
+        SELECT DISTINCT co.slug
+        FROM countries co
+        INNER JOIN cities ci ON ci.country_id = co.id
+        INNER JOIN hospitals h ON h.city_id = ci.id AND h.is_active = true
+        WHERE co.slug IS NOT NULL
+        ORDER BY co.slug
+      `)
+      .then((r) => Array.from(r).map((x) => x.slug))
+      .catch(() => []),
+    db
+      .execute<{ slug: string }>(sql`
+        SELECT DISTINCT s.slug
+        FROM specialties s
+        INNER JOIN hospital_specialties hs ON hs.specialty_id = s.id
+        INNER JOIN hospitals h ON h.id = hs.hospital_id AND h.is_active = true
+        WHERE s.is_active = true AND s.slug IS NOT NULL
+        ORDER BY s.slug
+      `)
+      .then((r) => Array.from(r).map((x) => x.slug))
+      .catch(() => []),
+  ]);
+  return { countries: countryRows, specialties: specialtyRows };
+}
+
+/**
+ * Where a specialty's hospitals are — destination breakdown for the
+ * /hospitals/specialty/[slug]/[place] scope selector. Countries list any
+ * count; cities are floored at 3 hospitals (the inventory floor for a
+ * city-scoped indexable page).
+ */
+export async function getSpecialtyHospitalBreakdown(specialtySlug: string): Promise<{
+  countries: { slug: string; name: string; n: number }[];
+  cities: { slug: string; name: string; countrySlug: string; n: number }[];
+}> {
+  const [countryRows, cityRows] = await Promise.all([
+    db
+      .execute<{ slug: string; name: string; n: number }>(sql`
+        SELECT co.slug, co.name, COUNT(DISTINCT h.id)::int AS n
+        FROM specialties s
+        INNER JOIN hospital_specialties hs ON hs.specialty_id = s.id
+        INNER JOIN hospitals h ON h.id = hs.hospital_id AND h.is_active = true
+        INNER JOIN cities ci ON ci.id = h.city_id
+        INNER JOIN countries co ON co.id = ci.country_id AND co.is_destination = true
+        WHERE s.slug = ${specialtySlug}
+        GROUP BY co.slug, co.name
+        HAVING COUNT(DISTINCT h.id) > 0
+        ORDER BY n DESC, co.name ASC
+      `)
+      .then((r) => Array.from(r))
+      .catch(() => []),
+    db
+      .execute<{ slug: string; name: string; country_slug: string; n: number }>(sql`
+        SELECT ci.slug, ci.name, co.slug AS country_slug, COUNT(DISTINCT h.id)::int AS n
+        FROM specialties s
+        INNER JOIN hospital_specialties hs ON hs.specialty_id = s.id
+        INNER JOIN hospitals h ON h.id = hs.hospital_id AND h.is_active = true
+        INNER JOIN cities ci ON ci.id = h.city_id
+        INNER JOIN countries co ON co.id = ci.country_id
+        WHERE s.slug = ${specialtySlug} AND ci.slug IS NOT NULL AND ci.slug <> 'unknown'
+        GROUP BY ci.slug, ci.name, co.slug
+        HAVING COUNT(DISTINCT h.id) >= 3
+        ORDER BY n DESC, ci.name ASC
+      `)
+      .then((r) => Array.from(r).map((x) => ({ slug: x.slug, name: x.name, countrySlug: x.country_slug, n: x.n })))
+      .catch(() => []),
+  ]);
+  return { countries: countryRows, cities: cityRows };
+}
+
+/**
+ * (specialtySlug, citySlug) pairs with ≥3 hospitals credentialed for the
+ * specialty in the city — inventory floor for /hospitals/specialty/[slug]/[city].
+ * Country pairs reuse listSpecialtyCountryPairs().
+ */
+export async function listSpecialtyCityHospitalPairs() {
+  return db
+    .execute<{ specialtySlug: string; citySlug: string }>(sql`
+      SELECT s.slug AS "specialtySlug", ci.slug AS "citySlug"
+      FROM hospital_specialties hs
+      INNER JOIN specialties s ON s.id = hs.specialty_id AND s.is_active = true
+      INNER JOIN hospitals h ON h.id = hs.hospital_id AND h.is_active = true
+      INNER JOIN cities ci ON ci.id = h.city_id
+      WHERE ci.slug IS NOT NULL AND ci.slug <> 'unknown'
+      GROUP BY s.slug, ci.slug
+      HAVING COUNT(DISTINCT h.id) >= 3
+      ORDER BY s.slug, ci.slug
+    `)
+    .then((r) => Array.from(r))
+    .catch(() => []);
+}

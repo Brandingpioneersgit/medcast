@@ -56,6 +56,7 @@ next-env.d.ts
 # local IDE / assistant state
 .claude/
 AGENTS.md
+tasks/
 
 # astro generated cache/types
 .astro/

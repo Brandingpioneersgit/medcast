@@ -1,0 +1,260 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import EntityListingHero from "@/components/EntityListingHero.astro";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import { listBeforeAfterGallery } from "@/lib/queries";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, collectionPageJsonLd, withProvenance } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/gallery", 308);
+const locale = rawLocale as Locale;
+
+const outcomes = await listBeforeAfterGallery(72);
+const tc = getTranslator(locale, "common");
+
+const treatmentCount = new Set(outcomes.map((o) => o.treatment_slug).filter(Boolean)).size;
+const path = "/gallery";
+
+const seoTitle = `Before & After Gallery — Real Patient Outcomes`;
+const seoDescription =
+  `${outcomes.length.toLocaleString()} consented before-and-after outcomes from our placement network — drag the handle to compare. Cosmetic, dental, hair and reconstructive results across accredited hospitals.`.slice(
+    0,
+    160,
+  );
+
+// Don't index an empty gallery — outcomes are added only as consent is recorded.
+const shouldNoindex = outcomes.length === 0;
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Before & after gallery", url: localeUrl(locale, path) },
+]);
+
+const treatmentItems = Array.from(
+  new Map(
+    outcomes
+      .filter((o) => o.treatment_slug && o.treatment_name)
+      .map((o) => [o.treatment_slug!, { name: o.treatment_name!, url: localeUrl(locale, `/treatment/${o.treatment_slug}`) }]),
+  ).values(),
+);
+const collectionLd =
+  treatmentItems.length > 0
+    ? withProvenance(
+        collectionPageJsonLd({
+          name: "Before & after gallery",
+          description: seoDescription,
+          url: localeUrl(locale, path),
+          items: treatmentItems,
+        }),
+        { dateModified: new Date() },
+      )
+    : null;
+
+const stats =
+  outcomes.length > 0
+    ? [
+        { l: "Outcomes", v: outcomes.length.toLocaleString() },
+        { l: "Procedures", v: treatmentCount.toLocaleString() },
+        { l: "Consent", v: "100%" },
+        { l: "Reply time", v: "9 min" },
+      ]
+    : [];
+
+function captionFor(o: (typeof outcomes)[number]): string {
+  return o.caption ?? `${o.treatment_name ?? "Treatment"} outcome`;
+}
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-revalidate=86400");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={shouldNoindex} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    {collectionLd && (
+      <script type="application/ld+json" is:inline set:html={JSON.stringify(collectionLd)} />
+    )}
+  </Fragment>
+
+  <main id="main" class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">Before &amp; after gallery</span>
+        </nav>
+      </div>
+    </div>
+
+    <EntityListingHero
+      eyebrow="Before & after"
+      h1First="Outcomes you can"
+      h1Italic="actually see"
+      lede="Real before-and-after pairs from patients treated through our placement network — every one published with written consent. Drag the handle on any card to compare."
+      stats={stats}
+    />
+
+    <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-6 pb-16">
+      <h2 class="sr-only">Before and after outcomes</h2>
+      {outcomes.length === 0 ? (
+        <div class="paper text-center py-20" style="color: var(--color-ink-muted);">
+          <p class="serif text-lg mb-3">Before-and-after outcomes are published only as patient consent is recorded.</p>
+          <p class="text-sm mb-5">We won't fill this page with stock images. In the meantime, explore procedures and pricing.</p>
+          <div class="flex items-center justify-center gap-3">
+            <a
+              href={localizedPath(locale, "/treatments")}
+              class="mono uppercase"
+              style="font-size: 11px; letter-spacing: 0.12em; border: 1px solid var(--color-border); padding: 9px 16px; border-radius: 9999px; color: var(--color-ink);"
+            >
+              Browse treatments
+            </a>
+            <a
+              href={localizedPath(locale, "/match-me")}
+              class="mono uppercase"
+              style="font-size: 11px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 9px 16px; border-radius: 9999px;"
+            >
+              Start your case →
+            </a>
+          </div>
+        </div>
+      ) : (
+        <div class="grid" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
+          {outcomes.map((o, idx) => (
+            <figure class="paper ba-card" style="padding: 0; overflow: hidden; border-radius: var(--radius-lg);">
+              <div class="ba-frame" style="position: relative; aspect-ratio: 4/5; --pos: 50%;">
+                <img
+                  src={o.after_url}
+                  alt={`After — ${captionFor(o)}`}
+                  loading="lazy"
+                  decoding="async"
+                  style="position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;"
+                />
+                <div
+                  class="ba-before"
+                  style="position: absolute; inset: 0; clip-path: inset(0 calc(100% - var(--pos)) 0 0); -webkit-clip-path: inset(0 calc(100% - var(--pos)) 0 0);"
+                >
+                  <img
+                    src={o.before_url}
+                    alt={`Before — ${captionFor(o)}`}
+                    loading="lazy"
+                    decoding="async"
+                    style="width: 100%; height: 100%; object-fit: cover;"
+                  />
+                </div>
+                <div
+                  aria-hidden="true"
+                  style="position: absolute; top: 0; bottom: 0; left: var(--pos); width: 2px; background: rgba(251,248,241,0.95); box-shadow: 0 0 16px rgba(14,23,19,0.45); transform: translateX(-1px); pointer-events: none;"
+                ></div>
+                <div
+                  aria-hidden="true"
+                  style="position: absolute; top: 50%; left: var(--pos); width: 36px; height: 36px; border-radius: 9999px; background: rgba(251,248,241,0.97); border: 2px solid var(--color-accent, #0A5D54); transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; pointer-events: none; box-shadow: 0 4px 14px rgba(14,23,19,0.35);"
+                >
+                  <span style="font-size: 14px; color: var(--color-accent, #0A5D54); letter-spacing: -0.05em;">‹›</span>
+                </div>
+                <span
+                  class="mono"
+                  style="position: absolute; top: 12px; inset-inline-start: 12px; padding: 4px 10px; font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(251,248,241,.96); background: rgba(14,23,19,0.55); border-radius: 9999px; backdrop-filter: blur(6px);"
+                >
+                  Before
+                </span>
+                <span
+                  class="mono"
+                  style="position: absolute; top: 12px; inset-inline-end: 12px; padding: 4px 10px; font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(251,248,241,.96); background: rgba(10,93,84,0.78); border-radius: 9999px; backdrop-filter: blur(6px);"
+                >
+                  After{o.months_after ? ` · ${o.months_after}mo` : ""}
+                </span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value="50"
+                  aria-label={`Compare before and after for outcome ${idx + 1}`}
+                  class="ba-range"
+                  data-ba-range
+                  style="position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: ew-resize; margin: 0;"
+                />
+              </div>
+              <figcaption style="padding: 13px 15px; font-size: 13px; line-height: 1.45; color: var(--color-ink-muted);">
+                {o.treatment_slug && o.treatment_name ? (
+                  <a href={localizedPath(locale, `/treatment/${o.treatment_slug}`)} class="hover:text-accent" style="color: var(--color-ink);">
+                    {o.treatment_name}
+                  </a>
+                ) : (
+                  <span style="color: var(--color-ink);">{captionFor(o)}</span>
+                )}
+                {o.caption && o.treatment_name && (
+                  <span style="display: block; margin-top: 3px;">{o.caption}</span>
+                )}
+                {(o.patient_age_range || o.country_name || o.hospital_name) && (
+                  <span class="mono" style="display: block; margin-top: 5px; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink-subtle);">
+                    {[o.patient_age_range, o.country_name, o.hospital_name].filter(Boolean).join(" · ")}
+                  </span>
+                )}
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+
+        <p style="font-size: 11.5px; color: var(--color-ink-subtle); margin-top: 16px; max-width: 70ch;">
+          All photos shown with written patient consent; faces blurred or cropped where requested.
+          Outcomes vary by anatomy, age, condition and surgeon — these are illustrative, not promises.
+        </p>
+      )}
+    </section>
+
+    <HowItWorks
+      heading="How outcomes get onto this page"
+      italicWord="this page"
+      eyebrow="Consent & moderation"
+      steps={[
+        { title: "Hospital submits with consent", description: "Partner hospitals upload before/after pairs only after recording written patient consent for publication." },
+        { title: "Moderation review", description: "Every pair is reviewed before it appears — we reject mismatched, over-edited or low-quality images. Only 'approved' rows render here." },
+        { title: "Anonymised by default", description: "Faces are blurred or cropped unless the patient explicitly consents to be identifiable. Identifying detail in captions is removed." },
+        { title: "Withdrawable any time", description: "Patients can ask for their photos to be removed at any point, and the pair comes down — no questions asked." },
+      ]}
+      outroNote="A surgical photo is one data point. Ask any hospital for outcomes across a full case series, not just the best results."
+    />
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow="From outcome to plan"
+      heading="See an outcome you'd want? Plan it"
+      lede="A before/after pair shows what's possible. These hubs turn it into a costed, hospital-specific plan."
+      items={[
+        { eyebrow: "Stories", label: "Patient stories", href: "/stories", hint: "First-person accounts of the full medical-travel journey." },
+        { eyebrow: "Browse", label: "All treatments", href: "/treatments", hint: "Per-procedure success rates, recovery time and pricing." },
+        { eyebrow: "Care", label: "Cosmetic & plastic surgery", href: "/specialty/cosmetic-surgery", hint: "Programs, surgeons and pricing for aesthetic procedures." },
+        { eyebrow: "Care", label: "Hair transplant", href: "/treatment/hair-transplant", hint: "Technique, graft counts, recovery and destination pricing." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures and destinations." },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
+        { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "How we handle patient photos, consent and corrections." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+      ]}
+    />
+
+    <PageCta locale={locale} />
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>
+
+<script is:inline>
+  document.querySelectorAll("[data-ba-range]").forEach((range) => {
+    const frame = range.parentElement;
+    if (!frame) return;
+    const apply = () => frame.style.setProperty("--pos", range.value + "%");
+    range.addEventListener("input", apply);
+    apply();
+  });
+</script>

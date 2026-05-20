@@ -484,7 +484,7 @@ Astro.response.headers.set(
           </ul>
           <div class="mt-8">
             <a
-              href={localizedPath(locale, `/hospitals?country=${country.slug}`)}
+              href={localizedPath(locale, `/hospitals/country/${country.slug}`)}
               class="inline-flex items-center gap-2 text-sm font-semibold text-accent hover:text-accent-hover"
             >
               See all {hospitalCount.toLocaleString()} hospitals in {country.name}
@@ -847,8 +847,8 @@ Astro.response.headers.set(
       heading={`Other lenses on ${country.name}`}
       lede={`The destination hub gives you the overview. These hubs cut the same data by city, by procedure, by specialty, and by visa logistics — so you can decide what matters most for your case.`}
       items={[
-        { eyebrow: "Hospitals", label: `All ${country.name} hospitals`, href: `/hospitals?country=${slug}`, hint: `Filter by city, specialty, accreditation across ${hospitalCount.toLocaleString()} programs.` },
-        { eyebrow: "Doctors", label: `${country.name} surgeons`, href: `/doctors?country=${slug}`, hint: `Volume-ranked physician directory across ${doctorCount.toLocaleString()} surgeons.` },
+        { eyebrow: "Hospitals", label: `All ${country.name} hospitals`, href: `/hospitals/country/${slug}`, hint: `Filter by city, specialty, accreditation across ${hospitalCount.toLocaleString()} programs.` },
+        { eyebrow: "Doctors", label: `${country.name} surgeons`, href: `/doctors/country/${slug}`, hint: `Volume-ranked physician directory across ${doctorCount.toLocaleString()} surgeons.` },
         ...(topTreatments[0] ? [{ eyebrow: "Procedure", label: `${topTreatments[0].name} in ${country.name}`, href: `/treatment/${topTreatments[0].slug}/${slug}`, hint: "Most-priced procedure for this destination — full cost breakdown." }] : []),
         ...(topTreatments[1] ? [{ eyebrow: "Procedure", label: `${topTreatments[1].name} cost in ${country.name}`, href: `/treatment/${topTreatments[1].slug}/${slug}`, hint: "Per-hospital pricing and recovery timeline." }] : []),
         ...(topTreatments[2] ? [{ eyebrow: "Procedure", label: `${topTreatments[2].name} in ${country.name}`, href: `/treatment/${topTreatments[2].slug}/${slug}`, hint: "Top hospitals priced for this procedure." }] : []),

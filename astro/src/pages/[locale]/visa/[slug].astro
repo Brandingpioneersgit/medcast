@@ -425,8 +425,8 @@ Astro.response.headers.set(
       lede={`Visa is one piece. These pages cover the destination programs, the hospitals you'll choose between, and the logistics around the medical stay.`}
       items={[
         { eyebrow: "Destination", label: `${country.name} hospital hub`, href: `/country/${country.slug}`, hint: `Featured programs, accreditation profile, and pricing benchmarks for ${country.name}.` },
-        { eyebrow: "Hospitals", label: `All hospitals in ${country.name}`, href: `/hospitals?country=${country.slug}`, hint: "Filter by city, specialty, and accreditation." },
-        { eyebrow: "Doctors", label: `Surgeons in ${country.name}`, href: `/doctors?country=${country.slug}`, hint: "Volume-ranked physician directory across specialties." },
+        { eyebrow: "Hospitals", label: `All hospitals in ${country.name}`, href: `/hospitals/country/${country.slug}`, hint: "Filter by city, specialty, and accreditation." },
+        { eyebrow: "Doctors", label: `Surgeons in ${country.name}`, href: `/doctors/country/${country.slug}`, hint: "Volume-ranked physician directory across specialties." },
         { eyebrow: "Reference", label: "All destinations", href: "/countries", hint: "Compare 9 medical-travel destinations side by side." },
         { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across 88 procedures × 9 destinations." },
         { eyebrow: "Open data", label: "Pricing index", href: "/pricing-index", hint: "CC BY 4.0 dataset — median package pricing per country × treatment." },

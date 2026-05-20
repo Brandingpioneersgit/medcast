@@ -5,9 +5,12 @@ import { countHospitalSpecialtyPages } from "@/lib/sitemap-shards";
 const STATIC_CHILDREN = [
   "sitemap-static.xml",
   "sitemap-hospitals.xml",
+  "sitemap-hospitals-geo.xml",
   "sitemap-hospital-doctors.xml",
   "sitemap-hospital-treatments.xml",
   "sitemap-doctors.xml",
+  "sitemap-doctors-geo.xml",
+  "sitemap-surgeons-geo.xml",
   "sitemap-treatments.xml",
   "sitemap-treatments-countries.xml",
   "sitemap-treatments-cities.xml",

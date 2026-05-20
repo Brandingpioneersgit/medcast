@@ -204,7 +204,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
       items={[
         { eyebrow: "Hospital", label: `${hospital.name} overview`, href: `/hospital/${slug}`, hint: "Accreditations, departments, pricing, location and contact." },
         ...(countrySlug
-          ? [{ eyebrow: "Destination", label: `Hospitals in ${countryName}`, href: `/hospitals?country=${countrySlug}`, hint: `Compare ${hospital.name} with other ${countryName} hospitals.` }]
+          ? [{ eyebrow: "Destination", label: `Hospitals in ${countryName}`, href: `/hospitals/country/${countrySlug}`, hint: `Compare ${hospital.name} with other ${countryName} hospitals.` }]
           : []),
         { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Put up to 4 hospitals side by side on accreditation, beds and pricing." },
         { eyebrow: "Compare", label: "Doctor comparison", href: "/compare/doctors", hint: "Surgeons compared on volume, fees, languages and video-consult availability." },

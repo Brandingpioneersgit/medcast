@@ -292,7 +292,7 @@ const stats = page === 1 ? [
         ...(specialtyCounts[0] ? [{ eyebrow: "Specialty", label: `${specialtyCounts[0].name} hub`, href: `/specialty/${specialtyCounts[0].slug}`, hint: `${specialtyCounts[0].hospital_count} hospitals credentialed for this specialty.` }] : []),
         ...(specialtyCounts[1] ? [{ eyebrow: "Specialty", label: `${specialtyCounts[1].name}`, href: `/specialty/${specialtyCounts[1].slug}`, hint: `${specialtyCounts[1].hospital_count} hospitals priced for this specialty.` }] : []),
         ...(specialtyCounts[2] ? [{ eyebrow: "Specialty", label: `${specialtyCounts[2].name}`, href: `/specialty/${specialtyCounts[2].slug}`, hint: `${specialtyCounts[2].hospital_count} hospitals with relevant credentials.` }] : []),
-        ...(city.country?.slug ? [{ eyebrow: "Doctors", label: `${city.country.name} surgeons`, href: `/doctors?country=${city.country.slug}`, hint: "Volume-ranked physician directory across this destination." }] : []),
+        ...(city.country?.slug ? [{ eyebrow: "Doctors", label: `${city.country.name} surgeons`, href: `/doctors/country/${city.country.slug}`, hint: "Volume-ranked physician directory across this destination." }] : []),
         { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure cost ranges, recovery time, success rates." },
         { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds, and pricing." },
         { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures × destinations." },

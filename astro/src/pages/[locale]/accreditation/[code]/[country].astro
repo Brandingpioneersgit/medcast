@@ -218,7 +218,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
       items={[
         { eyebrow: "Accreditation", label: `${label} worldwide`, href: `/accreditation/${code}`, hint: `Every ${label}-accredited hospital across all destinations, plus what the credential means.` },
         { eyebrow: "Destination", label: `${country.name} hospital hub`, href: `/country/${country.slug}`, hint: `Featured programs and pricing benchmarks across ${country.name}.` },
-        { eyebrow: "Hospitals", label: `All ${country.name} hospitals`, href: `/hospitals?country=${country.slug}`, hint: "Filter by city, specialty, accreditation, beds, rating." },
+        { eyebrow: "Hospitals", label: `All ${country.name} hospitals`, href: `/hospitals/country/${country.slug}`, hint: "Filter by city, specialty, accreditation, beds, rating." },
         { eyebrow: "Reference", label: "All accreditation bodies", href: "/accreditation", hint: "JCI, NABH, ISO, KTQ — what each one means clinically." },
         { eyebrow: "Compare", label: "Hospital comparison", href: "/compare/hospitals", hint: "Side-by-side accreditations, ratings, beds and pricing." },
         { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures and destinations." },

@@ -785,7 +785,7 @@ Astro.response.headers.set(
         ...(specialty ? [{ eyebrow: "Specialty", label: `${specialty.name} hub`, href: `/specialty/${specialty.slug}`, hint: `All ${specialty.name.toLowerCase()} programs across destinations.` }] : []),
         { eyebrow: "Cost", label: `${treatment.name} cost across destinations`, href: `/cost/${slug}`, hint: `Compare median pricing across all 9 destinations for ${treatment.name.toLowerCase()}.` },
         { eyebrow: "Destination", label: `${countryRow.name} hospital hub`, href: `/country/${countryRow.slug}`, hint: `Featured programs, accreditation profile, pricing benchmarks.` },
-        { eyebrow: "Hospitals", label: `Hospitals in ${countryRow.name}`, href: `/hospitals?country=${countryRow.slug}`, hint: "Filter by city, specialty, accreditation." },
+        { eyebrow: "Hospitals", label: `Hospitals in ${countryRow.name}`, href: `/hospitals/country/${countryRow.slug}`, hint: "Filter by city, specialty, accreditation." },
         ...(specialty ? [{ eyebrow: "Surgeons", label: `${specialty.name} surgeons in ${countryRow.name}`, href: `/surgeons/${specialty.slug}/${countryRow.slug}`, hint: `${countryRow.name}-based physician directory for this specialty.` }] : []),
         ...(specialty ? [{ eyebrow: "Best of", label: `Best ${specialty.name} in ${countryRow.name}`, href: `/best/${specialty.slug}-in-${countryRow.slug}`, hint: "Editorially ranked programs with methodology disclosed." }] : []),
         { eyebrow: "Visa", label: `${countryRow.name} medical visa`, href: `/visa/${countryRow.slug}`, hint: "Documents, processing time, embassy guidance." },

@@ -299,7 +299,7 @@ Astro.response.headers.set(
       lede={`Volume-ranked surgeon list is one cut. These hubs let you re-rank by destination, by procedure, or by hospital — and check the underlying specialty content alongside.`}
       items={[
         { eyebrow: "Specialty", label: `${specialty.name} hub`, href: `/specialty/${specialtyParam}`, hint: `Programs, sub-specialties, and procedures across ${specialty.name.toLowerCase()}.` },
-        { eyebrow: "Hospitals", label: `Hospitals offering ${specialty.name.toLowerCase()}`, href: `/hospitals?specialty=${specialtyParam}`, hint: "Programs credentialed for this specialty across our network." },
+        { eyebrow: "Hospitals", label: `Hospitals offering ${specialty.name.toLowerCase()}`, href: `/hospitals/specialty/${specialtyParam}`, hint: "Programs credentialed for this specialty across our network." },
         { eyebrow: "Best of", label: `Best ${specialty.name.toLowerCase()} programs`, href: "/best", hint: "Editorially ranked by specialty × country with methodology disclosed." },
         { eyebrow: "Browse", label: "9 destination countries", href: "/countries", hint: "Filter surgeon directory by country — cost-of-care, accreditation profile." },
         { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure success rates, recovery time, hospital pricing." },

@@ -1,7 +1,6 @@
 import { defineConfig } from "astro/config";
 import node from "@astrojs/node";
 import react from "@astrojs/react";
-import sitemap from "@astrojs/sitemap";
 import tailwindcss from "@tailwindcss/vite";
 import sentry from "@sentry/astro";
 
@@ -21,7 +20,9 @@ export default defineConfig({
   },
   integrations: [
     react(),
-    sitemap(),
+    // Sitemaps are hand-rolled: src/pages/sitemap.xml.ts (index) + the
+    // sitemap-*.xml.ts shards. The @astrojs/sitemap integration is intentionally
+    // omitted — it emitted a competing, unfiltered sitemap-index.xml.
     // Sentry — Astro integration that loads the SDK init files below and
     // uploads source maps to Sentry at build time so stack traces de-minify
     // in production. The DSN + all runtime options (PII scrubbing, replay

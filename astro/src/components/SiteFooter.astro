@@ -1,15 +1,12 @@
 ---
 import { db } from "@/lib/db";
 import {
-  specialties as specialtiesTbl,
   treatments as treatmentsTbl,
-  countries as countriesTbl,
-  hospitals as hospitalsTbl,
-  cities as citiesTbl,
 } from "../../../src/lib/db/schema";
 import { asc, eq, sql } from "drizzle-orm";
 import { localizedPath, type Locale } from "@/lib/i18n";
 import { bindChromeT } from "@/lib/chrome-i18n";
+import { surgeonNoun, titleCase } from "@/lib/seo";
 import McLogo from "@/components/McLogo.astro";
 import CompareDock from "@/components/CompareDock.astro";
 
@@ -20,17 +17,28 @@ const { locale } = Astro.props;
 const t = bindChromeT(locale);
 
 type FooterRow = { slug: string; name: string; count?: number };
+type SpecialtyGeo = {
+  slug: string;
+  name: string;
+  noun: string;
+  countries: { slug: string; name: string }[];
+  cities: { slug: string; name: string }[];
+};
 type FooterData = {
   specialties: FooterRow[];
   treatments: FooterRow[];
   countries: Array<FooterRow & { count: number }>;
+  cities: Array<FooterRow & { count: number }>;
+  specialtyGeo: SpecialtyGeo[];
 };
 
-const EMPTY: FooterData = { specialties: [], treatments: [], countries: [] };
+const EMPTY: FooterData = {
+  specialties: [], treatments: [], countries: [], cities: [], specialtyGeo: [],
+};
 let data: FooterData = EMPTY;
 
 try {
-  const [specRows, treatRows, countryRows] = await Promise.all([
+  const [specRows, treatRows, countryRows, cityRows, specGeoRows, specCityRows] = await Promise.all([
     db.execute<FooterRow>(sql`
       SELECT sp.slug, sp.name
       FROM specialties sp
@@ -54,11 +62,86 @@ try {
       GROUP BY co.id
       ORDER BY count DESC
     `),
+    // Top medical cities by surgeon count — these feed /doctors/city + /surgeons/city,
+    // which 301 below 3 doctors, so the floor keeps footer links from redirecting.
+    db.execute<FooterRow & { count: number }>(sql`
+      SELECT ci.slug, ci.name,
+             COUNT(DISTINCT d.id)::int as count
+      FROM cities ci
+      JOIN hospitals h ON h.city_id = ci.id AND h.is_active = true
+      JOIN doctors d ON d.hospital_id = h.id AND d.is_active = true
+      WHERE ci.slug IS NOT NULL AND ci.slug <> 'unknown'
+      GROUP BY ci.id
+      HAVING COUNT(DISTINCT d.id) >= 3
+      ORDER BY count DESC
+      LIMIT 14
+    `),
+    // Every active specialty (that has hospitals) + its top 3 destination
+    // countries, for the collapsible "by specialty" footer map. One windowed
+    // query — countries with <3 hospitals are dropped in JS below the floor.
+    db.execute<{ slug: string; name: string; country_slug: string; country_name: string; n: number }>(sql`
+      SELECT slug, name, country_slug, country_name, n FROM (
+        SELECT s.id, s.slug, s.name, co.slug AS country_slug, co.name AS country_name,
+               COUNT(DISTINCT h.id)::int AS n,
+               ROW_NUMBER() OVER (PARTITION BY s.id ORDER BY COUNT(DISTINCT h.id) DESC, co.name ASC) AS rn
+        FROM specialties s
+        INNER JOIN hospital_specialties hs ON hs.specialty_id = s.id
+        INNER JOIN hospitals h ON h.id = hs.hospital_id AND h.is_active = true
+        INNER JOIN cities ci ON ci.id = h.city_id
+        INNER JOIN countries co ON co.id = ci.country_id AND co.is_destination = true
+        WHERE s.is_active = true
+        GROUP BY s.id, s.slug, s.name, co.slug, co.name
+      ) ranked
+      WHERE rn <= 3
+      ORDER BY name ASC, rn ASC
+    `),
+    // Every specialty + its top 3 medical cities — floored at ≥3 hospitals AND
+    // ≥3 active doctors so both the surgeon and hospital city pages resolve
+    // directly (neither hits its <3 inventory-floor redirect).
+    db.execute<{ spec_slug: string; spec_name: string; city_slug: string; city_name: string }>(sql`
+      SELECT spec_slug, spec_name, city_slug, city_name FROM (
+        SELECT s.slug AS spec_slug, s.name AS spec_name, ci.slug AS city_slug, ci.name AS city_name,
+               ROW_NUMBER() OVER (PARTITION BY s.id ORDER BY COUNT(DISTINCT h.id) DESC, ci.name ASC) AS rn
+        FROM specialties s
+        INNER JOIN hospital_specialties hs ON hs.specialty_id = s.id
+        INNER JOIN hospitals h ON h.id = hs.hospital_id AND h.is_active = true
+        INNER JOIN cities ci ON ci.id = h.city_id
+        LEFT JOIN doctors d ON d.hospital_id = h.id AND d.is_active = true
+        WHERE s.is_active = true AND ci.slug IS NOT NULL AND ci.slug <> 'unknown'
+        GROUP BY s.id, s.slug, s.name, ci.slug, ci.name
+        HAVING COUNT(DISTINCT h.id) >= 3 AND COUNT(DISTINCT d.id) >= 3
+      ) ranked
+      WHERE rn <= 3
+      ORDER BY spec_slug ASC, rn ASC
+    `),
   ]);
+  const specGeoMap = new Map<string, SpecialtyGeo>();
+  for (const r of Array.from(specGeoRows)) {
+    let entry = specGeoMap.get(r.slug);
+    if (!entry) {
+      entry = { slug: r.slug, name: r.name, noun: titleCase(surgeonNoun(r.slug, r.name)), countries: [], cities: [] };
+      specGeoMap.set(r.slug, entry);
+    }
+    if (r.n >= 3) entry.countries.push({ slug: r.country_slug, name: r.country_name });
+  }
+  for (const r of Array.from(specCityRows)) {
+    let entry = specGeoMap.get(r.spec_slug);
+    if (!entry) {
+      entry = {
+        slug: r.spec_slug, name: r.spec_name,
+        noun: titleCase(surgeonNoun(r.spec_slug, r.spec_name)),
+        countries: [], cities: [],
+      };
+      specGeoMap.set(r.spec_slug, entry);
+    }
+    entry.cities.push({ slug: r.city_slug, name: r.city_name });
+  }
   data = {
     specialties: Array.from(specRows),
     treatments: treatRows,
     countries: Array.from(countryRows),
+    cities: Array.from(cityRows),
+    specialtyGeo: Array.from(specGeoMap.values()),
   };
 } catch {
   data = EMPTY;
@@ -92,6 +175,8 @@ const toolsLinks = [
 
 const patientLinks = [
   { href: "/second-opinion", label: t("f.secondOpinionShort") },
+  { href: "/stories", label: "Patient stories" },
+  { href: "/gallery", label: "Before & after" },
   { href: "/services", label: t("f.services") },
   { href: "/qa", label: t("nav.qa") },
   { href: "/glossary", label: t("nav.glossary") },
@@ -107,6 +192,7 @@ const companyLinks = [
   { href: "/medical-board", label: t("nav.medicalBoard") },
   { href: "/editorial-policy", label: t("f.editorialShort") },
   { href: "/accreditation", label: t("f.accreditationShort") },
+  { href: "/medical-tourism-companies", label: "Medical tourism companies" },
   { href: "/for-hospitals", label: t("nav.forHospitals") },
   { href: "/blog", label: t("nav.blog") },
   { href: "/contact", label: t("nav.contact") },
@@ -116,7 +202,6 @@ const trustBadges = ["JCI Partner", "ISO 27001", "GDPR", "HIPAA"];
 const year = new Date().getFullYear();
 
 // Origin-country guides — keep in sync with src/pages/[locale]/from/[countrySlug].astro.
-// Surfaced here so /from/ pages always have an inbound link from every page on the site.
 const originGuides = [
   { slug: "united-kingdom", label: "Travelling from the UK" },
   { slug: "usa", label: "Travelling from the US" },
@@ -131,20 +216,37 @@ const originGuides = [
   { slug: "uzbekistan", label: "Travelling from Uzbekistan" },
 ];
 
-type Column = { heading: string; links: Array<{ href: string; label: string; count?: number }> };
+type FooterLink = { href: string; label: string; count?: number };
+type Section = { heading: string; links: FooterLink[] };
 
-const columns: Column[] = [
+// High-search geo maps — the surgeon/doctor-by-place pages that patients
+// actually search for, surfaced from every page so they're always one hop away.
+const destinationLinks: FooterLink[] = data.countries.map((c) => ({
+  href: `/country/${c.slug}`,
+  label: c.name,
+  count: c.count,
+}));
+const surgeonsByCountry: FooterLink[] = data.countries
+  .filter((c) => c.count > 0)
+  .slice(0, 10)
+  .map((c) => ({ href: `/surgeons/country/${c.slug}`, label: `Surgeons in ${c.name}` }));
+const doctorsByCity: FooterLink[] = data.cities.map((c) => ({
+  href: `/doctors/city/${c.slug}`,
+  label: `Doctors in ${c.name}`,
+  count: c.count,
+}));
+
+const sections: Section[] = [
   { heading: t("f.h.care"), links: careLinks },
   { heading: t("f.h.tools"), links: toolsLinks },
   { heading: t("f.h.patients"), links: patientLinks },
-  {
-    heading: t("f.h.destinations"),
-    links: data.countries.map((c) => ({
-      href: `/country/${c.slug}`,
-      label: c.name,
-      count: c.count,
-    })),
-  },
+  { heading: t("f.h.destinations"), links: destinationLinks },
+  ...(surgeonsByCountry.length > 0
+    ? [{ heading: "Surgeons by country", links: surgeonsByCountry }]
+    : []),
+  ...(doctorsByCity.length > 0
+    ? [{ heading: "Doctors by city", links: doctorsByCity }]
+    : []),
   { heading: t("f.h.company"), links: companyLinks },
 ];
 ---
@@ -189,42 +291,50 @@ const columns: Column[] = [
     </div>
   </div>
 
-  <div class="mx-auto max-w-[1440px] px-7" style="padding-top: 56px; padding-bottom: 24px;">
-    <div class="footer-top grid gap-10 md:gap-12">
-      {/* Brand */}
-      <div class="footer-brand">
-        <McLogo size={34} color="var(--color-bg)" />
-        <p
-          class="serif"
-          style="font-size: 17px; line-height: 1.4; margin-top: 18px; opacity: 0.78; max-width: 280px;"
-        >
-          {t("f.tagline")}
-        </p>
-        <p style="font-size: 12.5px; line-height: 1.5; margin-top: 14px; opacity: 0.55; max-width: 280px;">
-          {t("f.subTagline")}
-        </p>
-        <div class="mt-4 flex flex-wrap gap-2">
-          {trustBadges.map((b) => (
-            <span
-              class="inline-flex items-center"
-              style="font-size: 11px; padding: 4px 10px; border: 1px solid rgba(246,241,230,.25); border-radius: 9999px; opacity: 0.85;"
-            >
-              {b}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Columns */}
-      {columns.map((col) => (
-        <div class="footer-col">
-          <div
-            class="mono"
-            style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.5; margin-bottom: 14px;"
+  <div class="mx-auto max-w-[1440px] px-7" style="padding-top: 48px; padding-bottom: 24px;">
+    {/* Brand */}
+    <div class="footer-brand" style="padding-bottom: 36px;">
+      <McLogo size={34} color="var(--color-bg)" />
+      <p
+        class="serif"
+        style="font-size: 17px; line-height: 1.4; margin-top: 16px; opacity: 0.78; max-width: 420px;"
+      >
+        {t("f.tagline")}
+      </p>
+      <p style="font-size: 12.5px; line-height: 1.5; margin-top: 12px; opacity: 0.55; max-width: 420px;">
+        {t("f.subTagline")}
+      </p>
+      <div class="mt-4 flex flex-wrap gap-2">
+        {trustBadges.map((b) => (
+          <span
+            class="inline-flex items-center"
+            style="font-size: 11px; padding: 4px 10px; border: 1px solid rgba(246,241,230,.25); border-radius: 9999px; opacity: 0.85;"
           >
-            {col.heading}
-          </div>
-          <ul class="flex flex-col gap-2">
+            {b}
+          </span>
+        ))}
+      </div>
+    </div>
+
+    {/* Collapsible link map — <details> so links stay in the DOM (crawlable)
+        and every section is collapsible at any width. Inline script below
+        collapses them on mobile for a tidy first paint. */}
+    <div
+      class="footer-cols"
+      style="border-top: 1px solid rgba(246,241,230,0.12);"
+    >
+      {sections.map((col) => (
+        <details class="footer-acc" open>
+          <summary class="footer-acc-summary">
+            <span
+              class="mono"
+              style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.6;"
+            >
+              {col.heading}
+            </span>
+            <span class="footer-acc-mark mono" aria-hidden="true">+</span>
+          </summary>
+          <ul class="flex flex-col gap-2 footer-acc-body">
             {col.links.map((l) => (
               <li>
                 <a
@@ -233,7 +343,7 @@ const columns: Column[] = [
                   class="hover:opacity-100"
                 >
                   {l.label}
-                  {typeof l.count === "number" && (
+                  {typeof l.count === "number" && l.count > 0 && (
                     <span class="mono tnum" style="font-size: 10px; opacity: 0.5; margin-inline-start: 6px;">
                       {l.count.toLocaleString()}
                     </span>
@@ -242,13 +352,65 @@ const columns: Column[] = [
               </li>
             ))}
           </ul>
-        </div>
+        </details>
       ))}
     </div>
 
-    {/* SEO row — top specialties + top treatments as honest indexable links */}
+    {/* By-specialty map — every specialty's surgeon + hospital pages, plus the
+        top-destination geo variants. Collapsed <details> per specialty: links
+        stay in the DOM (crawlable) without overwhelming the footer visually. */}
+    {data.specialtyGeo.length > 0 && (
+      <div class="footer-specialties" style="margin-top: 36px; padding-top: 28px; border-top: 1px solid rgba(246,241,230,0.12);">
+        <div class="mono" style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.6; margin-bottom: 16px;">
+          Surgeons &amp; hospitals by specialty
+        </div>
+        <div class="footer-spec-grid">
+          {data.specialtyGeo.map((sp) => (
+            <details class="footer-spec">
+              <summary class="footer-spec-summary">
+                <span style="font-size: 13px;">{sp.name}</span>
+                <span class="footer-spec-mark mono" aria-hidden="true">+</span>
+              </summary>
+              <ul class="footer-spec-body">
+                <li>
+                  <a href={localizedPath(locale, `/surgeons/${sp.slug}`)}>All {sp.noun.toLowerCase()}</a>
+                </li>
+                <li>
+                  <a href={localizedPath(locale, `/hospitals/specialty/${sp.slug}`)}>{sp.name} hospitals</a>
+                </li>
+                {sp.countries.map((c) => (
+                  <>
+                    <li>
+                      <a href={localizedPath(locale, `/surgeons/${sp.slug}/${c.slug}`)}>{sp.noun} in {c.name}</a>
+                    </li>
+                    <li>
+                      <a href={localizedPath(locale, `/hospitals/specialty/${sp.slug}/${c.slug}`)}>{sp.name} hospitals in {c.name}</a>
+                    </li>
+                  </>
+                ))}
+                {sp.cities.map((c) => (
+                  <>
+                    <li>
+                      <a href={localizedPath(locale, `/surgeons/${sp.slug}/${c.slug}`)}>{sp.noun} in {c.name}</a>
+                    </li>
+                    <li>
+                      <a href={localizedPath(locale, `/hospitals/specialty/${sp.slug}/${c.slug}`)}>{sp.name} hospitals in {c.name}</a>
+                    </li>
+                  </>
+                ))}
+                <li>
+                  <a href={localizedPath(locale, `/specialty/${sp.slug}`)} class="footer-spec-hub">{sp.name} hub →</a>
+                </li>
+              </ul>
+            </details>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {/* SEO row — top specialties + treatments + origin guides as honest indexable links */}
     {(data.specialties.length > 0 || data.treatments.length > 0) && (
-      <div class="footer-seo" style="margin-top: 48px; padding-top: 28px; border-top: 1px solid rgba(246,241,230,0.12);">
+      <div class="footer-seo" style="margin-top: 36px; padding-top: 28px; border-top: 1px solid rgba(246,241,230,0.12);">
         <div class="grid gap-8" style="grid-template-columns: 1fr;">
           {data.specialties.length > 0 && (
             <div>
@@ -309,7 +471,7 @@ const columns: Column[] = [
       </div>
     )}
 
-    <div style="margin-top: 40px; height: 1px; background: rgba(246,241,230,0.12);" />
+    <div style="margin-top: 36px; height: 1px; background: rgba(246,241,230,0.12);" />
     <div
       class="flex flex-col md:flex-row md:items-center md:justify-between gap-3"
       style="font-size: 12px; opacity: 0.6; padding-top: 20px;"
@@ -344,16 +506,116 @@ const columns: Column[] = [
     border-color: rgba(246,241,230,0.45);
   }
 
-  .footer-top {
-    grid-template-columns: repeat(2, 1fr);
+  /* Collapsible link map. One column on mobile, flowing to a multi-column
+     grid on wider screens — each <details> is a grid cell. */
+  .footer-cols {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
   }
-  .footer-brand { grid-column: 1 / -1; }
+  .footer-acc {
+    border-bottom: 1px solid rgba(246,241,230,0.1);
+  }
+  .footer-acc-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+    list-style: none;
+    padding: 16px 0;
+  }
+  .footer-acc-summary::-webkit-details-marker { display: none; }
+  .footer-acc-mark {
+    font-size: 16px;
+    line-height: 1;
+    opacity: 0.55;
+    transition: transform 160ms ease;
+  }
+  .footer-acc[open] .footer-acc-mark { transform: rotate(45deg); }
+  .footer-acc-body {
+    padding-bottom: 18px;
+  }
+
   @media (min-width: 640px) {
-    .footer-top { grid-template-columns: repeat(3, 1fr); }
-    .footer-brand { grid-column: 1 / -1; }
+    .footer-cols { grid-template-columns: repeat(2, 1fr); column-gap: 40px; }
   }
   @media (min-width: 960px) {
-    .footer-top { grid-template-columns: 1.4fr repeat(5, 1fr); }
-    .footer-brand { grid-column: auto; }
+    .footer-cols {
+      grid-template-columns: repeat(4, 1fr);
+      column-gap: 40px;
+    }
+    /* On desktop the accordion reads as columns: no row borders, no padding
+       jump, marker still works as a toggle. */
+    .footer-acc { border-bottom: 0; }
+    .footer-acc-summary { padding: 24px 0 14px; cursor: pointer; }
+  }
+
+  /* By-specialty map — closed by default at every width (it's a dense set);
+     multicol so an expanded <details> reflows cleanly without stretching
+     siblings. Links remain in the DOM whether open or closed. */
+  .footer-spec-grid { column-gap: 40px; }
+  .footer-spec {
+    break-inside: avoid;
+    border-bottom: 1px solid rgba(246,241,230,0.1);
+  }
+  .footer-spec-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+    list-style: none;
+    padding: 12px 0;
+  }
+  .footer-spec-summary::-webkit-details-marker { display: none; }
+  .footer-spec-mark {
+    font-size: 15px;
+    line-height: 1;
+    opacity: 0.5;
+    transition: transform 160ms ease;
+  }
+  .footer-spec[open] .footer-spec-mark { transform: rotate(45deg); }
+  .footer-spec-body {
+    list-style: none;
+    margin: 0;
+    padding: 2px 0 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .footer-spec-body a {
+    font-size: 12.5px;
+    opacity: 0.78;
+    transition: opacity 120ms;
+  }
+  .footer-spec-body a:hover { opacity: 1; }
+  .footer-spec-hub { font-style: italic; }
+
+  @media (min-width: 640px) {
+    .footer-spec-grid { columns: 2; }
+  }
+  @media (min-width: 960px) {
+    .footer-spec-grid { columns: 4; }
   }
 </style>
+
+<script is:inline>
+  /* Collapse the footer accordion on small screens for a compact first paint.
+     Sections stay expanded on desktop. The <summary> remains clickable at any
+     width, and links stay in the DOM regardless of open state. */
+  (() => {
+    var mq = window.matchMedia("(max-width: 768px)");
+    var accs = document.querySelectorAll(".footer-acc");
+    function sync(collapse) {
+      accs.forEach(function (el) {
+        if (collapse) el.removeAttribute("open");
+        else el.setAttribute("open", "");
+      });
+    }
+    if (mq.matches) sync(true);
+    // Re-sync on breakpoint cross (e.g. tablet rotation) without fighting a
+    // user who has manually toggled — only act on the actual crossing.
+    mq.addEventListener("change", function (e) { sync(e.matches); });
+  })();
+</script>

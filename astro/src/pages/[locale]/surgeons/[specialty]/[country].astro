@@ -277,8 +277,8 @@ Astro.response.headers.set(
           ? [{ eyebrow: "Destination", label: `All ${specialty.name.toLowerCase()} surgeons in ${country.name}`, href: `/surgeons/${specialtyParam}/${country.slug}`, hint: `Step up from ${city!.name} to the full ${country.name} list.` }]
           : []),
         { eyebrow: "Destination", label: `${mode === "city" ? city!.name : country.name} hospital hub`, href: mode === "city" ? `/city/${city!.slug}` : `/country/${country.slug}`, hint: `Featured programs and pricing benchmarks across ${placeName}.` },
-        { eyebrow: "Hospitals", label: `${country.name} hospitals`, href: `/hospitals?country=${country.slug}`, hint: "Filter by city, specialty, accreditation, beds, rating." },
-        { eyebrow: "Hospitals", label: `${specialty.name} hospitals`, href: `/hospitals?specialty=${specialtyParam}`, hint: "Programs credentialed for this specialty across all destinations." },
+        { eyebrow: "Hospitals", label: `${country.name} hospitals`, href: `/hospitals/country/${country.slug}`, hint: "Filter by city, specialty, accreditation, beds, rating." },
+        { eyebrow: "Hospitals", label: `${specialty.name} hospitals`, href: `/hospitals/specialty/${specialtyParam}`, hint: "Programs credentialed for this specialty across all destinations." },
         { eyebrow: "Visa", label: `${country.name} medical visa`, href: `/visa/${country.slug}`, hint: "Documents, processing time, embassy guidance." },
         { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure success rates, recovery time, hospital pricing." },
         { eyebrow: "Compare", label: "Doctor comparison", href: "/compare/doctors", hint: "Surgeons compared on volume, fees, languages, video-consult availability." },

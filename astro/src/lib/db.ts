@@ -1,12 +1,9 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import * as schemaModule from "../../../src/lib/db/schema";
-
-// Unwrap CJS interop — root project is CJS (no `"type": "module"` in
-// package.json), so importing from there via `import *` produces a
-// `{ default, "module.exports" }` wrapper. Drizzle relational metadata
-// needs the real named exports.
-const schema = (schemaModule as unknown as { default?: typeof schemaModule }).default ?? schemaModule;
+// schema.ts is a TypeScript source file with `export const` table/relation
+// declarations — Vite transpiles it as ESM, so `import *` yields the named
+// exports directly (no CJS `{ default }` wrapper). Pass it straight to Drizzle.
+import * as schema from "../../../src/lib/db/schema";
 
 const connectionString =
   process.env.DATABASE_URL ?? (import.meta as unknown as { env: Record<string, string> }).env?.DATABASE_URL;

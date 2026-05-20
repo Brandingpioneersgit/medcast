@@ -1,0 +1,271 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HeadMeta from "@/components/HeadMeta.astro";
+import SiteHeader from "@/components/SiteHeader.astro";
+import SiteFooter from "@/components/SiteFooter.astro";
+import EntityListingHero from "@/components/EntityListingHero.astro";
+import PageCta from "@/components/PageCta.astro";
+import ExploreGrid from "@/components/ExploreGrid.astro";
+import HowItWorks from "@/components/content/HowItWorks.astro";
+import { listTestimonials } from "@/lib/queries";
+import { isLocale, localizedPath, type Locale } from "@/lib/i18n";
+import { breadcrumbJsonLd, localeUrl, collectionPageJsonLd, withProvenance } from "@/lib/seo";
+import { getTranslator } from "@/lib/messages";
+import { ShieldCheck } from "lucide-react";
+
+export const prerender = false;
+
+const rawLocale = Astro.params.locale ?? "en";
+if (!isLocale(rawLocale)) return Astro.redirect("/en/stories", 308);
+const locale = rawLocale as Locale;
+
+const stories = await listTestimonials(72);
+const tc = getTranslator(locale, "common");
+
+const verifiedCount = stories.filter((s) => s.is_verified).length;
+const countryCount = new Set(stories.map((s) => s.patient_country).filter(Boolean)).size;
+const path = "/stories";
+
+const seoTitle = `Patient Stories — Real Medical Travel Experiences`;
+const seoDescription =
+  `${stories.length.toLocaleString()} first-person accounts from international patients who travelled for treatment — the diagnosis, the destination, the cost and the outcome. Verified, unedited.`.slice(
+    0,
+    160,
+  );
+
+// Empty until testimonials are loaded — don't index a hollow page.
+const shouldNoindex = stories.length === 0;
+
+const crumbs = breadcrumbJsonLd([
+  { name: tc("home"), url: localeUrl(locale, "/") },
+  { name: "Patient stories", url: localeUrl(locale, path) },
+]);
+
+// Collect the treatments these stories relate to — an honest CollectionPage
+// of procedure experiences. No self-serving Review markup on our own page.
+const treatmentItems = Array.from(
+  new Map(
+    stories
+      .filter((s) => s.treatment_slug && s.treatment_name)
+      .map((s) => [s.treatment_slug!, { name: s.treatment_name!, url: localeUrl(locale, `/treatment/${s.treatment_slug}`) }]),
+  ).values(),
+);
+const collectionLd =
+  treatmentItems.length > 0
+    ? withProvenance(
+        collectionPageJsonLd({
+          name: "Patient stories",
+          description: seoDescription,
+          url: localeUrl(locale, path),
+          items: treatmentItems,
+        }),
+        { dateModified: new Date() },
+      )
+    : null;
+
+const stats =
+  stories.length > 0
+    ? [
+        { l: "Stories", v: stories.length.toLocaleString() },
+        { l: "Verified", v: verifiedCount.toLocaleString() },
+        { l: "Home countries", v: countryCount.toLocaleString() },
+        { l: "Reply time", v: "9 min" },
+      ]
+    : [];
+
+function initials(name: string): string {
+  return name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "P";
+}
+function excerpt(s: string, n = 280): string {
+  const clean = s.trim();
+  return clean.length > n ? `${clean.slice(0, n).trimEnd()}…` : clean;
+}
+function storyYear(d: Date | null): string {
+  return d ? new Date(d).getFullYear().toString() : "";
+}
+
+Astro.response.headers.set("Cache-Control", "public, s-maxage=1800, stale-while-revalidate=86400");
+---
+
+<BaseLayout locale={locale}>
+  <Fragment slot="head">
+    <HeadMeta title={seoTitle} description={seoDescription} path={path} locale={locale} noindex={shouldNoindex} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(crumbs)} />
+    {collectionLd && (
+      <script type="application/ld+json" is:inline set:html={JSON.stringify(collectionLd)} />
+    )}
+  </Fragment>
+
+  <main id="main" class="min-h-dvh bg-bg text-ink">
+    <SiteHeader locale={locale} />
+
+    <div style="background: var(--color-paper); border-bottom: 1px solid var(--color-border-soft);">
+      <div class="mx-auto w-full max-w-[90rem] px-5 md:px-8 py-4">
+        <nav class="mono text-[12px]" style="color: var(--color-ink-subtle);" aria-label="Breadcrumb">
+          <a href={localizedPath(locale, "/")} class="hover:text-ink">{tc("home")}</a>
+          <span class="mx-1.5">/</span>
+          <span style="color: var(--color-ink);">Patient stories</span>
+        </nav>
+      </div>
+    </div>
+
+    <EntityListingHero
+      eyebrow="Patient stories"
+      h1First="Real journeys,"
+      h1Italic="told first-hand"
+      lede="Unedited accounts from patients who crossed a border for treatment — what they were diagnosed with, where they went, what it cost, and how they are now. We publish the hard parts too."
+      stats={stats}
+    />
+
+    <section class="mx-auto w-full max-w-[90rem] px-5 md:px-8 pt-6 pb-20">
+      <h2 class="sr-only">Patient stories</h2>
+      {stories.length === 0 ? (
+        <div class="paper text-center py-20" style="color: var(--color-ink-muted);">
+          <p class="serif text-lg mb-3">Patient stories are published as consent is recorded.</p>
+          <p class="text-sm mb-5">In the meantime, see how we vet hospitals and surgeons — or start your own case.</p>
+          <div class="flex items-center justify-center gap-3">
+            <a
+              href={localizedPath(locale, "/medical-board")}
+              class="mono uppercase"
+              style="font-size: 11px; letter-spacing: 0.12em; border: 1px solid var(--color-border); padding: 9px 16px; border-radius: 9999px; color: var(--color-ink);"
+            >
+              Our medical board
+            </a>
+            <a
+              href={localizedPath(locale, "/match-me")}
+              class="mono uppercase"
+              style="font-size: 11px; letter-spacing: 0.12em; background: var(--color-ink); color: var(--color-bg); padding: 9px 16px; border-radius: 9999px;"
+            >
+              Start your case →
+            </a>
+          </div>
+        </div>
+      ) : (
+        <ul class="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {stories.map((s) => {
+            const year = storyYear(s.treatment_date);
+            return (
+              <li class="paper flex h-full flex-col" style="padding: 24px;">
+                <div class="flex items-center gap-3">
+                  {s.image_url ? (
+                    <img
+                      src={s.image_url}
+                      alt={s.patient_name}
+                      width="48"
+                      height="48"
+                      loading="lazy"
+                      decoding="async"
+                      class="h-12 w-12 shrink-0 rounded-full object-cover ring-1 ring-border"
+                    />
+                  ) : (
+                    <span
+                      class="serif inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full"
+                      style="background: var(--color-accent-soft, #0a5d541a); color: var(--color-accent); font-size: 17px;"
+                      aria-hidden="true"
+                    >
+                      {initials(s.patient_name)}
+                    </span>
+                  )}
+                  <div class="min-w-0">
+                    <div class="serif" style="font-size: 16px; line-height: 1.2; color: var(--color-ink);">
+                      {s.patient_name}
+                    </div>
+                    <div class="mono uppercase mt-0.5" style="font-size: 10px; letter-spacing: 0.1em; color: var(--color-ink-subtle);">
+                      {[s.patient_country, s.patient_age ? `age ${s.patient_age}` : null].filter(Boolean).join(" · ")}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt-3 flex items-center gap-2">
+                  <span class="tnum" style="color: var(--color-saffron); letter-spacing: 0.05em;" aria-label={`${s.rating} out of 5`}>
+                    {"★".repeat(Math.max(0, Math.min(5, s.rating)))}<span style="color: var(--color-border);">{"★".repeat(Math.max(0, 5 - Math.min(5, s.rating)))}</span>
+                  </span>
+                  {s.is_verified && (
+                    <span class="inline-flex items-center gap-1 mono uppercase" style="font-size: 9.5px; letter-spacing: 0.1em; color: var(--color-accent);">
+                      <ShieldCheck className="h-3 w-3" /> Verified
+                    </span>
+                  )}
+                </div>
+
+                {s.title && (
+                  <h3 class="serif mt-3" style="font-size: 18px; line-height: 1.3; letter-spacing: -0.005em; color: var(--color-ink);">
+                    {s.title}
+                  </h3>
+                )}
+                <p class="mt-2 text-[14px]" style="line-height: 1.6; color: var(--color-ink-muted);">
+                  {excerpt(s.story)}
+                </p>
+
+                <div
+                  class="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-4"
+                  style="border-top: 1px dashed var(--color-border); margin-top: 16px; font-size: 12.5px;"
+                >
+                  {s.treatment_slug && s.treatment_name && (
+                    <a
+                      href={localizedPath(locale, `/treatment/${s.treatment_slug}`)}
+                      class="hover:text-accent"
+                      style="color: var(--color-ink);"
+                    >
+                      {s.treatment_name}
+                    </a>
+                  )}
+                  {s.hospital_slug && s.hospital_name && (
+                    <>
+                      <span style="color: var(--color-border);">·</span>
+                      <a
+                        href={localizedPath(locale, `/hospital/${s.hospital_slug}`)}
+                        class="hover:text-accent line-clamp-1"
+                        style="color: var(--color-ink-muted);"
+                      >
+                        {s.hospital_name}
+                      </a>
+                    </>
+                  )}
+                  {year && (
+                    <>
+                      <span style="color: var(--color-border);">·</span>
+                      <span class="mono tnum" style="color: var(--color-ink-subtle); font-size: 11px;">{year}</span>
+                    </>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+
+    <HowItWorks
+      heading="How we publish patient stories"
+      italicWord="patient stories"
+      eyebrow="Editorial standard"
+      steps={[
+        { title: "Written consent first", description: "No story — and no photo — is published without explicit written consent. Patients can withdraw at any time and the story comes down." },
+        { title: "Unedited substance", description: "We fix spelling and translate, but we don't rewrite outcomes. Complications, delays and disappointments stay in. A page of only-perfect stories isn't trustworthy." },
+        { title: "Verified where possible", description: "A 'Verified' badge means we confirmed the treatment took place at the named hospital. Unbadged stories are still genuine but not independently confirmed." },
+        { title: "No incentives", description: "Patients are not paid and receive no discount for a story. We don't accept hospital-supplied testimonials into this collection." },
+      ]}
+      outroNote="Outcomes vary by anatomy, age, condition and surgeon. These stories are individual experiences, not predictions for your case."
+    />
+
+    <ExploreGrid
+      locale={locale}
+      eyebrow="From story to plan"
+      heading="Turn a story into your own shortlist"
+      lede="A story tells you it's possible. These tools turn that into a costed, hospital-specific plan for your case."
+      items={[
+        { eyebrow: "Outcomes", label: "Before & after gallery", href: "/gallery", hint: "Consented before/after outcomes across cosmetic, dental and reconstructive procedures." },
+        { eyebrow: "Tool", label: "Match-me triage", href: "/match-me", hint: "Three questions, get a specialty + destination + 3-hospital shortlist." },
+        { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures and destinations." },
+        { eyebrow: "Browse", label: "All treatments", href: "/treatments", hint: "Per-procedure success rates, recovery time and pricing." },
+        { eyebrow: "Browse", label: "Destination countries", href: "/countries", hint: "Compare hospital count, pricing and visa shape per country." },
+        { eyebrow: "Trust", label: "Medical board", href: "/medical-board", hint: "The named clinicians who review our directory and content." },
+        { eyebrow: "Trust", label: "Editorial policy", href: "/editorial-policy", hint: "How we source, review and correct everything we publish." },
+        { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },
+      ]}
+    />
+
+    <PageCta locale={locale} />
+    <SiteFooter locale={locale} />
+  </main>
+</BaseLayout>

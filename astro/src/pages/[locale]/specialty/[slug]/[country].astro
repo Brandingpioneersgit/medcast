@@ -230,7 +230,7 @@ Astro.response.headers.set("Cache-Control", "public, s-maxage=3600, stale-while-
         { eyebrow: "Surgeons", label: `${specialty.name} surgeons in ${country.name}`, href: `/surgeons/${slug}/${country.slug}`, hint: "Volume-ranked physician directory for this destination." },
         { eyebrow: "Specialty", label: `${specialty.name} — all destinations`, href: `/specialty/${slug}`, hint: "Cross-border view of the specialty across all 9 destinations." },
         { eyebrow: "Destination", label: `${country.name} hospital hub`, href: `/country/${country.slug}`, hint: `Featured programs and pricing benchmarks across ${country.name}.` },
-        { eyebrow: "Hospitals", label: `All ${country.name} hospitals`, href: `/hospitals?country=${country.slug}`, hint: "Filter by city, specialty, accreditation, beds, rating." },
+        { eyebrow: "Hospitals", label: `All ${country.name} hospitals`, href: `/hospitals/country/${country.slug}`, hint: "Filter by city, specialty, accreditation, beds, rating." },
         { eyebrow: "Visa", label: `${country.name} medical visa`, href: `/visa/${country.slug}`, hint: "Documents, processing time, embassy guidance." },
         { eyebrow: "Tool", label: "Cost calculator", href: "/calculator", hint: "Hospital-reported pricing across procedures and destinations." },
         { eyebrow: "Action", label: "Free second opinion", href: "/second-opinion", hint: "Independent panel review of your case in 48 hours — no charge." },

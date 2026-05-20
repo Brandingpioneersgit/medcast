@@ -235,7 +235,7 @@ const crumbs = breadcrumbJsonLd([
   { name: tc("home"), url: localeUrl(locale, "/") },
   { name: tc("doctors"), url: localeUrl(locale, "/doctors") },
   ...(countrySlug && countryName
-    ? [{ name: countryName, url: localeUrl(locale, `/doctors?country=${countrySlug}`) }]
+    ? [{ name: countryName, url: localeUrl(locale, `/doctors/country/${countrySlug}`) }]
     : []),
   ...(citySlug && cityName
     ? [{ name: cityName, url: localeUrl(locale, `/city/${citySlug}`) }]

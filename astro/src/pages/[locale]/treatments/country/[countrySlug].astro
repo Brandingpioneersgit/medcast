@@ -7,7 +7,9 @@ const rawLocale = Astro.params.locale ?? "en";
 const countrySlug = Astro.params.countrySlug;
 if (!countrySlug) return new Response("Not found", { status: 404 });
 const locale = isLocale(rawLocale) ? rawLocale : "en";
-const target = `${localizedPath(locale, "/treatments")}?country=${encodeURIComponent(countrySlug)}`;
+// /treatments?country= is Disallow'd in robots.txt — redirect to the country
+// hub instead, which carries the indexable treatment + pricing breakdown.
+const target = localizedPath(locale, `/country/${encodeURIComponent(countrySlug)}`);
 return new Response(null, {
   status: 308,
   headers: { Location: target, "Cache-Control": "public, max-age=86400, s-maxage=604800" },

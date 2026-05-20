@@ -45,8 +45,10 @@ Allow: /
 Sitemap: ${SITE_URL}/sitemap.xml
 Sitemap: ${SITE_URL}/sitemap-static.xml
 Sitemap: ${SITE_URL}/sitemap-hospitals.xml
-Sitemap: ${SITE_URL}/sitemap-hospital-specialties.xml
+Sitemap: ${SITE_URL}/sitemap-hospitals-geo.xml
 Sitemap: ${SITE_URL}/sitemap-doctors.xml
+Sitemap: ${SITE_URL}/sitemap-doctors-geo.xml
+Sitemap: ${SITE_URL}/sitemap-surgeons-geo.xml
 Sitemap: ${SITE_URL}/sitemap-treatments.xml
 Sitemap: ${SITE_URL}/sitemap-treatments-countries.xml
 Sitemap: ${SITE_URL}/sitemap-treatments-cities.xml

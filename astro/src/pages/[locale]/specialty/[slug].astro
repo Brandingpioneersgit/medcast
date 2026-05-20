@@ -973,7 +973,7 @@ Astro.response.headers.set(
       lede="Specialty hub is one entry. These hubs let you cut by surgeon, by destination, by procedure, and by condition — so you can match the lens to the decision you're making."
       items={[
         { eyebrow: "Surgeons", label: `All ${specialty.name.toLowerCase()} surgeons`, href: `/surgeons/${specialty.slug}`, hint: "Volume-ranked physician directory across all destinations." },
-        { eyebrow: "Hospitals", label: `Hospitals offering ${specialty.name.toLowerCase()}`, href: `/hospitals?specialty=${specialty.slug}`, hint: "Programs credentialed for this specialty across our network." },
+        { eyebrow: "Hospitals", label: `Hospitals offering ${specialty.name.toLowerCase()}`, href: `/hospitals/specialty/${specialty.slug}`, hint: "Programs credentialed for this specialty across our network." },
         { eyebrow: "Browse", label: "All 79 conditions", href: "/conditions", hint: "Map condition → specialty → first-line treatment." },
         { eyebrow: "Browse", label: "All 88 procedures", href: "/treatments", hint: "Per-procedure success rates, recovery time, hospital pricing." },
         { eyebrow: "Browse", label: "9 destination countries", href: "/countries", hint: "Cost-of-care profile, hospital programs, visa playbooks." },
